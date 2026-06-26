@@ -31,7 +31,8 @@ ENV PORT=8080
 
 # Bring over installed modules and build artifacts only.
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
+COPY --from=build /app/.output ./.output
+COPY --from=build /app/dis[t] ./dist
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/vite.config.ts ./vite.config.ts
 COPY --from=build /app/tsconfig.json ./tsconfig.json

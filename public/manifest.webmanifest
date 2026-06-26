@@ -1,0 +1,17 @@
+{
+  "name": "ChessOx",
+  "short_name": "ChessOx",
+  "description": "ChessOx — Royal Indian Chess Experience",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B0D10",
+  "theme_color": "#D4AF37",
+  "icons": [
+    {
+      "src": "/chessox-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

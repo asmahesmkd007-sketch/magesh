@@ -4,7 +4,9 @@ import { toast } from "sonner";
 import { ArrowRight, Eye, Flame, Lightbulb, Target } from "lucide-react";
 import { Card, GoldButton, GhostButton } from "@/components/site/Primitives";
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
-import { PUZZLES } from "@/lib/chess/puzzles";
+import { PUZZLES, type Puzzle } from "@/lib/chess/puzzles";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const DAILY_GOAL = 20;
 const STORE_KEY = "chessox-puzzle-progress";
@@ -27,8 +29,37 @@ function loadProgress(): { streak: number; best: number; solved: number } {
 }
 
 export function PuzzleTrainer() {
+  const { user } = useAuth();
+  const [dbPuzzles, setDbPuzzles] = useState<Puzzle[]>([]);
   const [idx, setIdx] = useState(0);
-  const puzzle = PUZZLES[idx % PUZZLES.length];
+
+  useEffect(() => {
+    supabase
+      .from("puzzles")
+      .select("id,fen,moves,theme,goal,rating,themes")
+      .order("rating", { ascending: true })
+      .limit(100)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setDbPuzzles(
+            (data as Record<string, unknown>[]).map((r) => ({
+              id: String(r.id),
+              fen: String(r.fen),
+              moves: Array.isArray(r.moves) ? (r.moves as string[]) : String(r.moves).split(" "),
+              theme: String(
+                r.theme ??
+                  (Array.isArray(r.themes) && r.themes.length > 0 ? r.themes[0] : "Tactics"),
+              ),
+              goal: String(r.goal ?? "Best move"),
+              rating: Number(r.rating ?? 100),
+            })),
+          );
+        }
+      });
+  }, []);
+
+  const puzzleList = dbPuzzles.length > 0 ? dbPuzzles : PUZZLES;
+  const puzzle = puzzleList[idx % puzzleList.length];
   const gameRef = useRef<Chess | null>(null);
   if (!gameRef.current) gameRef.current = new Chess(puzzle.fen);
 
@@ -63,15 +94,34 @@ export function PuzzleTrainer() {
   };
 
   const applyUci = (u: string) => {
-    const made = gameRef.current!.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u.length > 4 ? u[4] : undefined });
+    const made = gameRef.current!.move({
+      from: u.slice(0, 2),
+      to: u.slice(2, 4),
+      promotion: u.length > 4 ? u[4] : undefined,
+    });
     setLastMove({ from: made.from, to: made.to });
     return made;
+  };
+
+  const savePuzzleAttempt = (puzzleId: string, solved: boolean) => {
+    if (!user || dbPuzzles.length === 0) return; // only save DB puzzles (UUIDs)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(puzzleId)) return;
+    supabase
+      .from("puzzle_attempts")
+      .insert({
+        user_id: user.id,
+        puzzle_id: puzzleId,
+        solved,
+        puzzle_rating: puzzle.rating,
+      } as never)
+      .then(() => {});
   };
 
   const loadPuzzle = (nextIdx: number) => {
     timers.current.forEach(clearTimeout);
     timers.current = [];
-    const p = PUZZLES[nextIdx % PUZZLES.length];
+    const p = puzzleList[nextIdx % puzzleList.length];
     gameRef.current = new Chess(p.fen);
     setIdx(nextIdx);
     setStep(0);
@@ -87,7 +137,9 @@ export function PuzzleTrainer() {
     const g = gameRef.current!;
     if (!g.inCheck()) return null;
     const turn = g.turn();
-    for (const row of board) for (const cell of row) if (cell && cell.type === "k" && cell.color === turn) return cell.square;
+    for (const row of board)
+      for (const cell of row)
+        if (cell && cell.type === "k" && cell.color === turn) return cell.square;
     return null;
   })();
 
@@ -111,7 +163,12 @@ export function PuzzleTrainer() {
       doFlash("good");
       if (step + 1 >= puzzle.moves.length) {
         setStatus("solved");
-        setProgress((p) => ({ streak: p.streak + 1, best: Math.max(p.best, p.streak + 1), solved: p.solved + 1 }));
+        setProgress((p) => ({
+          streak: p.streak + 1,
+          best: Math.max(p.best, p.streak + 1),
+          solved: p.solved + 1,
+        }));
+        savePuzzleAttempt(puzzle.id, true);
         toast.success("Puzzle solved — brilliant! 👑");
       } else {
         const reply = puzzle.moves[step + 1];
@@ -162,6 +219,7 @@ export function PuzzleTrainer() {
     const playNext = () => {
       if (i >= puzzle.moves.length) {
         setStatus("revealed");
+        savePuzzleAttempt(puzzle.id, false);
         setProgress((p) => ({ ...p, streak: 0 }));
         return;
       }
@@ -186,22 +244,34 @@ export function PuzzleTrainer() {
     <div className="grid gap-6 lg:grid-cols-12">
       <div className="space-y-4 lg:col-span-3">
         <Card className="p-5">
-          <div className="text-xs uppercase tracking-widest text-muted-foreground">Puzzle Rating</div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">
+            Puzzle Rating
+          </div>
           <div className="font-display text-4xl text-gradient-gold">{puzzle.rating}</div>
           <div className="mt-1 text-xs text-muted-foreground">{puzzle.theme}</div>
         </Card>
 
         <Card className="p-5">
-          <div className="flex items-center gap-2 text-sm"><Flame className="h-4 w-4 text-gold" /> Streak</div>
+          <div className="flex items-center gap-2 text-sm">
+            <Flame className="h-4 w-4 text-gold" /> Streak
+          </div>
           <div className="mt-1 font-display text-3xl text-gold">{progress.streak} 🔥</div>
           <div className="text-xs text-muted-foreground">Personal best: {progress.best}</div>
         </Card>
 
         <Card className="p-5">
           <div className="text-xs uppercase tracking-widest text-muted-foreground">Today</div>
-          <div className="mt-2 flex justify-between text-sm"><span>Progress</span><span className="text-gold">{progress.solved}/{DAILY_GOAL}</span></div>
+          <div className="mt-2 flex justify-between text-sm">
+            <span>Progress</span>
+            <span className="text-gold">
+              {progress.solved}/{DAILY_GOAL}
+            </span>
+          </div>
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/5">
-            <div className="h-full gradient-gold transition-all duration-500" style={{ width: `${pct}%` }} />
+            <div
+              className="h-full gradient-gold transition-all duration-500"
+              style={{ width: `${pct}%` }}
+            />
           </div>
         </Card>
       </div>
@@ -234,12 +304,22 @@ export function PuzzleTrainer() {
         <Card className="p-5 text-center">
           <Target className="mx-auto h-7 w-7 text-gold" />
           <div className="mt-2 font-display text-lg">{puzzle.goal}</div>
-          <div className="text-xs text-muted-foreground">Rated {puzzle.rating} · {puzzle.theme}</div>
-          <div className="mt-1 text-xs text-muted-foreground">Puzzle {(idx % PUZZLES.length) + 1} of {PUZZLES.length}</div>
+          <div className="text-xs text-muted-foreground">
+            Rated {puzzle.rating} · {puzzle.theme}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Puzzle {(idx % puzzleList.length) + 1} of {puzzleList.length}
+          </div>
         </Card>
-        <GhostButton className="w-full" onClick={showHint}><Lightbulb className="h-4 w-4" /> Hint</GhostButton>
-        <GhostButton className="w-full" onClick={showSolution}><Eye className="h-4 w-4" /> Solution</GhostButton>
-        <GoldButton className="w-full" onClick={() => loadPuzzle(idx + 1)}>Next Puzzle <ArrowRight className="h-4 w-4" /></GoldButton>
+        <GhostButton className="w-full" onClick={showHint}>
+          <Lightbulb className="h-4 w-4" /> Hint
+        </GhostButton>
+        <GhostButton className="w-full" onClick={showSolution}>
+          <Eye className="h-4 w-4" /> Solution
+        </GhostButton>
+        <GoldButton className="w-full" onClick={() => loadPuzzle(idx + 1)}>
+          Next Puzzle <ArrowRight className="h-4 w-4" />
+        </GoldButton>
       </div>
     </div>
   );

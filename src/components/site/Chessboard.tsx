@@ -34,8 +34,18 @@ const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const RANKS = ["8", "7", "6", "5", "4", "3", "2", "1"];
 
 export function Chessboard({ size = "md", highlight = [] }: Props) {
-  const boardWidth = size === "lg" ? "w-full max-w-[760px]" : size === "sm" ? "w-full max-w-[280px]" : "w-full max-w-[520px]";
-  const pieceSize = size === "lg" ? "text-[2rem] md:text-[2.6rem]" : size === "sm" ? "text-lg" : "text-[1.55rem] md:text-[2rem]";
+  const boardWidth =
+    size === "lg"
+      ? "w-full max-w-[760px]"
+      : size === "sm"
+        ? "w-full max-w-[280px]"
+        : "w-full max-w-[520px]";
+  const pieceSize =
+    size === "lg"
+      ? "text-[2rem] md:text-[2.6rem]"
+      : size === "sm"
+        ? "text-lg"
+        : "text-[1.55rem] md:text-[2rem]";
   const coordSize = size === "sm" ? "text-[9px]" : "text-[10px] md:text-xs";
   const padding = size === "lg" ? "p-3 md:p-4" : size === "sm" ? "p-2" : "p-3";
   const isHi = (r: number, c: number) => highlight.some(([a, b]) => a === r && b === c);
@@ -70,7 +80,9 @@ export function Chessboard({ size = "md", highlight = [] }: Props) {
                         }}
                       >
                         <div className="absolute inset-[6%] border border-black/10" />
-                        {isHi(r, c) && <div className="absolute inset-0 border-[3px] border-gold shadow-[inset_0_0_24px_rgba(212,175,55,0.28)]" />}
+                        {isHi(r, c) && (
+                          <div className="absolute inset-0 border-[3px] border-gold shadow-[inset_0_0_24px_rgba(212,175,55,0.28)]" />
+                        )}
                         {p !== "." && (
                           <span
                             className="relative select-none"

@@ -30,19 +30,34 @@ function AuthPage() {
     e.preventDefault();
     setError(null);
     setBusy(true);
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
+        const { data, error } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password: cleanPassword,
           options: {
             emailRedirectTo: window.location.origin + "/home",
             data: { username, display_name: username },
           },
         });
         if (error) throw error;
+        // If email confirmation is required, session will be null — tell the user
+        // instead of silently navigating to /home with an unconfirmed account.
+        if (!data.session) {
+          setError(
+            "Account created! Please check your email and click the confirmation link before signing in.",
+          );
+          setBusy(false);
+          setMode("signin");
+          return;
+        }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: cleanPassword,
+        });
         if (error) throw error;
       }
       router.invalidate();
@@ -87,7 +102,9 @@ function AuthPage() {
             <div className="font-display text-xs uppercase tracking-[0.3em] text-gold">
               {mode === "signin" ? "Welcome back" : "Begin your reign"}
             </div>
-            <h1 className="font-display text-2xl">{mode === "signin" ? "Enter the Palace" : "Join the Court"}</h1>
+            <h1 className="font-display text-2xl">
+              {mode === "signin" ? "Enter the Palace" : "Join the Court"}
+            </h1>
           </div>
         </div>
 
@@ -107,9 +124,22 @@ function AuthPage() {
 
         <form className="space-y-4" onSubmit={handleEmail}>
           {mode === "signup" && (
-            <Input label="Username" value={username} onChange={setUsername} placeholder="grandroyal" required />
+            <Input
+              label="Username"
+              value={username}
+              onChange={setUsername}
+              placeholder="grandroyal"
+              required
+            />
           )}
-          <Input label="Email" type="email" value={email} onChange={setEmail} placeholder="you@chessox.com" required />
+          <Input
+            label="Email"
+            type="email"
+            value={email}
+            onChange={setEmail}
+            placeholder="your@email.com"
+            required
+          />
           <Input
             label="Password"
             type="password"
@@ -119,14 +149,32 @@ function AuthPage() {
             required
             minLength={8}
           />
-          {error && <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>}
+          {error && (
+            <div
+              className={`rounded-md border px-3 py-2 text-sm ${
+                error.startsWith("Account created")
+                  ? "border-gold/40 bg-gold/10 text-gold"
+                  : "border-destructive/40 bg-destructive/10 text-destructive"
+              }`}
+            >
+              {error}
+            </div>
+          )}
           <GoldButton className="w-full" disabled={busy} type="submit">
-            {busy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : mode === "signin" ? "Sign In" : "Create Account"}
+            {busy ? (
+              <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+            ) : mode === "signin" ? (
+              "Sign In"
+            ) : (
+              "Create Account"
+            )}
           </GoldButton>
         </form>
 
         <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
-          <div className="h-px flex-1 bg-white/10" />or<div className="h-px flex-1 bg-white/10" />
+          <div className="h-px flex-1 bg-white/10" />
+          or
+          <div className="h-px flex-1 bg-white/10" />
         </div>
 
         <div className="space-y-2">
@@ -139,7 +187,10 @@ function AuthPage() {
         </div>
 
         <div className="mt-6 text-center text-xs text-muted-foreground">
-          By continuing you agree to ChessOx's Terms. <Link to="/" className="text-gold">Back home</Link>
+          By continuing you agree to ChessOx's Terms.{" "}
+          <Link to="/" className="text-gold">
+            Back home
+          </Link>
         </div>
       </Card>
     </div>

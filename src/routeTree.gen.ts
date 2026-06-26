@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WalletRouteImport } from './routes/wallet'
 import { Route as TournamentsRouteImport } from './routes/tournaments'
 import { Route as TournamentRouteImport } from './routes/tournament'
 import { Route as SignupRouteImport } from './routes/signup'
@@ -26,6 +27,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LearnRouteImport } from './routes/learn'
 import { Route as LeaderboardsRouteImport } from './routes/leaderboards'
 import { Route as HomeRouteImport } from './routes/home'
+import { Route as FriendsRouteImport } from './routes/friends'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as ClubsRouteImport } from './routes/clubs'
@@ -33,12 +35,26 @@ import { Route as ClubRouteImport } from './routes/club'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RoomIndexRouteImport } from './routes/room.index'
+import { Route as PuzzlesIndexRouteImport } from './routes/puzzles.index'
+import { Route as PlayIndexRouteImport } from './routes/play.index'
+import { Route as NewsIndexRouteImport } from './routes/news.index'
 import { Route as CourseIndexRouteImport } from './routes/course.index'
+import { Route as RoomRoomIdRouteImport } from './routes/room.$roomId'
 import { Route as PuzzlesRushRouteImport } from './routes/puzzles.rush'
+import { Route as PlayLocalRouteImport } from './routes/play.local'
+import { Route as PlayHistoryRouteImport } from './routes/play.history'
 import { Route as PlayFriendRouteImport } from './routes/play.friend'
+import { Route as NewsSlugRouteImport } from './routes/news.$slug'
 import { Route as GameIdRouteImport } from './routes/game.$id'
 import { Route as CourseSlugRouteImport } from './routes/course.$slug'
+import { Route as GameIdReviewRouteImport } from './routes/game.$id.review'
 
+const WalletRoute = WalletRouteImport.update({
+  id: '/wallet',
+  path: '/wallet',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TournamentsRoute = TournamentsRouteImport.update({
   id: '/tournaments',
   path: '/tournaments',
@@ -124,6 +140,11 @@ const HomeRoute = HomeRouteImport.update({
   path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FriendsRoute = FriendsRouteImport.update({
+  id: '/friends',
+  path: '/friends',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -159,20 +180,60 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RoomIndexRoute = RoomIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => RoomRoute,
+} as any)
+const PuzzlesIndexRoute = PuzzlesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PuzzlesRoute,
+} as any)
+const PlayIndexRoute = PlayIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PlayRoute,
+} as any)
+const NewsIndexRoute = NewsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => NewsRoute,
+} as any)
 const CourseIndexRoute = CourseIndexRouteImport.update({
   id: '/course/',
   path: '/course/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const RoomRoomIdRoute = RoomRoomIdRouteImport.update({
+  id: '/$roomId',
+  path: '/$roomId',
+  getParentRoute: () => RoomRoute,
 } as any)
 const PuzzlesRushRoute = PuzzlesRushRouteImport.update({
   id: '/rush',
   path: '/rush',
   getParentRoute: () => PuzzlesRoute,
 } as any)
+const PlayLocalRoute = PlayLocalRouteImport.update({
+  id: '/local',
+  path: '/local',
+  getParentRoute: () => PlayRoute,
+} as any)
+const PlayHistoryRoute = PlayHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => PlayRoute,
+} as any)
 const PlayFriendRoute = PlayFriendRouteImport.update({
   id: '/friend',
   path: '/friend',
   getParentRoute: () => PlayRoute,
+} as any)
+const NewsSlugRoute = NewsSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => NewsRoute,
 } as any)
 const GameIdRoute = GameIdRouteImport.update({
   id: '/game/$id',
@@ -184,6 +245,11 @@ const CourseSlugRoute = CourseSlugRouteImport.update({
   path: '/course/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GameIdReviewRoute = GameIdReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
+  getParentRoute: () => GameIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -193,28 +259,39 @@ export interface FileRoutesByFullPath {
   '/clubs': typeof ClubsRoute
   '/community': typeof CommunityRoute
   '/dashboard': typeof DashboardRoute
+  '/friends': typeof FriendsRoute
   '/home': typeof HomeRoute
   '/leaderboards': typeof LeaderboardsRoute
   '/learn': typeof LearnRoute
   '/login': typeof LoginRoute
-  '/news': typeof NewsRoute
+  '/news': typeof NewsRouteWithChildren
   '/notifications': typeof NotificationsRoute
   '/openings': typeof OpeningsRoute
   '/play': typeof PlayRouteWithChildren
   '/premium': typeof PremiumRoute
   '/profile': typeof ProfileRoute
   '/puzzles': typeof PuzzlesRouteWithChildren
-  '/room': typeof RoomRoute
+  '/room': typeof RoomRouteWithChildren
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/tournament': typeof TournamentRoute
   '/tournaments': typeof TournamentsRoute
+  '/wallet': typeof WalletRoute
   '/course/$slug': typeof CourseSlugRoute
-  '/game/$id': typeof GameIdRoute
+  '/game/$id': typeof GameIdRouteWithChildren
+  '/news/$slug': typeof NewsSlugRoute
   '/play/friend': typeof PlayFriendRoute
+  '/play/history': typeof PlayHistoryRoute
+  '/play/local': typeof PlayLocalRoute
   '/puzzles/rush': typeof PuzzlesRushRoute
+  '/room/$roomId': typeof RoomRoomIdRoute
   '/course/': typeof CourseIndexRoute
+  '/news/': typeof NewsIndexRoute
+  '/play/': typeof PlayIndexRoute
+  '/puzzles/': typeof PuzzlesIndexRoute
+  '/room/': typeof RoomIndexRoute
+  '/game/$id/review': typeof GameIdReviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -224,28 +301,35 @@ export interface FileRoutesByTo {
   '/clubs': typeof ClubsRoute
   '/community': typeof CommunityRoute
   '/dashboard': typeof DashboardRoute
+  '/friends': typeof FriendsRoute
   '/home': typeof HomeRoute
   '/leaderboards': typeof LeaderboardsRoute
   '/learn': typeof LearnRoute
   '/login': typeof LoginRoute
-  '/news': typeof NewsRoute
   '/notifications': typeof NotificationsRoute
   '/openings': typeof OpeningsRoute
-  '/play': typeof PlayRouteWithChildren
   '/premium': typeof PremiumRoute
   '/profile': typeof ProfileRoute
-  '/puzzles': typeof PuzzlesRouteWithChildren
-  '/room': typeof RoomRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/tournament': typeof TournamentRoute
   '/tournaments': typeof TournamentsRoute
+  '/wallet': typeof WalletRoute
   '/course/$slug': typeof CourseSlugRoute
-  '/game/$id': typeof GameIdRoute
+  '/game/$id': typeof GameIdRouteWithChildren
+  '/news/$slug': typeof NewsSlugRoute
   '/play/friend': typeof PlayFriendRoute
+  '/play/history': typeof PlayHistoryRoute
+  '/play/local': typeof PlayLocalRoute
   '/puzzles/rush': typeof PuzzlesRushRoute
+  '/room/$roomId': typeof RoomRoomIdRoute
   '/course': typeof CourseIndexRoute
+  '/news': typeof NewsIndexRoute
+  '/play': typeof PlayIndexRoute
+  '/puzzles': typeof PuzzlesIndexRoute
+  '/room': typeof RoomIndexRoute
+  '/game/$id/review': typeof GameIdReviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -256,28 +340,39 @@ export interface FileRoutesById {
   '/clubs': typeof ClubsRoute
   '/community': typeof CommunityRoute
   '/dashboard': typeof DashboardRoute
+  '/friends': typeof FriendsRoute
   '/home': typeof HomeRoute
   '/leaderboards': typeof LeaderboardsRoute
   '/learn': typeof LearnRoute
   '/login': typeof LoginRoute
-  '/news': typeof NewsRoute
+  '/news': typeof NewsRouteWithChildren
   '/notifications': typeof NotificationsRoute
   '/openings': typeof OpeningsRoute
   '/play': typeof PlayRouteWithChildren
   '/premium': typeof PremiumRoute
   '/profile': typeof ProfileRoute
   '/puzzles': typeof PuzzlesRouteWithChildren
-  '/room': typeof RoomRoute
+  '/room': typeof RoomRouteWithChildren
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/tournament': typeof TournamentRoute
   '/tournaments': typeof TournamentsRoute
+  '/wallet': typeof WalletRoute
   '/course/$slug': typeof CourseSlugRoute
-  '/game/$id': typeof GameIdRoute
+  '/game/$id': typeof GameIdRouteWithChildren
+  '/news/$slug': typeof NewsSlugRoute
   '/play/friend': typeof PlayFriendRoute
+  '/play/history': typeof PlayHistoryRoute
+  '/play/local': typeof PlayLocalRoute
   '/puzzles/rush': typeof PuzzlesRushRoute
+  '/room/$roomId': typeof RoomRoomIdRoute
   '/course/': typeof CourseIndexRoute
+  '/news/': typeof NewsIndexRoute
+  '/play/': typeof PlayIndexRoute
+  '/puzzles/': typeof PuzzlesIndexRoute
+  '/room/': typeof RoomIndexRoute
+  '/game/$id/review': typeof GameIdReviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -289,6 +384,7 @@ export interface FileRouteTypes {
     | '/clubs'
     | '/community'
     | '/dashboard'
+    | '/friends'
     | '/home'
     | '/leaderboards'
     | '/learn'
@@ -306,11 +402,21 @@ export interface FileRouteTypes {
     | '/signup'
     | '/tournament'
     | '/tournaments'
+    | '/wallet'
     | '/course/$slug'
     | '/game/$id'
+    | '/news/$slug'
     | '/play/friend'
+    | '/play/history'
+    | '/play/local'
     | '/puzzles/rush'
+    | '/room/$roomId'
     | '/course/'
+    | '/news/'
+    | '/play/'
+    | '/puzzles/'
+    | '/room/'
+    | '/game/$id/review'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -320,28 +426,35 @@ export interface FileRouteTypes {
     | '/clubs'
     | '/community'
     | '/dashboard'
+    | '/friends'
     | '/home'
     | '/leaderboards'
     | '/learn'
     | '/login'
-    | '/news'
     | '/notifications'
     | '/openings'
-    | '/play'
     | '/premium'
     | '/profile'
-    | '/puzzles'
-    | '/room'
     | '/search'
     | '/settings'
     | '/signup'
     | '/tournament'
     | '/tournaments'
+    | '/wallet'
     | '/course/$slug'
     | '/game/$id'
+    | '/news/$slug'
     | '/play/friend'
+    | '/play/history'
+    | '/play/local'
     | '/puzzles/rush'
+    | '/room/$roomId'
     | '/course'
+    | '/news'
+    | '/play'
+    | '/puzzles'
+    | '/room'
+    | '/game/$id/review'
   id:
     | '__root__'
     | '/'
@@ -351,6 +464,7 @@ export interface FileRouteTypes {
     | '/clubs'
     | '/community'
     | '/dashboard'
+    | '/friends'
     | '/home'
     | '/leaderboards'
     | '/learn'
@@ -368,11 +482,21 @@ export interface FileRouteTypes {
     | '/signup'
     | '/tournament'
     | '/tournaments'
+    | '/wallet'
     | '/course/$slug'
     | '/game/$id'
+    | '/news/$slug'
     | '/play/friend'
+    | '/play/history'
+    | '/play/local'
     | '/puzzles/rush'
+    | '/room/$roomId'
     | '/course/'
+    | '/news/'
+    | '/play/'
+    | '/puzzles/'
+    | '/room/'
+    | '/game/$id/review'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -383,30 +507,39 @@ export interface RootRouteChildren {
   ClubsRoute: typeof ClubsRoute
   CommunityRoute: typeof CommunityRoute
   DashboardRoute: typeof DashboardRoute
+  FriendsRoute: typeof FriendsRoute
   HomeRoute: typeof HomeRoute
   LeaderboardsRoute: typeof LeaderboardsRoute
   LearnRoute: typeof LearnRoute
   LoginRoute: typeof LoginRoute
-  NewsRoute: typeof NewsRoute
+  NewsRoute: typeof NewsRouteWithChildren
   NotificationsRoute: typeof NotificationsRoute
   OpeningsRoute: typeof OpeningsRoute
   PlayRoute: typeof PlayRouteWithChildren
   PremiumRoute: typeof PremiumRoute
   ProfileRoute: typeof ProfileRoute
   PuzzlesRoute: typeof PuzzlesRouteWithChildren
-  RoomRoute: typeof RoomRoute
+  RoomRoute: typeof RoomRouteWithChildren
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
   TournamentRoute: typeof TournamentRoute
   TournamentsRoute: typeof TournamentsRoute
+  WalletRoute: typeof WalletRoute
   CourseSlugRoute: typeof CourseSlugRoute
-  GameIdRoute: typeof GameIdRoute
+  GameIdRoute: typeof GameIdRouteWithChildren
   CourseIndexRoute: typeof CourseIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/wallet': {
+      id: '/wallet'
+      path: '/wallet'
+      fullPath: '/wallet'
+      preLoaderRoute: typeof WalletRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tournaments': {
       id: '/tournaments'
       path: '/tournaments'
@@ -526,6 +659,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/friends': {
+      id: '/friends'
+      path: '/friends'
+      fullPath: '/friends'
+      preLoaderRoute: typeof FriendsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -575,12 +715,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/room/': {
+      id: '/room/'
+      path: '/'
+      fullPath: '/room/'
+      preLoaderRoute: typeof RoomIndexRouteImport
+      parentRoute: typeof RoomRoute
+    }
+    '/puzzles/': {
+      id: '/puzzles/'
+      path: '/'
+      fullPath: '/puzzles/'
+      preLoaderRoute: typeof PuzzlesIndexRouteImport
+      parentRoute: typeof PuzzlesRoute
+    }
+    '/play/': {
+      id: '/play/'
+      path: '/'
+      fullPath: '/play/'
+      preLoaderRoute: typeof PlayIndexRouteImport
+      parentRoute: typeof PlayRoute
+    }
+    '/news/': {
+      id: '/news/'
+      path: '/'
+      fullPath: '/news/'
+      preLoaderRoute: typeof NewsIndexRouteImport
+      parentRoute: typeof NewsRoute
+    }
     '/course/': {
       id: '/course/'
       path: '/course'
       fullPath: '/course/'
       preLoaderRoute: typeof CourseIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/room/$roomId': {
+      id: '/room/$roomId'
+      path: '/$roomId'
+      fullPath: '/room/$roomId'
+      preLoaderRoute: typeof RoomRoomIdRouteImport
+      parentRoute: typeof RoomRoute
     }
     '/puzzles/rush': {
       id: '/puzzles/rush'
@@ -589,12 +764,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PuzzlesRushRouteImport
       parentRoute: typeof PuzzlesRoute
     }
+    '/play/local': {
+      id: '/play/local'
+      path: '/local'
+      fullPath: '/play/local'
+      preLoaderRoute: typeof PlayLocalRouteImport
+      parentRoute: typeof PlayRoute
+    }
+    '/play/history': {
+      id: '/play/history'
+      path: '/history'
+      fullPath: '/play/history'
+      preLoaderRoute: typeof PlayHistoryRouteImport
+      parentRoute: typeof PlayRoute
+    }
     '/play/friend': {
       id: '/play/friend'
       path: '/friend'
       fullPath: '/play/friend'
       preLoaderRoute: typeof PlayFriendRouteImport
       parentRoute: typeof PlayRoute
+    }
+    '/news/$slug': {
+      id: '/news/$slug'
+      path: '/$slug'
+      fullPath: '/news/$slug'
+      preLoaderRoute: typeof NewsSlugRouteImport
+      parentRoute: typeof NewsRoute
     }
     '/game/$id': {
       id: '/game/$id'
@@ -610,29 +806,79 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CourseSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/game/$id/review': {
+      id: '/game/$id/review'
+      path: '/review'
+      fullPath: '/game/$id/review'
+      preLoaderRoute: typeof GameIdReviewRouteImport
+      parentRoute: typeof GameIdRoute
+    }
   }
 }
 
+interface NewsRouteChildren {
+  NewsSlugRoute: typeof NewsSlugRoute
+  NewsIndexRoute: typeof NewsIndexRoute
+}
+
+const NewsRouteChildren: NewsRouteChildren = {
+  NewsSlugRoute: NewsSlugRoute,
+  NewsIndexRoute: NewsIndexRoute,
+}
+
+const NewsRouteWithChildren = NewsRoute._addFileChildren(NewsRouteChildren)
+
 interface PlayRouteChildren {
   PlayFriendRoute: typeof PlayFriendRoute
+  PlayHistoryRoute: typeof PlayHistoryRoute
+  PlayLocalRoute: typeof PlayLocalRoute
+  PlayIndexRoute: typeof PlayIndexRoute
 }
 
 const PlayRouteChildren: PlayRouteChildren = {
   PlayFriendRoute: PlayFriendRoute,
+  PlayHistoryRoute: PlayHistoryRoute,
+  PlayLocalRoute: PlayLocalRoute,
+  PlayIndexRoute: PlayIndexRoute,
 }
 
 const PlayRouteWithChildren = PlayRoute._addFileChildren(PlayRouteChildren)
 
 interface PuzzlesRouteChildren {
   PuzzlesRushRoute: typeof PuzzlesRushRoute
+  PuzzlesIndexRoute: typeof PuzzlesIndexRoute
 }
 
 const PuzzlesRouteChildren: PuzzlesRouteChildren = {
   PuzzlesRushRoute: PuzzlesRushRoute,
+  PuzzlesIndexRoute: PuzzlesIndexRoute,
 }
 
 const PuzzlesRouteWithChildren =
   PuzzlesRoute._addFileChildren(PuzzlesRouteChildren)
+
+interface RoomRouteChildren {
+  RoomRoomIdRoute: typeof RoomRoomIdRoute
+  RoomIndexRoute: typeof RoomIndexRoute
+}
+
+const RoomRouteChildren: RoomRouteChildren = {
+  RoomRoomIdRoute: RoomRoomIdRoute,
+  RoomIndexRoute: RoomIndexRoute,
+}
+
+const RoomRouteWithChildren = RoomRoute._addFileChildren(RoomRouteChildren)
+
+interface GameIdRouteChildren {
+  GameIdReviewRoute: typeof GameIdReviewRoute
+}
+
+const GameIdRouteChildren: GameIdRouteChildren = {
+  GameIdReviewRoute: GameIdReviewRoute,
+}
+
+const GameIdRouteWithChildren =
+  GameIdRoute._addFileChildren(GameIdRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -642,25 +888,27 @@ const rootRouteChildren: RootRouteChildren = {
   ClubsRoute: ClubsRoute,
   CommunityRoute: CommunityRoute,
   DashboardRoute: DashboardRoute,
+  FriendsRoute: FriendsRoute,
   HomeRoute: HomeRoute,
   LeaderboardsRoute: LeaderboardsRoute,
   LearnRoute: LearnRoute,
   LoginRoute: LoginRoute,
-  NewsRoute: NewsRoute,
+  NewsRoute: NewsRouteWithChildren,
   NotificationsRoute: NotificationsRoute,
   OpeningsRoute: OpeningsRoute,
   PlayRoute: PlayRouteWithChildren,
   PremiumRoute: PremiumRoute,
   ProfileRoute: ProfileRoute,
   PuzzlesRoute: PuzzlesRouteWithChildren,
-  RoomRoute: RoomRoute,
+  RoomRoute: RoomRouteWithChildren,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
   TournamentRoute: TournamentRoute,
   TournamentsRoute: TournamentsRoute,
+  WalletRoute: WalletRoute,
   CourseSlugRoute: CourseSlugRoute,
-  GameIdRoute: GameIdRoute,
+  GameIdRoute: GameIdRouteWithChildren,
   CourseIndexRoute: CourseIndexRoute,
 }
 export const routeTree = rootRouteImport

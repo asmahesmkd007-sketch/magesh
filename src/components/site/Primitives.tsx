@@ -1,4 +1,12 @@
-import type { ReactNode } from "react";
+import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
+
+// Polymorphic button props: render as a <button> by default, or any element/
+// component via `as` (e.g. an anchor), forwarding that element's native props.
+type ButtonProps<E extends ElementType = "button"> = {
+  children?: ReactNode;
+  className?: string;
+  as?: E;
+} & Omit<ComponentPropsWithoutRef<E>, "as" | "className" | "children">;
 
 export function PageShell({
   children,
@@ -28,7 +36,11 @@ export function PageShell({
                     {eyebrow}
                   </div>
                 )}
-                {title && <h1 className="text-4xl tracking-tight text-gradient-gold md:text-6xl">{title}</h1>}
+                {title && (
+                  <h1 className="text-4xl tracking-tight text-gradient-gold md:text-6xl">
+                    {title}
+                  </h1>
+                )}
                 {subtitle && (
                   <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-muted-foreground md:text-base">
                     {subtitle}
@@ -66,14 +78,24 @@ export function Stat({
       <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{label}</div>
       <div className="mt-3 flex items-end gap-2">
         <div className="font-stat text-3xl text-gradient-gold md:text-4xl">{value}</div>
-        {trend && <span className={`pb-1 text-xs ${trend === "up" ? "text-emerald" : "text-destructive"}`}>{trend === "up" ? "▲" : "▼"}</span>}
+        {trend && (
+          <span className={`pb-1 text-xs ${trend === "up" ? "text-emerald" : "text-destructive"}`}>
+            {trend === "up" ? "▲" : "▼"}
+          </span>
+        )}
       </div>
       {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
     </Card>
   );
 }
 
-export function GoldButton({ children, className = "", as: As = "button", ...rest }: any) {
+export function GoldButton<E extends ElementType = "button">({
+  children,
+  className = "",
+  as,
+  ...rest
+}: ButtonProps<E>) {
+  const As = (as ?? "button") as ElementType;
   return (
     <As
       {...rest}
@@ -84,7 +106,13 @@ export function GoldButton({ children, className = "", as: As = "button", ...res
   );
 }
 
-export function EmeraldButton({ children, className = "", as: As = "button", ...rest }: any) {
+export function EmeraldButton<E extends ElementType = "button">({
+  children,
+  className = "",
+  as,
+  ...rest
+}: ButtonProps<E>) {
+  const As = (as ?? "button") as ElementType;
   return (
     <As
       {...rest}
@@ -95,7 +123,13 @@ export function EmeraldButton({ children, className = "", as: As = "button", ...
   );
 }
 
-export function GhostButton({ children, className = "", as: As = "button", ...rest }: any) {
+export function GhostButton<E extends ElementType = "button">({
+  children,
+  className = "",
+  as,
+  ...rest
+}: ButtonProps<E>) {
+  const As = (as ?? "button") as ElementType;
   return (
     <As
       {...rest}
@@ -118,7 +152,9 @@ export function SectionTitle({
   return (
     <div className="mb-6 flex items-end justify-between gap-4">
       <div>
-        {kicker && <div className="text-[11px] uppercase tracking-[0.24em] text-gold/70">{kicker}</div>}
+        {kicker && (
+          <div className="text-[11px] uppercase tracking-[0.24em] text-gold/70">{kicker}</div>
+        )}
         <h2 className="mt-2 text-2xl tracking-tight text-foreground md:text-3xl">{title}</h2>
       </div>
       {action}
@@ -140,5 +176,11 @@ export function Pill({
     muted: "border-white/10 bg-white/[0.03] text-muted-foreground",
   };
 
-  return <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] ${tones[tone]}`}>{children}</span>;
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] ${tones[tone]}`}
+    >
+      {children}
+    </span>
+  );
 }

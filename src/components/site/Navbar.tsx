@@ -1,7 +1,9 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Bell, ChevronDown, Crown, LogOut, Menu, Search, X } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Menu, Search, X, Coins } from "lucide-react";
 import { useAuth, useProfile, signOut, initials } from "@/hooks/useAuth";
+import { useNotificationCount } from "@/hooks/useNotificationCount";
+import { useWallet } from "@/hooks/useWallet";
 
 const NAV_AUTH = [
   { to: "/home", label: "Home" },
@@ -12,6 +14,7 @@ const NAV_AUTH = [
 
 const COMMUNITY_ITEMS = [
   { to: "/community", label: "Open Community" },
+  { to: "/friends", label: "Friends" },
   { to: "/room", label: "Room Chat" },
   { to: "/clubs", label: "Clan / Club" },
   { to: "/leaderboards", label: "Leaderboard" },
@@ -41,6 +44,8 @@ export function Navbar() {
   const { user } = useAuth();
   const { profile } = useProfile(user?.id);
   const navigate = useNavigate();
+  const unreadCount = useNotificationCount(user?.id);
+  const { wallet } = useWallet(user?.id);
 
   function closeAllDropdowns() {
     setUserMenu(false);
@@ -60,15 +65,22 @@ export function Navbar() {
         {/* Logo */}
         <Link
           to={user ? "/home" : "/"}
-          className="flex items-center gap-3"
+          className="flex items-center gap-2.5"
           onClick={closeAllDropdowns}
         >
-          <span className="grid h-10 w-10 place-items-center rounded-xl gradient-gold text-background shadow-gold-glow">
-            <Crown className="h-5 w-5" />
-          </span>
+          <img
+            src="/chessox-icon.ico"
+            alt="ChessOx"
+            className="h-10 w-10 rounded-xl shadow-gold-glow"
+            draggable={false}
+          />
           <div>
-            <div className="font-display text-[1.65rem] leading-none text-gradient-gold">ChessOx</div>
-            <div className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">Royal Chess Platform</div>
+            <div className="font-display text-[1.65rem] leading-none text-gradient-gold">
+              ChessOx
+            </div>
+            <div className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
+              Royal Chess Platform
+            </div>
           </div>
         </Link>
 
@@ -84,7 +96,9 @@ export function Navbar() {
                     to={n.to}
                     onClick={closeAllDropdowns}
                     className={`rounded-full px-4 py-2 text-sm transition-colors ${
-                      active ? "border border-gold/30 bg-gold/10 text-gold" : "text-ivory/80 hover:text-foreground"
+                      active
+                        ? "border border-gold/30 bg-gold/10 text-gold"
+                        : "text-ivory/80 hover:text-foreground"
                     }`}
                   >
                     {n.label}
@@ -107,7 +121,9 @@ export function Navbar() {
                   }`}
                 >
                   Community{" "}
-                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${communityMenu ? "rotate-180" : ""}`} />
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform ${communityMenu ? "rotate-180" : ""}`}
+                  />
                 </button>
                 {communityMenu && (
                   <DropdownMenu items={COMMUNITY_ITEMS} onClose={() => setCommunityMenu(false)} />
@@ -138,11 +154,11 @@ export function Navbar() {
                   className="flex items-center gap-1 rounded-full px-4 py-2 text-sm text-ivory/80 transition-colors hover:text-foreground"
                 >
                   More{" "}
-                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${moreMenu ? "rotate-180" : ""}`} />
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform ${moreMenu ? "rotate-180" : ""}`}
+                  />
                 </button>
-                {moreMenu && (
-                  <DropdownMenu items={MORE_ITEMS} onClose={() => setMoreMenu(false)} />
-                )}
+                {moreMenu && <DropdownMenu items={MORE_ITEMS} onClose={() => setMoreMenu(false)} />}
               </div>
             </>
           ) : (
@@ -153,7 +169,9 @@ export function Navbar() {
                   key={n.to}
                   to={n.to}
                   className={`rounded-full px-4 py-2 text-sm transition-colors ${
-                    active ? "border border-gold/30 bg-gold/10 text-gold" : "text-ivory/80 hover:text-foreground"
+                    active
+                      ? "border border-gold/30 bg-gold/10 text-gold"
+                      : "text-ivory/80 hover:text-foreground"
                   }`}
                 >
                   {n.label}
@@ -173,6 +191,18 @@ export function Navbar() {
             <Search className="h-4 w-4" />
           </Link>
 
+          {/* Wallet balance chip */}
+          {user && (
+            <Link
+              to="/wallet"
+              onClick={closeAllDropdowns}
+              className="flex items-center gap-1.5 rounded-full border border-gold/20 bg-white/[0.03] px-3 py-2 text-xs text-gold transition-colors hover:border-gold/40 hover:bg-gold/10"
+            >
+              <Coins className="h-3.5 w-3.5" />
+              <span className="font-display text-sm">{wallet?.balance ?? 0}</span>
+            </Link>
+          )}
+
           {user && (
             <Link
               to="/notifications"
@@ -180,7 +210,13 @@ export function Navbar() {
               className="relative grid h-10 w-10 place-items-center rounded-full border border-gold/20 bg-white/[0.03] text-muted-foreground transition-colors hover:text-gold"
             >
               <Bell className="h-4 w-4" />
-              <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-emerald animate-pulse-dot" />
+              {unreadCount > 0 ? (
+                <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-gold text-[9px] font-bold text-[#0B0D10]">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              ) : (
+                <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-emerald animate-pulse-dot" />
+              )}
             </Link>
           )}
 
@@ -202,10 +238,23 @@ export function Navbar() {
                 </span>
               </button>
               {userMenu && (
-                <div className="absolute right-0 mt-2 w-48 rounded-xl border border-gold/20 bg-background/95 p-1 shadow-xl backdrop-blur-xl">
+                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-gold/20 bg-background/95 p-1 shadow-xl backdrop-blur-xl">
                   <MenuLink to="/home" label="Home" onClick={() => setUserMenu(false)} />
                   <MenuLink to="/profile" label="Profile" onClick={() => setUserMenu(false)} />
                   <MenuLink to="/settings" label="Settings" onClick={() => setUserMenu(false)} />
+                  {/* Wallet link with live balance */}
+                  <Link
+                    to="/wallet"
+                    onClick={() => setUserMenu(false)}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-foreground hover:bg-white/5 hover:text-gold"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Coins className="h-4 w-4 text-gold" /> Wallet
+                    </span>
+                    <span className="rounded-full border border-gold/25 bg-gold/10 px-2 py-0.5 text-xs text-gold">
+                      {wallet?.balance ?? 0}
+                    </span>
+                  </Link>
                   <button
                     onClick={handleSignOut}
                     className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-white/5 hover:text-gold"
@@ -280,6 +329,16 @@ export function Navbar() {
                   className="rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
                 >
                   Premium
+                </Link>
+                <Link
+                  to="/wallet"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center justify-between rounded-xl border border-gold/25 bg-gold/5 px-4 py-3 text-sm text-gold"
+                >
+                  <span className="flex items-center gap-2">
+                    <Coins className="h-4 w-4" /> Wallet
+                  </span>
+                  <span className="font-display">{wallet?.balance ?? 0} coins</span>
                 </Link>
                 <div className="px-1 pt-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                   More
@@ -364,15 +423,7 @@ function DropdownMenu({
   );
 }
 
-function MenuLink({
-  to,
-  label,
-  onClick,
-}: {
-  to: string;
-  label: string;
-  onClick: () => void;
-}) {
+function MenuLink({ to, label, onClick }: { to: string; label: string; onClick: () => void }) {
   return (
     <Link
       to={to}

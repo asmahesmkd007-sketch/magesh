@@ -1,11 +1,10 @@
 import type { Color, PieceSymbol, Square } from "chess.js";
+import { BOARD_THEMES, PIECE_SETS, type BoardSquareColors } from "@/hooks/useBoardSettings";
 
 export type BoardCell = { square: Square; type: PieceSymbol; color: Color } | null;
 
-const PIECES: Record<string, string> = {
-  wk: "♔", wq: "♕", wr: "♖", wb: "♗", wn: "♘", wp: "♙",
-  bk: "♚", bq: "♛", br: "♜", bb: "♝", bn: "♞", bp: "♟",
-};
+const DEFAULT_PIECES = PIECE_SETS.unicode;
+const DEFAULT_COLORS = BOARD_THEMES.royal;
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 
@@ -18,6 +17,8 @@ type Props = {
   checkSquare?: string | null;
   onSquare?: (square: string) => void;
   disabled?: boolean;
+  colors?: BoardSquareColors;
+  pieces?: Record<string, string>;
 };
 
 export function InteractiveBoard({
@@ -29,9 +30,20 @@ export function InteractiveBoard({
   checkSquare,
   onSquare,
   disabled,
+  colors = DEFAULT_COLORS,
+  pieces = DEFAULT_PIECES,
 }: Props) {
-  const rows = orientation === "w" ? board : [...board].slice().reverse().map((r) => [...r].reverse());
-  const ranks = orientation === "w" ? ["8", "7", "6", "5", "4", "3", "2", "1"] : ["1", "2", "3", "4", "5", "6", "7", "8"];
+  const rows =
+    orientation === "w"
+      ? board
+      : [...board]
+          .slice()
+          .reverse()
+          .map((r) => [...r].reverse());
+  const ranks =
+    orientation === "w"
+      ? ["8", "7", "6", "5", "4", "3", "2", "1"]
+      : ["1", "2", "3", "4", "5", "6", "7", "8"];
   const files = orientation === "w" ? FILES : [...FILES].reverse();
 
   const squareName = (r: number, c: number): string => {
@@ -49,7 +61,10 @@ export function InteractiveBoard({
             <div className="grid grid-cols-[auto_1fr] grid-rows-[1fr_auto] gap-2">
               <div className="grid grid-rows-8 gap-px pt-2">
                 {ranks.map((rank) => (
-                  <div key={rank} className="grid place-items-center text-[10px] md:text-xs text-gold/70">
+                  <div
+                    key={rank}
+                    className="grid place-items-center text-[10px] md:text-xs text-gold/70"
+                  >
                     {rank}
                   </div>
                 ))}
@@ -72,9 +87,7 @@ export function InteractiveBoard({
                         onClick={() => onSquare?.(sq)}
                         className="relative grid place-items-center text-[1.7rem] md:text-[2.4rem] focus:outline-none"
                         style={{
-                          background: light
-                            ? "linear-gradient(135deg, #ead6ac 0%, #cda05f 100%)"
-                            : "linear-gradient(135deg, #5c2e1f 0%, #2e120e 100%)",
+                          background: light ? colors.light : colors.dark,
                           cursor: disabled ? "default" : "pointer",
                         }}
                         aria-label={sq}
@@ -95,14 +108,14 @@ export function InteractiveBoard({
                           <span
                             className="relative select-none"
                             style={{
-                              color: cell.color === "w" ? "#f5e7c1" : "#16392e",
+                              color: cell.color === "w" ? colors.lightPiece : colors.darkPiece,
                               textShadow:
                                 cell.color === "w"
                                   ? "0 1px 0 rgba(0,0,0,0.6), 0 0 10px rgba(212,175,55,0.18)"
                                   : "0 1px 0 rgba(255,255,255,0.14), 0 0 10px rgba(15,139,109,0.16)",
                             }}
                           >
-                            {PIECES[`${cell.color}${cell.type}`]}
+                            {pieces[`${cell.color}${cell.type}`]}
                           </span>
                         )}
                       </button>
@@ -114,7 +127,10 @@ export function InteractiveBoard({
               <div />
               <div className="grid grid-cols-8 gap-px px-1">
                 {files.map((file) => (
-                  <div key={file} className="grid place-items-center text-[10px] md:text-xs text-gold/70">
+                  <div
+                    key={file}
+                    className="grid place-items-center text-[10px] md:text-xs text-gold/70"
+                  >
                     {file}
                   </div>
                 ))}

@@ -6,8 +6,6 @@ import { Bot, Crown, Flag, Handshake, RotateCcw, Sparkles, Swords, LineChart } f
 import { Card, GoldButton, GhostButton, SectionTitle } from "@/components/site/Primitives";
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
-
-const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.max(0, s % 60)).padStart(2, "0")}`;
 import {
   Dialog,
   DialogContent,
@@ -17,17 +15,20 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth, useProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { saveComputerGame } from "@/lib/api/gameClient";
 import type { EngineMove } from "@/lib/chess/engine";
+
+const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.max(0, s % 60)).padStart(2, "0")}`;
 
 type Phase = "setup" | "playing" | "over";
 type SideChoice = "w" | "b" | "random";
 type GameResult = "win" | "loss" | "draw";
 
 const LEVELS = [
-  { level: 1, name: "Pawn", rating: "~600", desc: "Plays loose, makes blunders" },
-  { level: 2, name: "Knight", rating: "~900", desc: "Basic tactics, some mistakes" },
+  { level: 1, name: "Pawn",   rating: "~600",  desc: "Plays loose, makes blunders" },
+  { level: 2, name: "Knight", rating: "~900",  desc: "Basic tactics, some mistakes" },
   { level: 3, name: "Bishop", rating: "~1300", desc: "Solid moves, punishes blunders" },
-  { level: 4, name: "Rook", rating: "~1700", desc: "Sharp tactics, few mistakes" },
+  { level: 4, name: "Rook",   rating: "~1700", desc: "Sharp tactics, few mistakes" },
   { level: 5, name: "Vizier", rating: "~2000", desc: "Ruthless calculation" },
 ];
 
@@ -37,6 +38,21 @@ export function VsComputer() {
   const { user } = useAuth();
   const { profile } = useProfile(user?.id);
   const navigate = useNavigate();
+
+  // Fetch player's real rating for the rapid time class
+  const [myRating, setMyRating] = useState<number>(100);
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("ratings")
+      .select("rating")
+      .eq("user_id", user.id)
+      .eq("time_class", "rapid")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.rating) setMyRating(data.rating);
+      });
+  }, [user?.id]);
 
   const [phase, setPhase] = useState<Phase>("setup");
   const [side, setSide] = useState<SideChoice>("w");
@@ -62,7 +78,6 @@ export function VsComputer() {
   const savedRef = useRef(false);
   const movesEndRef = useRef<HTMLDivElement>(null);
 
-  // Always-fresh handler for engine replies (avoids stale closures in the worker callback)
   const onEngineMoveRef = useRef<(move: EngineMove | null) => void>(() => {});
 
   // Spin up engine worker on the client
@@ -97,15 +112,38 @@ export function VsComputer() {
     movesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history]);
 
+  // Clock countdown
   useEffect(() => {
     if (phase !== "playing") return;
     const id = setInterval(() => {
       const turn = gameRef.current.turn();
-      if (turn === "w") setWhiteTime((t) => Math.max(0, t - 1));
-      else setBlackTime((t) => Math.max(0, t - 1));
+      if (turn === "w") {
+        setWhiteTime((t) => {
+          if (t <= 1) return 0;
+          return t - 1;
+        });
+      } else {
+        setBlackTime((t) => {
+          if (t <= 1) return 0;
+          return t - 1;
+        });
+      }
     }, 1000);
     return () => clearInterval(id);
   }, [phase]);
+
+  // Flag enforcement: end the game when either clock hits 0
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const myTime = myColor === "w" ? whiteTime : blackTime;
+    const oppTime = myColor === "w" ? blackTime : whiteTime;
+    if (myTime === 0) {
+      finishGame(myColor === "w" ? "black" : "white", "timeout");
+    } else if (oppTime === 0 && gameRef.current.turn() !== myColor) {
+      finishGame(myColor === "w" ? "white" : "black", "timeout");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [whiteTime, blackTime, phase, myColor]);
 
   const syncBoard = () => {
     setBoard(gameRef.current.board());
@@ -136,31 +174,47 @@ export function VsComputer() {
       setGameResult(result === "draw" ? "draw" : iWon ? "win" : "loss");
       setShowResult(true);
 
-      // Save to database for signed-in players
       if (user && !savedRef.current) {
         savedRef.current = true;
         const game = gameRef.current;
-        const username = profile?.username ?? "you";
-        const engineName = `Engine — ${LEVELS.find((l) => l.level === level)?.name ?? "Bot"}`;
-        const { error } = await supabase.from("games").insert({
-          white_id: myColor === "w" ? user.id : null,
-          black_id: myColor === "b" ? user.id : null,
-          white_username: myColor === "w" ? username : engineName,
-          black_username: myColor === "b" ? username : engineName,
-          pgn: game.pgn(),
-          result,
-          time_class: "rapid",
-          time_control: "casual",
-          moves_count: game.history().length,
-          is_rated: false,
-          vs_computer: true,
-          ended_at: new Date().toISOString(),
-        });
-        if (error) toast.error("Could not save game to your archive.");
-        else toast.success("Game saved to your archive.");
+        const activeLevel = LEVELS.find((l) => l.level === level)!;
+        const engineName = `Engine — ${activeLevel.name}`;
+        try {
+          // Replay the game to collect per-move FEN data and flags
+          const replay = new Chess();
+          const verboseHistory = game.history({ verbose: true });
+          const moves = verboseHistory.map((m, idx) => {
+            const fenBefore = replay.fen();
+            replay.move({ from: m.from, to: m.to, promotion: m.promotion });
+            return {
+              ply: idx + 1,
+              san: m.san,
+              uci: m.from + m.to + (m.promotion ?? ""),
+              fen_before: fenBefore,
+              fen_after: replay.fen(),
+              by_user: m.color === myColor ? user.id : undefined,
+              is_capture: !!m.captured,
+              is_check: replay.inCheck(),
+              is_promotion: !!m.promotion,
+              is_castling: m.flags.includes("k") || m.flags.includes("q"),
+            };
+          });
+          await saveComputerGame({
+            myColor,
+            result,
+            pgn: game.pgn(),
+            movesCount: game.history().length,
+            engineName,
+            finalFen: game.fen(),
+            moves,
+          });
+          toast.success("Game saved to your archive.");
+        } catch {
+          toast.error("Could not save game to your archive.");
+        }
       }
     },
-    [user, profile, myColor, level],
+    [user, myColor, level],
   );
 
   const checkGameEnd = useCallback(() => {
@@ -206,7 +260,6 @@ export function VsComputer() {
     setWhiteTime(900);
     setBlackTime(900);
     if (color === "b") {
-      // Engine opens as white
       setTimeout(() => {
         const worker = workerRef.current;
         if (!worker) return;
@@ -237,14 +290,12 @@ export function VsComputer() {
 
     const piece = game.get(sq as Square);
 
-    // Select own piece
     if (piece && piece.color === myColor) {
       setSelected(sq);
       setTargets(game.moves({ square: sq as Square, verbose: true }).map((m) => m.to));
       return;
     }
 
-    // Attempt move
     if (selected) {
       const candidates = game.moves({ square: selected as Square, verbose: true }).filter((m) => m.to === sq);
       if (candidates.length === 0) {
@@ -252,7 +303,8 @@ export function VsComputer() {
         setTargets([]);
         return;
       }
-      if (candidates.some((m) => m.promotion)) {
+      // Pawn reaches back rank → promotion required
+      if (candidates.some((m) => m.piece === "p" && (m.to[1] === "8" || m.to[1] === "1"))) {
         setPendingPromotion({ from: selected, to: sq });
         return;
       }
@@ -267,7 +319,6 @@ export function VsComputer() {
 
   const offerDraw = () => {
     if (phase !== "playing") return;
-    // Engine accepts only if it isn't clearly ahead in material
     let balance = 0;
     for (const row of gameRef.current.board()) {
       for (const cell of row) {
@@ -283,23 +334,14 @@ export function VsComputer() {
 
   const analyzeGame = () => {
     localStorage.setItem("chessox-analysis-pgn", gameRef.current.pgn());
-    navigate({ to: "/analysis" });
+    navigate({ to: "/analysis", search: { gameId: undefined } });
   };
 
   const movePairs: [string, string | undefined][] = [];
   for (let i = 0; i < history.length; i += 2) movePairs.push([history[i], history[i + 1]]);
 
   const activeLevel = LEVELS.find((l) => l.level === level)!;
-
-  // Mock post-game stats
-  const myMoves = history.filter((_, i) => (myColor === "w" ? i % 2 === 0 : i % 2 === 1));
-  const accuracy = Math.min(98, 72 + ((history.length * 7) % 24));
-  const bestMove =
-    myMoves.find((m) => m.includes("#")) ??
-    myMoves.find((m) => m.includes("+")) ??
-    myMoves.find((m) => m.includes("x")) ??
-    myMoves[Math.floor(myMoves.length / 2)] ??
-    "—";
+  const oppRating = 600 + (level - 1) * 350;
 
   // ============ SETUP ============
   if (phase === "setup") {
@@ -374,8 +416,6 @@ export function VsComputer() {
   // ============ PLAYING / OVER ============
   const myName = profile?.display_name ?? profile?.username ?? "You";
   const myInitial = myName[0]?.toUpperCase() ?? "Y";
-  const myRating = (profile as { rating?: number } | null)?.rating ?? 1950;
-  const oppRating = 1500 + level * 120;
   const myTime = myColor === "w" ? whiteTime : blackTime;
   const oppTime = myColor === "w" ? blackTime : whiteTime;
   const isMyTurn = phase === "playing" && gameRef.current.turn() === myColor && !thinking;
@@ -554,18 +594,14 @@ export function VsComputer() {
             </DialogTitle>
             <DialogDescription className="text-center">{resultText}</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-3 gap-3 py-2 text-center">
-            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Accuracy</div>
-              <div className="mt-1 font-display text-2xl text-gold">{accuracy}%</div>
-            </div>
-            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Best Move</div>
-              <div className="mt-1 font-display text-2xl">{bestMove}</div>
-            </div>
+          <div className="grid grid-cols-2 gap-3 py-2 text-center">
             <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Moves</div>
               <div className="mt-1 font-display text-2xl">{history.length}</div>
+            </div>
+            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Level</div>
+              <div className="mt-1 font-display text-2xl">{activeLevel.name}</div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 pt-1">

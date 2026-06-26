@@ -18,7 +18,8 @@ export const COURSES: Course[] = [
     level: "Intermediate",
     lessonCount: 24,
     duration: "5h 12m",
-    blurb: "A complete journey through the most aggressive defense in chess, from Najdorf fire to endgame finesse.",
+    blurb:
+      "A complete journey through the most aggressive defense in chess, from Najdorf fire to endgame finesse.",
     gradient: "from-amber-500/30 to-rose-700/30",
     chapters: [
       { title: "Introduction to the Sicilian", length: "12m" },
@@ -38,7 +39,8 @@ export const COURSES: Course[] = [
     level: "Advanced",
     lessonCount: 18,
     duration: "4h 05m",
-    blurb: "Convert small edges like a champion — rook endings, fortress detection, and the art of zugzwang.",
+    blurb:
+      "Convert small edges like a champion — rook endings, fortress detection, and the art of zugzwang.",
     gradient: "from-emerald-500/30 to-teal-700/30",
     chapters: [
       { title: "Endgame Principles Reborn", length: "15m" },
@@ -58,7 +60,8 @@ export const COURSES: Course[] = [
     level: "Beginner",
     lessonCount: 12,
     duration: "2h 40m",
-    blurb: "Develop fast, castle early, and fight for the centre — the timeless foundations of every strong opening.",
+    blurb:
+      "Develop fast, castle early, and fight for the centre — the timeless foundations of every strong opening.",
     gradient: "from-sky-500/30 to-indigo-700/30",
     chapters: [
       { title: "Why Openings Matter", length: "10m" },
@@ -78,7 +81,8 @@ export const COURSES: Course[] = [
     level: "Advanced",
     lessonCount: 22,
     duration: "4h 50m",
-    blurb: "The most ambitious kingside attack in chess — pawn storms, piece sacrifices, and dark-square domination.",
+    blurb:
+      "The most ambitious kingside attack in chess — pawn storms, piece sacrifices, and dark-square domination.",
     gradient: "from-fuchsia-500/30 to-violet-700/30",
     chapters: [
       { title: "The KID Philosophy", length: "14m" },
@@ -98,7 +102,8 @@ export const COURSES: Course[] = [
     level: "Intermediate",
     lessonCount: 16,
     duration: "3h 30m",
-    blurb: "A rock-solid reply to 1.e4 with healthy structures, clear plans, and venom hidden in quiet positions.",
+    blurb:
+      "A rock-solid reply to 1.e4 with healthy structures, clear plans, and venom hidden in quiet positions.",
     gradient: "from-orange-500/30 to-red-700/30",
     chapters: [
       { title: "Caro-Kann Foundations", length: "12m" },
@@ -118,7 +123,8 @@ export const COURSES: Course[] = [
     level: "All Levels",
     lessonCount: 30,
     duration: "6h 15m",
-    blurb: "Forks, pins, skewers, and sacrifices — a daily training regimen to sharpen your calculation.",
+    blurb:
+      "Forks, pins, skewers, and sacrifices — a daily training regimen to sharpen your calculation.",
     gradient: "from-yellow-500/30 to-amber-700/30",
     chapters: [
       { title: "The Tactical Eye", length: "12m" },

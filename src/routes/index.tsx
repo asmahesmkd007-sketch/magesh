@@ -55,7 +55,10 @@ function LandingPage() {
 
         {/* Left vertical rail */}
         <div className="absolute left-0 top-0 hidden h-full w-[108px] flex-col items-center border-r border-gold/15 bg-[#0f0505]/60 backdrop-blur-sm lg:flex">
-          <Link to="/" className="mt-7 grid h-12 w-12 place-items-center rounded-lg border border-gold/30 bg-background/40">
+          <Link
+            to="/"
+            className="mt-7 grid h-12 w-12 place-items-center rounded-lg border border-gold/30 bg-background/40"
+          >
             <span className="text-2xl text-gold/80">✦</span>
           </Link>
           <div className="mt-10 flex flex-col gap-2">
@@ -72,8 +75,12 @@ function LandingPage() {
                   {active && (
                     <span className="absolute right-[-12px] top-1/2 h-10 w-[3px] -translate-y-1/2 rounded-l-full gradient-gold" />
                   )}
-                  <item.icon className={`h-5 w-5 ${active ? "text-gold" : "text-gold/55 group-hover:text-gold/80"}`} />
-                  <span className={`text-[10px] uppercase tracking-[0.2em] ${active ? "text-gold" : "text-gold/55 group-hover:text-gold/80"}`}>
+                  <item.icon
+                    className={`h-5 w-5 ${active ? "text-gold" : "text-gold/55 group-hover:text-gold/80"}`}
+                  />
+                  <span
+                    className={`text-[10px] uppercase tracking-[0.2em] ${active ? "text-gold" : "text-gold/55 group-hover:text-gold/80"}`}
+                  >
                     {item.label}
                   </span>
                 </Link>
@@ -86,7 +93,11 @@ function LandingPage() {
         <div className="relative mx-auto flex min-h-[calc(100vh-80px)] max-w-[1400px] items-center px-6 pl-6 lg:pl-[148px]">
           <div className="max-w-2xl py-16">
             <h1 className="font-display text-[44px] uppercase leading-[0.95] tracking-[0.01em] text-gradient-gold sm:text-[64px] md:text-[78px] lg:text-[88px]">
-              The Regal<br />Game:<br />Chess of India
+              The Regal
+              <br />
+              Game:
+              <br />
+              Chess of India
             </h1>
             <p className="mt-6 max-w-md text-[15px] tracking-wide text-foreground/75 sm:text-base">
               Experience the Ultimate Premium Chess Journey.
@@ -114,7 +125,9 @@ function LandingPage() {
                   to="/auth"
                   className="group inline-flex items-baseline gap-2 font-display text-xl uppercase tracking-[0.28em] text-gold/90 hover:text-gold"
                 >
-                  <span className="border-b border-gold/60 pb-0.5 group-hover:border-gold">Login</span>
+                  <span className="border-b border-gold/60 pb-0.5 group-hover:border-gold">
+                    Login
+                  </span>
                   <LogIn className="h-4 w-4 self-center" />
                 </Link>
               )}
@@ -142,8 +155,13 @@ function LandingPage() {
       {/* FEATURED TOURNAMENTS */}
       <section className="mx-auto max-w-[1400px] px-6 py-20 lg:pl-[148px]">
         <div className="flex items-end justify-between gap-6">
-          <h2 className="font-display text-3xl tracking-tight text-foreground sm:text-4xl">Featured Tournaments</h2>
-          <Link to="/tournaments" className="text-xs uppercase tracking-[0.24em] text-gold/70 hover:text-gold">
+          <h2 className="font-display text-3xl tracking-tight text-foreground sm:text-4xl">
+            Featured Tournaments
+          </h2>
+          <Link
+            to="/tournaments"
+            className="text-xs uppercase tracking-[0.24em] text-gold/70 hover:text-gold"
+          >
             View all →
           </Link>
         </div>
@@ -190,12 +208,21 @@ function LandingPage() {
                   <Sparkles className="h-7 w-7 text-background" />
                 </div>
                 <div>
-                  <div className="text-[11px] uppercase tracking-[0.28em] text-gold/80">Premium Membership</div>
-                  <div className="mt-1 font-display text-3xl text-gradient-gold">Luxury Membership</div>
+                  <div className="text-[11px] uppercase tracking-[0.28em] text-gold/80">
+                    Premium Membership
+                  </div>
+                  <div className="mt-1 font-display text-3xl text-gradient-gold">
+                    Luxury Membership
+                  </div>
                 </div>
               </div>
               <ul className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-foreground/90">
-                {["Ad-Free Play", "Exclusive AI Analysis", "Premium Tournaments", "Personalized Learning"].map((f) => (
+                {[
+                  "Ad-Free Play",
+                  "Exclusive AI Analysis",
+                  "Premium Tournaments",
+                  "Personalized Learning",
+                ].map((f) => (
                   <li key={f} className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-emerald" /> {f}
                   </li>

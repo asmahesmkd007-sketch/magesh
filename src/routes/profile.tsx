@@ -1,8 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { PageShell, Card, GoldButton, GhostButton, SectionTitle } from "@/components/site/Primitives";
+import {
+  PageShell,
+  Card,
+  GoldButton,
+  GhostButton,
+  SectionTitle,
+} from "@/components/site/Primitives";
 import { MapPin, Trophy, Users, Star, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { useAuth, useProfile, initials } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -11,8 +25,22 @@ export const Route = createFileRoute("/profile")({
   component: Profile,
 });
 
-type Rating = { time_class: string; rating: number; games_played: number; wins: number; losses: number; draws: number };
-type Game = { id: string; white_username: string | null; black_username: string | null; result: string; time_class: string; created_at: string };
+type Rating = {
+  time_class: string;
+  rating: number;
+  games_played: number;
+  wins: number;
+  losses: number;
+  draws: number;
+};
+type Game = {
+  id: string;
+  white_username: string | null;
+  black_username: string | null;
+  result: string;
+  time_class: string;
+  created_at: string;
+};
 
 function ratingHistory(current: number) {
   const out: { day: string; rating: number }[] = [];
@@ -37,7 +65,11 @@ function Profile() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("ratings").select("*").eq("user_id", user.id).then(({ data }) => setRatings((data as Rating[]) ?? []));
+    supabase
+      .from("ratings")
+      .select("*")
+      .eq("user_id", user.id)
+      .then(({ data }) => setRatings((data as Rating[]) ?? []));
     supabase
       .from("games")
       .select("id, white_username, black_username, result, time_class, created_at")
@@ -47,7 +79,7 @@ function Profile() {
       .then(({ data }) => setGames((data as Game[]) ?? []));
   }, [user]);
 
-  const ratingByClass = (cls: string) => ratings.find((r) => r.time_class === cls)?.rating ?? 1200;
+  const ratingByClass = (cls: string) => ratings.find((r) => r.time_class === cls)?.rating ?? 100;
 
   const totals = useMemo(
     () =>
@@ -68,7 +100,9 @@ function Profile() {
   if (authLoading || profileLoading) {
     return (
       <PageShell>
-        <div className="grid place-items-center py-32"><Loader2 className="h-8 w-8 animate-spin text-gold" /></div>
+        <div className="grid place-items-center py-32">
+          <Loader2 className="h-8 w-8 animate-spin text-gold" />
+        </div>
       </PageShell>
     );
   }
@@ -76,7 +110,9 @@ function Profile() {
   if (!user || !profile) {
     return (
       <PageShell eyebrow="Royal Court" title="Sign in to view your profile">
-        <Link to="/auth"><GoldButton>Sign in</GoldButton></Link>
+        <Link to="/auth">
+          <GoldButton>Sign in</GoldButton>
+        </Link>
       </PageShell>
     );
   }
@@ -95,18 +131,32 @@ function Profile() {
             <div className="flex-1">
               <h1 className="font-display text-4xl">{profile.display_name}</h1>
               <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {profile.country ?? "India"}</span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5" /> {profile.country ?? "India"}
+                </span>
                 <span>· @{profile.username}</span>
-                {profile.title && <span className="rounded-full bg-gold/15 px-2 py-0.5 text-xs text-gold">{profile.title}</span>}
+                {profile.title && (
+                  <span className="rounded-full bg-gold/15 px-2 py-0.5 text-xs text-gold">
+                    {profile.title}
+                  </span>
+                )}
                 {profile.premium_tier !== "free" && (
-                  <span className="rounded-full bg-emerald/15 px-2 py-0.5 text-xs uppercase tracking-widest text-emerald">{profile.premium_tier}</span>
+                  <span className="rounded-full bg-emerald/15 px-2 py-0.5 text-xs uppercase tracking-widest text-emerald">
+                    {profile.premium_tier}
+                  </span>
                 )}
               </div>
-              {profile.bio && <p className="mt-3 max-w-2xl text-sm text-muted-foreground">{profile.bio}</p>}
+              {profile.bio && (
+                <p className="mt-3 max-w-2xl text-sm text-muted-foreground">{profile.bio}</p>
+              )}
             </div>
             <div className="flex gap-2">
-              <Link to="/settings"><GoldButton>Edit Profile</GoldButton></Link>
-              <Link to="/play"><GhostButton>Play Now</GhostButton></Link>
+              <Link to="/settings">
+                <GoldButton>Edit Profile</GoldButton>
+              </Link>
+              <Link to="/play">
+                <GhostButton>Play Now</GhostButton>
+              </Link>
             </div>
           </div>
 
@@ -120,14 +170,18 @@ function Profile() {
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {([
-              ["Total Games", totals.games, "text-foreground"],
-              ["Wins", totals.wins, "text-emerald"],
-              ["Losses", totals.losses, "text-rose-400"],
-              ["Draws", totals.draws, "text-muted-foreground"],
-            ] as const).map(([label, value, cls]) => (
+            {(
+              [
+                ["Total Games", totals.games, "text-foreground"],
+                ["Wins", totals.wins, "text-emerald"],
+                ["Losses", totals.losses, "text-rose-400"],
+                ["Draws", totals.draws, "text-muted-foreground"],
+              ] as const
+            ).map(([label, value, cls]) => (
               <div key={label} className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-                <div className="text-xs uppercase tracking-widest text-muted-foreground">{label}</div>
+                <div className="text-xs uppercase tracking-widest text-muted-foreground">
+                  {label}
+                </div>
                 <div className={`font-display text-2xl ${cls}`}>{value}</div>
               </div>
             ))}
@@ -147,13 +201,35 @@ function Profile() {
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis dataKey="day" tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 11 }} tickLine={false} axisLine={false} interval={6} />
-              <YAxis tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 11 }} tickLine={false} axisLine={false} domain={["dataMin - 20", "dataMax + 20"]} />
+              <XAxis
+                dataKey="day"
+                tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+                interval={6}
+              />
+              <YAxis
+                tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+                domain={["dataMin - 20", "dataMax + 20"]}
+              />
               <Tooltip
-                contentStyle={{ background: "rgba(16,8,8,0.95)", border: "1px solid rgba(212,175,55,0.3)", borderRadius: 12, fontSize: 12 }}
+                contentStyle={{
+                  background: "rgba(16,8,8,0.95)",
+                  border: "1px solid rgba(212,175,55,0.3)",
+                  borderRadius: 12,
+                  fontSize: 12,
+                }}
                 labelStyle={{ color: "#d4af37" }}
               />
-              <Area type="monotone" dataKey="rating" stroke="#d4af37" strokeWidth={2} fill="url(#goldFill)" />
+              <Area
+                type="monotone"
+                dataKey="rating"
+                stroke="#d4af37"
+                strokeWidth={2}
+                fill="url(#goldFill)"
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -163,17 +239,30 @@ function Profile() {
         <Card className="p-6 lg:col-span-2">
           <SectionTitle kicker="History" title="Match History" />
           {games.length === 0 ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">No games yet. <Link to="/play" className="text-gold">Play your first</Link>.</p>
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              No games yet.{" "}
+              <Link to="/play" className="text-gold">
+                Play your first
+              </Link>
+              .
+            </p>
           ) : (
             <div className="divide-y divide-white/5">
               {games.map((g) => {
-                const opp = g.white_username && g.white_username !== profile.username ? g.white_username : g.black_username;
+                const opp =
+                  g.white_username && g.white_username !== profile.username
+                    ? g.white_username
+                    : g.black_username;
                 return (
                   <div key={g.id} className="flex items-center justify-between py-3 text-sm">
                     <span>vs {opp ?? "Anonymous"}</span>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground capitalize">{g.time_class}</span>
-                      <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs text-muted-foreground capitalize">{g.result}</span>
+                      <span className="text-xs text-muted-foreground capitalize">
+                        {g.time_class}
+                      </span>
+                      <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs text-muted-foreground capitalize">
+                        {g.result}
+                      </span>
                     </div>
                   </div>
                 );
@@ -185,13 +274,17 @@ function Profile() {
         <Card className="p-6">
           <SectionTitle kicker="Glory" title="Achievements" />
           <ul className="space-y-3 text-sm">
-            {([
-              ["Joined the Court", Star],
-              ["First Move", Trophy],
-              ["Royal Member", Users],
-            ] as const).map(([t, Icon], i) => (
+            {(
+              [
+                ["Joined the Court", Star],
+                ["First Move", Trophy],
+                ["Royal Member", Users],
+              ] as const
+            ).map(([t, Icon], i) => (
               <li key={i} className="flex items-center gap-3 rounded-lg border border-white/5 p-3">
-                <span className="grid h-9 w-9 place-items-center rounded-full gradient-gold text-[#0B0D10]"><Icon className="h-4 w-4" /></span>
+                <span className="grid h-9 w-9 place-items-center rounded-full gradient-gold text-[#0B0D10]">
+                  <Icon className="h-4 w-4" />
+                </span>
                 {t}
               </li>
             ))}

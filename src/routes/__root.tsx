@@ -22,8 +22,13 @@ function NotFoundComponent() {
       <div className="royal-panel max-w-md rounded-[28px] p-10 text-center">
         <div className="text-[11px] uppercase tracking-[0.26em] text-gold/70">Error 404</div>
         <h1 className="mt-4 text-5xl text-gradient-gold">Page not found</h1>
-        <p className="mt-4 text-sm text-muted-foreground">This chamber of ChessOx has not been opened yet.</p>
-        <Link to="/" className="mt-8 inline-flex rounded-xl gradient-gold px-5 py-2.5 text-sm font-medium text-background">
+        <p className="mt-4 text-sm text-muted-foreground">
+          This chamber of ChessOx has not been opened yet.
+        </p>
+        <Link
+          to="/"
+          className="mt-8 inline-flex rounded-xl gradient-gold px-5 py-2.5 text-sm font-medium text-background"
+        >
           Return home
         </Link>
       </div>
@@ -44,12 +49,23 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
       <div className="royal-panel max-w-md rounded-[28px] p-10 text-center">
         <div className="text-[11px] uppercase tracking-[0.26em] text-gold/70">Unexpected move</div>
         <h1 className="mt-4 text-4xl text-gradient-gold">Something went wrong</h1>
-        <p className="mt-4 text-sm text-muted-foreground">Refresh the board or head back to the royal lobby.</p>
+        <p className="mt-4 text-sm text-muted-foreground">
+          Refresh the board or head back to the royal lobby.
+        </p>
         <div className="mt-8 flex justify-center gap-3">
-          <button onClick={() => { router.invalidate(); reset(); }} className="rounded-xl gradient-gold px-4 py-2 text-sm font-medium text-background">
+          <button
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
+            className="rounded-xl gradient-gold px-4 py-2 text-sm font-medium text-background"
+          >
             Try again
           </button>
-          <a href="/" className="rounded-xl border border-gold/25 px-4 py-2 text-sm text-foreground">
+          <a
+            href="/"
+            className="rounded-xl border border-gold/25 px-4 py-2 text-sm text-foreground"
+          >
             Home
           </a>
         </div>
@@ -64,19 +80,40 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "ChessOx — Royal Indian Chess Experience" },
-      { name: "description", content: "ChessOx is a premium frontend-only chess platform blending royal Indian heritage, luxury gaming, and modern competitive play." },
+      {
+        name: "description",
+        content:
+          "ChessOx is a premium frontend-only chess platform blending royal Indian heritage, luxury gaming, and modern competitive play.",
+      },
       { property: "og:title", content: "ChessOx — Royal Indian Chess Experience" },
-      { property: "og:description", content: "Enter a royal chess palace built in modern times — tournaments, puzzles, academy, and elite play screens." },
+      {
+        property: "og:description",
+        content:
+          "Enter a royal chess palace built in modern times — tournaments, puzzles, academy, and elite play screens.",
+      },
       { property: "og:type", content: "website" },
+      { property: "og:image", content: "/chessox-icon.ico" },
+      { name: "theme-color", content: "#D4AF37" },
       { name: "twitter:card", content: "summary" },
+      { name: "twitter:image", content: "/chessox-icon.ico" },
       { name: "twitter:title", content: "ChessOx — Royal Indian Chess Experience" },
-      { name: "twitter:description", content: "A luxury royal chess kingdom inspired by the birthplace of chess." },
+      {
+        name: "twitter:description",
+        content: "A luxury royal chess kingdom inspired by the birthplace of chess.",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+      { rel: "icon", href: "/chessox-icon.ico", type: "image/x-icon", sizes: "any" },
+      { rel: "apple-touch-icon", href: "/chessox-icon.ico" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Fira+Sans:wght@300;400;500;600;700&family=Fira+Mono:wght@400;500;700&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Fira+Sans:wght@300;400;500;600;700&family=Fira+Mono:wght@400;500;700&display=swap",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -105,16 +142,39 @@ function RootComponent() {
 
   useEffect(() => {
     let mounted = true;
-    import("@/integrations/supabase/client").then(({ supabase }) => {
-      if (!mounted) return;
-      const { data } = supabase.auth.onAuthStateChange((event) => {
-        if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-        router.invalidate();
-        if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
-      });
-      return () => data.subscription.unsubscribe();
-    });
-    return () => { mounted = false; };
+    let sub: { unsubscribe: () => void } | null = null;
+    let stopPresence: (() => void) | null = null;
+
+    Promise.all([import("@/integrations/supabase/client"), import("@/lib/presence")]).then(
+      ([{ supabase }, { startPresence }]) => {
+        if (!mounted) return;
+        const { data } = supabase.auth.onAuthStateChange((event, session) => {
+          if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+          router.invalidate();
+          if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+
+          if (event === "SIGNED_IN" && session?.user) {
+            stopPresence?.();
+            stopPresence = startPresence(supabase, session.user.id);
+            // Update login streak (idempotent per calendar day — safe to call on every sign-in)
+            (supabase as unknown as { rpc: (fn: string) => Promise<unknown> })
+              .rpc("update_login_streak")
+              .catch(() => {});
+          }
+          if (event === "SIGNED_OUT") {
+            stopPresence?.();
+            stopPresence = null;
+          }
+        });
+        sub = data.subscription;
+      },
+    );
+
+    return () => {
+      mounted = false;
+      sub?.unsubscribe();
+      stopPresence?.();
+    };
   }, [router, queryClient]);
 
   return (

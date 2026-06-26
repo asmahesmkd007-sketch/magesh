@@ -1,12 +1,20 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Chess, type Square } from "chess.js";
+import { toast } from "sonner";
 import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Primitives";
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Flag, Handshake, Copy, Send, Crown, MessageCircle, Swords } from "lucide-react";
+import {
+  submitMove,
+  joinGame,
+  resignGame,
+  respondDraw,
+  claimTimeout,
+} from "@/lib/api/gameClient";
+import { Flag, Handshake, Copy, Send, Crown, MessageCircle, Swords, Play, LineChart } from "lucide-react";
 
 export const Route = createFileRoute("/game/$id")({
   head: () => ({ meta: [{ title: "Live Game — ChessOx" }] }),
@@ -63,6 +71,11 @@ function LiveGame() {
   const [tick, setTick] = useState(0);
   const [joining, setJoining] = useState(false);
 
+  // Prevent double-submission of moves
+  const submittingRef = useRef(false);
+  // Prevent claiming timeout more than once per active game
+  const timeoutClaimedRef = useRef(false);
+
   const chess = useMemo(() => {
     const c = new Chess();
     if (game?.fen) { try { c.load(game.fen); } catch { /* noop */ } }
@@ -86,7 +99,7 @@ function LiveGame() {
     return () => { alive = false; };
   }, [id]);
 
-  // Realtime
+  // Realtime — re-fetch move list on re-subscribe to recover any gaps during disconnect
   useEffect(() => {
     const ch = supabase.channel(`game:${id}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${id}` },
@@ -99,7 +112,13 @@ function LiveGame() {
         }))
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_chat", filter: `game_id=eq.${id}` },
         (p) => setChat((prev) => [...prev, p.new as ChatRow]))
-      .subscribe();
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          const { data: m } = await supabase
+            .from("game_moves").select("ply,san,uci,fen_after").eq("game_id", id).order("ply");
+          if (m) setMoves(m as MoveRow[]);
+        }
+      });
     return () => { supabase.removeChannel(ch); };
   }, [id]);
 
@@ -110,6 +129,11 @@ function LiveGame() {
     return () => clearInterval(t);
   }, [game?.status]);
 
+  // Reset timeout claim flag when game status or id changes
+  useEffect(() => {
+    timeoutClaimedRef.current = false;
+  }, [game?.status, id]);
+
   if (!game) return <PageShell title="Loading throne…"><div /></PageShell>;
 
   const myColor: "w" | "b" | null =
@@ -117,13 +141,28 @@ function LiveGame() {
   const orientation = myColor ?? "w";
   const isMyTurn = !!myColor && myColor === game.turn && game.status === "active";
 
-  // Live clock display
+  // Live clock — recomputed on every tick render
   const elapsed = game.last_move_at && game.status === "active"
     ? Date.now() - new Date(game.last_move_at).getTime()
     : 0;
   void tick;
-  const whiteMs = game.turn === "w" ? game.white_time_ms - elapsed : game.white_time_ms;
-  const blackMs = game.turn === "b" ? game.black_time_ms - elapsed : game.black_time_ms;
+  const whiteMs = game.turn === "w" ? Math.max(0, game.white_time_ms - elapsed) : game.white_time_ms;
+  const blackMs = game.turn === "b" ? Math.max(0, game.black_time_ms - elapsed) : game.black_time_ms;
+
+  // Opponent timeout watcher — when it's NOT my turn and the opponent's displayed clock hits 0
+  if (
+    game.status === "active" &&
+    myColor &&
+    user &&
+    !timeoutClaimedRef.current
+  ) {
+    const isOppTurn = game.turn !== myColor;
+    const oppMs = myColor === "w" ? blackMs : whiteMs;
+    if (isOppTurn && oppMs <= 0) {
+      timeoutClaimedRef.current = true;
+      claimTimeout(id).catch(() => { timeoutClaimedRef.current = false; });
+    }
+  }
 
   // Board cells
   const board: BoardCell[][] = chess.board().map((row) =>
@@ -141,16 +180,14 @@ function LiveGame() {
     : null;
 
   async function handleSquare(sq: string) {
-    if (!isMyTurn || promotion) return;
+    if (!isMyTurn || promotion || submittingRef.current) return;
     const square = sq as Square;
     if (selected) {
       const moveList = chess.moves({ square: selected as Square, verbose: true });
       const m = moveList.find((mv) => mv.to === square);
       if (m) {
-        if (m.promotion === undefined && (m.piece === "p" && (square[1] === "8" || square[1] === "1"))) {
-          setPromotion({ from: selected, to: square }); return;
-        }
-        if (m.flags.includes("p")) {
+        // Pawn reaches the back rank → promotion required
+        if (m.piece === "p" && (m.to[1] === "8" || m.to[1] === "1")) {
           setPromotion({ from: selected, to: square }); return;
         }
         await commitMove(selected, square, undefined);
@@ -161,132 +198,63 @@ function LiveGame() {
     const piece = chess.get(square);
     if (piece && piece.color === game!.turn && piece.color === myColor) {
       setSelected(sq);
-      setTargets(chess.moves({ square, verbose: true }).map((m) => m.to));
+      setTargets(chess.moves({ square, verbose: true }).map((mv) => mv.to));
     } else {
       setSelected(null); setTargets([]);
     }
   }
 
   async function commitMove(from: string, to: string, promo?: "q" | "r" | "b" | "n") {
-    if (!game || !user || !myColor) return;
-    const local = new Chess(game.fen);
-    const m = local.move({ from, to, promotion: promo });
-    if (!m) return;
-    const now = Date.now();
-    const sinceLast = game.last_move_at ? now - new Date(game.last_move_at).getTime() : 0;
-    const myTimeMs = (myColor === "w" ? game.white_time_ms : game.black_time_ms) - sinceLast + game.increment_seconds * 1000;
-    if (myTimeMs <= 0) { await endByFlag(); return; }
-
-    const newPly = moves.length + 1;
-    const fenAfter = local.fen();
-    const nextTurn = local.turn();
-    const newPgn = local.pgn();
-    let status = "active";
-    let result: string = "ongoing";
-    let winnerId: string | null = null;
-    let endReason: string | null = null;
-    if (local.isCheckmate()) {
-      status = "finished";
-      result = myColor === "w" ? "white" : "black";
-      winnerId = user.id;
-      endReason = "checkmate";
-    } else if (local.isDraw() || local.isStalemate() || local.isThreefoldRepetition() || local.isInsufficientMaterial()) {
-      status = "finished";
-      result = "draw";
-      endReason = local.isStalemate() ? "stalemate" : local.isThreefoldRepetition() ? "repetition" : local.isInsufficientMaterial() ? "insufficient" : "fifty-move";
+    if (!game || !user || !myColor || submittingRef.current) return;
+    submittingRef.current = true;
+    setSelected(null); setTargets([]);
+    try {
+      const result = await submitMove({ gameId: id, from, to, promotion: promo });
+      if (!result.ok) {
+        // Server flagged this move as a timeout loss for the mover
+        toast.error("You ran out of time.");
+      }
+      // Realtime will update game state from the server's DB write
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Move failed — try again.");
+    } finally {
+      submittingRef.current = false;
     }
-
-    // Optimistic local update
-    setGame({ ...game, fen: fenAfter, turn: nextTurn, last_move_at: new Date(now).toISOString(),
-      white_time_ms: myColor === "w" ? myTimeMs : game.white_time_ms,
-      black_time_ms: myColor === "b" ? myTimeMs : game.black_time_ms,
-      status, result, winner_id: winnerId, end_reason: endReason, pgn: newPgn });
-
-    const uci = `${from}${to}${promo ?? ""}`;
-    await supabase.from("game_moves").insert({
-      game_id: id, ply: newPly, san: m.san, uci, fen_after: fenAfter, by_user: user.id, time_left_ms: myTimeMs,
-    });
-    const patch: Record<string, unknown> = {
-      fen: fenAfter, turn: nextTurn, last_move_at: new Date(now).toISOString(),
-      pgn: newPgn, moves_count: newPly, status, result,
-    };
-    if (myColor === "w") patch.white_time_ms = myTimeMs; else patch.black_time_ms = myTimeMs;
-    if (status === "finished") {
-      patch.winner_id = winnerId;
-      patch.end_reason = endReason;
-      patch.ended_at = new Date().toISOString();
-    }
-    await supabase.from("games").update(patch as never).eq("id", id);
-    if (status === "finished") await applyRatings(result, winnerId);
-  }
-
-  async function applyRatings(result: string, winnerId: string | null) {
-    if (!game || !game.is_rated || !game.white_id || !game.black_id) return;
-    const cls = game.time_class;
-    if (!cls) return;
-    const { data: ratings } = await supabase.from("ratings")
-      .select("user_id, rating, games_played").in("user_id", [game.white_id, game.black_id]).eq("time_class", cls);
-    if (!ratings) return;
-    const w = ratings.find((r) => r.user_id === game.white_id);
-    const b = ratings.find((r) => r.user_id === game.black_id);
-    if (!w || !b) return;
-    const K = 24;
-    const exp = (a: number, c: number) => 1 / (1 + Math.pow(10, (c - a) / 400));
-    const wScore = result === "white" ? 1 : result === "draw" ? 0.5 : 0;
-    const bScore = 1 - wScore;
-    const newW = Math.round(w.rating + K * (wScore - exp(w.rating, b.rating)));
-    const newB = Math.round(b.rating + K * (bScore - exp(b.rating, w.rating)));
-    await supabase.from("ratings").update({ rating: newW, games_played: w.games_played + 1 } as never).eq("user_id", game.white_id).eq("time_class", cls);
-    await supabase.from("ratings").update({ rating: newB, games_played: b.games_played + 1 } as never).eq("user_id", game.black_id).eq("time_class", cls);
-    void winnerId;
-  }
-
-  async function endByFlag() {
-    if (!game || !myColor) return;
-    const winner = myColor === "w" ? "black" : "white";
-    const winnerId = myColor === "w" ? game.black_id : game.white_id;
-    await supabase.from("games").update({
-      status: "finished", result: winner, winner_id: winnerId, end_reason: "timeout", ended_at: new Date().toISOString(),
-    } as never).eq("id", id);
-    await applyRatings(winner, winnerId);
   }
 
   async function joinAsOpponent() {
     if (!user || !game || game.status !== "waiting") return;
     if (game.white_id === user.id || game.black_id === user.id) return;
     setJoining(true);
-    const { data: profile } = await supabase.from("profiles").select("username").eq("id", user.id).maybeSingle();
-    const username = profile?.username ?? "Player";
-    const patch: Record<string, unknown> = {
-      status: "active",
-      last_move_at: new Date().toISOString(),
-    };
-    if (!game.white_id) { patch.white_id = user.id; patch.white_username = username; }
-    else { patch.black_id = user.id; patch.black_username = username; }
-    await supabase.from("games").update(patch as never).eq("id", id);
-    setJoining(false);
+    try {
+      await joinGame(id);
+      // join_game RPC sets status to "active", sets rating, and fires Realtime
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not join the game.");
+    } finally {
+      setJoining(false);
+    }
   }
 
   async function resign() {
     if (!game || !myColor || game.status !== "active") return;
     if (!confirm("Resign this game?")) return;
-    const winner = myColor === "w" ? "black" : "white";
-    const winnerId = myColor === "w" ? game.black_id : game.white_id;
-    await supabase.from("games").update({
-      status: "finished", result: winner, winner_id: winnerId, end_reason: "resignation", ended_at: new Date().toISOString(),
-    } as never).eq("id", id);
-    await applyRatings(winner, winnerId);
+    try {
+      await resignGame(id);
+      // resign_game RPC finishes the game and calls apply_elo_change server-side
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Resign failed.");
+    }
   }
 
-  async function offerDraw() {
+  async function offerOrAcceptDraw() {
     if (!game || !myColor || game.status !== "active") return;
-    if (game.draw_offered_by && game.draw_offered_by !== user!.id) {
-      await supabase.from("games").update({
-        status: "finished", result: "draw", end_reason: "agreement", ended_at: new Date().toISOString(), draw_offered_by: null,
-      } as never).eq("id", id);
-      await applyRatings("draw", null);
-    } else {
-      await supabase.from("games").update({ draw_offered_by: user!.id } as never).eq("id", id);
+    try {
+      const res = await respondDraw(id);
+      if (res === "offered") toast.info("Draw offer sent to opponent.");
+      // "accepted" → respond_draw finishes game + apply_elo_change; Realtime updates UI
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Draw action failed.");
     }
   }
 
@@ -295,7 +263,10 @@ function LiveGame() {
     const body = chatInput.trim().slice(0, 500);
     const { data: profile } = await supabase.from("profiles").select("username").eq("id", user.id).maybeSingle();
     setChatInput("");
-    await supabase.from("game_chat").insert({ game_id: id, user_id: user.id, username: profile?.username ?? "Player", body });
+    // game_chat remains client-writable (RLS enforces user_id match; not integrity-critical)
+    await supabase.from("game_chat").insert({
+      game_id: id, user_id: user.id, username: profile?.username ?? "Player", body,
+    });
   }
 
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/game/${id}` : "";
@@ -312,6 +283,7 @@ function LiveGame() {
   const isFinished = game.status === "finished";
   const canJoin = isWaiting && !!user && (!game.white_id || !game.black_id) && game.host_id !== user.id;
   const isHostWaiting = isWaiting && user?.id === game.host_id;
+  const drawFromMe = game.draw_offered_by === user?.id;
 
   return (
     <PageShell>
@@ -355,8 +327,10 @@ function LiveGame() {
                 {game.result === "draw" ? "Draw" : game.result === "white" ? "White Wins" : "Black Wins"}
               </div>
               <div className="text-xs uppercase tracking-widest text-muted-foreground">{game.end_reason}</div>
-              <div className="mt-4 flex justify-center gap-2">
-                <Link to="/play/friend"><GoldButton>New Challenge</GoldButton></Link>
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                <Link to="/game/$id/review" params={{ id }}><GoldButton><Play className="h-4 w-4" /> Replay</GoldButton></Link>
+                <Link to="/analysis" search={{ gameId: id }}><GhostButton><LineChart className="h-4 w-4" /> Analyze</GhostButton></Link>
+                <Link to="/play/friend"><GhostButton><Swords className="h-4 w-4" /> New Challenge</GhostButton></Link>
               </div>
             </Card>
           )}
@@ -371,7 +345,7 @@ function LiveGame() {
             lastMove={lastMove}
             checkSquare={checkSquare}
             onSquare={handleSquare}
-            disabled={!isMyTurn || !!promotion}
+            disabled={!isMyTurn || !!promotion || submittingRef.current}
           />
           {promotion && (
             <div className="mt-4 flex justify-center">
@@ -381,17 +355,18 @@ function LiveGame() {
                   const { from, to } = promotion;
                   setPromotion(null);
                   void commitMove(from, to, p);
-                  setSelected(null); setTargets([]);
                 }} />
             </div>
           )}
           {!isWaiting && !isFinished && myColor && (
             <div className="mt-4 flex flex-wrap justify-center gap-2">
-              <GhostButton onClick={offerDraw}>
+              <GhostButton onClick={offerOrAcceptDraw} disabled={drawFromMe}>
                 <Handshake className="h-4 w-4" />
-                {game.draw_offered_by && game.draw_offered_by !== user?.id ? "Accept Draw" : "Offer Draw"}
+                {game.draw_offered_by && !drawFromMe ? "Accept Draw" : drawFromMe ? "Draw Offered" : "Offer Draw"}
               </GhostButton>
-              <GoldButton onClick={resign} className="bg-destructive text-foreground"><Flag className="h-4 w-4" /> Resign</GoldButton>
+              <GoldButton onClick={resign} className="bg-destructive text-foreground">
+                <Flag className="h-4 w-4" /> Resign
+              </GoldButton>
             </div>
           )}
         </div>

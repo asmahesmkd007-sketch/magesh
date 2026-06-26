@@ -1,5 +1,15 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { GraduationCap, Home, Newspaper, Puzzle, Swords, Trophy, User, Users, LogIn } from "lucide-react";
+import {
+  GraduationCap,
+  Home,
+  Newspaper,
+  Puzzle,
+  Swords,
+  Trophy,
+  User,
+  Users,
+  LogIn,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const AUTH_ITEMS = [
@@ -31,8 +41,13 @@ export function MobileNav() {
           const Icon = item.icon;
           return (
             <li key={item.label}>
-              <Link to={item.to} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-[10px] ${active ? "text-gold" : "text-muted-foreground"}`}>
-                <span className={`grid h-8 w-8 place-items-center rounded-full ${active ? "bg-gold/12" : "bg-white/[0.03]"}`}>
+              <Link
+                to={item.to}
+                className={`flex flex-col items-center gap-1 rounded-xl py-2 text-[10px] ${active ? "text-gold" : "text-muted-foreground"}`}
+              >
+                <span
+                  className={`grid h-8 w-8 place-items-center rounded-full ${active ? "bg-gold/12" : "bg-white/[0.03]"}`}
+                >
                   <Icon className="h-4 w-4" />
                 </span>
                 {item.label}

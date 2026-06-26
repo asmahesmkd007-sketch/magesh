@@ -26,7 +26,11 @@ const POPULAR = [
 
 function Openings() {
   return (
-    <PageShell eyebrow="The Library" title="Opening Explorer" subtitle="Explore millions of master games — one move at a time.">
+    <PageShell
+      eyebrow="The Library"
+      title="Opening Explorer"
+      subtitle="Explore millions of master games — one move at a time."
+    >
       <div className="grid gap-6 lg:grid-cols-12">
         <div className="lg:col-span-5">
           <Chessboard size="md" />
@@ -36,13 +40,18 @@ function Openings() {
             <SectionTitle kicker="Move" title="Database (1.e?)" />
             <div className="space-y-2">
               {LINES.map(([m, w, n, g]) => (
-                <div key={m as string} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] p-3 text-sm">
+                <div
+                  key={m as string}
+                  className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] p-3 text-sm"
+                >
                   <span className="font-mono text-gold">{m}</span>
                   <div>
                     <div>{n}</div>
                     <div className="text-xs text-muted-foreground">{g}</div>
                   </div>
-                  <span className="rounded-full bg-emerald/15 px-2.5 py-1 text-xs text-emerald">{w}</span>
+                  <span className="rounded-full bg-emerald/15 px-2.5 py-1 text-xs text-emerald">
+                    {w}
+                  </span>
                 </div>
               ))}
             </div>
@@ -52,10 +61,17 @@ function Openings() {
             <SectionTitle kicker="Trending" title="Popular Lines" />
             <div className="space-y-3">
               {POPULAR.map(([n, c, w, d, l]) => (
-                <div key={n as string} className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
+                <div
+                  key={n as string}
+                  className="rounded-lg border border-white/5 bg-white/[0.02] p-3"
+                >
                   <div className="flex items-center justify-between text-sm">
-                    <span className="font-display">{n} <span className="ml-1 text-xs text-muted-foreground">{c}</span></span>
-                    <span className="text-xs text-muted-foreground">W {w}% · D {d}% · L {l}%</span>
+                    <span className="font-display">
+                      {n} <span className="ml-1 text-xs text-muted-foreground">{c}</span>
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      W {w}% · D {d}% · L {l}%
+                    </span>
                   </div>
                   <div className="mt-2 flex h-2 overflow-hidden rounded-full">
                     <div className="bg-emerald" style={{ width: `${w}%` }} />

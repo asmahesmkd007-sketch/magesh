@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Bot, Crown, Flag, Handshake, RotateCcw, Sparkles, Swords, LineChart } from "lucide-react";
 import { Card, GoldButton, GhostButton, SectionTitle } from "@/components/site/Primitives";
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
+import { CapturedPieces } from "@/components/site/CapturedPieces";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
 import {
   Dialog,
@@ -25,10 +26,10 @@ type SideChoice = "w" | "b" | "random";
 type GameResult = "win" | "loss" | "draw";
 
 const LEVELS = [
-  { level: 1, name: "Pawn",   rating: "~600",  desc: "Plays loose, makes blunders" },
-  { level: 2, name: "Knight", rating: "~900",  desc: "Basic tactics, some mistakes" },
+  { level: 1, name: "Pawn", rating: "~600", desc: "Plays loose, makes blunders" },
+  { level: 2, name: "Knight", rating: "~900", desc: "Basic tactics, some mistakes" },
   { level: 3, name: "Bishop", rating: "~1300", desc: "Solid moves, punishes blunders" },
-  { level: 4, name: "Rook",   rating: "~1700", desc: "Sharp tactics, few mistakes" },
+  { level: 4, name: "Rook", rating: "~1700", desc: "Sharp tactics, few mistakes" },
   { level: 5, name: "Vizier", rating: "~2000", desc: "Ruthless calculation" },
 ];
 
@@ -69,7 +70,9 @@ export function VsComputer() {
   const [resultText, setResultText] = useState<string | null>(null);
   const [gameResult, setGameResult] = useState<GameResult | null>(null);
   const [showResult, setShowResult] = useState(false);
-  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(
+    null,
+  );
   const [whiteTime, setWhiteTime] = useState(900);
   const [blackTime, setBlackTime] = useState(900);
 
@@ -82,7 +85,9 @@ export function VsComputer() {
 
   // Spin up engine worker on the client
   useEffect(() => {
-    const worker = new Worker(new URL("../../lib/chess/engine.worker.ts", import.meta.url), { type: "module" });
+    const worker = new Worker(new URL("../../lib/chess/engine.worker.ts", import.meta.url), {
+      type: "module",
+    });
     workerRef.current = worker;
     worker.onmessage = (e: MessageEvent<{ token: number; move: EngineMove | null }>) => {
       if (e.data.token !== tokenRef.current) return;
@@ -168,8 +173,14 @@ export function VsComputer() {
     async (result: "white" | "black" | "draw", reason: string) => {
       setPhase("over");
       setThinking(false);
-      const iWon = (result === "white" && myColor === "w") || (result === "black" && myColor === "b");
-      const text = result === "draw" ? `Draw — ${reason}` : iWon ? `You win — ${reason}` : `Engine wins — ${reason}`;
+      const iWon =
+        (result === "white" && myColor === "w") || (result === "black" && myColor === "b");
+      const text =
+        result === "draw"
+          ? `Draw — ${reason}`
+          : iWon
+            ? `You win — ${reason}`
+            : `Engine wins — ${reason}`;
       setResultText(text);
       setGameResult(result === "draw" ? "draw" : iWon ? "win" : "loss");
       setShowResult(true);
@@ -297,7 +308,9 @@ export function VsComputer() {
     }
 
     if (selected) {
-      const candidates = game.moves({ square: selected as Square, verbose: true }).filter((m) => m.to === sq);
+      const candidates = game
+        .moves({ square: selected as Square, verbose: true })
+        .filter((m) => m.to === sq);
       if (candidates.length === 0) {
         setSelected(null);
         setTargets([]);
@@ -350,17 +363,23 @@ export function VsComputer() {
         <Card className="p-6 lg:col-span-5">
           <SectionTitle kicker="Challenge" title="Face the Engine" />
           <div className="mb-5">
-            <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Strength</div>
+            <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+              Strength
+            </div>
             <div className="space-y-2">
               {LEVELS.map((l) => (
                 <button
                   key={l.level}
                   onClick={() => setLevel(l.level)}
                   className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
-                    level === l.level ? "border-gold/50 bg-gold/10" : "border-white/5 bg-white/[0.02] hover:border-white/10"
+                    level === l.level
+                      ? "border-gold/50 bg-gold/10"
+                      : "border-white/5 bg-white/[0.02] hover:border-white/10"
                   }`}
                 >
-                  <Bot className={`h-5 w-5 ${level === l.level ? "text-gold" : "text-muted-foreground"}`} />
+                  <Bot
+                    className={`h-5 w-5 ${level === l.level ? "text-gold" : "text-muted-foreground"}`}
+                  />
                   <div className="flex-1">
                     <div className="font-display">
                       {l.name} <span className="text-xs text-muted-foreground">{l.rating}</span>
@@ -374,7 +393,9 @@ export function VsComputer() {
           </div>
 
           <div className="mb-6">
-            <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Your side</div>
+            <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+              Your side
+            </div>
             <div className="grid grid-cols-3 gap-2">
               {(
                 [
@@ -387,7 +408,9 @@ export function VsComputer() {
                   key={value}
                   onClick={() => setSide(value)}
                   className={`rounded-xl border px-3 py-2.5 text-sm transition-colors ${
-                    side === value ? "border-gold/50 bg-gold/10 text-gold" : "border-white/5 bg-white/[0.02] hover:border-white/10"
+                    side === value
+                      ? "border-gold/50 bg-gold/10 text-gold"
+                      : "border-white/5 bg-white/[0.02] hover:border-white/10"
                   }`}
                 >
                   {label}
@@ -429,6 +452,7 @@ export function VsComputer() {
     active,
     icon,
     iconBg,
+    capturedColor,
   }: {
     label: string;
     name: string;
@@ -437,25 +461,35 @@ export function VsComputer() {
     active: boolean;
     icon: React.ReactNode;
     iconBg: string;
+    capturedColor: "w" | "b";
   }) => (
     <Card className="p-5 text-center">
       <div className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">{label}</div>
       <div className="mx-auto mt-4 grid h-20 w-20 place-items-center rounded-full bg-[#1a0d10] ring-2 ring-gold/70 shadow-[0_0_24px_rgba(212,175,55,0.25)]">
-        <div className={`grid h-16 w-16 place-items-center rounded-full ${iconBg} font-display text-2xl text-ivory`}>
+        <div
+          className={`grid h-16 w-16 place-items-center rounded-full ${iconBg} font-display text-2xl text-ivory`}
+        >
           {icon}
         </div>
       </div>
       <div className="mt-3 truncate font-display text-sm">{name}</div>
       <div className="mt-1">
         <span className="font-stat text-2xl text-gradient-gold">{rating}</span>
-        <span className="ml-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">ELO</span>
+        <span className="ml-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          ELO
+        </span>
       </div>
       <div
         className={`mx-auto mt-4 w-fit rounded-full border px-5 py-1.5 font-stat text-xl tabular-nums transition-colors ${
-          active ? "border-gold/80 text-gold shadow-[0_0_18px_rgba(212,175,55,0.35)]" : "border-gold/20 text-foreground/70"
+          active
+            ? "border-gold/80 text-gold shadow-[0_0_18px_rgba(212,175,55,0.35)]"
+            : "border-gold/20 text-foreground/70"
         }`}
       >
         {fmt(time)}
+      </div>
+      <div className="mt-3 flex justify-center">
+        <CapturedPieces board={board} player={capturedColor} />
       </div>
     </Card>
   );
@@ -472,6 +506,7 @@ export function VsComputer() {
           active={isMyTurn}
           icon={myInitial}
           iconBg="gradient-gold text-[#0B0D10]"
+          capturedColor={myColor}
         />
       </div>
 
@@ -546,11 +581,15 @@ export function VsComputer() {
         <Card className="p-5">
           <div className="mb-3 flex items-center justify-between">
             <div className="font-display text-lg">Move List</div>
-            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{history.length} ply</span>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              {history.length} ply
+            </span>
           </div>
           <div className="grid max-h-[260px] grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1.5 overflow-y-auto pr-2 text-sm scrollbar-thin">
             {movePairs.length === 0 && (
-              <div className="col-span-3 text-xs text-muted-foreground">No moves yet — make the opening move.</div>
+              <div className="col-span-3 text-xs text-muted-foreground">
+                No moves yet — make the opening move.
+              </div>
             )}
             {movePairs.map((pair, i) => (
               <div className="contents" key={i}>
@@ -571,6 +610,7 @@ export function VsComputer() {
           active={isOppTurn}
           icon={<Bot className="h-7 w-7" />}
           iconBg="bg-emerald/25 text-emerald"
+          capturedColor={myColor === "w" ? "b" : "w"}
         />
 
         {thinking && (
@@ -596,11 +636,15 @@ export function VsComputer() {
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 py-2 text-center">
             <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Moves</div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Moves
+              </div>
               <div className="mt-1 font-display text-2xl">{history.length}</div>
             </div>
             <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Level</div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Level
+              </div>
               <div className="mt-1 font-display text-2xl">{activeLevel.name}</div>
             </div>
           </div>

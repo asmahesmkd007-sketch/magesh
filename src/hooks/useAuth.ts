@@ -9,8 +9,17 @@ export type Profile = {
   bio: string | null;
   country: string | null;
   avatar_url: string | null;
+  banner_url: string | null;
   title: string | null;
   premium_tier: "free" | "gold" | "platinum" | "maharaja";
+  premium_active: boolean;
+  premium_expires_at: string | null;
+  subscription_status: string;
+  website: string | null;
+  youtube_url: string | null;
+  instagram_url: string | null;
+  facebook_url: string | null;
+  twitter_url: string | null;
 };
 
 export function useAuth() {

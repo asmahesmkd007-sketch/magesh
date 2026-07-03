@@ -5,10 +5,10 @@ export type Streaks = {
   user_id: string;
   current_login_streak: number;
   best_login_streak: number;
-  last_login_date: string | null;   // "YYYY-MM-DD"
+  last_login_date: string | null; // "YYYY-MM-DD"
   current_match_streak: number;
   best_match_streak: number;
-  last_match_date: string | null;   // "YYYY-MM-DD"
+  last_match_date: string | null; // "YYYY-MM-DD"
   updated_at: string;
 };
 
@@ -16,7 +16,10 @@ export type Streaks = {
 const db = supabase as unknown as {
   from: (t: string) => {
     select: (c: string) => {
-      eq: (col: string, val: string) => {
+      eq: (
+        col: string,
+        val: string,
+      ) => {
         maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
       };
     };

@@ -6,6 +6,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useFriends } from "@/hooks/useFriends";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { PremiumBadge } from "@/components/site/PremiumBadge";
+import { UserAvatar } from "@/components/site/UserAvatar";
 
 export const Route = createFileRoute("/friends")({
   head: () => ({ meta: [{ title: "Friends — ChessOx" }] }),
@@ -19,7 +21,14 @@ function FriendsPage() {
   );
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<
-    { id: string; username: string; display_name: string | null }[]
+    {
+      id: string;
+      username: string;
+      display_name: string | null;
+      avatar_url?: string | null;
+      premium_active?: boolean;
+      premium_expires_at?: string | null;
+    }[]
   >([]);
   const [searching, setSearching] = useState(false);
 
@@ -32,12 +41,19 @@ function FriendsPage() {
     setSearching(true);
     const { data } = await supabase
       .from("profiles")
-      .select("id,username,display_name")
+      .select("id,username,display_name,avatar_url,premium_active,premium_expires_at")
       .ilike("username", `%${search.trim()}%`)
       .neq("id", user?.id ?? "")
       .limit(10);
     setSearchResults(
-      (data ?? []) as { id: string; username: string; display_name: string | null }[],
+      (data ?? []) as {
+        id: string;
+        username: string;
+        display_name: string | null;
+        avatar_url?: string | null;
+        premium_active?: boolean;
+        premium_expires_at?: string | null;
+      }[],
     );
     setSearching(false);
   }
@@ -98,11 +114,19 @@ function FriendsPage() {
                   key={p.id}
                   className="flex items-center gap-3 rounded-xl border border-white/5 p-3 text-sm"
                 >
-                  <div className="grid h-9 w-9 place-items-center rounded-full gradient-gold text-[#0B0D10] font-bold">
-                    {p.username[0]?.toUpperCase()}
-                  </div>
+                  <UserAvatar
+                    avatarUrl={p.avatar_url}
+                    displayName={p.display_name ?? p.username}
+                    size="sm"
+                  />
                   <div className="flex-1">
-                    <div>{p.display_name ?? p.username}</div>
+                    <div className="flex items-center">
+                      {p.display_name ?? p.username}
+                      <PremiumBadge
+                        premiumActive={p.premium_active}
+                        premiumExpiresAt={p.premium_expires_at}
+                      />
+                    </div>
                     <div className="text-xs text-muted-foreground">@{p.username}</div>
                   </div>
                   {alreadyFriend ? (
@@ -142,12 +166,18 @@ function FriendsPage() {
               <div className="space-y-2">
                 {incoming.map((f) => (
                   <Card key={f.id} className="flex items-center gap-3 p-4">
-                    <div className="grid h-10 w-10 place-items-center rounded-full gradient-gold text-[#0B0D10] font-bold">
-                      {(f.other_display ?? f.other_username ?? "?")[0]?.toUpperCase()}
-                    </div>
+                    <UserAvatar
+                      avatarUrl={f.other_avatar_url}
+                      displayName={f.other_display ?? f.other_username}
+                      size="sm"
+                    />
                     <div className="flex-1">
-                      <div className="text-sm">
+                      <div className="text-sm flex items-center">
                         {f.other_display ?? f.other_username ?? "Unknown"}
+                        <PremiumBadge
+                          premiumActive={f.other_premium_active}
+                          premiumExpiresAt={f.other_premium_expires_at}
+                        />
                       </div>
                       <div className="text-xs text-muted-foreground">@{f.other_username}</div>
                     </div>
@@ -176,12 +206,18 @@ function FriendsPage() {
               <div className="space-y-2">
                 {outgoing.map((f) => (
                   <Card key={f.id} className="flex items-center gap-3 p-4">
-                    <div className="grid h-10 w-10 place-items-center rounded-full bg-gold/10 text-gold font-bold">
-                      {(f.other_display ?? f.other_username ?? "?")[0]?.toUpperCase()}
-                    </div>
+                    <UserAvatar
+                      avatarUrl={f.other_avatar_url}
+                      displayName={f.other_display ?? f.other_username}
+                      size="sm"
+                    />
                     <div className="flex-1">
-                      <div className="text-sm">
+                      <div className="text-sm flex items-center">
                         {f.other_display ?? f.other_username ?? "Unknown"}
+                        <PremiumBadge
+                          premiumActive={f.other_premium_active}
+                          premiumExpiresAt={f.other_premium_expires_at}
+                        />
                       </div>
                       <div className="text-xs text-muted-foreground">
                         @{f.other_username} · Pending
@@ -208,34 +244,47 @@ function FriendsPage() {
               </Card>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
-                {accepted.map((f) => (
-                  <Card key={f.id} className="flex items-center gap-3 p-4">
-                    <div className="grid h-10 w-10 place-items-center rounded-full gradient-gold text-[#0B0D10] font-bold">
-                      {(f.other_display ?? f.other_username ?? "?")[0]?.toUpperCase()}
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm">
-                        {f.other_display ?? f.other_username ?? "Unknown"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">@{f.other_username}</div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Link to="/play/friend">
-                        <GoldButton>
-                          <Swords className="h-4 w-4" />
-                        </GoldButton>
+                {accepted.map((f) => {
+                  const otherId = f.requester_id === user?.id ? f.addressee_id : f.requester_id;
+                  return (
+                    <Card key={f.id} className="flex items-center gap-3 p-4">
+                      <Link to="/profile" search={{ id: otherId }}>
+                        <UserAvatar
+                          avatarUrl={f.other_avatar_url}
+                          displayName={f.other_display ?? f.other_username}
+                          size="sm"
+                        />
                       </Link>
-                      <GhostButton
-                        onClick={() => {
-                          removeFriend(f.id);
-                          toast.success("Removed friend");
-                        }}
-                      >
-                        <UserX className="h-4 w-4" />
-                      </GhostButton>
-                    </div>
-                  </Card>
-                ))}
+                      <div className="flex-1">
+                        <div className="text-sm flex items-center">
+                          <Link to="/profile" search={{ id: otherId }} className="hover:text-gold">
+                            {f.other_display ?? f.other_username ?? "Unknown"}
+                          </Link>
+                          <PremiumBadge
+                            premiumActive={f.other_premium_active}
+                            premiumExpiresAt={f.other_premium_expires_at}
+                          />
+                        </div>
+                        <div className="text-xs text-muted-foreground">@{f.other_username}</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Link to="/play/friend">
+                          <GoldButton>
+                            <Swords className="h-4 w-4" />
+                          </GoldButton>
+                        </Link>
+                        <GhostButton
+                          onClick={() => {
+                            removeFriend(f.id);
+                            toast.success("Removed friend");
+                          }}
+                        >
+                          <UserX className="h-4 w-4" />
+                        </GhostButton>
+                      </div>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </div>

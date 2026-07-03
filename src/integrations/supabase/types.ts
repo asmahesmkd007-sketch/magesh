@@ -8,6 +8,177 @@ export type Database = {
   };
   public: {
     Tables: {
+      community_posts: {
+        Row: {
+          id: string;
+          user_id: string;
+          content: string;
+          media_url: string | null;
+          likes_count: number;
+          dislikes_count: number;
+          comments_count: number;
+          score: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          content: string;
+          media_url?: string | null;
+          likes_count?: number;
+          dislikes_count?: number;
+          comments_count?: number;
+          score?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          content?: string;
+          media_url?: string | null;
+          likes_count?: number;
+          dislikes_count?: number;
+          comments_count?: number;
+          score?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "community_posts_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      community_reactions: {
+        Row: {
+          id: string;
+          post_id: string;
+          user_id: string;
+          reaction_type: "like" | "dislike";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          post_id: string;
+          user_id: string;
+          reaction_type: "like" | "dislike";
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          post_id?: string;
+          user_id?: string;
+          reaction_type?: "like" | "dislike";
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "community_reactions_post_id_fkey";
+            columns: ["post_id"];
+            isOneToOne: false;
+            referencedRelation: "community_posts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_reactions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      community_comments: {
+        Row: {
+          id: string;
+          post_id: string;
+          user_id: string;
+          parent_id: string | null;
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          post_id: string;
+          user_id: string;
+          parent_id?: string | null;
+          content: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          post_id?: string;
+          user_id?: string;
+          parent_id?: string | null;
+          content?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "community_comments_post_id_fkey";
+            columns: ["post_id"];
+            isOneToOne: false;
+            referencedRelation: "community_posts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_comments_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_comments_parent_id_fkey";
+            columns: ["parent_id"];
+            isOneToOne: false;
+            referencedRelation: "community_comments";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      community_saved_posts: {
+        Row: {
+          id: string;
+          user_id: string;
+          post_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          post_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          post_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "community_saved_posts_post_id_fkey";
+            columns: ["post_id"];
+            isOneToOne: false;
+            referencedRelation: "community_posts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_saved_posts_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       club_members: {
         Row: {
           club_id: string;
@@ -369,6 +540,9 @@ export type Database = {
           display_name: string;
           id: string;
           premium_tier: Database["public"]["Enums"]["premium_tier"];
+          premium_active: boolean;
+          premium_expires_at: string | null;
+          subscription_status: string;
           title: string | null;
           updated_at: string;
           username: string;
@@ -381,6 +555,9 @@ export type Database = {
           display_name: string;
           id: string;
           premium_tier?: Database["public"]["Enums"]["premium_tier"];
+          premium_active?: boolean;
+          premium_expires_at?: string | null;
+          subscription_status?: string;
           title?: string | null;
           updated_at?: string;
           username: string;
@@ -393,6 +570,9 @@ export type Database = {
           display_name?: string;
           id?: string;
           premium_tier?: Database["public"]["Enums"]["premium_tier"];
+          premium_active?: boolean;
+          premium_expires_at?: string | null;
+          subscription_status?: string;
           title?: string | null;
           updated_at?: string;
           username?: string;

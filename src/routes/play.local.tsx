@@ -4,6 +4,7 @@ import { Chess, type Square } from "chess.js";
 import { RotateCcw, FlipVertical2, Flag, ArrowLeft } from "lucide-react";
 import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Primitives";
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
+import { CapturedPieces } from "@/components/site/CapturedPieces";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
 import { useBoardSettings, BOARD_THEMES, PIECE_SETS } from "@/hooks/useBoardSettings";
 import { useAuth } from "@/hooks/useAuth";
@@ -151,7 +152,9 @@ function LocalPlay() {
       movesCount: history.length,
       finalFen: gameRef.current.fen(),
       moves,
-    }).catch(() => {/* silent — not critical */});
+    }).catch(() => {
+      /* silent — not critical */
+    });
   }
 
   function beginGame() {
@@ -300,6 +303,8 @@ function LocalPlay() {
               time={orientation === "w" ? blackTime : whiteTime}
               active={phase === "playing" && turn !== orientation}
               showClock={!!tc.sec}
+              board={boardState}
+              capturedColor={orientation === "w" ? "b" : "w"}
             />
             {/* My clock (bottom) */}
             <PlayerCard
@@ -307,6 +312,8 @@ function LocalPlay() {
               time={orientation === "w" ? whiteTime : blackTime}
               active={phase === "playing" && turn === orientation}
               showClock={!!tc.sec}
+              board={boardState}
+              capturedColor={orientation === "w" ? "w" : "b"}
               me
             />
 
@@ -417,12 +424,16 @@ function PlayerCard({
   active,
   showClock,
   me,
+  board,
+  capturedColor,
 }: {
   name: string;
   time: number;
   active: boolean;
   showClock: boolean;
   me?: boolean;
+  board: BoardCell[][];
+  capturedColor: "w" | "b";
 }) {
   return (
     <Card className={`p-4 ${active ? "ring-1 ring-gold/60" : ""}`}>
@@ -435,6 +446,7 @@ function PlayerCard({
             {name}
             {me ? " · You" : ""}
           </div>
+          <CapturedPieces board={board} player={capturedColor} className="mt-0.5" />
           {active && (
             <div className="text-[10px] uppercase tracking-widest text-gold">Your turn</div>
           )}

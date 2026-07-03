@@ -1,21 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import {
-  PageShell,
-  Card,
-  GoldButton,
-  GhostButton,
-} from "@/components/site/Primitives";
-import {
-  Check,
-  Crown,
-  Star,
-  Sparkles,
-  Coins,
-  Loader2,
-  Wallet,
-  Gift,
-} from "lucide-react";
+import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Primitives";
+import { Check, Crown, Star, Sparkles, Coins, Loader2, Wallet, Gift } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -172,8 +158,13 @@ function Premium() {
         </div>
         <div className="flex gap-3 text-sm">
           {PLANS.map((p) => (
-            <div key={p.name} className="rounded-xl border border-gold/15 bg-white/[0.03] px-3 py-2 text-center">
-              <div className="text-[11px] uppercase tracking-widest text-muted-foreground">{p.name}</div>
+            <div
+              key={p.name}
+              className="rounded-xl border border-gold/15 bg-white/[0.03] px-3 py-2 text-center"
+            >
+              <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                {p.name}
+              </div>
               <div className="mt-1 flex items-center gap-1 text-gold">
                 <Coins className="h-3.5 w-3.5" />
                 <span className="font-display">{PLAN_COINS[p.name] + 10}</span>
@@ -288,14 +279,18 @@ function Premium() {
       </Dialog>
 
       {/* ── Purchase confirmation dialog ── */}
-      <Dialog open={confirmPlan !== null} onOpenChange={(open) => !open && !purchasing && setConfirmPlan(null)}>
+      <Dialog
+        open={confirmPlan !== null}
+        onOpenChange={(open) => !open && !purchasing && setConfirmPlan(null)}
+      >
         <DialogContent className="border-gold/25 bg-background/95 backdrop-blur-xl sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-center font-display text-3xl">
               Confirm Purchase
             </DialogTitle>
             <DialogDescription className="text-center">
-              {confirmPlan} plan · {confirmPlan ? PLANS.find((p) => p.name === confirmPlan)?.price : ""}
+              {confirmPlan} plan ·{" "}
+              {confirmPlan ? PLANS.find((p) => p.name === confirmPlan)?.price : ""}
             </DialogDescription>
           </DialogHeader>
 
@@ -348,17 +343,18 @@ function Premium() {
           )}
 
           <div className="grid grid-cols-2 gap-2 pt-1">
-            <GhostButton
-              onClick={() => setConfirmPlan(null)}
-              disabled={purchasing}
-            >
+            <GhostButton onClick={() => setConfirmPlan(null)} disabled={purchasing}>
               Cancel
             </GhostButton>
             <GoldButton onClick={handleConfirmPurchase} disabled={purchasing}>
               {purchasing ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Processing…
+                </>
               ) : (
-                <><Coins className="h-4 w-4" /> Confirm Purchase</>
+                <>
+                  <Coins className="h-4 w-4" /> Confirm Purchase
+                </>
               )}
             </GoldButton>
           </div>

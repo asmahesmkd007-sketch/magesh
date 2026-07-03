@@ -130,7 +130,10 @@ export async function getRoomQueue(roomId: string): Promise<QueueEntry[]> {
   const client = supabase as unknown as {
     from: (t: string) => {
       select: (c: string) => {
-        eq: (col: string, val: string) => {
+        eq: (
+          col: string,
+          val: string,
+        ) => {
           order: (col: string, opts: { ascending: boolean }) => Promise<{ data: unknown }>;
         };
       };
@@ -149,7 +152,10 @@ export async function getRoomById(roomId: string): Promise<PublicRoom | null> {
   const client = supabase as unknown as {
     from: (t: string) => {
       select: (c: string) => {
-        eq: (col: string, val: string) => {
+        eq: (
+          col: string,
+          val: string,
+        ) => {
           single: () => Promise<{ data: unknown; error: unknown }>;
         };
       };

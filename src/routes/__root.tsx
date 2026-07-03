@@ -49,8 +49,9 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
       <div className="royal-panel max-w-md rounded-[28px] p-10 text-center">
         <div className="text-[11px] uppercase tracking-[0.26em] text-gold/70">Unexpected move</div>
         <h1 className="mt-4 text-4xl text-gradient-gold">Something went wrong</h1>
-        <p className="mt-4 text-sm text-muted-foreground">
-          Refresh the board or head back to the royal lobby.
+        <p className="mt-4 text-sm text-red-400">{error.message}</p>
+        <p className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap text-left max-h-40 overflow-y-auto">
+          {error.stack}
         </p>
         <div className="mt-8 flex justify-center gap-3">
           <button
@@ -112,7 +113,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Fira+Sans:wght@300;400;500;600;700&family=Fira+Mono:wght@400;500;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap",
       },
     ],
   }),
@@ -148,6 +149,12 @@ function RootComponent() {
     Promise.all([import("@/integrations/supabase/client"), import("@/lib/presence")]).then(
       ([{ supabase }, { startPresence }]) => {
         if (!mounted) return;
+
+        // Automatically seed daily tournaments if none are upcoming
+        (supabase as unknown as { rpc: (fn: string) => Promise<unknown> })
+          .rpc("seed_daily_tournaments")
+          .catch(() => {});
+
         const { data } = supabase.auth.onAuthStateChange((event, session) => {
           if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
           router.invalidate();

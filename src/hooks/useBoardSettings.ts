@@ -91,14 +91,20 @@ export const BOARD_THEMES: Record<BoardTheme, BoardSquareColors> = {
   },
 };
 
+// NOTE: White pieces intentionally use the SOLID black glyphs (U+265A–F) rather
+// than the hollow/outline glyphs (U+2654–9). The outline codepoints render as
+// empty boxes / placeholders in many system fonts (especially on Windows), which
+// was the root cause of pieces showing as "outlines". Colour + a contrasting
+// outline stroke (applied in InteractiveBoard) distinguishes the two sides
+// reliably across every platform.
 export const PIECE_SETS: Record<PieceTheme, Record<string, string>> = {
   unicode: {
-    wk: "♔",
-    wq: "♕",
-    wr: "♖",
-    wb: "♗",
-    wn: "♘",
-    wp: "♙",
+    wk: "♚",
+    wq: "♛",
+    wr: "♜",
+    wb: "♝",
+    wn: "♞",
+    wp: "♟",
     bk: "♚",
     bq: "♛",
     br: "♜",
@@ -107,12 +113,12 @@ export const PIECE_SETS: Record<PieceTheme, Record<string, string>> = {
     bp: "♟",
   },
   classic: {
-    wk: "♔",
-    wq: "♕",
-    wr: "♖",
-    wb: "♗",
-    wn: "♘",
-    wp: "♙",
+    wk: "♚",
+    wq: "♛",
+    wr: "♜",
+    wb: "♝",
+    wn: "♞",
+    wp: "♟",
     bk: "♚",
     bq: "♛",
     br: "♜",

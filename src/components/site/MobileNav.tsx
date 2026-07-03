@@ -16,7 +16,7 @@ const AUTH_ITEMS = [
   { to: "/home", label: "Home", icon: Home },
   { to: "/play", label: "Play", icon: Swords },
   { to: "/puzzles", label: "Puzzles", icon: Puzzle },
-  { to: "/learn", label: "Learn", icon: GraduationCap },
+  { to: "/learn", label: "How To Use", icon: GraduationCap },
   { to: "/profile", label: "Profile", icon: User },
 ] as const;
 

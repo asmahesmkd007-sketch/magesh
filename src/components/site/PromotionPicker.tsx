@@ -1,7 +1,6 @@
-const GLYPHS: Record<"w" | "b", Record<string, string>> = {
-  w: { q: "♕", r: "♖", b: "♗", n: "♘" },
-  b: { q: "♛", r: "♜", b: "♝", n: "♞" },
-};
+// Solid glyphs for both colours (the hollow white codepoints render as empty
+// boxes on many platforms); colour is conveyed via fill + outline below.
+const GLYPHS: Record<string, string> = { q: "♛", r: "♜", b: "♝", n: "♞" };
 
 type Props = {
   color: "w" | "b";
@@ -28,9 +27,14 @@ export function PromotionPicker({ color, onPick, onCancel }: Props) {
               key={p}
               type="button"
               onClick={() => onPick(p)}
-              className="grid h-14 w-14 place-items-center rounded-xl border border-gold/30 bg-white/[0.04] text-4xl text-foreground transition-colors hover:border-gold hover:bg-gold/15"
+              className="grid h-14 w-14 place-items-center rounded-xl border border-gold/30 bg-white/[0.04] text-4xl transition-colors hover:border-gold hover:bg-gold/15"
+              style={{
+                color: color === "w" ? "#f5e7c1" : "#16392e",
+                WebkitTextStroke:
+                  color === "w" ? "0.035em rgba(0,0,0,0.6)" : "0.028em rgba(255,255,255,0.32)",
+              }}
             >
-              {GLYPHS[color][p]}
+              {GLYPHS[p]}
             </button>
           ))}
         </div>

@@ -1,9 +1,13 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Bell, ChevronDown, LogOut, Menu, Search, X, Coins } from "lucide-react";
-import { useAuth, useProfile, signOut, initials } from "@/hooks/useAuth";
+import { Bell, ChevronDown, LogOut, Menu, Search, X, Coins, ShieldCheck } from "lucide-react";
+import { ChessOxIcon } from "@/components/site/ChessOxLogo";
+import { PremiumBadge } from "@/components/site/PremiumBadge";
+import { UserAvatar } from "@/components/site/UserAvatar";
+import { useAuth, useProfile, signOut } from "@/hooks/useAuth";
 import { useNotificationCount } from "@/hooks/useNotificationCount";
 import { useWallet } from "@/hooks/useWallet";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 const NAV_AUTH = [
   { to: "/home", label: "Home" },
@@ -13,20 +17,25 @@ const NAV_AUTH = [
 ] as const;
 
 const COMMUNITY_ITEMS = [
-  { to: "/community", label: "Open Community" },
-  { to: "/friends", label: "Friends" },
-  { to: "/room", label: "Room Chat" },
-  { to: "/clubs", label: "Clan / Club" },
+  { to: "/community", label: "Community" },
+  { to: "/chat-room", label: "Chat Room" },
+  { to: "/clubs", label: "Club / Clan" },
   { to: "/leaderboards", label: "Leaderboard" },
-  { to: "/news", label: "News" },
+  { to: "/events", label: "Events" },
+  { to: "/tournaments", label: "Tournaments" },
 ] as const;
 
 const MORE_ITEMS = [
+  { to: "/news", label: "News" },
   { to: "/settings", label: "Settings" },
-  { to: "/analysis", label: "Analyze" },
-  { to: "/learn", label: "How To Play" },
-  { to: "/premium", label: "Shop" },
-  { to: "/profile", label: "About Us" },
+  { to: "/analysis", label: "Analysis" },
+  { to: "/learn", label: "How To Use" },
+  { to: "/about-chess", label: "About Chess" },
+  { to: "/about", label: "About Us" },
+  { to: "/policies", label: "Policies" },
+  { to: "/feedback", label: "Feedback" },
+  { to: "/report", label: "Report" },
+  { to: "/community-guidelines", label: "Community Guidelines" },
 ] as const;
 
 const NAV_GUEST = [
@@ -46,6 +55,7 @@ export function Navbar() {
   const navigate = useNavigate();
   const unreadCount = useNotificationCount(user?.id);
   const { wallet } = useWallet(user?.id);
+  const { isAdmin } = useIsAdmin(user?.id);
 
   function closeAllDropdowns() {
     setUserMenu(false);
@@ -230,18 +240,45 @@ export function Navbar() {
                 }}
                 className="flex items-center gap-2 rounded-full border border-gold/25 bg-white/[0.03] py-1 pl-1 pr-3 text-sm"
               >
-                <span className="grid h-8 w-8 place-items-center rounded-full gradient-gold text-xs font-bold text-background">
-                  {initials(profile?.display_name ?? user.email)}
-                </span>
-                <span className="max-w-[100px] truncate text-foreground">
+                <UserAvatar
+                  avatarUrl={profile?.avatar_url}
+                  displayName={profile?.display_name ?? user.email}
+                  size="sm"
+                />
+                <span className="max-w-[100px] truncate text-foreground flex items-center">
                   {profile?.username ?? user.email?.split("@")[0]}
+                  <PremiumBadge
+                    premiumActive={profile?.premium_active}
+                    premiumExpiresAt={profile?.premium_expires_at}
+                  />
                 </span>
               </button>
               {userMenu && (
                 <div className="absolute right-0 mt-2 w-52 rounded-xl border border-gold/20 bg-background/95 p-1 shadow-xl backdrop-blur-xl">
                   <MenuLink to="/home" label="Home" onClick={() => setUserMenu(false)} />
                   <MenuLink to="/profile" label="Profile" onClick={() => setUserMenu(false)} />
+                  <MenuLink to="/dashboard" label="Dashboard" onClick={() => setUserMenu(false)} />
+                  <MenuLink
+                    to="/play/history"
+                    label="Match History"
+                    onClick={() => setUserMenu(false)}
+                  />
+                  <MenuLink to="/premium" label="Premium" onClick={() => setUserMenu(false)} />
                   <MenuLink to="/settings" label="Settings" onClick={() => setUserMenu(false)} />
+                  <MenuLink
+                    to="/notifications"
+                    label="Notifications"
+                    onClick={() => setUserMenu(false)}
+                  />
+                  {isAdmin && (
+                    <Link
+                      to="/admin"
+                      onClick={() => setUserMenu(false)}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gold hover:bg-gold/10"
+                    >
+                      <ShieldCheck className="h-4 w-4" /> Admin Panel
+                    </Link>
+                  )}
                   {/* Wallet link with live balance */}
                   <Link
                     to="/wallet"

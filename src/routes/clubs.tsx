@@ -13,6 +13,7 @@ export const Route = createFileRoute("/clubs")({
 
 type Club = {
   id: string;
+  slug: string;
   name: string;
   description: string | null;
   member_count: number | null;
@@ -43,7 +44,7 @@ function Clubs() {
     setLoading(true);
     supabase
       .from("clubs")
-      .select("id,name,description,member_count,cover_gradient,created_at")
+      .select("id,slug,name,description,member_count,cover_gradient,created_at")
       .order("member_count", { ascending: false })
       .limit(50)
       .then(({ data }) => {
@@ -114,7 +115,7 @@ function Clubs() {
     const { data, error } = await supabase
       .from("clubs")
       .insert({ name: newName.trim(), slug, owner_id: user.id } as never)
-      .select("id,name,description,member_count,cover_gradient,created_at")
+      .select("id,slug,name,description,member_count,cover_gradient,created_at")
       .maybeSingle();
     if (error) {
       toast.error("Could not create club");
@@ -189,7 +190,7 @@ function Clubs() {
           <SectionTitle kicker="Featured" title="Royal courts" />
           <div className="grid gap-4 md:grid-cols-3">
             {featured.map((c, i) => (
-              <Link to="/club" key={c.id}>
+              <Link to="/club/$slug" params={{ slug: c.slug }} key={c.id}>
                 <Card className="overflow-hidden transition-transform hover:-translate-y-1">
                   <div
                     className={`relative h-32 bg-gradient-to-br ${c.cover_gradient ?? GRADIENTS[i % GRADIENTS.length]}`}

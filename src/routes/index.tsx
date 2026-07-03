@@ -103,7 +103,7 @@ function LandingPage() {
               Experience the Ultimate Premium Chess Journey.
             </p>
 
-            <div className="mt-10 flex items-center gap-8">
+            <div className="mt-10 flex flex-wrap items-center gap-4 sm:gap-6">
               {/* PLAY NOW emerald plate */}
               <Link
                 to="/play"
@@ -114,22 +114,44 @@ function LandingPage() {
                 <span className="absolute inset-[3px] rounded-[11px] border border-gold/60" />
                 <span className="absolute -left-2 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 bg-[linear-gradient(180deg,#1f9a7d,#0a5b4a)] border-l border-t border-gold/60" />
                 <span className="absolute -right-2 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 bg-[linear-gradient(180deg,#1f9a7d,#0a5b4a)] border-r border-b border-gold/60" />
-                <span className="relative px-10 font-display text-lg uppercase tracking-[0.28em] text-[#f7e8bf] transition-transform group-hover:scale-[1.02]">
+                <span className="relative px-8 font-display text-[15px] uppercase tracking-[0.28em] text-[#f7e8bf] transition-transform group-hover:scale-[1.02] sm:px-10 sm:text-lg">
                   Play Now
                 </span>
               </Link>
 
-              {/* Only show Login link when not authenticated */}
+              {/* Join Community CTA */}
+              <Link
+                to={user ? "/community" : "/login"}
+                className="group relative inline-flex h-[58px] items-center justify-center"
+              >
+                <span className="absolute inset-0 rounded-[14px] bg-gold/10" />
+                <span className="absolute inset-[3px] rounded-[11px] border border-gold/40 transition-colors group-hover:border-gold/80" />
+                <span className="relative px-6 font-display text-[14px] uppercase tracking-[0.2em] text-gold transition-colors group-hover:text-gold/90 sm:px-8 sm:text-[15px]">
+                  Join Community
+                </span>
+              </Link>
+
               {!user && (
-                <Link
-                  to="/auth"
-                  className="group inline-flex items-baseline gap-2 font-display text-xl uppercase tracking-[0.28em] text-gold/90 hover:text-gold"
-                >
-                  <span className="border-b border-gold/60 pb-0.5 group-hover:border-gold">
-                    Login
-                  </span>
-                  <LogIn className="h-4 w-4 self-center" />
-                </Link>
+                <div className="flex w-full flex-wrap items-center gap-4 sm:w-auto sm:gap-6 pt-2 sm:pt-0">
+                  <Link
+                    to="/auth"
+                    className="group inline-flex items-center gap-2 font-display text-sm uppercase tracking-[0.2em] text-gold/80 hover:text-gold sm:text-base"
+                  >
+                    <span className="border-b border-transparent pb-0.5 group-hover:border-gold">
+                      Create Account
+                    </span>
+                  </Link>
+
+                  <Link
+                    to="/login"
+                    className="group inline-flex items-center gap-2 font-display text-sm uppercase tracking-[0.2em] text-gold/80 hover:text-gold sm:text-base"
+                  >
+                    <span className="border-b border-transparent pb-0.5 group-hover:border-gold">
+                      Login
+                    </span>
+                    <LogIn className="h-4 w-4" />
+                  </Link>
+                </div>
               )}
             </div>
 
@@ -186,7 +208,7 @@ function LandingPage() {
                 </div>
                 <div className="text-xs text-muted-foreground">Entry Fee: Free</div>
                 <Link
-                  to="/tournament"
+                  to="/tournaments"
                   className="mt-4 grid h-9 place-items-center rounded-md border border-gold/30 bg-gold/10 text-[11px] uppercase tracking-[0.24em] text-gold hover:bg-gold/20"
                 >
                   Join Now

@@ -26,34 +26,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import type { MoveAnalysis, Classification } from "@/lib/chess/analysis.worker";
+import type { MoveAnalysis } from "@/lib/chess/analysis.worker";
+import {
+  type Classification,
+  CLASS_LABEL,
+  CLASS_COLOR,
+  CLASS_ICON,
+} from "@/lib/chess/classification";
+import { detectOpening, type OpeningMatch } from "@/lib/chess/openings";
+import { buildAnalysisReport, saveGameAnalysis } from "@/lib/api/analysisClient";
 
 // ── Classification helpers ──────────────────────────────────────────────────
-const CLASS_LABEL: Record<Classification, string> = {
-  best: "Best",
-  excellent: "Excellent",
-  good: "Good",
-  inaccuracy: "Inaccuracy",
-  mistake: "Mistake",
-  blunder: "Blunder",
-};
-const CLASS_COLOR: Record<Classification, string> = {
-  best: "text-emerald-400",
-  excellent: "text-sky-400",
-  good: "text-green-400",
-  inaccuracy: "text-yellow-400",
-  mistake: "text-orange-400",
-  blunder: "text-red-500",
-};
-const CLASS_ICON: Record<Classification, string> = {
-  best: "★",
-  excellent: "✓",
-  good: "·",
-  inaccuracy: "?!",
-  mistake: "?",
-  blunder: "??",
-};
-
 function ClassBadge({ cls }: { cls: Classification }) {
   return (
     <span
@@ -152,7 +135,9 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
   const [importText, setImportText] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [targets, setTargets] = useState<string[]>([]);
-  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(
+    null,
+  );
 
   // Analysis state
   const [analysisMap, setAnalysisMap] = useState<Map<number, MoveAnalysis>>(new Map());
@@ -160,11 +145,24 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
   const [analysing, setAnalysing] = useState(false);
 
   // Live eval for current position (from worker)
-  const [liveEval, setLiveEval] = useState<{ evalWhite: number; bestMoveSan: string | null; bestScore: number } | null>(null);
+  const [liveEval, setLiveEval] = useState<{
+    evalWhite: number;
+    bestMoveSan: string | null;
+    bestScore: number;
+  } | null>(null);
   const evalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const workerRef = useRef<Worker | null>(null);
   const loadedRef = useRef(false);
+  // Accumulates per-move analyses for the run in progress so the "done"
+  // handler can persist a complete report.
+  const analysesRef = useRef<MoveAnalysis[]>([]);
+  // Set only when reviewing a real saved game (so we persist to the right
+  // game and never overwrite it once the user starts editing lines).
+  const reviewCtxRef = useRef<{ gameId: string; opening: OpeningMatch | null } | null>(null);
+  const savedRef = useRef(false);
+  const [opening, setOpening] = useState<OpeningMatch | null>(null);
+  const [reviewSaved, setReviewSaved] = useState(false);
 
   // ── Spawn worker ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -178,6 +176,7 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
         | { type: "eval_result"; bestMoveSan: string | null; bestScore: number; evalWhite: number };
 
       if (msg.type === "move") {
+        analysesRef.current.push(msg.data);
         setAnalysisMap((prev) => {
           const next = new Map(prev);
           next.set(msg.data.ply, msg.data);
@@ -186,22 +185,58 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
       } else if (msg.type === "done") {
         setEvals(msg.evals);
         setAnalysing(false);
+        // Persist the completed review for saved games (once).
+        const ctx = reviewCtxRef.current;
+        if (ctx && !savedRef.current && analysesRef.current.length > 0) {
+          savedRef.current = true;
+          const report = buildAnalysisReport(
+            [...analysesRef.current].sort((a, b) => a.ply - b.ply),
+          );
+          saveGameAnalysis({
+            gameId: ctx.gameId,
+            ...report,
+            openingName: ctx.opening?.name ?? null,
+            openingEco: ctx.opening?.eco ?? null,
+          })
+            .then(() => setReviewSaved(true))
+            .catch(() => {
+              /* non-fatal — the review still shows, it just isn't cached */
+            });
+        }
       } else if (msg.type === "eval_result") {
-        setLiveEval({ evalWhite: msg.evalWhite, bestMoveSan: msg.bestMoveSan, bestScore: msg.bestScore });
+        setLiveEval({
+          evalWhite: msg.evalWhite,
+          bestMoveSan: msg.bestMoveSan,
+          bestScore: msg.bestScore,
+        });
       }
     };
     workerRef.current = w;
-    return () => { w.terminate(); };
+    return () => {
+      w.terminate();
+    };
   }, []);
 
-  // ── Run analysis when game is loaded ───────────────────────────────────
-  const runAnalysis = useCallback((gameSans: string[]) => {
+  // ── Run analysis ───────────────────────────────────────────────────────
+  // Pass `gameId` only when analysing a real saved game (enables persistence).
+  const runAnalysis = useCallback((gameSans: string[], persistGameId?: string) => {
     if (!workerRef.current || gameSans.length === 0) return;
+    const op = detectOpening(gameSans);
+    setOpening(op);
+    setReviewSaved(false);
+    analysesRef.current = [];
+    savedRef.current = false;
+    reviewCtxRef.current = persistGameId ? { gameId: persistGameId, opening: op } : null;
     setAnalysisMap(new Map());
     setEvals([]);
     setAnalysing(true);
     workerRef.current.postMessage({ type: "abort" });
-    workerRef.current.postMessage({ type: "analyze", sans: gameSans, depth: 4 });
+    workerRef.current.postMessage({
+      type: "analyze",
+      sans: gameSans,
+      depth: 4,
+      bookPlies: op?.plies ?? 0,
+    });
   }, []);
 
   // ── Debounced live eval on ply change ──────────────────────────────────
@@ -210,11 +245,18 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
     if (evalTimerRef.current) clearTimeout(evalTimerRef.current);
     evalTimerRef.current = setTimeout(() => {
       const chess = new Chess();
-      for (let i = 0; i < ply; i++) { try { chess.move(sans[i]); } catch { break; } }
+      for (let i = 0; i < ply; i++) {
+        try {
+          chess.move(sans[i]);
+        } catch {
+          break;
+        }
+      }
       workerRef.current?.postMessage({ type: "eval", fen: chess.fen(), depth: 4 });
     }, 120);
-    return () => { if (evalTimerRef.current) clearTimeout(evalTimerRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      if (evalTimerRef.current) clearTimeout(evalTimerRef.current);
+    };
   }, [ply, sans, engineOn]);
 
   // ── Load from Supabase game ─────────────────────────────────────────────
@@ -227,7 +269,10 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
       .eq("id", gameId)
       .maybeSingle()
       .then(({ data }) => {
-        if (!data?.pgn) { toast.error("No PGN found for this game."); return; }
+        if (!data?.pgn) {
+          toast.error("No PGN found for this game.");
+          return;
+        }
         try {
           const g = new Chess();
           g.loadPgn(data.pgn);
@@ -235,8 +280,10 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
           setSans(history);
           setPly(history.length);
           toast.success(`Game loaded — ${history.length} moves.`);
-          runAnalysis(history);
-        } catch { toast.error("Could not parse this game's PGN."); }
+          runAnalysis(history, gameId);
+        } catch {
+          toast.error("Could not parse this game's PGN.");
+        }
       });
   }, [gameId, runAnalysis]);
 
@@ -255,17 +302,28 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
       setPly(history.length);
       toast.success("Game loaded into the engine room.");
       runAnalysis(history);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [runAnalysis]);
 
   // ── Arrow-key navigation ────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
-      if (e.key === "ArrowLeft") { e.preventDefault(); setPly((p) => Math.max(0, p - 1)); }
-      else if (e.key === "ArrowRight") { e.preventDefault(); setPly((p) => Math.min(sans.length, p + 1)); }
-      else if (e.key === "ArrowUp") { e.preventDefault(); setPly(0); }
-      else if (e.key === "ArrowDown") { e.preventDefault(); setPly(sans.length); }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setPly((p) => Math.max(0, p - 1));
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        setPly((p) => Math.min(sans.length, p + 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setPly(0);
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setPly(sans.length);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -273,7 +331,15 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
 
   const current = useMemo(() => {
     const g = new Chess();
-    for (let i = 0; i < ply; i++) g.move(sans[i]);
+    for (let i = 0; i < ply; i++) {
+      if (!sans[i]) break;
+      try {
+        g.move(sans[i]);
+      } catch (e) {
+        console.error("Failed to apply move in AnalysisBoard:", sans[i], e);
+        break;
+      }
+    }
     return g;
   }, [sans, ply]);
 
@@ -300,6 +366,8 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
     const g = new Chess(current.fen());
     try {
       const made = g.move({ from, to, promotion: promotion ?? "q" });
+      // Editing a line detaches from the saved game — don't persist over it.
+      reviewCtxRef.current = null;
       setSans([...sans.slice(0, ply), made.san]);
       setPly(ply + 1);
       setSelected(null);
@@ -318,9 +386,18 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
       return;
     }
     if (!selected) return;
-    const candidates = current.moves({ square: selected as Square, verbose: true }).filter((m) => m.to === sq);
-    if (candidates.length === 0) { setSelected(null); setTargets([]); return; }
-    if (candidates.some((m) => m.promotion)) { setPendingPromotion({ from: selected, to: sq }); return; }
+    const candidates = current
+      .moves({ square: selected as Square, verbose: true })
+      .filter((m) => m.to === sq);
+    if (candidates.length === 0) {
+      setSelected(null);
+      setTargets([]);
+      return;
+    }
+    if (candidates.some((m) => m.promotion)) {
+      setPendingPromotion({ from: selected, to: sq });
+      return;
+    }
     makeMove(selected, sq);
   };
 
@@ -338,22 +415,32 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
       setEvals([]);
       toast.success(`PGN imported — ${history.length} moves loaded.`);
       runAnalysis(history);
-    } catch { toast.error("Could not parse that PGN. Check the format and try again."); }
+    } catch {
+      toast.error("Could not parse that PGN. Check the format and try again.");
+    }
   };
 
   const doExport = async () => {
     const g = new Chess();
     for (const s of sans) g.move(s);
     const pgn = g.pgn();
-    if (!pgn) { toast.info("Nothing to export yet — make some moves first."); return; }
+    if (!pgn) {
+      toast.info("Nothing to export yet — make some moves first.");
+      return;
+    }
     try {
       await navigator.clipboard.writeText(pgn);
       toast.success("PGN copied to clipboard.");
-    } catch { toast.error("Clipboard unavailable in this browser."); }
+    } catch {
+      toast.error("Clipboard unavailable in this browser.");
+    }
   };
 
   const reset = () => {
     workerRef.current?.postMessage({ type: "abort" });
+    reviewCtxRef.current = null;
+    setOpening(null);
+    setReviewSaved(false);
     setSans([]);
     setPly(0);
     setSelected(null);
@@ -371,10 +458,12 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
     const ba: number[] = [];
     analysisMap.forEach((a) => {
       const score = Math.max(0, 100 - a.cpl);
-      if (a.ply % 2 === 1) wa.push(score); // white moves (plies 1,3,5,…)
+      if (a.ply % 2 === 1)
+        wa.push(score); // white moves (plies 1,3,5,…)
       else ba.push(score);
     });
-    const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((s, v) => s + v, 0) / arr.length) : null;
+    const avg = (arr: number[]) =>
+      arr.length ? Math.round(arr.reduce((s, v) => s + v, 0) / arr.length) : null;
     return { white: avg(wa), black: avg(ba) };
   }, [analysisMap]);
 
@@ -407,6 +496,14 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Analysing…
           </div>
         )}
+        {opening && (
+          <div className="flex items-center rounded-full border border-amber-400/20 bg-amber-400/5 px-2.5 py-1 text-xs text-amber-300/90">
+            {opening.eco} · {opening.name}
+          </div>
+        )}
+        {reviewSaved && (
+          <div className="flex items-center text-xs text-emerald-400">Review saved ✓</div>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-12">
@@ -425,7 +522,10 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
             {pendingPromotion && (
               <PromotionPicker
                 color={current.turn()}
-                onPick={(p) => { makeMove(pendingPromotion.from, pendingPromotion.to, p); setPendingPromotion(null); }}
+                onPick={(p) => {
+                  makeMove(pendingPromotion.from, pendingPromotion.to, p);
+                  setPendingPromotion(null);
+                }}
                 onCancel={() => setPendingPromotion(null)}
               />
             )}
@@ -449,13 +549,19 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
             <GhostButton onClick={() => setPly(0)} aria-label="First move">
               <ChevronsLeft className="h-4 w-4" />
             </GhostButton>
-            <GhostButton onClick={() => setPly((p) => Math.max(0, p - 1))} aria-label="Previous move">
+            <GhostButton
+              onClick={() => setPly((p) => Math.max(0, p - 1))}
+              aria-label="Previous move"
+            >
               <ChevronLeft className="h-4 w-4" />
             </GhostButton>
             <span className="px-3 text-sm text-muted-foreground tabular-nums">
               {ply} / {sans.length}
             </span>
-            <GhostButton onClick={() => setPly((p) => Math.min(sans.length, p + 1))} aria-label="Next move">
+            <GhostButton
+              onClick={() => setPly((p) => Math.min(sans.length, p + 1))}
+              aria-label="Next move"
+            >
               <ChevronRight className="h-4 w-4" />
             </GhostButton>
             <GhostButton onClick={() => setPly(sans.length)} aria-label="Last move">
@@ -604,14 +710,15 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
                       <div className="text-xs text-muted-foreground">
                         {a.cpl}cp loss
                         {a.bestMoveSan && a.bestMoveSan !== a.san && (
-                          <> · Best was <span className="text-gold font-mono">{a.bestMoveSan}</span></>
+                          <>
+                            {" "}
+                            · Best was <span className="text-gold font-mono">{a.bestMoveSan}</span>
+                          </>
                         )}
                       </div>
                     )}
                     {a.cpl === 0 && a.bestMoveSan && (
-                      <div className="text-xs text-muted-foreground">
-                        Optimal move played.
-                      </div>
+                      <div className="text-xs text-muted-foreground">Optimal move played.</div>
                     )}
                   </>
                 );

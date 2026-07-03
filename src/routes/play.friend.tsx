@@ -18,16 +18,16 @@ const TIME_CONTROLS: {
   sec: number;
   inc: number;
 }[] = [
-  { label: "1+0 Bullet",     tc: "1+0",   class: "bullet",    sec: 60,   inc: 0  },
-  { label: "2+1 Bullet",     tc: "2+1",   class: "bullet",    sec: 120,  inc: 1  },
-  { label: "3+0 Blitz",      tc: "3+0",   class: "blitz",     sec: 180,  inc: 0  },
-  { label: "3+2 Blitz",      tc: "3+2",   class: "blitz",     sec: 180,  inc: 2  },
-  { label: "5+0 Blitz",      tc: "5+0",   class: "blitz",     sec: 300,  inc: 0  },
-  { label: "5+3 Blitz",      tc: "5+3",   class: "blitz",     sec: 300,  inc: 3  },
-  { label: "10+0 Rapid",     tc: "10+0",  class: "rapid",     sec: 600,  inc: 0  },
-  { label: "10+5 Rapid",     tc: "10+5",  class: "rapid",     sec: 600,  inc: 5  },
-  { label: "15+10 Rapid",    tc: "15+10", class: "rapid",     sec: 900,  inc: 10 },
-  { label: "30+0 Classical", tc: "30+0",  class: "classical", sec: 1800, inc: 0  },
+  { label: "1+0 Bullet", tc: "1+0", class: "bullet", sec: 60, inc: 0 },
+  { label: "2+1 Bullet", tc: "2+1", class: "bullet", sec: 120, inc: 1 },
+  { label: "3+0 Blitz", tc: "3+0", class: "blitz", sec: 180, inc: 0 },
+  { label: "3+2 Blitz", tc: "3+2", class: "blitz", sec: 180, inc: 2 },
+  { label: "5+0 Blitz", tc: "5+0", class: "blitz", sec: 300, inc: 0 },
+  { label: "5+3 Blitz", tc: "5+3", class: "blitz", sec: 300, inc: 3 },
+  { label: "10+0 Rapid", tc: "10+0", class: "rapid", sec: 600, inc: 0 },
+  { label: "10+5 Rapid", tc: "10+5", class: "rapid", sec: 600, inc: 5 },
+  { label: "15+10 Rapid", tc: "15+10", class: "rapid", sec: 900, inc: 10 },
+  { label: "30+0 Classical", tc: "30+0", class: "classical", sec: 1800, inc: 0 },
 ];
 
 function PlayFriend() {
@@ -42,7 +42,9 @@ function PlayFriend() {
   if (!loading && !user) {
     return (
       <PageShell title="Play a Friend" subtitle="Sign in to challenge a friend.">
-        <Link to="/auth"><GoldButton>Sign in</GoldButton></Link>
+        <Link to="/auth">
+          <GoldButton>Sign in</GoldButton>
+        </Link>
       </PageShell>
     );
   }
@@ -71,7 +73,11 @@ function PlayFriend() {
   }
 
   return (
-    <PageShell eyebrow="Royal Challenge" title="Play a Friend" subtitle="Forge a private match and share the scroll with your opponent.">
+    <PageShell
+      eyebrow="Royal Challenge"
+      title="Play a Friend"
+      subtitle="Forge a private match and share the scroll with your opponent."
+    >
       <div className="grid gap-6 lg:grid-cols-12">
         <Card className="p-6 lg:col-span-7">
           <div className="text-xs uppercase tracking-[0.22em] text-gold/80">Time Control</div>
@@ -81,7 +87,9 @@ function PlayFriend() {
                 key={t.tc + t.label}
                 onClick={() => setPick(i)}
                 className={`rounded-xl border px-3 py-2 text-sm transition ${
-                  i === pick ? "border-gold bg-gold/10 text-gold" : "border-white/10 hover:border-gold/40"
+                  i === pick
+                    ? "border-gold bg-gold/10 text-gold"
+                    : "border-white/10 hover:border-gold/40"
                 }`}
               >
                 {t.label}
@@ -96,7 +104,9 @@ function PlayFriend() {
                 key={c}
                 onClick={() => setColor(c)}
                 className={`rounded-xl border px-4 py-2 text-sm capitalize transition ${
-                  color === c ? "border-gold bg-gold/10 text-gold" : "border-white/10 hover:border-gold/40"
+                  color === c
+                    ? "border-gold bg-gold/10 text-gold"
+                    : "border-white/10 hover:border-gold/40"
                 }`}
               >
                 {c === "w" ? "White" : c === "b" ? "Black" : "Random"}
@@ -122,7 +132,9 @@ function PlayFriend() {
               <Crown className="h-4 w-4" /> {creating ? "Forging…" : "Create Challenge"}
             </GoldButton>
             <Link to="/play">
-              <GhostButton><Users className="h-4 w-4" /> Vs Computer</GhostButton>
+              <GhostButton>
+                <Users className="h-4 w-4" /> Vs Computer
+              </GhostButton>
             </Link>
           </div>
         </Card>

@@ -178,21 +178,28 @@ function Play() {
             const Icon = m.icon;
             const inner = (
               <Card
-                className={`flex cursor-pointer flex-col gap-4 p-6 transition hover:scale-[1.02] hover:shadow-xl ${
-                  m.gold ? "border border-gold/30 bg-gold/[0.04]" : ""
+                className={`group relative flex h-full cursor-pointer flex-col overflow-hidden p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-gold/10 ${
+                  m.gold 
+                    ? "border-gold/40 bg-gradient-to-b from-gold/10 to-background/50" 
+                    : "border-white/5 bg-white/[0.02] hover:border-gold/30 hover:bg-gold/[0.02]"
                 }`}
               >
+                {/* Subtle glow effect on hover */}
+                <div className={`absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${m.gold ? "bg-gradient-to-tr from-gold/10 via-transparent to-transparent" : "bg-gradient-to-tr from-gold/5 via-transparent to-transparent"}`} />
+
                 <span
-                  className={`grid h-12 w-12 place-items-center rounded-2xl ${m.gold ? "gradient-gold text-background" : "bg-white/5 text-gold"}`}
+                  className={`relative z-10 grid h-14 w-14 place-items-center rounded-2xl shadow-lg transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${m.gold ? "gradient-gold text-background shadow-gold/20" : "bg-gradient-to-br from-white/10 to-white/5 text-gold shadow-black/50 border border-white/5"}`}
                 >
-                  <Icon className="h-6 w-6" />
+                  <Icon className="h-7 w-7" />
                 </span>
-                <div>
-                  <div className="font-display text-lg">{m.title}</div>
-                  <div className="mt-1 text-sm text-muted-foreground">{m.sub}</div>
+                
+                <div className="relative z-10 mt-6">
+                  <div className={`font-display text-xl transition-colors ${m.gold ? "text-gold" : "group-hover:text-gold"}`}>{m.title}</div>
+                  <div className="mt-2 text-sm leading-relaxed text-muted-foreground">{m.sub}</div>
                 </div>
-                <div className="mt-auto flex items-center gap-1 text-xs text-gold">
-                  {m.gold ? "Play now" : "Open"} <ChevronRight className="h-3 w-3" />
+
+                <div className="relative z-10 mt-auto pt-6 flex items-center gap-1.5 text-xs font-semibold tracking-widest uppercase text-gold opacity-80 transition-all group-hover:opacity-100">
+                  {m.gold ? "Play now" : "Open"} <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                 </div>
               </Card>
             );
@@ -214,7 +221,7 @@ function Play() {
 
       {tab === "quick" && (
         <div className="mx-auto max-w-md">
-          <QuickMatch />
+          <QuickMatch onPlayBot={() => setTab("bot")} />
         </div>
       )}
 

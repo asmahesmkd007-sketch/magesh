@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Crown, Minus, X, ArrowLeft, Play, LineChart } from "lucide-react";
-import { PageShell, Card, GoldButton } from "@/components/site/Primitives";
+import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Primitives";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth, initials } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
+import { UserAvatar } from "@/components/site/UserAvatar";
 
 export const Route = createFileRoute("/play/history")({
   head: () => ({ meta: [{ title: "Game History — ChessOx" }] }),
@@ -27,7 +28,10 @@ type GameRow = {
   ended_at: string | null;
   end_reason: string | null;
   status: string | null;
+  opening: string | null;
 };
+
+const PAGE_SIZE = 25;
 
 function relTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -53,25 +57,43 @@ function GameHistory() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [games, setGames] = useState<GameRow[]>([]);
+  const [deltas, setDeltas] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [filter, setFilter] = useState<"all" | "win" | "loss" | "draw">("all");
+  const limitRef = useRef(PAGE_SIZE);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  const fetchGames = (userId: string) => {
-    supabase
-      .from("games")
-      .select(
-        "id,white_username,black_username,white_id,black_id,white_rating,black_rating,result,time_control,time_class,moves_count,is_rated,created_at,ended_at,end_reason,status",
-      )
-      .or(`white_id.eq.${userId},black_id.eq.${userId}`)
-      .not("ended_at", "is", null)
-      .in("result", ["white", "black", "draw"])
-      .order("ended_at", { ascending: false })
-      .limit(50)
-      .then(({ data }) => {
-        setGames((data ?? []) as GameRow[]);
-        setLoading(false);
-      });
+  const fetchGames = (userId: string, limit: number) => {
+    return Promise.all([
+      supabase
+        .from("games")
+        .select(
+          "id,white_username,black_username,white_id,black_id,white_rating,black_rating,result,time_control,time_class,moves_count,is_rated,created_at,ended_at,end_reason,status,opening",
+        )
+        .or(`white_id.eq.${userId},black_id.eq.${userId}`)
+        .not("ended_at", "is", null)
+        .in("result", ["white", "black", "draw"])
+        .order("ended_at", { ascending: false })
+        .limit(limit),
+      supabase
+        .from("rating_history" as never)
+        .select("game_id,delta")
+        .eq("user_id", userId)
+        .limit(1000),
+    ]).then(([g, rh]) => {
+      const rows = (g.data ?? []) as GameRow[];
+      setGames(rows);
+      setHasMore(rows.length === limit);
+      const map = new Map<string, number>();
+      for (const r of (rh.data ?? []) as { game_id: string | null; delta: number }[]) {
+        if (r.game_id != null) map.set(r.game_id, r.delta);
+      }
+      setDeltas(map);
+      setLoading(false);
+      setLoadingMore(false);
+    });
   };
 
   useEffect(() => {
@@ -82,20 +104,20 @@ function GameHistory() {
     }
 
     setLoading(true);
-    fetchGames(user.id);
+    limitRef.current = PAGE_SIZE;
+    fetchGames(user.id, limitRef.current);
 
-    // Realtime: re-fetch when a game involving this user finishes
     channelRef.current = supabase
       .channel(`history:${user.id}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "games", filter: `white_id=eq.${user.id}` },
-        () => fetchGames(user.id),
+        () => fetchGames(user.id, limitRef.current),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "games", filter: `black_id=eq.${user.id}` },
-        () => fetchGames(user.id),
+        () => fetchGames(user.id, limitRef.current),
       )
       .subscribe();
 
@@ -105,6 +127,13 @@ function GameHistory() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, authLoading]);
+
+  const loadMore = () => {
+    if (!user) return;
+    setLoadingMore(true);
+    limitRef.current += PAGE_SIZE;
+    fetchGames(user.id, limitRef.current);
+  };
 
   if (!authLoading && !user) {
     return (
@@ -150,7 +179,7 @@ function GameHistory() {
     <PageShell
       eyebrow="Royal Archives"
       title="Game History"
-      subtitle="Your last 50 finished matches."
+      subtitle="Every finished match, replayable and reviewable forever."
       action={
         <Link to="/play">
           <GoldButton>
@@ -217,10 +246,12 @@ function GameHistory() {
                 <th className="px-4 py-3 text-left">Result</th>
                 <th className="px-4 py-3 text-left">Opponent</th>
                 <th className="hidden px-4 py-3 text-left sm:table-cell">Color</th>
+                <th className="hidden px-4 py-3 text-left lg:table-cell">Opening</th>
                 <th className="hidden px-4 py-3 text-left sm:table-cell">Time</th>
                 <th className="hidden px-4 py-3 text-left md:table-cell">Moves</th>
+                <th className="hidden px-4 py-3 text-left md:table-cell">Δ</th>
                 <th className="hidden px-4 py-3 text-left md:table-cell">Duration</th>
-                <th className="hidden px-4 py-3 text-left md:table-cell">End</th>
+                <th className="hidden px-4 py-3 text-left lg:table-cell">End</th>
                 <th className="px-4 py-3 text-left">When</th>
                 <th className="px-4 py-3 text-right" />
               </tr>
@@ -232,6 +263,7 @@ function GameHistory() {
                 const oppName = iWasWhite ? g.black_username : g.white_username;
                 const myRating = iWasWhite ? g.white_rating : g.black_rating;
                 const oppRating = iWasWhite ? g.black_rating : g.white_rating;
+                const delta = deltas.get(g.id);
                 return (
                   <tr
                     key={g.id}
@@ -261,9 +293,7 @@ function GameHistory() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/[0.06] text-xs font-medium uppercase">
-                          {initials(oppName ?? "?")}
-                        </div>
+                        <UserAvatar displayName={oppName ?? "?"} size="sm" className="shrink-0" />
                         <div>
                           <div>{oppName ?? "—"}</div>
                           <div className="text-[11px] text-muted-foreground">
@@ -275,6 +305,9 @@ function GameHistory() {
                     <td className="hidden px-4 py-3 sm:table-cell text-muted-foreground text-xs">
                       {iWasWhite ? "♔ White" : "♚ Black"}
                     </td>
+                    <td className="hidden px-4 py-3 lg:table-cell text-muted-foreground text-xs">
+                      {g.opening ?? "—"}
+                    </td>
                     <td className="hidden px-4 py-3 sm:table-cell">
                       <span className="capitalize">{g.time_class}</span>
                       <span className="ml-1 text-muted-foreground">({g.time_control})</span>
@@ -282,10 +315,20 @@ function GameHistory() {
                     <td className="hidden px-4 py-3 md:table-cell text-muted-foreground">
                       {g.moves_count}
                     </td>
+                    <td className="hidden px-4 py-3 md:table-cell">
+                      {delta == null ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <span className={delta >= 0 ? "text-emerald-400" : "text-rose-400"}>
+                          {delta >= 0 ? "+" : ""}
+                          {delta}
+                        </span>
+                      )}
+                    </td>
                     <td className="hidden px-4 py-3 md:table-cell text-muted-foreground">
                       {g.ended_at ? fmtDuration(g.created_at, g.ended_at) : "—"}
                     </td>
-                    <td className="hidden px-4 py-3 md:table-cell text-muted-foreground capitalize">
+                    <td className="hidden px-4 py-3 lg:table-cell text-muted-foreground capitalize">
                       {g.end_reason ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground text-xs">
@@ -314,6 +357,14 @@ function GameHistory() {
             </tbody>
           </table>
         </Card>
+      )}
+
+      {!loading && hasMore && filter === "all" && (
+        <div className="mt-6 text-center">
+          <GhostButton onClick={loadMore} disabled={loadingMore}>
+            {loadingMore ? "Loading…" : "Load more"}
+          </GhostButton>
+        </div>
       )}
     </PageShell>
   );

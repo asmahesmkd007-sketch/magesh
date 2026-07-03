@@ -3,6 +3,7 @@ import { createMiddleware } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
+import WebSocket from "ws";
 
 export const requireSupabaseAuth = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
@@ -45,6 +46,10 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        fetch: fetch,
+      },
+      realtime: {
+        transport: WebSocket,
       },
       auth: {
         storage: undefined,
@@ -53,7 +58,10 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
       },
     });
 
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(token);
     if (error || !user) {
       throw new Error("Unauthorized: Invalid token");
     }

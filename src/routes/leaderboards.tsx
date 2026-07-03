@@ -3,6 +3,8 @@ import { PageShell, Card } from "@/components/site/Primitives";
 import { useEffect, useState } from "react";
 import { Crown, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { PremiumBadge } from "@/components/site/PremiumBadge";
+import { UserAvatar } from "@/components/site/UserAvatar";
 
 export const Route = createFileRoute("/leaderboards")({
   head: () => ({ meta: [{ title: "Leaderboards — ChessOx" }] }),
@@ -16,10 +18,17 @@ type Entry = {
   wins: number;
   losses: number;
   peak_rating: number;
-  profiles: { username: string; display_name: string; country: string | null } | null;
+  profiles: {
+    username: string;
+    display_name: string;
+    country: string | null;
+    avatar_url?: string | null;
+    premium_active?: boolean;
+    premium_expires_at?: string | null;
+  } | null;
 };
 
-const TABS = ["blitz", "rapid", "bullet", "classical"] as const;
+const TABS = ["iq", "blitz", "rapid", "bullet", "classical"] as const;
 type Tab = (typeof TABS)[number];
 
 function LB() {
@@ -29,19 +38,41 @@ function LB() {
 
   useEffect(() => {
     setLoading(true);
-    supabase
-      .from("ratings")
-      .select(
-        "user_id, rating, games_played, wins, losses, peak_rating, profiles(username, display_name, country)",
-      )
-      .eq("time_class", tab)
-      .gte("games_played", 1)
-      .order("rating", { ascending: false })
-      .limit(50)
-      .then(({ data: d }) => {
-        setData((d ?? []) as unknown as Entry[]);
-        setLoading(false);
-      });
+    if (tab === "iq") {
+      (supabase as any)
+        .from("profiles")
+        .select("id, username, display_name, country, avatar_url, premium_active, premium_expires_at, iq_rating")
+        .order("iq_rating", { ascending: false })
+        .limit(50)
+        .then(({ data: d }) => {
+          // Map to standard Entry shape
+          const mapped = (d ?? []).map((p: any) => ({
+            user_id: p.id,
+            rating: p.iq_rating ?? 100,
+            games_played: 0, // Not perfectly aligned with IQ, but we can hide it in UI
+            wins: 0,
+            losses: 0,
+            peak_rating: p.iq_rating ?? 100,
+            profiles: p,
+          })) as unknown as Entry[];
+          setData(mapped);
+          setLoading(false);
+        });
+    } else {
+      supabase
+        .from("ratings")
+        .select(
+          "user_id, rating, games_played, wins, losses, peak_rating, profiles(username, display_name, country, avatar_url, premium_active, premium_expires_at)",
+        )
+        .eq("time_class", tab)
+        .gte("games_played", 1)
+        .order("rating", { ascending: false })
+        .limit(50)
+        .then(({ data: d }) => {
+          setData((d ?? []) as unknown as Entry[]);
+          setLoading(false);
+        });
+    }
   }, [tab]);
 
   const winRate = (e: Entry) =>
@@ -80,10 +111,10 @@ function LB() {
               <tr>
                 <th className="px-4 py-3 text-left">Rank</th>
                 <th className="px-4 py-3 text-left">Player</th>
-                <th className="px-4 py-3 text-right">Rating</th>
-                <th className="hidden px-4 py-3 text-right md:table-cell">Peak</th>
-                <th className="hidden px-4 py-3 text-right md:table-cell">Games</th>
-                <th className="hidden px-4 py-3 text-right md:table-cell">Win %</th>
+                <th className="px-4 py-3 text-right">{tab === "iq" ? "IQ" : "Rating"}</th>
+                {tab !== "iq" && <th className="hidden px-4 py-3 text-right md:table-cell">Peak</th>}
+                {tab !== "iq" && <th className="hidden px-4 py-3 text-right md:table-cell">Games</th>}
+                {tab !== "iq" && <th className="hidden px-4 py-3 text-right md:table-cell">Win %</th>}
               </tr>
             </thead>
             <tbody>
@@ -101,14 +132,22 @@ function LB() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <div className="grid h-8 w-8 place-items-center rounded-full bg-gold/10 text-xs text-gold">
-                        {(e.profiles?.display_name ??
-                          e.profiles?.username ??
-                          "?")[0]?.toUpperCase()}
-                      </div>
+                      <UserAvatar
+                        avatarUrl={e.profiles?.avatar_url}
+                        displayName={e.profiles?.display_name ?? e.profiles?.username}
+                        size="sm"
+                      />
                       <div>
-                        <Link to="/profile" className="hover:text-gold">
+                        <Link
+                          to="/profile"
+                          search={{ id: e.user_id }}
+                          className="hover:text-gold flex items-center"
+                        >
                           {e.profiles?.display_name ?? e.profiles?.username ?? "Unknown"}
+                          <PremiumBadge
+                            premiumActive={e.profiles?.premium_active}
+                            premiumExpiresAt={e.profiles?.premium_expires_at}
+                          />
                         </Link>
                         <div className="text-xs text-muted-foreground">
                           {e.profiles?.country ?? ""}
@@ -117,13 +156,17 @@ function LB() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right font-display text-gold">{e.rating}</td>
-                  <td className="hidden px-4 py-3 text-right text-muted-foreground md:table-cell">
-                    {e.peak_rating}
-                  </td>
-                  <td className="hidden px-4 py-3 text-right text-muted-foreground md:table-cell">
-                    {e.games_played}
-                  </td>
-                  <td className="hidden px-4 py-3 text-right md:table-cell">{winRate(e)}%</td>
+                  {tab !== "iq" && (
+                    <>
+                      <td className="hidden px-4 py-3 text-right text-muted-foreground md:table-cell">
+                        {e.peak_rating}
+                      </td>
+                      <td className="hidden px-4 py-3 text-right text-muted-foreground md:table-cell">
+                        {e.games_played}
+                      </td>
+                      <td className="hidden px-4 py-3 text-right md:table-cell">{winRate(e)}%</td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>

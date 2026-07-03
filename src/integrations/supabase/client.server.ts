@@ -4,6 +4,7 @@
 // For user-authenticated queries (with RLS), use the auth middleware instead.
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
+import WebSocket from "ws";
 
 function createSupabaseAdminClient() {
   const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -20,6 +21,12 @@ function createSupabaseAdminClient() {
   }
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    global: {
+      fetch: fetch,
+    },
+    realtime: {
+      transport: WebSocket,
+    },
     auth: {
       storage: undefined,
       persistSession: false,

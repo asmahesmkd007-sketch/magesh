@@ -23,7 +23,8 @@ import {
   Rocket,
   Hourglass,
 } from "lucide-react";
-import { useAuth, useProfile, initials } from "@/hooks/useAuth";
+import { useAuth, useProfile } from "@/hooks/useAuth";
+import { UserAvatar } from "@/components/site/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { StreakCard } from "@/components/site/StreakCard";
 
@@ -104,7 +105,7 @@ function HomePage() {
   const username = profile?.username ?? "";
   const tier = profile?.premium_tier ?? "free";
 
-  const rating = (cls: string) => ratings.find((r) => r.time_class === cls)?.rating ?? "—";
+  const rating = (cls: string) => ratings.find((r) => r.time_class === cls)?.rating ?? 100;
   const totalGames = ratings.reduce((s, r) => s + r.games_played, 0);
   const totalWins = ratings.reduce((s, r) => s + r.wins, 0);
   const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
@@ -136,13 +137,13 @@ function HomePage() {
         <div className="pointer-events-none absolute inset-0 mandala-bg" />
         <div className="relative flex flex-wrap items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="grid h-14 w-14 place-items-center rounded-full gradient-gold text-background text-xl font-bold">
-              {profileLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                initials(displayName)
-              )}
-            </div>
+            {profileLoading ? (
+              <div className="h-16 w-16 grid place-items-center rounded-full gradient-gold">
+                <Loader2 className="h-5 w-5 animate-spin text-background" />
+              </div>
+            ) : (
+              <UserAvatar avatarUrl={profile?.avatar_url} displayName={displayName} size="lg" />
+            )}
             <div>
               <div className="font-display text-xs uppercase tracking-[0.3em] text-gold">
                 Welcome back

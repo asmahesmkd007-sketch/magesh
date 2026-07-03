@@ -1,6 +1,19 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { PageShell, Card, SectionTitle, GoldButton } from "@/components/site/Primitives";
-import { Heart, MessageCircle, Share2, TrendingUp, Calendar } from "lucide-react";
+import {
+  Heart,
+  MessageCircle,
+  Share2,
+  TrendingUp,
+  Calendar,
+  Bookmark,
+  Flag,
+  UserPlus,
+  HeartOff,
+  Reply,
+} from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/community")({
   head: () => ({ meta: [{ title: "Community — ChessOx" }] }),
@@ -15,6 +28,20 @@ const POSTS = [
 ];
 
 function Community() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleProtectedAction = (e: React.MouseEvent, action: string) => {
+    e.preventDefault();
+    if (!user) {
+      toast("Login required to continue");
+      navigate({ to: "/login" });
+      return;
+    }
+    // Proceed with action for authenticated user
+    toast(`Action triggered: ${action}`);
+  };
+
   return (
     <PageShell
       eyebrow="The Court"
@@ -31,8 +58,15 @@ function Community() {
               <input
                 className="flex-1 rounded-full border border-white/10 bg-white/[0.02] px-4 text-sm outline-none focus:border-gold/40"
                 placeholder="Share a position, a question, a victory…"
+                onClick={(e) => {
+                  if (!user) {
+                    e.preventDefault();
+                    toast("Login required to continue");
+                    navigate({ to: "/login" });
+                  }
+                }}
               />
-              <GoldButton>Post</GoldButton>
+              <GoldButton onClick={(e) => handleProtectedAction(e, "Create Post")}>Post</GoldButton>
             </div>
           </Card>
 
@@ -48,16 +82,57 @@ function Community() {
                 </div>
               </div>
               <p className="mt-3 text-sm">{c}</p>
-              <div className="mt-4 flex gap-5 text-xs text-muted-foreground">
-                <button className="flex items-center gap-1 hover:text-gold">
-                  <Heart className="h-4 w-4" /> {l}
+              <div className="mt-4 flex flex-wrap gap-4 text-[11px] text-muted-foreground uppercase tracking-widest">
+                <button
+                  className="flex items-center gap-1 hover:text-gold transition-colors"
+                  onClick={(e) => handleProtectedAction(e, "Like")}
+                >
+                  <Heart className="h-3.5 w-3.5" /> {l}
                 </button>
-                <button className="flex items-center gap-1 hover:text-gold">
-                  <MessageCircle className="h-4 w-4" /> {com}
+                <button
+                  className="flex items-center gap-1 hover:text-gold transition-colors"
+                  onClick={(e) => handleProtectedAction(e, "Unlike")}
+                >
+                  <HeartOff className="h-3.5 w-3.5" />
                 </button>
-                <button className="flex items-center gap-1 hover:text-gold">
-                  <Share2 className="h-4 w-4" /> Share
+                <button
+                  className="flex items-center gap-1 hover:text-gold transition-colors"
+                  onClick={(e) => handleProtectedAction(e, "Comment")}
+                >
+                  <MessageCircle className="h-3.5 w-3.5" /> {com}
                 </button>
+                <button
+                  className="flex items-center gap-1 hover:text-gold transition-colors"
+                  onClick={(e) => handleProtectedAction(e, "Reply")}
+                >
+                  <Reply className="h-3.5 w-3.5" /> Reply
+                </button>
+                <button
+                  className="flex items-center gap-1 hover:text-gold transition-colors"
+                  onClick={(e) => handleProtectedAction(e, "Share")}
+                >
+                  <Share2 className="h-3.5 w-3.5" /> Share
+                </button>
+                <button
+                  className="flex items-center gap-1 hover:text-gold transition-colors"
+                  onClick={(e) => handleProtectedAction(e, "Bookmark")}
+                >
+                  <Bookmark className="h-3.5 w-3.5" /> Save
+                </button>
+                <div className="ml-auto flex gap-4">
+                  <button
+                    className="flex items-center gap-1 hover:text-gold transition-colors"
+                    onClick={(e) => handleProtectedAction(e, "Follow User")}
+                  >
+                    <UserPlus className="h-3.5 w-3.5" /> Follow
+                  </button>
+                  <button
+                    className="flex items-center gap-1 hover:text-destructive transition-colors"
+                    onClick={(e) => handleProtectedAction(e, "Report")}
+                  >
+                    <Flag className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             </Card>
           ))}
@@ -78,28 +153,6 @@ function Community() {
                   </li>
                 ),
               )}
-            </ul>
-          </Card>
-
-          <Card className="p-5">
-            <SectionTitle kicker="Upcoming" title="Events" />
-            <ul className="space-y-3 text-sm">
-              {[
-                ["Maharaja Cup", "Tomorrow"],
-                ["Najdorf Masterclass", "In 3 days"],
-                ["Blitz Battle Royale", "In 5 days"],
-              ].map(([n, d]) => (
-                <li
-                  key={n}
-                  className="flex items-center gap-3 rounded-lg border border-white/5 p-3"
-                >
-                  <Calendar className="h-4 w-4 text-gold" />
-                  <div className="flex-1">
-                    <div className="font-display">{n}</div>
-                    <div className="text-xs text-muted-foreground">{d}</div>
-                  </div>
-                </li>
-              ))}
             </ul>
           </Card>
 

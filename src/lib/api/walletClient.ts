@@ -10,6 +10,7 @@ export type TransactionType =
   | "premium_bonus"
   | "tournament_entry"
   | "tournament_prize"
+  | "tournament_refund"
   | "admin_credit"
   | "admin_debit"
   | "refund"
@@ -31,6 +32,7 @@ export type Wallet = {
   id: string;
   user_id: string;
   balance: number;
+  locked_balance: number;
   total_earned: number;
   total_spent: number;
   created_at: string;
@@ -45,6 +47,22 @@ type RpcMap = {
   join_tournament_paid: {
     args: { p_tournament_id: string };
     returns: null;
+  };
+  refund_tournament_entry: {
+    args: { p_tournament_id: string };
+    returns: null;
+  };
+  cancel_tournament: {
+    args: { p_tournament_id: string };
+    returns: null;
+  };
+  handle_no_show: {
+    args: { p_match_id: string };
+    returns: null;
+  };
+  ensure_tournament_slots: {
+    args: Record<string, never>;
+    returns: { checked: number; created: number };
   };
 };
 
@@ -108,4 +126,27 @@ export function creditPremiumBonus(
  */
 export function joinTournamentPaid(tournamentId: string): Promise<null> {
   return callRpc("join_tournament_paid", { p_tournament_id: tournamentId });
+}
+
+/** Withdraw from an upcoming tournament and get a refund. */
+export function refundTournamentEntry(tournamentId: string): Promise<null> {
+  return callRpc("refund_tournament_entry", { p_tournament_id: tournamentId });
+}
+
+/** Claim a no-show win after the grace period has elapsed. */
+export function claimNoShow(matchId: string): Promise<null> {
+  return callRpc("handle_no_show", { p_match_id: matchId });
+}
+
+/** Admin-only: cancel a tournament and refund every paid entrant. */
+export function cancelTournament(tournamentId: string): Promise<null> {
+  return callRpc("cancel_tournament", { p_tournament_id: tournamentId });
+}
+
+/**
+ * Ensure every tournament category has at least one UPCOMING tournament.
+ * Call on page load and periodically for auto-recovery.
+ */
+export function ensureTournamentSlots(): Promise<{ checked: number; created: number }> {
+  return callRpc("ensure_tournament_slots", {});
 }

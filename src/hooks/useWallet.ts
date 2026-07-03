@@ -13,15 +13,20 @@ export function useWallet(userId?: string | null) {
       return;
     }
     setLoading(true);
-    const { data } = await (supabase as unknown as {
-      from: (t: string) => {
-        select: (s: string) => {
-          eq: (col: string, val: string) => {
-            maybeSingle: () => Promise<{ data: unknown }>;
+    const { data } = await (
+      supabase as unknown as {
+        from: (t: string) => {
+          select: (s: string) => {
+            eq: (
+              col: string,
+              val: string,
+            ) => {
+              maybeSingle: () => Promise<{ data: unknown }>;
+            };
           };
         };
-      };
-    })
+      }
+    )
       .from("wallets")
       .select("*")
       .eq("user_id", userId)
@@ -36,8 +41,9 @@ export function useWallet(userId?: string | null) {
     if (!userId) return;
 
     // Real-time subscription — keeps balance live across tabs
+    const channelId = `wallet:${userId}:${Math.random().toString(36).substring(7)}`;
     const channel = supabase
-      .channel(`wallet:${userId}`)
+      .channel(channelId)
       .on(
         "postgres_changes" as never,
         {
@@ -71,17 +77,25 @@ export function useWalletTransactions(userId?: string | null, limit = 50) {
       return;
     }
     setLoading(true);
-    const { data } = await (supabase as unknown as {
-      from: (t: string) => {
-        select: (s: string) => {
-          eq: (col: string, val: string) => {
-            order: (col: string, opts: object) => {
-              limit: (n: number) => Promise<{ data: unknown[] | null }>;
+    const { data } = await (
+      supabase as unknown as {
+        from: (t: string) => {
+          select: (s: string) => {
+            eq: (
+              col: string,
+              val: string,
+            ) => {
+              order: (
+                col: string,
+                opts: object,
+              ) => {
+                limit: (n: number) => Promise<{ data: unknown[] | null }>;
+              };
             };
           };
         };
-      };
-    })
+      }
+    )
       .from("wallet_transactions")
       .select("*")
       .eq("user_id", userId)
@@ -96,8 +110,9 @@ export function useWalletTransactions(userId?: string | null, limit = 50) {
 
     if (!userId) return;
 
+    const channelId = `wallet_tx:${userId}:${Math.random().toString(36).substring(7)}`;
     const channel = supabase
-      .channel(`wallet_tx:${userId}`)
+      .channel(channelId)
       .on(
         "postgres_changes" as never,
         {

@@ -21,19 +21,19 @@ type TimeEntry = {
 };
 
 const TIME_CONTROLS: TimeEntry[] = [
-  { label: "1+0 Bullet",     tc: "1+0",   class: "bullet",    sec: 60,   inc: 0  },
-  { label: "2+1 Bullet",     tc: "2+1",   class: "bullet",    sec: 120,  inc: 1  },
-  { label: "3+0 Blitz",      tc: "3+0",   class: "blitz",     sec: 180,  inc: 0  },
-  { label: "5+0 Blitz",      tc: "5+0",   class: "blitz",     sec: 300,  inc: 0  },
-  { label: "5+3 Blitz",      tc: "5+3",   class: "blitz",     sec: 300,  inc: 3  },
-  { label: "10+0 Rapid",     tc: "10+0",  class: "rapid",     sec: 600,  inc: 0  },
-  { label: "10+5 Rapid",     tc: "10+5",  class: "rapid",     sec: 600,  inc: 5  },
-  { label: "15+10 Rapid",    tc: "15+10", class: "rapid",     sec: 900,  inc: 10 },
-  { label: "30+0 Classical", tc: "30+0",  class: "classical", sec: 1800, inc: 0  },
+  { label: "1+0 Bullet", tc: "1+0", class: "bullet", sec: 60, inc: 0 },
+  { label: "2+1 Bullet", tc: "2+1", class: "bullet", sec: 120, inc: 1 },
+  { label: "3+0 Blitz", tc: "3+0", class: "blitz", sec: 180, inc: 0 },
+  { label: "5+0 Blitz", tc: "5+0", class: "blitz", sec: 300, inc: 0 },
+  { label: "5+3 Blitz", tc: "5+3", class: "blitz", sec: 300, inc: 3 },
+  { label: "10+0 Rapid", tc: "10+0", class: "rapid", sec: 600, inc: 0 },
+  { label: "10+5 Rapid", tc: "10+5", class: "rapid", sec: 600, inc: 5 },
+  { label: "15+10 Rapid", tc: "15+10", class: "rapid", sec: 900, inc: 10 },
+  { label: "30+0 Classical", tc: "30+0", class: "classical", sec: 1800, inc: 0 },
 ];
 
 const COLOR_OPTS: { value: ColorMode; label: string }[] = [
-  { value: "random",     label: "Random"    },
+  { value: "random", label: "Random" },
   { value: "host_white", label: "I'm White" },
   { value: "host_black", label: "I'm Black" },
 ];
@@ -43,14 +43,14 @@ function Room() {
   const navigate = useNavigate();
 
   // Create-room state
-  const [tcIdx,      setTcIdx]      = useState(5);            // default 10+0 Rapid
-  const [colorMode,  setColorMode]  = useState<ColorMode>("random");
-  const [isRated,    setIsRated]    = useState(true);
-  const [creating,   setCreating]   = useState(false);
+  const [tcIdx, setTcIdx] = useState(5); // default 10+0 Rapid
+  const [colorMode, setColorMode] = useState<ColorMode>("random");
+  const [isRated, setIsRated] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   // Join-room state
   const [joinCode, setJoinCode] = useState("");
-  const [joining,  setJoining]  = useState(false);
+  const [joining, setJoining] = useState(false);
 
   // Active room state
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
@@ -71,14 +71,17 @@ function Room() {
   }, [user]);
 
   async function handleCreate() {
-    if (!user) { toast.error("Sign in to create a room"); return; }
+    if (!user) {
+      toast.error("Sign in to create a room");
+      return;
+    }
     const tc = TIME_CONTROLS[tcIdx];
     setCreating(true);
     try {
       const roomId = await createRoom({
-        timeControl:      tc.tc,
-        timeClass:        tc.class,
-        initialSeconds:   tc.sec,
+        timeControl: tc.tc,
+        timeClass: tc.class,
+        initialSeconds: tc.sec,
         incrementSeconds: tc.inc,
         colorMode,
         isRated,
@@ -92,9 +95,15 @@ function Room() {
   }
 
   async function handleJoin() {
-    if (!user) { toast.error("Sign in to join a room"); return; }
+    if (!user) {
+      toast.error("Sign in to join a room");
+      return;
+    }
     const code = joinCode.trim().toUpperCase();
-    if (code.length !== 6) { toast.error("Enter a valid 6-character room code"); return; }
+    if (code.length !== 6) {
+      toast.error("Enter a valid 6-character room code");
+      return;
+    }
     setJoining(true);
     try {
       await joinRoom(code);
@@ -119,7 +128,10 @@ function Room() {
 
   // Smart input: strips a pasted invite URL down to the 6-char code
   function handleCodeInput(raw: string) {
-    const stripped = raw.replace(/^.*\/room\//i, "").replace(/[^A-F0-9]/gi, "").toUpperCase();
+    const stripped = raw
+      .replace(/^.*\/room\//i, "")
+      .replace(/[^A-F0-9]/gi, "")
+      .toUpperCase();
     setJoinCode(stripped.slice(0, 6));
   }
 
@@ -251,7 +263,9 @@ function Room() {
           <div className="mt-6">
             <GoldButton className="w-full" onClick={handleCreate} disabled={creating}>
               {creating ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Creating…</>
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Creating…
+                </>
               ) : (
                 "Create Room"
               )}
@@ -271,7 +285,9 @@ function Room() {
             </div>
           </div>
 
-          <div className="text-xs uppercase tracking-[0.22em] text-gold/80">Room Code or Invite Link</div>
+          <div className="text-xs uppercase tracking-[0.22em] text-gold/80">
+            Room Code or Invite Link
+          </div>
           <input
             value={joinCode}
             onChange={(e) => handleCodeInput(e.target.value)}
@@ -297,7 +313,9 @@ function Room() {
               disabled={joining || joinCode.length !== 6}
             >
               {joining ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Joining…</>
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Joining…
+                </>
               ) : (
                 "Join Room"
               )}

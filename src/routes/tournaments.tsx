@@ -1,16 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { PageShell, Card, SectionTitle, GoldButton } from "@/components/site/Primitives";
+import { PageShell, Card, GoldButton } from "@/components/site/Primitives";
 import {
   Trophy,
   Crown,
-  Calendar,
   Users,
   Loader2,
   Coins,
   Wallet,
   AlertCircle,
+  Swords,
+  Eye,
+  Clock,
+  Lock,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
@@ -25,62 +28,72 @@ export const Route = createFileRoute("/tournaments")({
 type Tournament = {
   id: string;
   name: string;
-  format: string | null;
+  format: string;
   prize_pool: string | null;
   starts_at: string | null;
-  status: "upcoming" | "live" | "finished";
-  player_count: number | null;
-  max_players: number | null;
+  status: "upcoming" | "locked" | "live";
+  player_count: number;
+  max_players: number;
   cover_gradient: string | null;
-  winner_display: string | null;
-  time_control: string | null;
+  time_control: string;
   entry_fee_coins: number;
   prize_1st: number;
   prize_2nd: number;
   prize_3rd: number;
+  created_at: string;
 };
 
 const GRADIENTS = [
   "from-amber-500 to-rose-700",
   "from-emerald-500 to-teal-700",
   "from-violet-500 to-indigo-700",
+  "from-sky-500 to-blue-700",
+  "from-pink-500 to-fuchsia-700",
+  "from-orange-500 to-red-700",
 ];
 
-function relDate(iso: string | null) {
-  if (!iso) return "";
-  const diff = new Date(iso).getTime() - Date.now();
-  const d = Math.ceil(diff / 86400000);
-  if (d <= 0) return "Today";
-  if (d === 1) return "Tomorrow";
-  return `In ${d} days`;
+function timeLabel(time_control: string) {
+  if (time_control.startsWith("1+")) return "Bullet · " + time_control;
+  if (time_control.startsWith("3+")) return "Blitz · " + time_control;
+  return "Rapid · " + time_control;
 }
 
-function shortDate(iso: string | null) {
-  if (!iso) return "";
-  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+function prizePool(t: Tournament) {
+  return (t.prize_1st ?? 0) + (t.prize_2nd ?? 0) + (t.prize_3rd ?? 0);
 }
 
-function PrizeBadges({ t }: { t: Tournament }) {
-  if (!t.prize_1st && !t.prize_2nd && !t.prize_3rd) return null;
-  return (
-    <div className="mt-2 flex flex-wrap gap-1">
-      {t.prize_1st > 0 && (
-        <span className="flex items-center gap-1 rounded-full border border-gold/30 bg-gold/5 px-2 py-0.5 text-[10px] text-gold">
-          🥇 {t.prize_1st}
-        </span>
-      )}
-      {t.prize_2nd > 0 && (
-        <span className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-muted-foreground">
-          🥈 {t.prize_2nd}
-        </span>
-      )}
-      {t.prize_3rd > 0 && (
-        <span className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-muted-foreground">
-          🥉 {t.prize_3rd}
-        </span>
-      )}
-    </div>
-  );
+function Countdown({ startTime }: { startTime: string | null }) {
+  const [label, setLabel] = useState("");
+
+  useEffect(() => {
+    function calc() {
+      if (!startTime) {
+        setLabel(""); // Handled by parent
+        return;
+      }
+      const diff = new Date(startTime).getTime() - Date.now();
+      if (diff <= 0) {
+        setLabel("Starting now");
+        return;
+      }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      if (h > 48) {
+        setLabel("In " + Math.ceil(diff / 86400000) + " days");
+      } else if (h > 0) {
+        setLabel(h + "h " + m + "m");
+      } else {
+        setLabel(m + "m " + s + "s");
+      }
+    }
+    calc();
+    const id = setInterval(calc, 1000);
+    return () => clearInterval(id);
+  }, [startTime]);
+
+  if (!label) return null;
+  return <span>{label}</span>;
 }
 
 function Tournaments() {
@@ -88,31 +101,88 @@ function Tournaments() {
   const { wallet } = useWallet(user?.id);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [joining, setJoining] = useState<string | null>(null);
   const [myEntries, setMyEntries] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    supabase
-      .from("tournaments")
-      .select(
-        "id,name,format,prize_pool,starts_at,status,player_count,max_players,cover_gradient,winner_display,time_control,entry_fee_coins,prize_1st,prize_2nd,prize_3rd",
+  const loadTournaments = useCallback(async () => {
+    setError(null);
+    try {
+      const { data, error: qErr } = await (
+        supabase as unknown as {
+          from: (t: string) => {
+            select: (s: string) => {
+              in: (
+                col: string,
+                vals: string[],
+              ) => Promise<{ data: unknown[] | null; error: { message: string } | null }>;
+            };
+          };
+        }
       )
-      .order("starts_at", { ascending: true })
-      .limit(30)
-      .then(({ data }) => {
-        setTournaments((data ?? []) as unknown as Tournament[]);
-        setLoading(false);
+        .from("tournaments")
+        .select(
+          "id,name,format,prize_pool,starts_at,status,player_count,max_players,cover_gradient,time_control,entry_fee_coins,prize_1st,prize_2nd,prize_3rd,created_at",
+        )
+        .in("status", ["upcoming", "locked", "live"]);
+
+      if (qErr) throw new Error(qErr.message);
+
+      const unsorted = (data ?? []) as unknown as Tournament[];
+
+      // Sort: upcoming -> locked -> live, then by created_at ascending
+      const statusOrder = { upcoming: 1, locked: 2, live: 3 };
+      unsorted.sort((a, b) => {
+        if (statusOrder[a.status] !== statusOrder[b.status]) {
+          return statusOrder[a.status] - statusOrder[b.status];
+        }
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       });
+
+      setTournaments(unsorted);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load tournaments");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
+    void loadTournaments();
+  }, [loadTournaments]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("tournaments_list_realtime")
+      .on(
+        "postgres_changes" as never,
+        { event: "*", schema: "public", table: "tournaments" } as never,
+        () => {
+          void loadTournaments();
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [loadTournaments]);
+
+  useEffect(() => {
     if (!user) return;
-    supabase
+    void (
+      supabase as unknown as {
+        from: (t: string) => {
+          select: (s: string) => {
+            eq: (col: string, val: string) => Promise<{ data: { tournament_id: string }[] | null }>;
+          };
+        };
+      }
+    )
       .from("tournament_entries")
       .select("tournament_id")
       .eq("user_id", user.id)
       .then(({ data }) => {
-        setMyEntries(new Set((data ?? []).map((r: { tournament_id: string }) => r.tournament_id)));
+        setMyEntries(new Set((data ?? []).map((r) => r.tournament_id)));
       });
   }, [user]);
 
@@ -128,26 +198,19 @@ function Tournaments() {
       setTournaments((prev) =>
         prev.map((x) => (x.id === t.id ? { ...x, player_count: (x.player_count ?? 0) + 1 } : x)),
       );
-      if (t.entry_fee_coins > 0) {
-        toast.success(`Registered! ${t.entry_fee_coins} coins deducted from your wallet.`);
-      } else {
-        toast.success("Registered successfully!");
-      }
+      toast.success(
+        t.entry_fee_coins > 0
+          ? "Registered! " + t.entry_fee_coins + " coins deducted."
+          : "Registered successfully!",
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Could not register";
       if (msg.includes("Insufficient wallet balance")) {
-        const needed = t.entry_fee_coins - (wallet?.balance ?? 0);
-        toast.error(
-          `Insufficient wallet balance. You need ${needed} more coins.`,
-          {
-            action: {
-              label: "Get Coins",
-              onClick: () => window.location.assign("/premium"),
-            },
-          },
-        );
+        toast.error("Need " + (t.entry_fee_coins - (wallet?.balance ?? 0)) + " more coins.", {
+          action: { label: "Get Coins", onClick: () => window.location.assign("/premium") },
+        });
       } else if (msg.includes("Already registered")) {
-        toast.info("You are already registered for this tournament.");
+        toast.info("Already registered.");
         setMyEntries((prev) => new Set([...prev, t.id]));
       } else {
         toast.error(msg);
@@ -156,23 +219,185 @@ function Tournaments() {
     setJoining(null);
   }
 
-  const upcoming = tournaments.filter((t) => t.status === "upcoming");
-  const live = tournaments.filter((t) => t.status === "live");
-  const finished = tournaments.filter((t) => t.status === "finished");
+  const oneMin = tournaments.filter((t) => t.time_control.startsWith("1+"));
+  const threeMin = tournaments.filter((t) => t.time_control.startsWith("3+"));
+  const fiveMin = tournaments.filter((t) => t.time_control.startsWith("5+"));
+  const tenMin = tournaments.filter((t) => t.time_control.startsWith("10+"));
 
-  if (loading) {
+  const renderSection = (title: string, data: Tournament[], indexOffset: number) => {
+    if (data.length === 0) return null;
+
     return (
-      <PageShell
-        eyebrow="The Royal Arena"
-        title="Tournaments"
-        subtitle="From Friday night arenas to royal championships."
-      >
-        <div className="grid place-items-center py-24">
-          <Loader2 className="h-8 w-8 animate-spin text-gold" />
+      <div className="mb-12">
+        <h2 className="mb-6 flex items-center gap-2 font-display text-2xl">{title}</h2>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {data.map((t, i) => {
+            const canAfford = !t.entry_fee_coins || (wallet?.balance ?? 0) >= t.entry_fee_coins;
+            const registered = myEntries.has(t.id);
+            const pool = prizePool(t);
+
+            return (
+              <div
+                key={t.id}
+                className={
+                  "group relative flex flex-col overflow-hidden rounded-2xl border bg-white/[0.02] transition " +
+                  (t.status === "live"
+                    ? "border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.1)] "
+                    : t.status === "locked"
+                      ? "border-amber-500/30 "
+                      : "border-white/10 hover:border-gold/30 hover:-translate-y-0.5")
+                }
+              >
+                <div
+                  className={
+                    "relative aspect-[3/1] bg-gradient-to-br " +
+                    (t.cover_gradient ?? GRADIENTS[(i + indexOffset) % GRADIENTS.length]) +
+                    (t.status === "live" ? " opacity-80" : "")
+                  }
+                >
+                  <div className="absolute inset-0 mandala-bg opacity-40" />
+                  <Crown className="absolute right-3 top-3 h-5 w-5 text-white/70" />
+                  <span className="absolute bottom-2 left-3 rounded-full bg-black/50 px-2.5 py-0.5 text-[11px] backdrop-blur">
+                    {timeLabel(t.time_control)}
+                  </span>
+
+                  {t.status === "live" && (
+                    <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-medium text-emerald-300 backdrop-blur border border-emerald-500/30">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />{" "}
+                      LIVE
+                    </span>
+                  )}
+                  {t.status === "locked" && (
+                    <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] font-medium text-amber-300 backdrop-blur border border-amber-500/30">
+                      <Lock className="h-3 w-3" /> LOCKED
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-1 flex-col gap-3 p-4">
+                  <div>
+                    <div className="font-display text-base leading-tight">{t.name}</div>
+                    <div className="mt-0.5 font-mono text-[10px] text-muted-foreground/60">
+                      {t.id.slice(0, 8)}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2">
+                      <div className="text-[10px] text-muted-foreground">Entry Fee</div>
+                      {t.entry_fee_coins > 0 ? (
+                        <div className="flex items-center gap-1 text-sm font-medium text-gold">
+                          <Coins className="h-3 w-3" /> {t.entry_fee_coins}
+                        </div>
+                      ) : (
+                        <div className="text-sm font-medium text-emerald-400">Free</div>
+                      )}
+                    </div>
+
+                    <div className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2">
+                      <div className="text-[10px] text-muted-foreground">Prize Pool</div>
+                      <div className="flex items-center gap-1 text-sm font-medium text-gold">
+                        <Trophy className="h-3 w-3" /> {pool > 0 ? pool : "—"}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2">
+                      <div className="text-[10px] text-muted-foreground">Players</div>
+                      <div
+                        className={
+                          "flex items-center gap-1 text-sm font-medium " +
+                          (t.player_count >= t.max_players ? "text-emerald-400" : "")
+                        }
+                      >
+                        <Users className="h-3 w-3 text-muted-foreground" />
+                        {t.player_count ?? 0}
+                        {t.max_players ? "/" + t.max_players : ""}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2">
+                      <div className="text-[10px] text-muted-foreground">Status</div>
+                      <div className="flex items-center gap-1 text-sm font-medium">
+                        <Clock className="h-3 w-3 text-muted-foreground" />
+                        {t.status === "live" ? (
+                          <span className="text-emerald-400">In Progress</span>
+                        ) : t.status === "locked" ? (
+                          <span className="text-amber-400">
+                            <Countdown startTime={t.starts_at} />
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">Waiting...</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {user &&
+                    !registered &&
+                    !canAfford &&
+                    t.entry_fee_coins > 0 &&
+                    t.status === "upcoming" && (
+                      <div className="flex items-center gap-1.5 rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-1.5 text-xs text-rose-400">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                        Need {t.entry_fee_coins - (wallet?.balance ?? 0)} more coins
+                        <Link to="/premium" className="ml-auto font-medium underline">
+                          Get Coins
+                        </Link>
+                      </div>
+                    )}
+
+                  <div className="mt-auto flex gap-2">
+                    <Link
+                      to="/tournament/$id"
+                      params={{ id: t.id }}
+                      className="flex-1 rounded-xl border border-white/10 px-3 py-2 text-center text-xs text-muted-foreground transition hover:border-gold/30 hover:text-foreground"
+                    >
+                      Details
+                    </Link>
+                    {t.status === "live" ? (
+                      <Link
+                        to="/tournament/$id"
+                        params={{ id: t.id }}
+                        className="flex w-full flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 py-2 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/20"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> Watch
+                      </Link>
+                    ) : t.status === "locked" ? (
+                      <span className="flex flex-1 items-center justify-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-500/70 cursor-not-allowed">
+                        <Lock className="h-3.5 w-3.5" /> Locked
+                      </span>
+                    ) : registered ? (
+                      <span className="flex flex-1 items-center justify-center gap-1 rounded-xl border border-gold/30 bg-gold/5 px-3 py-2 text-xs text-gold">
+                        Registered ✓
+                      </span>
+                    ) : (
+                      <GoldButton
+                        onClick={() => handleJoin(t)}
+                        disabled={joining === t.id || t.player_count >= t.max_players}
+                        className={"flex-1 text-xs " + (!canAfford && user ? "opacity-50" : "")}
+                      >
+                        {joining === t.id ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Joining…
+                          </>
+                        ) : t.entry_fee_coins > 0 ? (
+                          <>
+                            <Coins className="h-3.5 w-3.5" /> Pay &amp; Join
+                          </>
+                        ) : (
+                          "Join Free"
+                        )}
+                      </GoldButton>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
-      </PageShell>
+      </div>
     );
-  }
+  };
 
   return (
     <PageShell
@@ -180,12 +405,11 @@ function Tournaments() {
       title="Tournaments"
       subtitle="From Friday night arenas to royal championships, the throne is contested daily."
     >
-      {/* Wallet balance strip for logged-in users */}
       {user && (
         <div className="mb-8 flex items-center justify-between rounded-2xl border border-gold/15 bg-white/[0.02] px-5 py-3">
           <div className="flex items-center gap-2 text-sm">
             <Coins className="h-4 w-4 text-gold" />
-            <span className="text-muted-foreground">Your balance:</span>
+            <span className="text-muted-foreground">Balance:</span>
             <span className="font-display text-lg text-gradient-gold">
               {wallet?.balance ?? 0} coins
             </span>
@@ -196,178 +420,42 @@ function Tournaments() {
         </div>
       )}
 
-      {upcoming.length > 0 && (
-        <>
-          <SectionTitle kicker="Upcoming" title="Coming up" />
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {upcoming.map((t, i) => {
-              const canAfford =
-                !t.entry_fee_coins || (wallet?.balance ?? 0) >= t.entry_fee_coins;
-              const registered = myEntries.has(t.id);
+      {loading && (
+        <div className="grid place-items-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-gold" />
+        </div>
+      )}
 
-              return (
-                <Link to="/tournament" key={t.id}>
-                  <Card className="overflow-hidden transition-transform hover:-translate-y-1">
-                    <div
-                      className={`relative aspect-[16/9] bg-gradient-to-br ${t.cover_gradient ?? GRADIENTS[i % GRADIENTS.length]}`}
-                    >
-                      <div className="absolute inset-0 mandala-bg opacity-50" />
-                      <Crown className="absolute right-4 top-4 h-6 w-6 text-white/80" />
-                      <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
-                        <span className="rounded-full bg-black/40 px-2.5 py-1 text-xs backdrop-blur">
-                          {t.format ?? "Open"}
-                        </span>
-                        <span className="rounded-full bg-black/40 px-2.5 py-1 text-xs text-gold backdrop-blur">
-                          {relDate(t.starts_at)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-5">
-                      <div className="font-display text-xl">{t.name}</div>
-                      <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Calendar className="h-3.5 w-3.5" /> {relDate(t.starts_at)} ·{" "}
-                        {shortDate(t.starts_at)}
-                      </div>
-
-                      {/* Entry fee + prize pool */}
-                      <div className="mt-3 flex items-center justify-between">
-                        <div>
-                          {t.entry_fee_coins > 0 ? (
-                            <span className="flex items-center gap-1 text-sm font-medium text-gold">
-                              <Coins className="h-3.5 w-3.5" />
-                              {t.entry_fee_coins} coins entry
-                            </span>
-                          ) : (
-                            <span className="text-sm text-emerald-400">Free Entry</span>
-                          )}
-                          <PrizeBadges t={t} />
-                        </div>
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Users className="h-3.5 w-3.5" /> {t.player_count ?? 0}
-                          {t.max_players ? `/${t.max_players}` : ""}
-                        </span>
-                      </div>
-
-                      {/* Insufficient balance warning */}
-                      {user && !registered && !canAfford && t.entry_fee_coins > 0 && (
-                        <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-1.5 text-xs text-rose-400">
-                          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                          Need {t.entry_fee_coins - (wallet?.balance ?? 0)} more coins
-                          <Link
-                            to="/premium"
-                            className="ml-auto font-medium underline"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Get Coins
-                          </Link>
-                        </div>
-                      )}
-
-                      <div className="mt-3" onClick={(e) => e.preventDefault()}>
-                        {registered ? (
-                          <span className="rounded-full border border-gold/30 px-3 py-1 text-xs text-gold">
-                            Registered ✓
-                          </span>
-                        ) : (
-                          <GoldButton
-                            onClick={() => handleJoin(t)}
-                            disabled={joining === t.id}
-                            className={!canAfford && user ? "opacity-50" : ""}
-                          >
-                            {joining === t.id ? (
-                              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Registering…</>
-                            ) : t.entry_fee_coins > 0 ? (
-                              <><Coins className="h-3.5 w-3.5" /> Pay &amp; Register</>
-                            ) : (
-                              "Register"
-                            )}
-                          </GoldButton>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                </Link>
-              );
-            })}
+      {!loading && error && (
+        <Card className="flex items-center gap-3 p-6 text-rose-400">
+          <AlertCircle className="h-5 w-5 shrink-0" />
+          <div>
+            <div className="font-medium">Failed to load tournaments</div>
+            <div className="text-xs text-muted-foreground">{error}</div>
           </div>
-        </>
-      )}
-
-      {live.length > 0 && (
-        <>
-          <SectionTitle kicker="Live" title="Now playing" />
-          <div className="grid gap-3 md:grid-cols-2">
-            {live.map((t) => (
-              <Card key={t.id} className="flex items-center justify-between p-5">
-                <div>
-                  <div className="font-display text-lg">{t.name}</div>
-                  <div className="text-xs text-muted-foreground">{t.format}</div>
-                  {t.prize_1st > 0 && (
-                    <div className="mt-1 flex items-center gap-1 text-xs text-gold">
-                      <Coins className="h-3 w-3" /> Prize Pool:{" "}
-                      {t.prize_1st + t.prize_2nd + t.prize_3rd} coins
-                    </div>
-                  )}
-                </div>
-                <span className="rounded-full bg-emerald/20 px-3 py-1 text-xs text-emerald">
-                  ● Live · {t.player_count ?? 0} players
-                </span>
-              </Card>
-            ))}
-          </div>
-        </>
-      )}
-
-      {finished.length > 0 && (
-        <>
-          <SectionTitle kicker="Archive" title="Completed events" />
-          <Card className="overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-white/[0.03] text-xs uppercase tracking-widest text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 text-left">Event</th>
-                  <th className="px-4 py-3 text-left">Format</th>
-                  <th className="px-4 py-3 text-left">Winner</th>
-                  <th className="px-4 py-3 text-left">Prize Pool</th>
-                </tr>
-              </thead>
-              <tbody>
-                {finished.map((t) => (
-                  <tr key={t.id} className="border-t border-white/5">
-                    <td className="px-4 py-3 font-display">{t.name}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{t.format ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      {t.winner_display ? (
-                        <span className="flex items-center gap-1">
-                          <Trophy className="h-3.5 w-3.5 text-gold" />
-                          {t.winner_display}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {t.prize_1st ? (
-                        <span className="flex items-center gap-1 text-gold">
-                          <Coins className="h-3.5 w-3.5" />
-                          {t.prize_1st + t.prize_2nd + t.prize_3rd}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">{t.prize_pool ?? "—"}</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
-        </>
-      )}
-
-      {tournaments.length === 0 && (
-        <Card className="p-10 text-center text-muted-foreground">
-          No tournaments scheduled. Check back soon!
+          <button
+            onClick={() => void loadTournaments()}
+            className="ml-auto text-xs text-gold hover:underline"
+          >
+            Retry
+          </button>
         </Card>
+      )}
+
+      {!loading && !error && tournaments.length === 0 && (
+        <Card className="p-12 text-center">
+          <Crown className="mx-auto mb-3 h-10 w-10 text-gold/30" />
+          <div className="text-muted-foreground">No tournaments right now.</div>
+        </Card>
+      )}
+
+      {!loading && !error && (
+        <>
+          {renderSection("1 Min Tournaments", oneMin, 0)}
+          {renderSection("3 Min Tournaments", threeMin, 10)}
+          {renderSection("5 Min Tournaments", fiveMin, 20)}
+          {renderSection("10 Min Tournaments", tenMin, 30)}
+        </>
       )}
     </PageShell>
   );

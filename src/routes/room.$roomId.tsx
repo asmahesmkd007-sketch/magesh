@@ -13,7 +13,8 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
-import { useAuth, initials } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
+import { UserAvatar } from "@/components/site/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import {
   leaveRoom,
@@ -25,6 +26,7 @@ import {
   type QueueEntry,
 } from "@/lib/api/roomClient";
 import { toast } from "sonner";
+import { PremiumBadge } from "@/components/site/PremiumBadge";
 
 export const Route = createFileRoute("/room/$roomId")({
   head: () => ({ meta: [{ title: "Waiting Room — ChessOx" }] }),
@@ -36,6 +38,8 @@ type Profile = {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
+  premium_active?: boolean;
+  premium_expires_at?: string | null;
 };
 
 type QueueEntryWithProfile = QueueEntry & { profile: Profile | null };
@@ -45,7 +49,10 @@ async function fetchRoomById(roomId: string): Promise<PublicRoom | null> {
   const client = supabase as unknown as {
     from: (t: string) => {
       select: (c: string) => {
-        eq: (col: string, val: string) => {
+        eq: (
+          col: string,
+          val: string,
+        ) => {
           maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
         };
       };
@@ -64,9 +71,9 @@ async function fetchRoomById(roomId: string): Promise<PublicRoom | null> {
 }
 
 async function fetchProfile(userId: string): Promise<Profile | null> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from("profiles")
-    .select("id, username, display_name, avatar_url")
+    .select("id, username, display_name, avatar_url, premium_active, premium_expires_at")
     .eq("id", userId)
     .maybeSingle();
   if (error) {
@@ -113,17 +120,21 @@ function PlayerCard({
         </div>
       ) : profile ? (
         <div className="flex items-center gap-3">
-          <span
-            className={`grid h-14 w-14 shrink-0 place-items-center rounded-full font-bold text-lg ${
-              isHighlighted
-                ? "gradient-gold text-background"
-                : "bg-white/5 text-gold"
-            }`}
-          >
-            {initials(profile.display_name || profile.username)}
-          </span>
+          <UserAvatar
+            avatarUrl={profile.avatar_url}
+            displayName={profile.display_name || profile.username}
+            size="lg"
+            className="shrink-0"
+          />
           <div>
-            <div className="font-display text-xl">{profile.display_name ?? profile.username}</div>
+            <div className="font-display text-xl flex items-center">
+              {profile.display_name ?? profile.username}
+              <PremiumBadge
+                className="h-4 w-4 ml-2"
+                premiumActive={profile.premium_active}
+                premiumExpiresAt={profile.premium_expires_at}
+              />
+            </div>
             <div className="text-sm text-muted-foreground">@{profile.username}</div>
             {isYou && <div className="mt-0.5 text-xs text-gold">You</div>}
           </div>
@@ -213,7 +224,11 @@ function RoomWaiting() {
         // Re-fetch authoritative state after join attempt
         const refreshed = await fetchRoomById(roomId);
         if (cancelled) return;
-        if (!refreshed) { setError("Room not found."); setLoading(false); return; }
+        if (!refreshed) {
+          setError("Room not found.");
+          setLoading(false);
+          return;
+        }
 
         // Still not in the room as guest — join the queue
         if (refreshed.guest_id !== user!.id && refreshed.host_id !== user!.id) {
@@ -499,12 +514,7 @@ function RoomWaiting() {
 
       {/* Player slots */}
       <div className="mb-6 grid gap-4 sm:grid-cols-2">
-        <PlayerCard
-          profile={hostProfile}
-          label="Host"
-          isYou={isHost}
-          isHighlighted={isHost}
-        />
+        <PlayerCard profile={hostProfile} label="Host" isYou={isHost} isHighlighted={isHost} />
         <PlayerCard
           profile={hasGuest ? guestProfile : null}
           label="Opponent"
@@ -519,7 +529,8 @@ function RoomWaiting() {
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5 text-gold" />
-            {room.time_control} · {room.time_class.charAt(0).toUpperCase() + room.time_class.slice(1)}
+            {room.time_control} ·{" "}
+            {room.time_class.charAt(0).toUpperCase() + room.time_class.slice(1)}
           </span>
           <span>{room.is_rated ? "Rated" : "Unrated"}</span>
           <span>{colorLabel}</span>
@@ -531,9 +542,13 @@ function RoomWaiting() {
         {isHost ? (
           <GoldButton onClick={handleStart} disabled={!hasGuest || starting}>
             {starting ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Starting…</>
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Starting…
+              </>
             ) : hasGuest ? (
-              <><Crown className="h-4 w-4" /> Start Game</>
+              <>
+                <Crown className="h-4 w-4" /> Start Game
+              </>
             ) : (
               "Waiting for opponent…"
             )}
@@ -572,14 +587,19 @@ function RoomWaiting() {
                   <span className="w-5 shrink-0 text-center text-xs font-medium text-muted-foreground">
                     #{entry.position}
                   </span>
-                  <span
-                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-semibold ${
-                      isMe ? "gradient-gold text-background" : "bg-white/5 text-gold"
-                    }`}
-                  >
-                    {entry.profile ? initials(name) : "?"}
+                  <UserAvatar
+                    avatarUrl={entry.profile?.avatar_url}
+                    displayName={entry.profile ? name : "?"}
+                    size="sm"
+                    className="shrink-0"
+                  />
+                  <span className="text-sm flex items-center">
+                    {name}
+                    <PremiumBadge
+                      premiumActive={entry.profile?.premium_active}
+                      premiumExpiresAt={entry.profile?.premium_expires_at}
+                    />
                   </span>
-                  <span className="text-sm">{name}</span>
                   {isMe && <span className="ml-auto text-xs text-gold">You</span>}
                 </div>
               );

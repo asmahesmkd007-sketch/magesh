@@ -61,6 +61,28 @@ export const makeMove = createServerFn({ method: "POST" })
     const myColor: "w" | "b" | null =
       g.white_id === userId ? "w" : g.black_id === userId ? "b" : null;
     if (!myColor) throw new Error("Not a player in this game");
+
+    // Defense-in-depth: banned/suspended players cannot move (mirrors the
+    // DB triggers in migration 20260701000006 that block game/tournament entry).
+    const { data: prof } = await (
+      supabaseAdmin as unknown as {
+        from: (t: string) => {
+          select: (s: string) => {
+            eq: (
+              c: string,
+              v: string,
+            ) => { maybeSingle: () => Promise<{ data: { account_status?: string } | null }> };
+          };
+        };
+      }
+    )
+      .from("profiles")
+      .select("account_status")
+      .eq("id", userId)
+      .maybeSingle();
+    if (prof?.account_status && ["banned", "suspended"].includes(prof.account_status)) {
+      throw new Error("Account is suspended or banned");
+    }
     if (g.turn !== myColor) throw new Error("Not your turn");
 
     // Recompute the clock from the server's own timestamps — never trust the client.
@@ -150,6 +172,7 @@ export const makeMove = createServerFn({ method: "POST" })
       fen_after: fenAfter,
       by_user: userId,
       time_left_ms: myTimeAfter,
+      time_used_ms: elapsed,
       is_capture: !!move.captured,
       is_check: chess.inCheck(),
       is_promotion: !!move.promotion,

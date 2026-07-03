@@ -51,13 +51,20 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   display_name TEXT NOT NULL,
   bio          TEXT DEFAULT '',
   country      TEXT DEFAULT 'India',
-  avatar_url   TEXT,
+  avatar_url    TEXT,
+  banner_url    TEXT,
+  website       TEXT,
+  youtube_url   TEXT,
+  instagram_url TEXT,
+  facebook_url  TEXT,
+  twitter_url   TEXT,
   title        TEXT,
   premium_tier public.premium_tier NOT NULL DEFAULT 'free',
   last_seen    TIMESTAMPTZ DEFAULT now(),
   is_online    BOOLEAN NOT NULL DEFAULT false,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  iq_rating INT NOT NULL DEFAULT 100
 );
 GRANT SELECT ON public.profiles TO anon;
 GRANT SELECT, INSERT, UPDATE ON public.profiles TO authenticated;
@@ -170,7 +177,8 @@ CREATE TABLE IF NOT EXISTS public.games (
   vs_computer      BOOLEAN NOT NULL DEFAULT false,
   elo_applied      BOOLEAN NOT NULL DEFAULT false,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-  ended_at         TIMESTAMPTZ
+  ended_at         TIMESTAMPTZ,
+  iq_applied BOOLEAN NOT NULL DEFAULT false
 );
 CREATE INDEX IF NOT EXISTS idx_games_white   ON public.games(white_id);
 CREATE INDEX IF NOT EXISTS idx_games_black   ON public.games(black_id);
@@ -677,80 +685,7 @@ GRANT EXECUTE ON FUNCTION public.current_rating(UUID, public.time_class) TO auth
 -- =====================================================================
 -- SECTION 23: APPLY ELO CHANGE (v2)
 -- =====================================================================
-CREATE OR REPLACE FUNCTION public.apply_elo_change(p_game_id UUID)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  v_game   RECORD;
-  v_w      RECORD;
-  v_b      RECORD;
-  v_K      INT := 24;
-  v_exp_w  NUMERIC;
-  v_exp_b  NUMERIC;
-  v_score_w NUMERIC;
-  v_new_w  INT;
-  v_new_b  INT;
-BEGIN
-  SELECT * INTO v_game FROM public.games WHERE id = p_game_id;
-  IF NOT FOUND
-     OR NOT v_game.is_rated
-     OR v_game.white_id IS NULL
-     OR v_game.black_id IS NULL THEN RETURN; END IF;
-  IF v_game.result NOT IN ('white','black','draw') THEN RETURN; END IF;
-  IF v_game.elo_applied THEN RETURN; END IF;
 
-  INSERT INTO public.ratings
-    (user_id, time_class, rating, peak_rating, games_played, wins, losses, draws)
-  VALUES
-    (v_game.white_id, v_game.time_class, 100, 100, 0, 0, 0, 0)
-  ON CONFLICT (user_id, time_class) DO NOTHING;
-
-  INSERT INTO public.ratings
-    (user_id, time_class, rating, peak_rating, games_played, wins, losses, draws)
-  VALUES
-    (v_game.black_id, v_game.time_class, 100, 100, 0, 0, 0, 0)
-  ON CONFLICT (user_id, time_class) DO NOTHING;
-
-  SELECT * INTO v_w FROM public.ratings
-    WHERE user_id = v_game.white_id AND time_class = v_game.time_class;
-  SELECT * INTO v_b FROM public.ratings
-    WHERE user_id = v_game.black_id AND time_class = v_game.time_class;
-  IF v_w IS NULL OR v_b IS NULL THEN RETURN; END IF;
-
-  v_exp_w   := 1.0 / (1 + power(10, (v_b.rating - v_w.rating) / 400.0));
-  v_exp_b   := 1.0 - v_exp_w;
-  v_score_w := CASE v_game.result WHEN 'white' THEN 1 WHEN 'draw' THEN 0.5 ELSE 0 END;
-
-  v_new_w := ROUND(v_w.rating + v_K * (v_score_w - v_exp_w));
-  v_new_b := ROUND(v_b.rating + v_K * ((1 - v_score_w) - v_exp_b));
-
-  UPDATE public.ratings SET
-    rating       = v_new_w,
-    peak_rating  = GREATEST(peak_rating, v_new_w),
-    games_played = games_played + 1,
-    wins         = wins   + CASE WHEN v_game.result = 'white' THEN 1 ELSE 0 END,
-    losses       = losses + CASE WHEN v_game.result = 'black' THEN 1 ELSE 0 END,
-    draws        = draws  + CASE WHEN v_game.result = 'draw'  THEN 1 ELSE 0 END
-  WHERE user_id = v_game.white_id AND time_class = v_game.time_class;
-
-  UPDATE public.ratings SET
-    rating       = v_new_b,
-    peak_rating  = GREATEST(peak_rating, v_new_b),
-    games_played = games_played + 1,
-    wins         = wins   + CASE WHEN v_game.result = 'black' THEN 1 ELSE 0 END,
-    losses       = losses + CASE WHEN v_game.result = 'white' THEN 1 ELSE 0 END,
-    draws        = draws  + CASE WHEN v_game.result = 'draw'  THEN 1 ELSE 0 END
-  WHERE user_id = v_game.black_id AND time_class = v_game.time_class;
-
-  INSERT INTO public.rating_history
-    (user_id, game_id, time_class, old_rating, new_rating, delta)
-  VALUES
-    (v_game.white_id, p_game_id, v_game.time_class,
-     v_w.rating, v_new_w, v_new_w - v_w.rating),
-    (v_game.black_id, p_game_id, v_game.time_class,
-     v_b.rating, v_new_b, v_new_b - v_b.rating);
-
-  UPDATE public.games SET elo_applied = true WHERE id = p_game_id;
-END; $$;
 REVOKE EXECUTE ON FUNCTION public.apply_elo_change(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.apply_elo_change(UUID) TO authenticated, service_role;
 
@@ -873,7 +808,27 @@ BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
 
   SELECT username INTO v_username FROM public.profiles WHERE id = v_uid;
+
+  -- REPAIR: If username is null or empty, generate one and ensure profile exists
+  IF v_username IS NULL OR trim(v_username) = '' THEN
+    v_username := 'Player_' || substr(v_uid::text, 1, 6);
+    
+    INSERT INTO public.profiles (id, username, display_name)
+    VALUES (v_uid, v_username, 'Player')
+    ON CONFLICT (id) DO UPDATE SET 
+      username = EXCLUDED.username
+    WHERE public.profiles.username IS NULL OR trim(public.profiles.username) = '';
+  END IF;
+
+  -- SAFEGUARD: Final check before continuing
+  IF v_username IS NULL OR trim(v_username) = '' THEN
+    RAISE EXCEPTION 'Failed to generate a valid username for matchmaking';
+  END IF;
+
   v_rating := public.current_rating(v_uid, p_time_class);
+  IF v_rating IS NULL THEN 
+    v_rating := 100;
+  END IF;
 
   SELECT * INTO v_opp
   FROM public.matchmaking_pool
@@ -2405,3 +2360,924 @@ BEGIN
 END; $$;
 REVOKE ALL ON FUNCTION public.leave_room_queue(TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.leave_room_queue(TEXT) TO authenticated;
+
+-- =====================================================================
+-- SECTION 58: DATA REPAIR (RUN ONCE)
+-- Repair any users missing a profile or having a null/empty username.
+-- =====================================================================
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  -- 1. Create fallback profiles for auth.users without a profile
+  FOR r IN 
+    SELECT id FROM auth.users 
+    WHERE id NOT IN (SELECT id FROM public.profiles) 
+  LOOP
+    INSERT INTO public.profiles (id, username, display_name)
+    VALUES (r.id, 'Player_' || substr(r.id::text, 1, 6), 'Player')
+    ON CONFLICT (id) DO NOTHING;
+  END LOOP;
+
+  -- 2. Fix null or empty usernames in existing profiles
+  UPDATE public.profiles
+  SET username = 'Player_' || substr(id::text, 1, 6)
+  WHERE username IS NULL OR trim(username) = '';
+END $$;
+
+-- =====================================================================
+-- SECTION 59: TOURNAMENT AUTO-CREATION SYSTEM
+-- =====================================================================
+
+-- 1. Create a Unique Index to prevent multiple 'upcoming' tournaments per category
+DROP INDEX IF EXISTS unique_upcoming_tournaments;
+CREATE UNIQUE INDEX unique_upcoming_tournaments 
+ON public.tournaments (time_control, entry_fee_coins) 
+WHERE status = 'upcoming';
+
+-- 2. Function to ensure exactly one upcoming tournament per category
+CREATE OR REPLACE FUNCTION public.ensure_upcoming_tournaments()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_timers TEXT[] := ARRAY['1+0', '3+0', '5+0'];
+  v_coins INT[] := ARRAY[5, 10, 20, 30, 50, 80, 100, 200, 500];
+  v_t TEXT;
+  v_c INT;
+  v_slug TEXT;
+  v_name TEXT;
+  v_prize_1st INT;
+  v_prize_2nd INT;
+  v_prize_3rd INT;
+  v_max_players INT := 16;
+  v_total_prize INT;
+BEGIN
+  FOREACH v_t IN ARRAY v_timers
+  LOOP
+    FOREACH v_c IN ARRAY v_coins
+    LOOP
+      -- Check if an upcoming tournament exists for this combination
+      IF NOT EXISTS (
+        SELECT 1 FROM public.tournaments 
+        WHERE time_control = v_t AND entry_fee_coins = v_c AND status = 'upcoming'
+      ) THEN
+        -- Generate unique slug
+        v_slug := 'auto-' || replace(v_t, '+', '-') || '-' || v_c || '-' || substr(md5(random()::text), 1, 8);
+        v_name := split_part(v_t, '+', 1) || ' Min Arena (' || v_c || ' Coins)';
+        
+        -- Calculate prizes (90% return, split 50/30/20 of that 90%)
+        v_total_prize := (v_max_players * v_c * 0.9)::INT;
+        v_prize_1st := (v_total_prize * 0.5)::INT;
+        v_prize_2nd := (v_total_prize * 0.3)::INT;
+        v_prize_3rd := v_total_prize - v_prize_1st - v_prize_2nd;
+
+        INSERT INTO public.tournaments (
+          slug, name, description, format, time_control, 
+          starts_at, max_players, status, entry_fee_coins,
+          prize_1st, prize_2nd, prize_3rd, prize_pool
+        ) VALUES (
+          v_slug, v_name, 'Auto-generated ' || v_name, 'swiss', v_t,
+          now() + interval '5 minutes', v_max_players, 'upcoming', v_c,
+          v_prize_1st, v_prize_2nd, v_prize_3rd, v_total_prize::text || ' Coins'
+        ) ON CONFLICT DO NOTHING;
+      END IF;
+    END LOOP;
+  END LOOP;
+END; $$;
+REVOKE ALL ON FUNCTION public.ensure_upcoming_tournaments() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ensure_upcoming_tournaments() TO service_role;
+
+-- 3. Trigger to auto-create when an upcoming tournament starts/locks
+CREATE OR REPLACE FUNCTION public.trg_auto_create_tournament()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF OLD.status = 'upcoming' AND NEW.status IN ('locked', 'live', 'completed', 'cancelled') THEN
+    -- Call the ensure function synchronously to instantly replenish
+    PERFORM public.ensure_upcoming_tournaments();
+  END IF;
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS on_tournament_status_change ON public.tournaments;
+CREATE TRIGGER on_tournament_status_change
+  AFTER UPDATE OF status ON public.tournaments
+  FOR EACH ROW
+  WHEN (OLD.status = 'upcoming' AND NEW.status IN ('locked', 'live', 'completed', 'cancelled'))
+  EXECUTE FUNCTION public.trg_auto_create_tournament();
+
+-- 4. Enable pg_cron and schedule the auto-healing job
+DO $$
+BEGIN
+  -- We assume pg_cron is enabled in the database, if not this block will gracefully skip or fail
+  CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Could not create pg_cron extension, ensure it is enabled via dashboard.';
+END $$;
+
+DO $$
+BEGIN
+  -- Unschedule if exists to recreate
+  PERFORM cron.unschedule('auto_heal_tournaments');
+  -- Schedule every minute
+  PERFORM cron.schedule('auto_heal_tournaments', '* * * * *', 'SELECT public.ensure_upcoming_tournaments();');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron not available or failed to schedule';
+END $$;
+
+-- =====================================================================
+-- SECTION 60: TOURNAMENT FLOW REWORK
+-- =====================================================================
+
+-- 1. Make starts_at nullable so Upcoming tournaments don't need a countdown
+ALTER TABLE public.tournaments ALTER COLUMN starts_at DROP NOT NULL;
+
+-- 2. Update Auto-Creator to insert starts_at = NULL
+CREATE OR REPLACE FUNCTION public.ensure_upcoming_tournaments()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_timers TEXT[] := ARRAY['1+0', '3+0', '5+0'];
+  v_coins INT[] := ARRAY[5, 10, 20, 30, 50, 80, 100, 200, 500];
+  v_t TEXT;
+  v_c INT;
+  v_slug TEXT;
+  v_name TEXT;
+  v_prize_1st INT;
+  v_prize_2nd INT;
+  v_prize_3rd INT;
+  v_max_players INT := 16;
+  v_total_prize INT;
+BEGIN
+  FOREACH v_t IN ARRAY v_timers
+  LOOP
+    FOREACH v_c IN ARRAY v_coins
+    LOOP
+      IF NOT EXISTS (
+        SELECT 1 FROM public.tournaments 
+        WHERE time_control = v_t AND entry_fee_coins = v_c AND status = 'upcoming'
+      ) THEN
+        v_slug := 'auto-' || replace(v_t, '+', '-') || '-' || v_c || '-' || substr(md5(random()::text), 1, 8);
+        v_name := split_part(v_t, '+', 1) || ' Min Arena (' || v_c || ' Coins)';
+        
+        v_total_prize := (v_max_players * v_c * 0.9)::INT;
+        v_prize_1st := (v_total_prize * 0.5)::INT;
+        v_prize_2nd := (v_total_prize * 0.3)::INT;
+        v_prize_3rd := v_total_prize - v_prize_1st - v_prize_2nd;
+
+        INSERT INTO public.tournaments (
+          slug, name, description, format, time_control, 
+          starts_at, max_players, status, entry_fee_coins,
+          prize_1st, prize_2nd, prize_3rd, prize_pool
+        ) VALUES (
+          v_slug, v_name, 'Auto-generated ' || v_name, 'swiss', v_t,
+          NULL, v_max_players, 'upcoming', v_c,
+          v_prize_1st, v_prize_2nd, v_prize_3rd, v_total_prize::text || ' Coins'
+        ) ON CONFLICT DO NOTHING;
+      END IF;
+    END LOOP;
+  END LOOP;
+END; $$;
+
+-- 3. Update Join Logic to handle lock state and 2 min countdown
+CREATE OR REPLACE FUNCTION public.join_tournament_paid(p_tournament_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid        UUID := auth.uid();
+  v_tournament RECORD;
+  v_wallet     RECORD;
+  v_new_bal    INT;
+  v_tx_id      UUID;
+  v_ikey       TEXT;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+
+  SELECT * INTO v_tournament FROM public.tournaments WHERE id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Tournament not found'; END IF;
+  IF v_tournament.status <> 'upcoming' THEN RAISE EXCEPTION 'Registration is closed'; END IF;
+  IF v_tournament.player_count >= v_tournament.max_players THEN
+    RAISE EXCEPTION 'Tournament is full';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.tournament_entries
+    WHERE tournament_id = p_tournament_id AND user_id = v_uid
+  ) THEN
+    RAISE EXCEPTION 'Already registered';
+  END IF;
+
+  v_ikey := 'tourn_entry_' || v_uid::text || '_' || p_tournament_id::text;
+
+  IF v_tournament.entry_fee_coins > 0 THEN
+    SELECT * INTO v_wallet FROM public.wallets WHERE user_id = v_uid FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Wallet not found'; END IF;
+
+    IF v_wallet.balance < v_tournament.entry_fee_coins THEN
+      RAISE EXCEPTION 'Insufficient wallet balance';
+    END IF;
+
+    v_new_bal := v_wallet.balance - v_tournament.entry_fee_coins;
+
+    UPDATE public.wallets SET
+      balance     = v_new_bal,
+      total_spent = total_spent + v_tournament.entry_fee_coins,
+      updated_at  = now()
+    WHERE user_id = v_uid;
+
+    INSERT INTO public.wallet_transactions
+      (user_id, type, amount, balance_after, description, reference_id, idempotency_key)
+    VALUES
+      (v_uid, 'tournament_entry', -v_tournament.entry_fee_coins, v_new_bal,
+       'Entry fee: ' || v_tournament.name,
+       p_tournament_id::text, v_ikey)
+    RETURNING id INTO v_tx_id;
+  END IF;
+
+  INSERT INTO public.tournament_entries (tournament_id, user_id, payment_tx_id)
+  VALUES (p_tournament_id, v_uid, v_tx_id);
+
+  -- Check if this was the last player needed
+  IF (v_tournament.player_count + 1) >= v_tournament.max_players THEN
+    UPDATE public.tournaments 
+    SET player_count = player_count + 1, 
+        status = 'locked', 
+        starts_at = now() + interval '2 minutes' 
+    WHERE id = p_tournament_id;
+
+    -- Send notifications to all registered players
+    INSERT INTO public.notifications (user_id, kind, title, body, link)
+    SELECT user_id, 'tournament_locked', 'Tournament Locked', 
+           'Your tournament is full. Tournament starts in 2 minutes.', 
+           '/tournament/' || p_tournament_id::text
+    FROM public.tournament_entries 
+    WHERE tournament_id = p_tournament_id;
+  ELSE
+    UPDATE public.tournaments SET player_count = player_count + 1 WHERE id = p_tournament_id;
+  END IF;
+END; $$;
+
+-- 4. Create function to transition locked to live
+CREATE OR REPLACE FUNCTION public.transition_locked_tournaments()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_tourn RECORD;
+BEGIN
+  FOR v_tourn IN 
+    SELECT id FROM public.tournaments 
+    WHERE status = 'locked' AND starts_at <= now()
+  LOOP
+    UPDATE public.tournaments SET status = 'live' WHERE id = v_tourn.id;
+    
+    INSERT INTO public.notifications (user_id, kind, title, body, link)
+    SELECT user_id, 'tournament_live', 'Tournament Live', 
+           'Your tournament is now live! Matchmaking has started.', 
+           '/tournament/' || v_tourn.id::text
+    FROM public.tournament_entries 
+    WHERE tournament_id = v_tourn.id;
+  END LOOP;
+END; $$;
+REVOKE ALL ON FUNCTION public.transition_locked_tournaments() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.transition_locked_tournaments() TO service_role;
+
+-- 5. Schedule transition job
+DO $$
+BEGIN
+  PERFORM cron.unschedule('transition_locked_tournaments');
+  PERFORM cron.schedule('transition_locked_tournaments', '* * * * *', 'SELECT public.transition_locked_tournaments();');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron not available or failed to schedule';
+END $$;
+
+-- =====================================================================
+-- SECTION 61: PREMIUM BADGE STATUS SYNC
+-- =====================================================================
+
+-- 1. Add premium status columns to profiles
+ALTER TABLE public.profiles 
+  ADD COLUMN IF NOT EXISTS premium_active BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS premium_expires_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS subscription_status TEXT NOT NULL DEFAULT 'inactive';
+
+-- 2. Trigger to sync subscription changes to profiles
+CREATE OR REPLACE FUNCTION public.sync_premium_status_to_profile()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  -- If status is active and not expired, mark as premium
+  IF NEW.status = 'active' AND (NEW.current_period_end IS NULL OR NEW.current_period_end > now()) THEN
+    UPDATE public.profiles
+    SET premium_active = true,
+        premium_expires_at = NEW.current_period_end,
+        subscription_status = NEW.status
+    WHERE id = NEW.user_id;
+  ELSE
+    UPDATE public.profiles
+    SET premium_active = false,
+        premium_expires_at = NEW.current_period_end,
+        subscription_status = NEW.status
+    WHERE id = NEW.user_id;
+  END IF;
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS trg_sync_premium_status ON public.subscriptions;
+CREATE TRIGGER trg_sync_premium_status
+  AFTER INSERT OR UPDATE ON public.subscriptions
+  FOR EACH ROW EXECUTE FUNCTION public.sync_premium_status_to_profile();
+
+-- 3. Cron job to expire stale premium status
+CREATE OR REPLACE FUNCTION public.expire_premium_subscriptions()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  UPDATE public.profiles
+  SET premium_active = false
+  WHERE premium_active = true 
+    AND premium_expires_at IS NOT NULL 
+    AND premium_expires_at < now();
+END; $$;
+
+REVOKE ALL ON FUNCTION public.expire_premium_subscriptions() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.expire_premium_subscriptions() TO service_role;
+
+DO $$
+BEGIN
+  PERFORM cron.unschedule('expire_premium_subscriptions_cron');
+  PERFORM cron.schedule('expire_premium_subscriptions_cron', '0 * * * *', 'SELECT public.expire_premium_subscriptions();');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron not available or failed to schedule';
+END $$;
+
+-- =====================================================================
+-- SECTION 62: STORAGE BUCKETS
+-- =====================================================================
+
+INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('banners', 'banners', true) ON CONFLICT (id) DO NOTHING;
+
+-- Policies for avatars
+DROP POLICY IF EXISTS "Avatar images are publicly accessible." ON storage.objects;
+CREATE POLICY "Avatar images are publicly accessible." ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
+DROP POLICY IF EXISTS "Anyone can upload an avatar." ON storage.objects;
+CREATE POLICY "Anyone can upload an avatar." ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars');
+DROP POLICY IF EXISTS "Anyone can update an avatar." ON storage.objects;
+CREATE POLICY "Anyone can update an avatar." ON storage.objects FOR UPDATE WITH CHECK (bucket_id = 'avatars');
+
+-- Policies for banners
+DROP POLICY IF EXISTS "Banner images are publicly accessible." ON storage.objects;
+CREATE POLICY "Banner images are publicly accessible." ON storage.objects FOR SELECT USING (bucket_id = 'banners');
+DROP POLICY IF EXISTS "Anyone can upload a banner." ON storage.objects;
+CREATE POLICY "Anyone can upload a banner." ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'banners');
+DROP POLICY IF EXISTS "Anyone can update a banner." ON storage.objects;
+CREATE POLICY "Anyone can update a banner." ON storage.objects FOR UPDATE WITH CHECK (bucket_id = 'banners');
+
+-- =====================================================================
+-- SECTION 63: BANK ACCOUNTS
+-- =====================================================================
+
+-- Ensure pgcrypto is enabled
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+
+CREATE TABLE IF NOT EXISTS public.bank_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  account_holder_name TEXT NOT NULL,
+  account_number_encrypted TEXT NOT NULL,
+  account_number_last4 TEXT NOT NULL,
+  ifsc_code TEXT NOT NULL,
+  bank_name TEXT NOT NULL,
+  branch_name TEXT NOT NULL,
+  branch_address TEXT NOT NULL,
+  account_type TEXT NOT NULL CHECK (account_type IN ('savings', 'current')),
+  verification_status TEXT NOT NULL DEFAULT 'verified' CHECK (verification_status IN ('verified', 'failed', 'pending')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(user_id) -- one bank account per user for now, or allow multiple? Let's limit to one active per user
+);
+
+GRANT SELECT ON public.bank_accounts TO authenticated;
+GRANT ALL ON public.bank_accounts TO service_role;
+ALTER TABLE public.bank_accounts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own bank accounts" ON public.bank_accounts;
+CREATE POLICY "Users can view their own bank accounts"
+  ON public.bank_accounts FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- We don't allow direct INSERT/UPDATE from client. We use RPC to encrypt the account number.
+CREATE OR REPLACE FUNCTION public.save_bank_account(
+  p_account_holder_name TEXT,
+  p_account_number TEXT,
+  p_ifsc_code TEXT,
+  p_bank_name TEXT,
+  p_branch_name TEXT,
+  p_branch_address TEXT,
+  p_account_type TEXT
+) RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_secret TEXT := 'chessox_secret_key_123!'; -- In production, use vault or current_setting('app.encryption_key')
+  v_last4 TEXT;
+  v_encrypted TEXT;
+  v_id UUID;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  
+  IF length(p_account_number) < 4 THEN
+    RAISE EXCEPTION 'Account number too short';
+  END IF;
+
+  v_last4 := right(p_account_number, 4);
+  v_encrypted := pgp_sym_encrypt(p_account_number, v_secret);
+
+  INSERT INTO public.bank_accounts (
+    user_id, account_holder_name, account_number_encrypted, account_number_last4,
+    ifsc_code, bank_name, branch_name, branch_address, account_type, verification_status
+  ) VALUES (
+    v_uid, p_account_holder_name, v_encrypted, v_last4,
+    p_ifsc_code, p_bank_name, p_branch_name, p_branch_address, p_account_type, 'verified'
+  )
+  ON CONFLICT (user_id) DO UPDATE SET
+    account_holder_name = EXCLUDED.account_holder_name,
+    account_number_encrypted = EXCLUDED.account_number_encrypted,
+    account_number_last4 = EXCLUDED.account_number_last4,
+    ifsc_code = EXCLUDED.ifsc_code,
+    bank_name = EXCLUDED.bank_name,
+    branch_name = EXCLUDED.branch_name,
+    branch_address = EXCLUDED.branch_address,
+    account_type = EXCLUDED.account_type,
+    verification_status = 'verified',
+    updated_at = now()
+  RETURNING id INTO v_id;
+
+  RETURN v_id;
+END; $$;
+
+REVOKE EXECUTE ON FUNCTION public.save_bank_account(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.save_bank_account(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated, service_role;
+
+-- ==========================================
+-- COMMUNITY SYSTEM
+-- ==========================================
+
+-- 1. Tables
+
+CREATE TABLE IF NOT EXISTS public.community_posts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    media_url TEXT,
+    likes_count INTEGER NOT NULL DEFAULT 0,
+    dislikes_count INTEGER NOT NULL DEFAULT 0,
+    comments_count INTEGER NOT NULL DEFAULT 0,
+    score INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.community_reactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id UUID NOT NULL REFERENCES public.community_posts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    reaction_type TEXT NOT NULL CHECK (reaction_type IN ('like', 'dislike')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(post_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.community_comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id UUID NOT NULL REFERENCES public.community_posts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    parent_id UUID REFERENCES public.community_comments(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.community_saved_posts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    post_id UUID NOT NULL REFERENCES public.community_posts(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(user_id, post_id)
+);
+
+-- 2. Indexes
+CREATE INDEX IF NOT EXISTS idx_community_posts_score ON public.community_posts (score DESC);
+CREATE INDEX IF NOT EXISTS idx_community_posts_created_at ON public.community_posts (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_community_reactions_post_user ON public.community_reactions (post_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_community_comments_post_id ON public.community_comments (post_id);
+CREATE INDEX IF NOT EXISTS idx_community_saved_posts_user_id ON public.community_saved_posts (user_id);
+
+-- 3. Triggers for counts and score
+
+CREATE OR REPLACE FUNCTION public.handle_community_reaction()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        IF NEW.reaction_type = 'like' THEN
+            UPDATE public.community_posts SET likes_count = likes_count + 1, score = score + 1 WHERE id = NEW.post_id;
+        ELSIF NEW.reaction_type = 'dislike' THEN
+            UPDATE public.community_posts SET dislikes_count = dislikes_count + 1, score = score - 1 WHERE id = NEW.post_id;
+        END IF;
+    ELSIF TG_OP = 'UPDATE' THEN
+        IF OLD.reaction_type = 'like' AND NEW.reaction_type = 'dislike' THEN
+            UPDATE public.community_posts SET likes_count = likes_count - 1, dislikes_count = dislikes_count + 1, score = score - 2 WHERE id = NEW.post_id;
+        ELSIF OLD.reaction_type = 'dislike' AND NEW.reaction_type = 'like' THEN
+            UPDATE public.community_posts SET dislikes_count = dislikes_count - 1, likes_count = likes_count + 1, score = score + 2 WHERE id = NEW.post_id;
+        END IF;
+    ELSIF TG_OP = 'DELETE' THEN
+        IF OLD.reaction_type = 'like' THEN
+            UPDATE public.community_posts SET likes_count = likes_count - 1, score = score - 1 WHERE id = OLD.post_id;
+        ELSIF OLD.reaction_type = 'dislike' THEN
+            UPDATE public.community_posts SET dislikes_count = dislikes_count - 1, score = score + 1 WHERE id = OLD.post_id;
+        END IF;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trigger_community_reactions
+AFTER INSERT OR UPDATE OR DELETE ON public.community_reactions
+FOR EACH ROW EXECUTE FUNCTION public.handle_community_reaction();
+
+CREATE OR REPLACE FUNCTION public.handle_community_comment()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        UPDATE public.community_posts SET comments_count = comments_count + 1 WHERE id = NEW.post_id;
+    ELSIF TG_OP = 'DELETE' THEN
+        UPDATE public.community_posts SET comments_count = comments_count - 1 WHERE id = OLD.post_id;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trigger_community_comments
+AFTER INSERT OR DELETE ON public.community_comments
+FOR EACH ROW EXECUTE FUNCTION public.handle_community_comment();
+
+-- 4. RLS Policies
+
+ALTER TABLE public.community_posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.community_reactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.community_comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.community_saved_posts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view posts" ON public.community_posts FOR SELECT USING (true);
+CREATE POLICY "Authenticated users can create posts" ON public.community_posts FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own posts" ON public.community_posts FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete own posts" ON public.community_posts FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+CREATE POLICY "Anyone can view reactions" ON public.community_reactions FOR SELECT USING (true);
+CREATE POLICY "Authenticated users can react" ON public.community_reactions FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own reactions" ON public.community_reactions FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete own reactions" ON public.community_reactions FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+CREATE POLICY "Anyone can view comments" ON public.community_comments FOR SELECT USING (true);
+CREATE POLICY "Authenticated users can comment" ON public.community_comments FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete own comments" ON public.community_comments FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own saved posts" ON public.community_saved_posts FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "Users can save posts" ON public.community_saved_posts FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can unsave posts" ON public.community_saved_posts FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+-- 5. Realtime publication
+ALTER PUBLICATION supabase_realtime ADD TABLE public.community_posts;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.community_reactions;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.community_comments;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.community_saved_posts;
+
+
+-- =====================================================================
+-- Auto-seed Daily Tournaments RPC
+-- =====================================================================
+
+CREATE OR REPLACE FUNCTION public.seed_daily_tournaments()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_admin_id UUID;
+  v_tc RECORD;
+  v_count INT;
+BEGIN
+  -- Find an admin to be the creator (if none exists, will be NULL)
+  SELECT user_id INTO v_admin_id FROM public.user_roles WHERE role = 'admin' LIMIT 1;
+  
+  -- Time Controls: Bullet (1+0), Blitz (3+2), Rapid (10+0)
+  FOR v_tc IN SELECT * FROM (VALUES 
+    ('1+0', 'Bullet Arena', 'swiss'), 
+    ('3+2', 'Blitz Championship', 'swiss'), 
+    ('10+0', 'Rapid Royal', 'swiss')
+  ) AS t(tc, name, format)
+  LOOP
+    -- Check if an upcoming or ongoing tournament exists for this time control
+    SELECT count(*) INTO v_count FROM public.tournaments
+    WHERE time_control = v_tc.tc AND status IN ('upcoming', 'ongoing');
+    
+    IF v_count = 0 THEN
+      INSERT INTO public.tournaments (
+        slug, name, description, format, time_control, starts_at, 
+        max_players, created_by, status, entry_fee_coins, 
+        prize_1st, prize_2nd, prize_3rd
+      ) VALUES (
+        'auto-' || replace(v_tc.tc, '+', '-') || '-' || extract(epoch from now())::text,
+        v_tc.name,
+        'Daily auto-generated ' || v_tc.name || ' tournament.',
+        v_tc.format,
+        v_tc.tc,
+        now() + interval '5 minutes',
+        256,
+        v_admin_id,
+        'upcoming',
+        0,
+        1000, 500, 250
+      );
+    END IF;
+  END LOOP;
+END;
+$$;
+
+-- Allow anyone to trigger the check (it is safe and idempotent)
+GRANT EXECUTE ON FUNCTION public.seed_daily_tournaments() TO anon, authenticated, service_role;
+
+
+
+
+
+-- 1. Add iq_rating to profiles
+
+
+-- 2. Add iq_applied to games
+
+
+-- 3. Create iq_history table
+CREATE TABLE IF NOT EXISTS public.iq_history (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  game_id UUID REFERENCES public.games(id) ON DELETE SET NULL,
+  old_iq INT NOT NULL,
+  new_iq INT NOT NULL,
+  change_amount INT NOT NULL,
+  result TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_iq_history_user ON public.iq_history(user_id, created_at DESC);
+
+-- RLS for iq_history
+GRANT SELECT ON public.iq_history TO anon, authenticated;
+GRANT ALL ON public.iq_history TO service_role;
+ALTER TABLE public.iq_history ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "IQ history public read" ON public.iq_history;
+CREATE POLICY "IQ history public read"
+  ON public.iq_history FOR SELECT USING (true);
+
+
+-- 4. Create apply_iq_change RPC
+CREATE OR REPLACE FUNCTION public.apply_iq_change(p_game_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_game RECORD;
+  v_white_iq INT;
+  v_black_iq INT;
+  v_new_white_iq INT;
+  v_new_black_iq INT;
+  v_white_change INT := 0;
+  v_black_change INT := 0;
+BEGIN
+  -- Fetch the game
+  SELECT * INTO v_game FROM public.games WHERE id = p_game_id;
+  
+  -- Validation: game must exist, have ended, be rated, and not be vs bot
+  IF NOT FOUND THEN RETURN; END IF;
+  IF v_game.result NOT IN ('white', 'black', 'draw') THEN RETURN; END IF;
+  IF NOT v_game.is_rated THEN RETURN; END IF;
+  IF v_game.vs_computer THEN RETURN; END IF;
+  IF v_game.white_id IS NULL OR v_game.black_id IS NULL THEN RETURN; END IF;
+  
+  -- Anti-abuse: Run only once per game
+  IF v_game.iq_applied THEN RETURN; END IF;
+
+  -- Time class must be rated eligible (optional friend match exclusion handled by is_rated flag usually)
+  -- But we enforce explicitly: bullet, blitz, rapid, classical (correspondence too if standard)
+  IF v_game.time_class NOT IN ('bullet', 'blitz', 'rapid', 'classical') THEN RETURN; END IF;
+
+  -- Fetch current IQ ratings
+  SELECT iq_rating INTO v_white_iq FROM public.profiles WHERE id = v_game.white_id;
+  SELECT iq_rating INTO v_black_iq FROM public.profiles WHERE id = v_game.black_id;
+
+  -- Default to 100 if somehow missing
+  IF v_white_iq IS NULL THEN v_white_iq := 100; END IF;
+  IF v_black_iq IS NULL THEN v_black_iq := 100; END IF;
+
+  -- Calculate IQ changes
+  IF v_game.result = 'white' THEN
+    v_white_change := 8;
+    v_black_change := -5;
+  ELSIF v_game.result = 'black' THEN
+    v_white_change := -5;
+    v_black_change := 8;
+  ELSIF v_game.result = 'draw' THEN
+    v_white_change := 3;
+    v_black_change := 3;
+  END IF;
+
+  v_new_white_iq := v_white_iq + v_white_change;
+  v_new_black_iq := v_black_iq + v_black_change;
+
+  -- Update Profiles
+  UPDATE public.profiles SET iq_rating = v_new_white_iq WHERE id = v_game.white_id;
+  UPDATE public.profiles SET iq_rating = v_new_black_iq WHERE id = v_game.black_id;
+
+  -- Insert History
+  INSERT INTO public.iq_history (user_id, game_id, old_iq, new_iq, change_amount, result)
+  VALUES 
+    (v_game.white_id, p_game_id, v_white_iq, v_new_white_iq, v_white_change, v_game.result),
+    (v_game.black_id, p_game_id, v_black_iq, v_new_black_iq, v_black_change, v_game.result);
+
+  -- Mark processed
+  UPDATE public.games SET iq_applied = true WHERE id = p_game_id;
+
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.apply_iq_change(UUID) TO anon, authenticated, service_role;
+
+
+
+
+
+-- 1. Add iq_rating to profiles
+
+
+-- 2. Add iq_applied to games
+
+
+-- 3. Create iq_history table
+CREATE TABLE IF NOT EXISTS public.iq_history (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  game_id UUID REFERENCES public.games(id) ON DELETE SET NULL,
+  old_iq INT NOT NULL,
+  new_iq INT NOT NULL,
+  change_amount INT NOT NULL,
+  result TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_iq_history_user ON public.iq_history(user_id, created_at DESC);
+
+-- RLS for iq_history
+GRANT SELECT ON public.iq_history TO anon, authenticated;
+GRANT ALL ON public.iq_history TO service_role;
+ALTER TABLE public.iq_history ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "IQ history public read" ON public.iq_history;
+CREATE POLICY "IQ history public read"
+  ON public.iq_history FOR SELECT USING (true);
+
+
+-- 4. Create apply_iq_change RPC
+CREATE OR REPLACE FUNCTION public.apply_iq_change(p_game_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_game RECORD;
+  v_white_iq INT;
+  v_black_iq INT;
+  v_new_white_iq INT;
+  v_new_black_iq INT;
+  v_white_change INT := 0;
+  v_black_change INT := 0;
+BEGIN
+  -- Fetch the game
+  SELECT * INTO v_game FROM public.games WHERE id = p_game_id;
+  
+  -- Validation: game must exist, have ended, be rated, and not be vs bot
+  IF NOT FOUND THEN RETURN; END IF;
+  IF v_game.result NOT IN ('white', 'black', 'draw') THEN RETURN; END IF;
+  IF NOT v_game.is_rated THEN RETURN; END IF;
+  IF v_game.vs_computer THEN RETURN; END IF;
+  IF v_game.white_id IS NULL OR v_game.black_id IS NULL THEN RETURN; END IF;
+  
+  -- Anti-abuse: Run only once per game
+  IF v_game.iq_applied THEN RETURN; END IF;
+
+  -- Time class must be rated eligible
+  IF v_game.time_class NOT IN ('bullet', 'blitz', 'rapid', 'classical') THEN RETURN; END IF;
+
+  -- Fetch current IQ ratings
+  SELECT iq_rating INTO v_white_iq FROM public.profiles WHERE id = v_game.white_id;
+  SELECT iq_rating INTO v_black_iq FROM public.profiles WHERE id = v_game.black_id;
+
+  -- Default to 100 if somehow missing
+  IF v_white_iq IS NULL THEN v_white_iq := 100; END IF;
+  IF v_black_iq IS NULL THEN v_black_iq := 100; END IF;
+
+  -- Calculate IQ changes
+  IF v_game.result = 'white' THEN
+    v_white_change := 8;
+    v_black_change := -5;
+  ELSIF v_game.result = 'black' THEN
+    v_white_change := -5;
+    v_black_change := 8;
+  ELSIF v_game.result = 'draw' THEN
+    v_white_change := 3;
+    v_black_change := 3;
+  END IF;
+
+  v_new_white_iq := v_white_iq + v_white_change;
+  v_new_black_iq := v_black_iq + v_black_change;
+
+  -- Update Profiles
+  UPDATE public.profiles SET iq_rating = v_new_white_iq WHERE id = v_game.white_id;
+  UPDATE public.profiles SET iq_rating = v_new_black_iq WHERE id = v_game.black_id;
+
+  -- Insert History
+  INSERT INTO public.iq_history (user_id, game_id, old_iq, new_iq, change_amount, result)
+  VALUES 
+    (v_game.white_id, p_game_id, v_white_iq, v_new_white_iq, v_white_change, v_game.result),
+    (v_game.black_id, p_game_id, v_black_iq, v_new_black_iq, v_black_change, v_game.result);
+
+  -- Mark processed
+  UPDATE public.games SET iq_applied = true WHERE id = p_game_id;
+
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.apply_iq_change(UUID) TO anon, authenticated, service_role;
+
+-- 5. Modify apply_elo_change to automatically trigger apply_iq_change
+--    This ensures that ALL game end conditions (resignation, timeout, draw, etc.) automatically apply IQ!
+CREATE OR REPLACE FUNCTION public.apply_elo_change(p_game_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_game   RECORD;
+  v_w      RECORD;
+  v_b      RECORD;
+  v_K      INT := 24;
+  v_exp_w  NUMERIC;
+  v_exp_b  NUMERIC;
+  v_score_w NUMERIC;
+  v_new_w  INT;
+  v_new_b  INT;
+BEGIN
+  SELECT * INTO v_game FROM public.games WHERE id = p_game_id;
+  IF NOT FOUND
+     OR NOT v_game.is_rated
+     OR v_game.white_id IS NULL
+     OR v_game.black_id IS NULL THEN RETURN; END IF;
+  IF v_game.result NOT IN ('white','black','draw') THEN RETURN; END IF;
+  IF v_game.elo_applied THEN RETURN; END IF;
+
+  INSERT INTO public.ratings
+    (user_id, time_class, rating, peak_rating, games_played, wins, losses, draws)
+  VALUES
+    (v_game.white_id, v_game.time_class, 100, 100, 0, 0, 0, 0)
+  ON CONFLICT (user_id, time_class) DO NOTHING;
+
+  INSERT INTO public.ratings
+    (user_id, time_class, rating, peak_rating, games_played, wins, losses, draws)
+  VALUES
+    (v_game.black_id, v_game.time_class, 100, 100, 0, 0, 0, 0)
+  ON CONFLICT (user_id, time_class) DO NOTHING;
+
+  SELECT * INTO v_w FROM public.ratings
+    WHERE user_id = v_game.white_id AND time_class = v_game.time_class;
+  SELECT * INTO v_b FROM public.ratings
+    WHERE user_id = v_game.black_id AND time_class = v_game.time_class;
+  IF v_w IS NULL OR v_b IS NULL THEN RETURN; END IF;
+
+  v_exp_w   := 1.0 / (1 + power(10, (v_b.rating - v_w.rating) / 400.0));
+  v_exp_b   := 1.0 - v_exp_w;
+  v_score_w := CASE v_game.result WHEN 'white' THEN 1 WHEN 'draw' THEN 0.5 ELSE 0 END;
+
+  v_new_w := ROUND(v_w.rating + v_K * (v_score_w - v_exp_w));
+  v_new_b := ROUND(v_b.rating + v_K * ((1 - v_score_w) - v_exp_b));
+
+  UPDATE public.ratings SET
+    rating       = v_new_w,
+    peak_rating  = GREATEST(peak_rating, v_new_w),
+    games_played = games_played + 1,
+    wins         = wins   + CASE WHEN v_game.result = 'white' THEN 1 ELSE 0 END,
+    losses       = losses + CASE WHEN v_game.result = 'black' THEN 1 ELSE 0 END,
+    draws        = draws  + CASE WHEN v_game.result = 'draw'  THEN 1 ELSE 0 END
+  WHERE user_id = v_game.white_id AND time_class = v_game.time_class;
+
+  UPDATE public.ratings SET
+    rating       = v_new_b,
+    peak_rating  = GREATEST(peak_rating, v_new_b),
+    games_played = games_played + 1,
+    wins         = wins   + CASE WHEN v_game.result = 'black' THEN 1 ELSE 0 END,
+    losses       = losses + CASE WHEN v_game.result = 'white' THEN 1 ELSE 0 END,
+    draws        = draws  + CASE WHEN v_game.result = 'draw'  THEN 1 ELSE 0 END
+  WHERE user_id = v_game.black_id AND time_class = v_game.time_class;
+
+  INSERT INTO public.rating_history
+    (user_id, game_id, time_class, old_rating, new_rating, delta)
+  VALUES
+    (v_game.white_id, p_game_id, v_game.time_class,
+     v_w.rating, v_new_w, v_new_w - v_w.rating),
+    (v_game.black_id, p_game_id, v_game.time_class,
+     v_b.rating, v_new_b, v_new_b - v_b.rating);
+
+  UPDATE public.games SET elo_applied = true WHERE id = p_game_id;
+  
+  -- NEW: Automatically trigger IQ updates
+  PERFORM public.apply_iq_change(p_game_id);
+END; $$;
+

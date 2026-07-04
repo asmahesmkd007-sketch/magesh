@@ -18,10 +18,15 @@ import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveB
 import {
   useBoardSettings,
   BOARD_THEMES,
-  PIECE_SETS,
+  BOARD_THEME_LABELS,
+  BOARD_THEME_ORDER,
+  PIECE_THEME_LABELS,
+  PIECE_THEME_ORDER,
+  DEFAULT_SETTINGS,
   type BoardTheme,
   type PieceTheme,
 } from "@/hooks/useBoardSettings";
+import { PieceGlyph } from "@/lib/chess/pieceThemes";
 
 export const Route = createFileRoute("/play/")({
   head: () => ({
@@ -81,20 +86,6 @@ const MODES = [
   },
 ];
 
-const BOARD_THEME_LABELS: Record<BoardTheme, string> = {
-  royal: "Royal (Default)",
-  forest: "Forest",
-  ocean: "Ocean",
-  midnight: "Midnight",
-  ivory: "Ivory",
-};
-
-const PIECE_THEME_LABELS: Record<PieceTheme, string> = {
-  unicode: "Unicode",
-  classic: "Classic",
-  outlined: "Outlined",
-};
-
 // Static preview board (starting position subset)
 const PREVIEW_BOARD: BoardCell[][] = (() => {
   const empty = (): BoardCell[][] => Array.from({ length: 8 }, () => Array(8).fill(null));
@@ -134,8 +125,21 @@ function Play() {
   const [tab, setTab] = useState<"modes" | "quick" | "bot" | "settings">("modes");
   const { settings, updateSettings } = useBoardSettings();
 
-  const colors = BOARD_THEMES[settings.boardTheme];
-  const pieces = PIECE_SETS[settings.pieceTheme];
+  // Draft appearance — lets the user preview a board/piece theme before committing
+  // it. Apply persists (localStorage + profile); Reset restores factory defaults.
+  const [draftBoard, setDraftBoard] = useState<BoardTheme>(settings.boardTheme);
+  const [draftPiece, setDraftPiece] = useState<PieceTheme>(settings.pieceTheme);
+  const dirty = draftBoard !== settings.boardTheme || draftPiece !== settings.pieceTheme;
+
+  const applyThemes = () => updateSettings({ boardTheme: draftBoard, pieceTheme: draftPiece });
+  const resetThemes = () => {
+    setDraftBoard(DEFAULT_SETTINGS.boardTheme);
+    setDraftPiece(DEFAULT_SETTINGS.pieceTheme);
+    updateSettings({
+      boardTheme: DEFAULT_SETTINGS.boardTheme,
+      pieceTheme: DEFAULT_SETTINGS.pieceTheme,
+    });
+  };
 
   return (
     <PageShell
@@ -149,11 +153,10 @@ function Play() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`rounded-full border px-5 py-2 text-sm capitalize transition ${
-              tab === t
+            className={`rounded-full border px-5 py-2 text-sm capitalize transition ${tab === t
                 ? "border-gold bg-gold/10 text-gold"
                 : "border-white/10 text-muted-foreground hover:border-gold/30"
-            }`}
+              }`}
           >
             {t === "modes"
               ? "Play Modes"
@@ -178,11 +181,10 @@ function Play() {
             const Icon = m.icon;
             const inner = (
               <Card
-                className={`group relative flex h-full cursor-pointer flex-col overflow-hidden p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-gold/10 ${
-                  m.gold 
-                    ? "border-gold/40 bg-gradient-to-b from-gold/10 to-background/50" 
+                className={`group relative flex h-full cursor-pointer flex-col overflow-hidden p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-gold/10 ${m.gold
+                    ? "border-gold/40 bg-gradient-to-b from-gold/10 to-background/50"
                     : "border-white/5 bg-white/[0.02] hover:border-gold/30 hover:bg-gold/[0.02]"
-                }`}
+                  }`}
               >
                 {/* Subtle glow effect on hover */}
                 <div className={`absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${m.gold ? "bg-gradient-to-tr from-gold/10 via-transparent to-transparent" : "bg-gradient-to-tr from-gold/5 via-transparent to-transparent"}`} />
@@ -192,7 +194,7 @@ function Play() {
                 >
                   <Icon className="h-7 w-7" />
                 </span>
-                
+
                 <div className="relative z-10 mt-6">
                   <div className={`font-display text-xl transition-colors ${m.gold ? "text-gold" : "group-hover:text-gold"}`}>{m.title}</div>
                   <div className="mt-2 text-sm leading-relaxed text-muted-foreground">{m.sub}</div>
@@ -244,28 +246,29 @@ function Play() {
           <div className="space-y-8">
             {/* Board Theme */}
             <Card className="p-6">
-              <div className="mb-4 text-xs uppercase tracking-[0.22em] text-gold/80">
-                Board Theme
+              <div className="mb-4 flex items-center justify-between">
+                <div className="text-xs uppercase tracking-[0.22em] text-gold/80">
+                  Appearance · Board Themes
+                </div>
+                <span className="text-[10px] text-muted-foreground">{BOARD_THEME_ORDER.length} themes</span>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {(Object.keys(BOARD_THEMES) as BoardTheme[]).map((t) => (
+                {BOARD_THEME_ORDER.map((t) => (
                   <button
                     key={t}
-                    onClick={() => updateSettings({ boardTheme: t })}
-                    className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm transition ${
-                      settings.boardTheme === t
+                    onClick={() => setDraftBoard(t)}
+                    className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm transition ${draftBoard === t
                         ? "border-gold bg-gold/10 text-gold"
                         : "border-white/10 hover:border-gold/30"
-                    }`}
+                      }`}
                   >
                     <span
-                      className="h-4 w-4 shrink-0 rounded-sm border border-white/10"
-                      style={{ background: BOARD_THEMES[t].light }}
-                    />
-                    <span
-                      className="h-4 w-4 shrink-0 rounded-sm border border-white/10"
-                      style={{ background: BOARD_THEMES[t].dark }}
-                    />
+                      className="flex h-5 w-5 shrink-0 overflow-hidden rounded-sm border border-white/10"
+                      aria-hidden
+                    >
+                      <span className="h-full w-1/2" style={{ background: BOARD_THEMES[t].light }} />
+                      <span className="h-full w-1/2" style={{ background: BOARD_THEMES[t].dark }} />
+                    </span>
                     <span className="truncate">{BOARD_THEME_LABELS[t]}</span>
                   </button>
                 ))}
@@ -274,22 +277,26 @@ function Play() {
 
             {/* Piece Theme */}
             <Card className="p-6">
-              <div className="mb-4 text-xs uppercase tracking-[0.22em] text-gold/80">
-                Piece Theme
+              <div className="mb-4 flex items-center justify-between">
+                <div className="text-xs uppercase tracking-[0.22em] text-gold/80">
+                  Appearance · Piece Themes
+                </div>
+                <span className="text-[10px] text-muted-foreground">{PIECE_THEME_ORDER.length} sets</span>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {(Object.keys(PIECE_SETS) as PieceTheme[]).map((t) => (
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                {PIECE_THEME_ORDER.map((t) => (
                   <button
                     key={t}
-                    onClick={() => updateSettings({ pieceTheme: t })}
-                    className={`flex items-center gap-3 rounded-xl border px-4 py-2.5 text-sm transition ${
-                      settings.pieceTheme === t
-                        ? "border-gold bg-gold/10 text-gold"
-                        : "border-white/10 hover:border-gold/30"
-                    }`}
+                    onClick={() => setDraftPiece(t)}
+                    className={`flex flex-col items-center justify-center gap-3 rounded-xl border p-4 text-sm transition hover:-translate-y-0.5 hover:shadow-lg ${draftPiece === t
+                        ? "border-gold bg-gold/10 text-gold shadow-gold/10"
+                        : "border-white/10 bg-white/[0.02] text-muted-foreground hover:border-gold/30 hover:bg-gold/[0.02]"
+                      }`}
                   >
-                    <span className="font-chess text-xl">{PIECE_SETS[t].wk}</span>
-                    <span>{PIECE_THEME_LABELS[t]}</span>
+                    <span className="h-12 w-12 drop-shadow-md">
+                      <PieceGlyph theme={t} color="w" type="n" />
+                    </span>
+                    <span className="truncate text-xs font-medium">{PIECE_THEME_LABELS[t]}</span>
                   </button>
                 ))}
               </div>
@@ -345,30 +352,30 @@ function Play() {
 
           {/* Live Preview */}
           <div>
-            <div className="mb-4 text-xs uppercase tracking-[0.22em] text-gold/80">
-              Visual Preview
+            <div className="mb-4 flex items-center justify-between">
+              <div className="text-xs uppercase tracking-[0.22em] text-gold/80">Visual Preview</div>
+              <div className="text-[11px] text-muted-foreground">
+                {BOARD_THEME_LABELS[draftBoard]} · {PIECE_THEME_LABELS[draftPiece]}
+                {dirty && <span className="ml-2 text-gold">● unsaved</span>}
+              </div>
             </div>
             <InteractiveBoard
               board={PREVIEW_BOARD}
               orientation="w"
               disabled
-              colors={colors}
-              pieces={pieces}
+              colors={BOARD_THEMES[draftBoard]}
+              pieceTheme={draftPiece}
+              showCoords={settings.showCoords}
             />
-            <div className="mt-4 flex justify-center gap-3">
+            <div className="mt-4 flex flex-wrap justify-center gap-3">
               <GoldButton
-                onClick={() =>
-                  updateSettings({
-                    boardTheme: "royal",
-                    pieceTheme: "unicode",
-                    soundEnabled: true,
-                    showCoords: true,
-                    autoFlip: false,
-                  })
-                }
+                onClick={applyThemes}
+                disabled={!dirty}
+                className={!dirty ? "opacity-40 pointer-events-none" : ""}
               >
-                Reset to Defaults
+                Apply Theme
               </GoldButton>
+              <GhostButton onClick={resetThemes}>Reset to Default</GhostButton>
               <GhostButton onClick={() => setTab("modes")}>Done</GhostButton>
             </div>
           </div>

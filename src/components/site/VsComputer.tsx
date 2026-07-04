@@ -7,6 +7,10 @@ import { Card, GoldButton, GhostButton, SectionTitle } from "@/components/site/P
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
 import { CapturedPieces } from "@/components/site/CapturedPieces";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
+import { useGameSettings } from "@/hooks/useGameSettings";
+import { playGameSound } from "@/lib/audio/sounds";
+import { buzz } from "@/lib/haptics";
+import type { Move } from "chess.js";
 import {
   Dialog,
   DialogContent,
@@ -35,9 +39,18 @@ const LEVELS = [
 
 const PIECE_VALUES: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
+// Play the appropriate cue for a move (non-terminal positions only).
+function soundForMove(made: Move, game: Chess) {
+  if (game.isCheckmate() || game.isGameOver()) return; // terminal cue handled at game end
+  if (game.inCheck()) playGameSound("check");
+  else if (made.captured) playGameSound("capture");
+  else playGameSound("move");
+}
+
 export function VsComputer() {
   const { user } = useAuth();
   const { profile } = useProfile(user?.id);
+  const { settings } = useGameSettings();
   const navigate = useNavigate();
 
   // Fetch player's real rating for the rapid time class
@@ -107,6 +120,7 @@ export function VsComputer() {
       const made = game.move({ from: move.from, to: move.to, promotion: move.promotion ?? "q" });
       setLastMove({ from: made.from, to: made.to });
       syncBoard();
+      soundForMove(made, game);
       checkGameEnd();
     } catch {
       /* stale or invalid — ignore */
@@ -184,6 +198,11 @@ export function VsComputer() {
       setResultText(text);
       setGameResult(result === "draw" ? "draw" : iWon ? "win" : "loss");
       setShowResult(true);
+
+      // Terminal audio cue.
+      if (result === "draw") playGameSound("draw");
+      else if (iWon) playGameSound("victory");
+      else playGameSound("defeat");
 
       if (user && !savedRef.current) {
         savedRef.current = true;
@@ -287,6 +306,8 @@ export function VsComputer() {
       const made = game.move({ from, to, promotion });
       setLastMove({ from: made.from, to: made.to });
       syncBoard();
+      buzz();
+      soundForMove(made, game);
       if (!checkGameEnd()) requestEngineMove();
     } catch {
       setSelected(null);
@@ -316,9 +337,13 @@ export function VsComputer() {
         setTargets([]);
         return;
       }
-      // Pawn reaches back rank → promotion required
+      // Pawn reaches back rank → promotion required (unless auto-queen is on).
       if (candidates.some((m) => m.piece === "p" && (m.to[1] === "8" || m.to[1] === "1"))) {
-        setPendingPromotion({ from: selected, to: sq });
+        if (settings.auto_queen) {
+          playPlayerMove(selected, sq, "q");
+        } else {
+          setPendingPromotion({ from: selected, to: sq });
+        }
         return;
       }
       playPlayerMove(selected, sq);
@@ -327,6 +352,7 @@ export function VsComputer() {
 
   const resign = () => {
     if (phase !== "playing") return;
+    if (settings.confirm_resign && !window.confirm("Resign this game?")) return;
     finishGame(myColor === "w" ? "black" : "white", "resignation");
   };
 

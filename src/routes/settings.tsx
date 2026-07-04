@@ -30,6 +30,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useBankDetails } from "@/hooks/useBankDetails";
+import { useGameSettings } from "@/hooks/useGameSettings";
+import {
+  SETTINGS_CATEGORIES,
+  type SettingMeta,
+  type GameSettings,
+} from "@/lib/settings/schema";
+import { BoardThemeSelector, PieceThemeSelector } from "@/components/settings/ThemeSelectors";
+import { playGameSound } from "@/lib/audio/sounds";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — ChessOx" }] }),
@@ -38,6 +46,7 @@ export const Route = createFileRoute("/settings")({
 
 const TABS = [
   "Profile",
+  "Game Settings",
   "Security",
   "Bank Account",
   "Notifications",
@@ -480,6 +489,7 @@ function Settings() {
               </GoldButton>
             </div>
           )}
+          {tab === "Game Settings" && <GameSettingsTab />}
           {tab === "Security" && <SecurityTab email={user.email ?? ""} />}
           {tab === "Bank Account" && (
             <BankAccountTab
@@ -1367,5 +1377,153 @@ function Toggle({ defaultOn = false }: { defaultOn?: boolean }) {
         className={`absolute top-0.5 h-5 w-5 rounded-full bg-background transition-all ${on ? "left-[22px]" : "left-0.5"}`}
       />
     </button>
+  );
+}
+
+// ─── Game Settings Tab ───────────────────────────────────────────────────────
+
+function SettingSwitch({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => onChange(!on)}
+      className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? "gradient-gold" : "bg-white/10"}`}
+    >
+      <span
+        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? "left-[calc(100%-1.375rem)]" : "left-0.5"}`}
+      />
+    </button>
+  );
+}
+
+function PendingBadge() {
+  return (
+    <span className="rounded-full border border-gold/30 bg-gold/10 px-2 py-0.5 text-[9px] uppercase tracking-wide text-gold/80">
+      Syncs · soon
+    </span>
+  );
+}
+
+function SettingRow({
+  meta,
+  settings,
+  set,
+}: {
+  meta: SettingMeta;
+  settings: GameSettings;
+  set: <K extends keyof GameSettings>(k: K, v: GameSettings[K]) => void;
+}) {
+  const value = settings[meta.key];
+  return (
+    <div className="flex items-center justify-between gap-4 py-2.5">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 text-sm text-foreground">
+          <span className="truncate">{meta.label}</span>
+          {meta.status === "pending" && <PendingBadge />}
+        </div>
+        {meta.help && <p className="mt-0.5 text-xs text-muted-foreground">{meta.help}</p>}
+      </div>
+
+      {meta.control === "toggle" && (
+        <SettingSwitch
+          on={value as boolean}
+          onChange={(v) => set(meta.key, v as GameSettings[typeof meta.key])}
+        />
+      )}
+
+      {meta.control === "select" && (
+        <select
+          value={String(value)}
+          onChange={(e) => set(meta.key, e.target.value as GameSettings[typeof meta.key])}
+          className="shrink-0 rounded-lg border border-white/10 bg-background px-3 py-1.5 text-sm text-foreground focus:border-gold/40 focus:outline-none"
+        >
+          {meta.options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {meta.control === "slider" && (
+        <div className="flex shrink-0 items-center gap-2">
+          <input
+            type="range"
+            min={meta.min}
+            max={meta.max}
+            step={meta.step}
+            value={Number(value)}
+            onChange={(e) => set(meta.key, Number(e.target.value) as GameSettings[typeof meta.key])}
+            className="accent-gold"
+          />
+          <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+            {Number(value)}
+            {meta.unit ?? ""}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GameSettingsTab() {
+  const { settings, set, reset } = useGameSettings();
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Game Settings</h2>
+          <p className="text-sm text-muted-foreground">
+            Applies instantly everywhere and syncs across your devices.
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            reset();
+            toast.success("Settings reset to defaults");
+          }}
+          className="rounded-lg border border-white/10 px-3 py-2 text-xs text-muted-foreground hover:border-gold/30 hover:text-foreground"
+        >
+          Reset to defaults
+        </button>
+      </div>
+
+      {/* Premium board & piece theme selectors with live preview */}
+      <Card className="p-5">
+        <BoardThemeSelector />
+      </Card>
+      <Card className="p-5">
+        <PieceThemeSelector />
+      </Card>
+
+      {/* All other categories, generated from the schema */}
+      {SETTINGS_CATEGORIES.map((cat) => (
+        <Card key={cat.id} className="p-5">
+          <div className="mb-1 text-sm font-semibold text-foreground">{cat.title}</div>
+          <p className="mb-2 text-xs text-muted-foreground">{cat.desc}</p>
+          <div className="divide-y divide-white/5">
+            {cat.items.map((item) => (
+              <SettingRow key={item.key} meta={item} settings={settings} set={set} />
+            ))}
+          </div>
+          {cat.id === "sound" && (
+            <button
+              onClick={() => playGameSound("notify")}
+              className="mt-3 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-muted-foreground hover:border-gold/30 hover:text-foreground"
+            >
+              Test sound
+            </button>
+          )}
+        </Card>
+      ))}
+
+      <p className="text-center text-xs text-muted-foreground">
+        Settings marked “Syncs · soon” are saved to your account now and activate as their
+        features roll out.
+      </p>
+    </div>
   );
 }

@@ -10,6 +10,32 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+/**
+ * Turns raw Supabase Auth errors into clear, action-oriented messages. Supabase
+ * returns terse server strings (e.g. "email rate limit exceeded") that mean
+ * nothing to a player — map the common ones to guidance they can act on.
+ */
+function friendlyAuthError(e: unknown): string {
+  const msg = e instanceof Error ? e.message : "Authentication failed";
+  const m = msg.toLowerCase();
+  if (m.includes("rate limit") || m.includes("too many requests")) {
+    return "Too many attempts right now. Please wait a few minutes and try again — or use Continue with Google below.";
+  }
+  if (m.includes("already registered") || m.includes("already been registered")) {
+    return "That email already has an account. Try signing in instead.";
+  }
+  if (m.includes("invalid login credentials")) {
+    return "Incorrect email or password. Please check and try again.";
+  }
+  if (m.includes("email not confirmed")) {
+    return "Please confirm your email first — check your inbox for the ChessOx confirmation link.";
+  }
+  if (m.includes("password") && m.includes("6")) {
+    return "Password must be at least 6 characters.";
+  }
+  return msg;
+}
+
 function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
@@ -63,7 +89,7 @@ function AuthPage() {
       router.invalidate();
       navigate({ to: "/home" });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Authentication failed");
+      setError(friendlyAuthError(e));
     } finally {
       setBusy(false);
     }
@@ -84,7 +110,7 @@ function AuthPage() {
       if (error) throw error;
       // Browser navigates away for the OAuth flow — no further action here.
     } catch (e) {
-      setError(e instanceof Error ? e.message : "OAuth failed");
+      setError(friendlyAuthError(e));
       setBusy(false);
     }
   }

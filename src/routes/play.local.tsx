@@ -6,7 +6,9 @@ import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Prim
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
 import { CapturedPieces } from "@/components/site/CapturedPieces";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
-import { useBoardSettings, BOARD_THEMES, PIECE_SETS } from "@/hooks/useBoardSettings";
+import { useGameSettings } from "@/hooks/useGameSettings";
+import { playGameSound } from "@/lib/audio/sounds";
+import { buzz } from "@/lib/haptics";
 import { useAuth } from "@/hooks/useAuth";
 import { saveLocalGame } from "@/lib/api/gameClient";
 
@@ -29,9 +31,7 @@ const TIME_CONTROLS = [
 type Phase = "setup" | "playing" | "over";
 
 function LocalPlay() {
-  const { settings } = useBoardSettings();
-  const colors = BOARD_THEMES[settings.boardTheme];
-  const pieces = PIECE_SETS[settings.pieceTheme];
+  const { settings } = useGameSettings();
   const { user } = useAuth();
 
   const [phase, setPhase] = useState<Phase>("setup");
@@ -171,7 +171,7 @@ function LocalPlay() {
     setBlackTime(tc.sec);
     setPhase("playing");
     startTimer("w");
-    if (settings.autoFlip) setOrientation("w");
+    if (settings.auto_flip) setOrientation("w");
   }
 
   function resetGame() {
@@ -190,7 +190,12 @@ function LocalPlay() {
       const m = moveList.find((mv) => mv.to === square);
       if (m) {
         if (m.flags.includes("p")) {
-          setPromotion({ from: selected, to: square });
+          // Auto-queen setting skips the promotion picker entirely.
+          if (settings.auto_queen) {
+            commitMove(selected, square, "q");
+          } else {
+            setPromotion({ from: selected, to: square });
+          }
           return;
         }
         commitMove(selected, square, undefined);
@@ -224,11 +229,24 @@ function LocalPlay() {
     setSelected(null);
     setTargets([]);
     setHistory(g.history());
+    buzz();
 
+    // Audio cues — most specific first.
     if (g.isCheckmate()) {
+      playGameSound("checkmate");
       endGame(`${m.color === "w" ? "White" : "Black"} wins by checkmate`);
       return;
     }
+    if (g.isDraw() || g.isStalemate()) {
+      playGameSound("draw");
+    } else if (g.inCheck()) {
+      playGameSound("check");
+    } else if (m.captured) {
+      playGameSound("capture");
+    } else {
+      playGameSound("move");
+    }
+
     if (g.isDraw()) {
       endGame("Draw");
       return;
@@ -239,7 +257,7 @@ function LocalPlay() {
     }
 
     const nextTurn = g.turn();
-    if (settings.autoFlip) setOrientation(nextTurn);
+    if (settings.auto_flip) setOrientation(nextTurn);
     startTimer(nextTurn);
   }
 
@@ -338,7 +356,7 @@ function LocalPlay() {
                   </button>
                   <button
                     onClick={() => {
-                      if (!confirm("Resign?")) return;
+                      if (settings.confirm_resign && !confirm("Resign this game?")) return;
                       endGame(`${turn === "w" ? "Black" : "White"} wins by resignation`);
                     }}
                     className="flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-2 text-xs text-destructive hover:bg-destructive/10"
@@ -368,8 +386,6 @@ function LocalPlay() {
                 checkSquare={checkSquare ?? undefined}
                 onSquare={handleSquare}
                 disabled={phase !== "playing" || !!promotion}
-                colors={colors}
-                pieces={pieces}
               />
               {promotion && (
                 <PromotionPicker

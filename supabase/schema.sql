@@ -64,8 +64,13 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   is_online    BOOLEAN NOT NULL DEFAULT false,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  iq_rating INT NOT NULL DEFAULT 100
+  iq_rating INT NOT NULL DEFAULT 100,
+  board_theme  TEXT NOT NULL DEFAULT 'royal',
+  piece_theme  TEXT NOT NULL DEFAULT 'classic'
 );
+-- Board / piece appearance columns (idempotent for pre-existing databases).
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS board_theme TEXT NOT NULL DEFAULT 'royal';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS piece_theme TEXT NOT NULL DEFAULT 'classic';
 GRANT SELECT ON public.profiles TO anon;
 GRANT SELECT, INSERT, UPDATE ON public.profiles TO authenticated;
 GRANT ALL ON public.profiles TO service_role;

@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import { Footer } from "@/components/site/Footer";
 import { MobileNav } from "@/components/site/MobileNav";
 import { Navbar } from "@/components/site/Navbar";
+import { SettingsEffects } from "@/components/site/SettingsEffects";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
@@ -155,6 +156,11 @@ function RootComponent() {
           .rpc("seed_daily_tournaments")
           .catch(() => {});
 
+        // Pull the user's saved game settings so they follow them across devices.
+        import("@/lib/settings/settings-sync")
+          .then((m) => m.loadSettingsOnce())
+          .catch(() => {});
+
         const { data } = supabase.auth.onAuthStateChange((event, session) => {
           if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
           router.invalidate();
@@ -163,6 +169,9 @@ function RootComponent() {
           if (event === "SIGNED_IN" && session?.user) {
             stopPresence?.();
             stopPresence = startPresence(supabase, session.user.id);
+            import("@/lib/settings/settings-sync")
+              .then((m) => m.loadSettingsFromDb(session.user.id))
+              .catch(() => {});
             // Update login streak (idempotent per calendar day — safe to call on every sign-in)
             (supabase as unknown as { rpc: (fn: string) => Promise<unknown> })
               .rpc("update_login_streak")
@@ -186,6 +195,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <SettingsEffects />
       <div className="min-h-screen bg-background text-foreground">
         <Navbar />
         <main>

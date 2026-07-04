@@ -535,10 +535,12 @@ export type Database = {
         Row: {
           avatar_url: string | null;
           bio: string | null;
+          board_theme: string | null;
           country: string | null;
           created_at: string;
           display_name: string;
           id: string;
+          piece_theme: string | null;
           premium_tier: Database["public"]["Enums"]["premium_tier"];
           premium_active: boolean;
           premium_expires_at: string | null;
@@ -550,10 +552,12 @@ export type Database = {
         Insert: {
           avatar_url?: string | null;
           bio?: string | null;
+          board_theme?: string | null;
           country?: string | null;
           created_at?: string;
           display_name: string;
           id: string;
+          piece_theme?: string | null;
           premium_tier?: Database["public"]["Enums"]["premium_tier"];
           premium_active?: boolean;
           premium_expires_at?: string | null;
@@ -565,10 +569,12 @@ export type Database = {
         Update: {
           avatar_url?: string | null;
           bio?: string | null;
+          board_theme?: string | null;
           country?: string | null;
           created_at?: string;
           display_name?: string;
           id?: string;
+          piece_theme?: string | null;
           premium_tier?: Database["public"]["Enums"]["premium_tier"];
           premium_active?: boolean;
           premium_expires_at?: string | null;

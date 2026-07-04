@@ -7,12 +7,11 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import type { Color, PieceSymbol, Square } from "chess.js";
-import { BOARD_THEMES, PIECE_SETS, type BoardSquareColors } from "@/hooks/useBoardSettings";
+import { BOARD_THEMES, type BoardSquareColors, type PieceTheme } from "@/hooks/useBoardSettings";
+import { useGameSettings } from "@/hooks/useGameSettings";
+import { PieceGlyph } from "@/lib/chess/pieceThemes";
 
 export type BoardCell = { square: Square; type: PieceSymbol; color: Color } | null;
-
-const DEFAULT_PIECES = PIECE_SETS.unicode;
-const DEFAULT_COLORS = BOARD_THEMES.royal;
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 
@@ -25,8 +24,10 @@ type Props = {
   checkSquare?: string | null;
   onSquare?: (square: string) => void;
   disabled?: boolean;
+  /** Override the board colours; defaults to the user's saved board theme. */
   colors?: BoardSquareColors;
-  pieces?: Record<string, string>;
+  /** Override the piece set; defaults to the user's saved piece theme. */
+  pieceTheme?: PieceTheme;
   showCoords?: boolean;
 };
 
@@ -100,10 +101,38 @@ export function InteractiveBoard({
   checkSquare,
   onSquare,
   disabled,
-  colors = DEFAULT_COLORS,
-  pieces = DEFAULT_PIECES,
-  showCoords = true,
+  colors,
+  pieceTheme,
+  showCoords,
 }: Props) {
+  // Fall back to the user's saved settings so every board mode (Play, Bot,
+  // Analysis, Puzzle, Tournament, Replay, Spectator) reflects them automatically.
+  const { settings } = useGameSettings();
+  const activeColors = colors ?? BOARD_THEMES[settings.board_theme];
+  const activePieceTheme = pieceTheme ?? settings.piece_theme;
+  const showCoordinates = showCoords ?? settings.show_coordinates;
+  const animate = settings.board_animation && !settings.reduced_motion;
+  const allowDrag = settings.move_method !== "click";
+  const pieceTransition = animate ? "transform 0.16s cubic-bezier(0.22, 1, 0.36, 1)" : "none";
+
+  // Board size preset × zoom drives the max on-screen width (all boards, all modes).
+  const baseWidth = settings.board_size === "small" ? 480 : settings.board_size === "large" ? 720 : 600;
+  const boardMaxWidth = Math.round(baseWidth * (settings.board_zoom / 100));
+  const snapToSquare = settings.snap_to_square;
+
+  // Centre of the square under a client point, for snap-to-square dragging.
+  const squareCenterFromPoint = (clientX: number, clientY: number): { x: number; y: number } | null => {
+    const el = gridRef.current;
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0) return null;
+    const c = Math.floor(((clientX - rect.left) / rect.width) * 8);
+    const r = Math.floor(((clientY - rect.top) / rect.height) * 8);
+    if (c < 0 || c > 7 || r < 0 || r > 7) return null;
+    const cell = rect.width / 8;
+    return { x: rect.left + (c + 0.5) * cell, y: rect.top + (r + 0.5) * cell };
+  };
+
   const placements = useStablePieces(board, lastMove);
 
   // Track the pixel size of a square so piece glyphs scale crisply to any layout.
@@ -142,7 +171,8 @@ export function InteractiveBoard({
     suppressClickRef.current = true;
     onSquare?.(sq);
     draggedRef.current = false;
-    if (hasPieceAt(sq)) {
+    // Respect the Move method setting — "click only" skips pointer dragging.
+    if (allowDrag && hasPieceAt(sq)) {
       setDrag({ from: sq, x: e.clientX, y: e.clientY });
       gridRef.current?.setPointerCapture(e.pointerId);
     }
@@ -208,14 +238,17 @@ export function InteractiveBoard({
   };
 
   return (
-    <div className="relative mx-auto w-full max-w-[700px]">
+    <div
+      className="cx-board-root relative mx-auto w-full"
+      style={{ maxWidth: boardMaxWidth }}
+    >
       <div className="pointer-events-none absolute -inset-5 rounded-[2rem] bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.18),transparent_58%)] blur-2xl" />
       <div className="relative rounded-[30px] rosewood-sheen shadow-luxe p-3 md:p-4">
         <div className="rounded-[24px] border border-gold/50 bg-[linear-gradient(180deg,rgba(50,18,14,0.95),rgba(26,8,8,0.95))] p-3 md:p-4">
           <div className="gold-frame rounded-[18px] p-2 md:p-3">
             <div className="grid grid-cols-[auto_1fr] grid-rows-[1fr_auto] gap-2">
               <div className="grid grid-rows-8 gap-px pt-2">
-                {showCoords &&
+                {showCoordinates &&
                   ranks.map((rank) => (
                     <div
                       key={rank}
@@ -241,10 +274,11 @@ export function InteractiveBoard({
                   files.map((__, c) => {
                     const sq = squareName(r, c);
                     const light = (r + c) % 2 === 0;
-                    const isSelected = selected === sq;
-                    const isTarget = targets.includes(sq);
-                    const isLast = lastMove && (lastMove.from === sq || lastMove.to === sq);
-                    const isCheck = checkSquare === sq;
+                    const isSelected = settings.show_move_highlights && selected === sq;
+                    const isTarget = settings.show_legal_moves && targets.includes(sq);
+                    const isLast =
+                      settings.show_last_move && lastMove && (lastMove.from === sq || lastMove.to === sq);
+                    const isCheck = settings.show_check_highlight && checkSquare === sq;
                     const hasPiece = board.flat().some((cell) => cell && cell.square === sq);
                     return (
                       <button
@@ -254,7 +288,7 @@ export function InteractiveBoard({
                         onClick={() => onSquare?.(sq)}
                         className="relative focus:outline-none"
                         style={{
-                          background: light ? colors.light : colors.dark,
+                          background: light ? activeColors.light : activeColors.dark,
                           cursor: disabled ? "default" : "pointer",
                         }}
                         aria-label={sq}
@@ -284,7 +318,6 @@ export function InteractiveBoard({
                 <div className="pointer-events-none absolute inset-0">
                   {placements.map((p) => {
                     const { col, row } = coords(p.square);
-                    const isWhite = p.color === "w";
                     return (
                       <div
                         key={p.id}
@@ -293,24 +326,17 @@ export function InteractiveBoard({
                           width: "12.5%",
                           height: "12.5%",
                           transform: `translate(${col * 100}%, ${row * 100}%)`,
-                          transition: "transform 0.16s cubic-bezier(0.22, 1, 0.36, 1)",
+                          transition: pieceTransition,
                           zIndex: 5,
                           opacity: drag?.from === p.square ? 0 : 1,
                         }}
                       >
-                        <span
-                          className={`select-none leading-none ${p.fresh ? "piece-pop" : ""}`}
-                          style={{
-                            fontSize: squarePx ? `${squarePx * 0.82}px` : "2.2rem",
-                            color: isWhite ? colors.lightPiece : colors.darkPiece,
-                            WebkitTextStroke: isWhite
-                              ? "0.035em rgba(0,0,0,0.65)"
-                              : "0.028em rgba(255,255,255,0.32)",
-                            textShadow: "0 2px 3px rgba(0,0,0,0.45)",
-                          }}
+                        <div
+                          className={`h-[86%] w-[86%] ${p.fresh && animate ? "piece-pop" : ""}`}
+                          style={{ transform: "scale(var(--cx-piece-scale, 1))" }}
                         >
-                          {pieces[`${p.color}${p.type}`]}
-                        </span>
+                          <PieceGlyph theme={activePieceTheme} color={p.color} type={p.type} />
+                        </div>
                       </div>
                     );
                   })}
@@ -321,22 +347,16 @@ export function InteractiveBoard({
                   (() => {
                     const p = placements.find((pl) => pl.square === drag.from);
                     if (!p) return null;
-                    const isWhite = p.color === "w";
+                    const fs = squarePx ? squarePx * 0.9 : 40;
+                    const snapped = snapToSquare ? squareCenterFromPoint(drag.x, drag.y) : null;
+                    const px = snapped?.x ?? drag.x;
+                    const py = snapped?.y ?? drag.y;
                     return (
                       <span
-                        className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-1/2 select-none leading-none"
-                        style={{
-                          left: drag.x,
-                          top: drag.y,
-                          fontSize: squarePx ? `${squarePx * 0.9}px` : "2.4rem",
-                          color: isWhite ? colors.lightPiece : colors.darkPiece,
-                          WebkitTextStroke: isWhite
-                            ? "0.035em rgba(0,0,0,0.65)"
-                            : "0.028em rgba(255,255,255,0.32)",
-                          textShadow: "0 6px 10px rgba(0,0,0,0.55)",
-                        }}
+                        className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-1/2 select-none"
+                        style={{ left: px, top: py, width: fs, height: fs }}
                       >
-                        {pieces[`${p.color}${p.type}`]}
+                        <PieceGlyph theme={activePieceTheme} color={p.color} type={p.type} />
                       </span>
                     );
                   })()}
@@ -344,7 +364,7 @@ export function InteractiveBoard({
 
               <div />
               <div className="grid grid-cols-8 gap-px px-1">
-                {showCoords &&
+                {showCoordinates &&
                   files.map((file) => (
                     <div
                       key={file}

@@ -10,6 +10,9 @@ import { PremiumBadge } from "@/components/site/PremiumBadge";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useGameSettings } from "@/hooks/useGameSettings";
+import { playGameSound } from "@/lib/audio/sounds";
+import { buzz } from "@/lib/haptics";
 import { submitMove, joinGame, resignGame, respondDraw, claimTimeout } from "@/lib/api/gameClient";
 import {
   Flag,
@@ -69,6 +72,7 @@ function fmtClock(ms: number) {
 function LiveGame() {
   const { id } = useParams({ from: "/game/$id" });
   const { user } = useAuth();
+  const { settings } = useGameSettings();
   const [game, setGame] = useState<GameRow | null>(null);
   const [moves, setMoves] = useState<MoveRow[]>([]);
   const [chat, setChat] = useState<ChatRow[]>([]);
@@ -99,6 +103,16 @@ function LiveGame() {
   const submittingRef = useRef(false);
   // Prevent claiming timeout more than once per active game
   const timeoutClaimedRef = useRef(false);
+
+  // Terminal audio cue when the game finishes (fires once per game).
+  const finishedRef = useRef(false);
+  useEffect(() => {
+    if (!game || game.status !== "finished" || finishedRef.current) return;
+    finishedRef.current = true;
+    if (game.result === "draw") playGameSound("draw");
+    else if (user && game.winner_id === user.id) playGameSound("victory");
+    else if (user && game.winner_id) playGameSound("defeat");
+  }, [game?.status, game?.result, game?.winner_id, user?.id]);
 
   const activeFen = optimistic?.fen ?? game?.fen;
   const chess = useMemo(() => {
@@ -274,9 +288,15 @@ function LiveGame() {
       const moveList = chess.moves({ square: selected as Square, verbose: true });
       const m = moveList.find((mv) => mv.to === square);
       if (m) {
-        // Pawn reaches the back rank → promotion required
+        // Pawn reaches the back rank → promotion required (unless auto-queen).
         if (m.piece === "p" && (m.to[1] === "8" || m.to[1] === "1")) {
-          setPromotion({ from: selected, to: square });
+          if (settings.auto_queen) {
+            await commitMove(selected, square, "q");
+            setSelected(null);
+            setTargets([]);
+          } else {
+            setPromotion({ from: selected, to: square });
+          }
           return;
         }
         await commitMove(selected, square, undefined);
@@ -305,7 +325,14 @@ function LiveGame() {
       const c = new Chess();
       c.load(activeFen!);
       const mv = c.move({ from, to, promotion: promo });
-      if (mv) setOptimistic({ fen: c.fen(), from, to });
+      if (mv) {
+        setOptimistic({ fen: c.fen(), from, to });
+        buzz();
+        if (c.isCheckmate()) playGameSound("checkmate");
+        else if (c.inCheck()) playGameSound("check");
+        else if (mv.captured) playGameSound("capture");
+        else playGameSound("move");
+      }
     } catch {
       /* invalid locally — let the server be the judge */
     }
@@ -341,7 +368,7 @@ function LiveGame() {
 
   async function resign() {
     if (!game || !myColor || game.status !== "active") return;
-    if (!confirm("Resign this game?")) return;
+    if (settings.confirm_resign && !confirm("Resign this game?")) return;
     try {
       await resignGame(id);
       // resign_game RPC finishes the game and calls apply_elo_change server-side
@@ -352,6 +379,8 @@ function LiveGame() {
 
   async function offerOrAcceptDraw() {
     if (!game || !myColor || game.status !== "active") return;
+    // Confirm only when making a fresh offer (not when accepting the opponent's).
+    if (settings.confirm_draw_offer && !game.draw_offered_by && !confirm("Offer a draw?")) return;
     try {
       const res = await respondDraw(id);
       if (res === "offered") toast.info("Draw offer sent to opponent.");

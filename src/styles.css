@@ -482,3 +482,75 @@
     animation: drift 7s ease-in-out infinite;
   }
 }
+
+/* ── Accessibility & performance settings (applied to <html> by SettingsEffects) ── */
+
+/* Reduced motion — honour both the OS preference and the in-app toggle. */
+.cx-reduced-motion *,
+.cx-reduced-motion *::before,
+.cx-reduced-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* High contrast — strengthen borders and text against the dark royal ground. */
+.cx-high-contrast {
+  --tw-prose-body: #fff;
+}
+.cx-high-contrast body {
+  filter: contrast(1.18) saturate(1.08);
+}
+.cx-high-contrast .text-muted-foreground {
+  color: #e9dcc0 !important;
+}
+
+/* Larger board coordinates for readability. */
+.cx-large-coords .grid .text-\[10px\],
+.cx-large-coords .text-\[10px\] {
+  font-size: 15px !important;
+}
+
+/* Low graphics mode — drop expensive blur/glow for weaker devices. */
+.cx-graphics-low * {
+  backdrop-filter: none !important;
+  filter: none !important;
+  box-shadow: none !important;
+}
+.cx-graphics-low .blur-2xl,
+.cx-graphics-low .blur-3xl,
+.cx-graphics-low .blur-xl {
+  filter: none !important;
+}
+
+/* Colour-blind board assists — hue-rotate/adjust the whole app subtly so the
+   red/green board and highlight cues separate for the common CVD types. */
+.cx-cb-deuteranopia body {
+  filter: saturate(1.25) hue-rotate(-12deg);
+}
+.cx-cb-protanopia body {
+  filter: saturate(1.2) hue-rotate(12deg);
+}
+.cx-cb-tritanopia body {
+  filter: saturate(1.2) hue-rotate(28deg);
+}
+
+/* Mobile board scaling (phones only) — driven by the Mobile settings slider. */
+.cx-board-root {
+  transform-origin: top center;
+}
+@media (max-width: 768px) {
+  .cx-board-root {
+    transform: scale(var(--cx-mobile-board-scale, 1));
+  }
+}

@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import type { Color } from "chess.js";
 import type { BoardCell } from "@/components/site/InteractiveBoard";
-import { computeCaptured, SOLID_GLYPH } from "@/lib/chess/pieces";
+import { computeCaptured } from "@/lib/chess/pieces";
+import { PieceGlyph } from "@/lib/chess/pieceThemes";
+import { useGameSettings } from "@/hooks/useGameSettings";
 
 type Props = {
   board: BoardCell[][];
@@ -16,7 +18,11 @@ type Props = {
  * instant a capture lands — and is identical for both players.
  */
 export function CapturedPieces({ board, player, className = "" }: Props) {
+  const { settings } = useGameSettings();
   const { byWhite, byBlack, materialAdvantage } = useMemo(() => computeCaptured(board), [board]);
+
+  // Respect the board-display settings — hide entirely when captures are off.
+  if (!settings.show_captured_pieces && !settings.show_material_difference) return null;
 
   const pieces = player === "w" ? byWhite : byBlack;
   // White shows captured BLACK pieces (dark), Black shows captured WHITE pieces.
@@ -25,20 +31,15 @@ export function CapturedPieces({ board, player, className = "" }: Props) {
 
   return (
     <div className={`flex min-h-[20px] flex-wrap items-center gap-0.5 ${className}`}>
-      {pieces.map((type, i) => (
-        <span
-          key={i}
-          className="select-none text-base leading-none"
-          style={{
-            color: glyphColor === "w" ? "#f5e7c1" : "#2a2a2a",
-            WebkitTextStroke:
-              glyphColor === "w" ? "0.03em rgba(0,0,0,0.6)" : "0.03em rgba(255,255,255,0.4)",
-          }}
-        >
-          {SOLID_GLYPH[type]}
-        </span>
-      ))}
-      {advantage > 0 && <span className="ml-1 text-xs font-medium text-gold/90">+{advantage}</span>}
+      {settings.show_captured_pieces &&
+        pieces.map((type, i) => (
+          <span key={i} className="inline-block h-4 w-4 select-none">
+            <PieceGlyph theme={settings.piece_theme} color={glyphColor} type={type} />
+          </span>
+        ))}
+      {settings.show_material_difference && advantage > 0 && (
+        <span className="ml-1 text-xs font-medium text-gold/90">+{advantage}</span>
+      )}
     </div>
   );
 }

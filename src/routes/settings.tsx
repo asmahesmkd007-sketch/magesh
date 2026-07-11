@@ -37,6 +37,8 @@ import {
   type GameSettings,
 } from "@/lib/settings/schema";
 import { BoardThemeSelector, PieceThemeSelector } from "@/components/settings/ThemeSelectors";
+import { SoundThemeSelector } from "@/components/settings/SoundThemeSelector";
+import { COUNTRIES, FAVORITE_OPENINGS, INDIA_DISTRICTS, INDIA_STATES_AND_UTS } from "@/data/geo";
 import { playGameSound } from "@/lib/audio/sounds";
 
 export const Route = createFileRoute("/settings")({
@@ -49,9 +51,6 @@ const TABS = [
   "Game Settings",
   "Security",
   "Bank Account",
-  "Notifications",
-  "Privacy",
-  "Appearance",
 ] as const;
 
 // ── Image processing helpers ─────────────────────────────────────────
@@ -127,6 +126,9 @@ function Settings() {
     display_name: "",
     username: "",
     country: "India",
+    state: "",
+    district: "",
+    favorite_opening: "",
     bio: "",
     website: "",
     youtube_url: "",
@@ -148,6 +150,9 @@ function Settings() {
         display_name: profile.display_name,
         username: profile.username,
         country: profile.country ?? "India",
+        state: profile.state ?? "",
+        district: profile.district ?? "",
+        favorite_opening: profile.favorite_opening ?? "",
         bio: profile.bio ?? "",
         website: profile.website ?? "",
         youtube_url: profile.youtube_url ?? "",
@@ -179,6 +184,7 @@ function Settings() {
 
   // ── Avatar upload ──
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!user) return; // narrow inside the handler; the page-level guard doesn't reach here
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
@@ -215,6 +221,7 @@ function Settings() {
 
   // ── Banner upload ──
   async function handleBannerChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!user) return;
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) {
@@ -257,6 +264,9 @@ function Settings() {
         display_name: form.display_name,
         username: form.username,
         country: form.country,
+        state: form.country === "India" ? form.state : "",
+        district: form.country === "India" ? form.district : "",
+        favorite_opening: form.favorite_opening,
         bio: form.bio,
         website: form.website || null,
         youtube_url: form.youtube_url || null,
@@ -424,12 +434,80 @@ function Settings() {
                 onChange={(v) => setForm({ ...form, username: v })}
                 placeholder="@username"
               />
-              <Field
-                label="Country"
-                value={form.country}
-                onChange={(v) => setForm({ ...form, country: v })}
-                placeholder="India"
-              />
+              <label className="block">
+                <div className="mb-1.5 text-xs uppercase tracking-widest text-muted-foreground">
+                  Country
+                </div>
+                <select
+                  value={form.country}
+                  onChange={(e) =>
+                    setForm({ ...form, country: e.target.value, state: "", district: "" })
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm outline-none focus:border-gold/40"
+                >
+                  {COUNTRIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {form.country === "India" && (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <div className="mb-1.5 text-xs uppercase tracking-widest text-muted-foreground">
+                      State
+                    </div>
+                    <select
+                      value={form.state}
+                      onChange={(e) => setForm({ ...form, state: e.target.value, district: "" })}
+                      className="w-full rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm outline-none focus:border-gold/40"
+                    >
+                      <option value="">Select state…</option>
+                      {INDIA_STATES_AND_UTS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <div className="mb-1.5 text-xs uppercase tracking-widest text-muted-foreground">
+                      District
+                    </div>
+                    <select
+                      value={form.district}
+                      onChange={(e) => setForm({ ...form, district: e.target.value })}
+                      disabled={!form.state}
+                      className="w-full rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm outline-none focus:border-gold/40 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <option value="">Select district…</option>
+                      {(INDIA_DISTRICTS[form.state] ?? []).map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              )}
+              <label className="block">
+                <div className="mb-1.5 text-xs uppercase tracking-widest text-muted-foreground">
+                  Favorite Chess Opening
+                </div>
+                <select
+                  value={form.favorite_opening}
+                  onChange={(e) => setForm({ ...form, favorite_opening: e.target.value })}
+                  className="w-full rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm outline-none focus:border-gold/40"
+                >
+                  <option value="">Not set</option>
+                  {FAVORITE_OPENINGS.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <Field
                 label="Bio"
                 value={form.bio}
@@ -498,76 +576,6 @@ function Settings() {
               bankLoading={bankLoading}
               saveBankDetails={saveBankDetails}
             />
-          )}
-          {tab === "Notifications" && (
-            <div className="space-y-3">
-              {[
-                "Tournament reminders",
-                "Friend requests",
-                "Club announcements",
-                "Puzzle streak alerts",
-                "Newsletter",
-              ].map((n) => (
-                <div
-                  key={n}
-                  className="flex items-center justify-between rounded-lg border border-white/5 p-3 text-sm"
-                >
-                  <span>{n}</span>
-                  <Toggle defaultOn={n !== "Newsletter"} />
-                </div>
-              ))}
-            </div>
-          )}
-          {tab === "Privacy" && (
-            <div className="space-y-3">
-              {[
-                "Show profile to public",
-                "Show rating history",
-                "Allow direct challenges",
-                "Show online status",
-              ].map((n) => (
-                <div
-                  key={n}
-                  className="flex items-center justify-between rounded-lg border border-white/5 p-3 text-sm"
-                >
-                  <span>{n}</span>
-                  <Toggle defaultOn />
-                </div>
-              ))}
-            </div>
-          )}
-          {tab === "Appearance" && (
-            <div className="space-y-5">
-              <div>
-                <div className="mb-2 text-sm">Board Theme</div>
-                <div className="grid grid-cols-4 gap-3">
-                  {["Rosewood", "Marble", "Brass", "Emerald"].map((b, i) => (
-                    <button
-                      key={b}
-                      className={`rounded-lg border p-3 text-xs ${i === 0 ? "border-gold ring-2 ring-gold/30" : "border-white/10"}`}
-                    >
-                      <div className="aspect-square overflow-hidden rounded-md">
-                        <div className="grid h-full grid-cols-4 grid-rows-4">
-                          {Array.from({ length: 16 }).map((_, k) => (
-                            <div
-                              key={k}
-                              className={
-                                (k + Math.floor(k / 4)) % 2 === 0 ? "bg-[#E8D5B0]" : "bg-[#8B5A2B]"
-                              }
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <div className="mt-2">{b}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-white/5 p-3 text-sm">
-                <span>Royal sound effects</span>
-                <Toggle defaultOn />
-              </div>
-            </div>
           )}
         </Card>
       </div>
@@ -1510,12 +1518,17 @@ function GameSettingsTab() {
             ))}
           </div>
           {cat.id === "sound" && (
-            <button
-              onClick={() => playGameSound("notify")}
-              className="mt-3 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-muted-foreground hover:border-gold/30 hover:text-foreground"
-            >
-              Test sound
-            </button>
+            <>
+              <div className="my-4 border-t border-white/5 pt-4">
+                <SoundThemeSelector />
+              </div>
+              <button
+                onClick={() => playGameSound("notify")}
+                className="mt-3 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-muted-foreground hover:border-gold/30 hover:text-foreground"
+              >
+                Test sound
+              </button>
+            </>
           )}
         </Card>
       ))}

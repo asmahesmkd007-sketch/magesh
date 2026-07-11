@@ -72,36 +72,36 @@ const SOCIAL_LINKS = [
 
 export function Footer() {
   return (
-    <footer className="mt-24 border-t border-gold/12 bg-[linear-gradient(180deg,rgba(32,8,8,0.8),rgba(16,4,4,0.95))]">
-      <div className="mx-auto grid max-w-7xl gap-10 px-6 py-16 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
+    <footer className="mt-12 border-t border-gold/12 bg-[linear-gradient(180deg,rgba(32,8,8,0.8),rgba(16,4,4,0.95))]">
+      <div className="mx-auto grid max-w-7xl gap-6 px-6 py-8 md:grid-cols-[1.5fr_1fr_1fr_1fr] lg:gap-8">
         {/* Brand column */}
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <img
               src="/chessox-icon.ico"
               alt="ChessOx Logo"
-              className="h-10 w-10 rounded-xl shadow-gold-glow"
+              className="h-8 w-8 rounded-lg shadow-gold-glow"
               draggable={false}
             />
             <div>
-              <div className="font-display text-3xl leading-none text-gradient-gold">ChessOx</div>
-              <div className="text-[10px] uppercase tracking-[0.26em] text-muted-foreground">
+              <div className="font-display text-2xl leading-none text-gradient-gold">ChessOx</div>
+              <div className="text-[9px] uppercase tracking-[0.26em] text-muted-foreground mt-0.5">
                 Birthplace of chess · reimagined
               </div>
             </div>
           </div>
 
-          <p className="mt-5 max-w-md text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-3 max-w-md text-xs leading-relaxed text-muted-foreground">
             A premium chess world inspired by the birthplace of the game.
           </p>
 
-          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-emerald/30 bg-emerald/10 px-3 py-1.5 text-xs text-emerald">
-            <span className="h-2 w-2 rounded-full bg-emerald animate-pulse-dot" />
+          <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-emerald/30 bg-emerald/10 px-2.5 py-1 text-[11px] text-emerald">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald animate-pulse-dot" />
             Live arena atmosphere
           </div>
 
           {/* Social media icons */}
-          <div className="mt-6 flex items-center gap-3">
+          <div className="mt-4 flex items-center gap-2">
             {SOCIAL_LINKS.map(({ label, href, Icon }) => (
               <a
                 key={label}
@@ -109,9 +109,9 @@ export function Footer() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`ChessOx on ${label}`}
-                className="grid h-9 w-9 place-items-center rounded-xl border border-gold/20 bg-white/[0.03] text-muted-foreground transition-colors hover:border-gold/50 hover:bg-gold/10 hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-gold/20 bg-white/[0.03] text-muted-foreground transition-colors hover:border-gold/50 hover:bg-gold/10 hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50"
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-3.5 w-3.5" />
               </a>
             ))}
           </div>
@@ -148,10 +148,10 @@ export function Footer() {
           },
         ].map((group) => (
           <div key={group.title}>
-            <div className="text-[11px] uppercase tracking-[0.24em] text-gold/75">
+            <div className="text-[10px] uppercase tracking-[0.24em] text-gold/75">
               {group.title}
             </div>
-            <ul className="mt-4 space-y-2.5 text-sm text-foreground/85">
+            <ul className="mt-2.5 space-y-1.5 text-xs text-foreground/85">
               {group.links.map(([label, to]) => (
                 <li key={label}>
                   <Link to={to} className="transition-colors hover:text-gold">
@@ -165,7 +165,7 @@ export function Footer() {
       </div>
 
       {/* Bottom bar */}
-      <div className="border-t border-gold/10 px-6 py-5 text-center text-xs text-muted-foreground">
+      <div className="border-t border-gold/10 px-6 py-3 text-center text-[11px] text-muted-foreground">
         © {new Date().getFullYear()} ChessOx · Royal Indian Chess Experience
       </div>
     </footer>

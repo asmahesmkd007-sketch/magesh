@@ -153,6 +153,61 @@ export const resolveReport = (
     p_resolution: resolution ?? null,
   });
 
+// ── Puzzles ──────────────────────────────────────────────────────────
+export type AdminPuzzle = {
+  id: string;
+  fen: string;
+  moves: string; // space-separated UCI in the DB
+  rating: number;
+  theme: string;
+  category: string;
+  goal: string;
+  difficulty: string;
+  explanation: string;
+  themes: string[];
+};
+
+export async function listPuzzles(
+  search = "",
+  category = "",
+  minRating = 0,
+  maxRating = 4000,
+  limit = 100,
+): Promise<AdminPuzzle[]> {
+  // Loose client: the puzzles table columns aren't in the generated types.
+  let q = (supabase as unknown as { from: (n: string) => any })
+    .from("puzzles")
+    .select("id,fen,moves,rating,theme,category,goal,difficulty,explanation,themes")
+    .gte("rating", minRating)
+    .lte("rating", maxRating)
+    .order("rating", { ascending: true })
+    .limit(limit);
+  if (category) q = q.eq("category", category);
+  if (search) q = q.ilike("fen", `%${search}%`);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as AdminPuzzle[];
+}
+
+export const upsertPuzzle = (p: Omit<Partial<AdminPuzzle>, "id"> & { id?: string | null }) =>
+  rpc<string>("admin_upsert_puzzle", {
+    p_id: p.id ?? null,
+    p_fen: p.fen,
+    p_moves: p.moves,
+    p_rating: p.rating ?? 1000,
+    p_theme: p.theme ?? "Tactics",
+    p_category: p.category ?? "Tactics",
+    p_goal: p.goal ?? "Best move",
+    p_difficulty: p.difficulty ?? "Intermediate",
+    p_explanation: p.explanation ?? "",
+    p_themes: p.themes ?? [],
+  });
+
+export const deletePuzzle = (id: string) => rpc<void>("admin_delete_puzzle", { p_id: id });
+
+export const bulkImportPuzzles = (items: unknown[]) =>
+  rpc<number>("admin_bulk_import_puzzles", { p_items: items });
+
 // ── Notifications ────────────────────────────────────────────────────
 export const broadcastNotification = (
   title: string,

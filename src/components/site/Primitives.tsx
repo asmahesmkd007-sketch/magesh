@@ -99,7 +99,7 @@ export function GoldButton<E extends ElementType = "button">({
   return (
     <As
       {...rest}
-      className={`inline-flex items-center justify-center gap-2 rounded-xl gradient-gold px-5 py-2.5 text-sm font-medium text-background shadow-gold-glow transition duration-200 hover:brightness-110 ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-xl gradient-gold px-5 py-2.5 text-sm font-medium text-background shadow-gold-glow transition duration-200 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100 ${className}`}
     >
       {children}
     </As>

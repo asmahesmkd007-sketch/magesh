@@ -118,7 +118,8 @@ function Clubs() {
       .select("id,slug,name,description,member_count,cover_gradient,created_at")
       .maybeSingle();
     if (error) {
-      toast.error("Could not create club");
+      toast.error(error.message || "Could not create club");
+      console.error("Club creation error:", error);
       setCreating(false);
       return;
     }

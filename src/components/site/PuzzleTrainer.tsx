@@ -4,9 +4,10 @@ import { toast } from "sonner";
 import { ArrowRight, Eye, Flame, Lightbulb, Target } from "lucide-react";
 import { Card, GoldButton, GhostButton } from "@/components/site/Primitives";
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
-import { PUZZLES, type Puzzle } from "@/lib/chess/puzzles";
+import { PUZZLES, difficultyOf, type Puzzle } from "@/lib/chess/puzzles";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { soundForChessMove } from "@/lib/audio/sounds";
 
 const DAILY_GOAL = 20;
 const STORE_KEY = "chessox-puzzle-progress";
@@ -36,23 +37,33 @@ export function PuzzleTrainer() {
   useEffect(() => {
     supabase
       .from("puzzles")
-      .select("id,fen,moves,theme,goal,rating,themes")
+      .select("id,fen,moves,theme,category,goal,rating,difficulty,explanation,themes")
       .order("rating", { ascending: true })
-      .limit(100)
+      .limit(500)
       .then(({ data }) => {
         if (data && data.length > 0) {
           setDbPuzzles(
-            (data as Record<string, unknown>[]).map((r) => ({
-              id: String(r.id),
-              fen: String(r.fen),
-              moves: Array.isArray(r.moves) ? (r.moves as string[]) : String(r.moves).split(" "),
-              theme: String(
-                r.theme ??
-                  (Array.isArray(r.themes) && r.themes.length > 0 ? r.themes[0] : "Tactics"),
-              ),
-              goal: String(r.goal ?? "Best move"),
-              rating: Number(r.rating ?? 100),
-            })),
+            (data as Record<string, unknown>[]).map((r) => {
+              const rating = Number(r.rating ?? 100);
+              return {
+                id: String(r.id),
+                fen: String(r.fen),
+                moves: Array.isArray(r.moves)
+                  ? (r.moves as string[])
+                  : String(r.moves).split(" "),
+                theme: String(
+                  r.theme ??
+                    (Array.isArray(r.themes) && r.themes.length > 0 ? r.themes[0] : "Tactics"),
+                ),
+                category: String(r.category ?? r.theme ?? "Tactics"),
+                goal: String(r.goal ?? "Best move"),
+                rating,
+                difficulty: (r.difficulty ? String(r.difficulty) : difficultyOf(rating)) as
+                  Puzzle["difficulty"],
+                themes: Array.isArray(r.themes) ? (r.themes as string[]) : [],
+                explanation: String(r.explanation ?? ""),
+              };
+            }),
           );
         }
       });
@@ -100,6 +111,7 @@ export function PuzzleTrainer() {
       promotion: u.length > 4 ? u[4] : undefined,
     });
     setLastMove({ from: made.from, to: made.to });
+    soundForChessMove(made, gameRef.current!);
     return made;
   };
 
@@ -239,6 +251,16 @@ export function PuzzleTrainer() {
         : "";
 
   const pct = Math.min(100, Math.round((progress.solved / DAILY_GOAL) * 100));
+  const isMate = (status === "solved" || status === "revealed") && !!gameRef.current?.isCheckmate();
+  const difficulty: string = puzzle.difficulty ?? difficultyOf(puzzle.rating) ?? "Intermediate";
+  const DIFF_COLOR: Record<string, string> = {
+    Easy: "text-emerald-400",
+    Beginner: "text-teal-400",
+    Intermediate: "text-sky-400",
+    Advanced: "text-amber-400",
+    Expert: "text-orange-400",
+    Master: "text-rose-400",
+  };
 
   return (
     <div className="grid gap-6 lg:grid-cols-12">
@@ -248,7 +270,12 @@ export function PuzzleTrainer() {
             Puzzle Rating
           </div>
           <div className="font-display text-4xl text-gradient-gold">{puzzle.rating}</div>
-          <div className="mt-1 text-xs text-muted-foreground">{puzzle.theme}</div>
+          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+            <span className={`font-semibold ${DIFF_COLOR[difficulty] ?? "text-gold"}`}>
+              {difficulty}
+            </span>
+            · {puzzle.theme}
+          </div>
         </Card>
 
         <Card className="p-5">
@@ -289,15 +316,40 @@ export function PuzzleTrainer() {
             disabled={status !== "solving"}
           />
         </div>
-        <div className="mt-4 text-center text-sm text-muted-foreground">
-          {status === "solved"
-            ? "Solved! Load the next riddle."
-            : status === "revealed"
-              ? "Solution revealed — study the idea, then move on."
-              : status === "showing"
-                ? "Watch the winning sequence…"
-                : `${playerColor === "w" ? "White" : "Black"} to move · ${puzzle.goal}`}
+        <div className="mt-4 text-center text-sm">
+          {status === "solved" ? (
+            <span className="font-display text-lg text-emerald-400">
+              {isMate ? "✔ Checkmate!" : "✔ Correct — puzzle solved!"} 👑
+            </span>
+          ) : status === "revealed" ? (
+            <span className="text-muted-foreground">
+              Solution revealed — study the idea, then move on.
+            </span>
+          ) : status === "showing" ? (
+            <span className="text-muted-foreground">Watch the winning sequence…</span>
+          ) : (
+            <span className="text-muted-foreground">
+              {playerColor === "w" ? "White" : "Black"} to move · {puzzle.goal}
+            </span>
+          )}
         </div>
+
+        {(status === "solved" || status === "revealed") && (
+          <div className="mt-4 rounded-2xl border border-gold/20 bg-gold/5 p-4">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-gold">
+              <Lightbulb className="h-3.5 w-3.5" /> {puzzle.theme}
+            </div>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {puzzle.explanation || "Study how the pieces coordinate to force the win."}
+            </p>
+            <div className="mt-2 text-xs text-muted-foreground/70">
+              Solution: {puzzle.moves.filter((_, i) => i % 2 === 0).join("  ")}
+            </div>
+            <GoldButton className="mt-3 w-full" onClick={() => loadPuzzle(idx + 1)}>
+              Next Puzzle <ArrowRight className="h-4 w-4" />
+            </GoldButton>
+          </div>
+        )}
       </div>
 
       <div className="space-y-4 lg:col-span-3">

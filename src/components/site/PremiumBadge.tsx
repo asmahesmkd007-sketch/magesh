@@ -18,9 +18,10 @@ export function PremiumBadge({
   }
 
   return (
-    <Crown
-      className={`inline-block h-3.5 w-3.5 text-gold fill-gold/20 -translate-y-0.5 ml-1 ${className}`}
-      title="Premium Member"
-    />
+    <span title="Premium Member">
+      <Crown
+        className={`inline-block h-3.5 w-3.5 text-gold fill-gold/20 -translate-y-0.5 ml-1 ${className}`}
+      />
+    </span>
   );
 }

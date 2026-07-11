@@ -103,6 +103,7 @@ function Search() {
                   <li key={p.id}>
                     <Link
                       to="/profile"
+                      search={{ id: p.id }}
                       className="flex items-center gap-3 rounded-lg border border-white/5 p-3 text-sm hover:border-gold/20"
                     >
                       <span className="grid h-9 w-9 place-items-center rounded-full bg-gold/10 text-gold">

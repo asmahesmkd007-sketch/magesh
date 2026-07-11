@@ -35,6 +35,7 @@ import {
 } from "@/lib/chess/classification";
 import { detectOpening, type OpeningMatch } from "@/lib/chess/openings";
 import { buildAnalysisReport, saveGameAnalysis } from "@/lib/api/analysisClient";
+import { soundForChessMove } from "@/lib/audio/sounds";
 
 // ── Classification helpers ──────────────────────────────────────────────────
 function ClassBadge({ cls }: { cls: Classification }) {
@@ -357,6 +358,22 @@ export function AnalysisBoard({ gameId }: { gameId?: string }) {
         if (cell && cell.type === "k" && cell.color === turn) return cell.square;
     return null;
   }, [current]);
+
+  // Move audio when navigating the line — first render (initial load) is
+  // skipped so opening a game doesn't fire a sound for every historical ply.
+  const prevPlyRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (prevPlyRef.current === null) {
+      prevPlyRef.current = ply;
+      return;
+    }
+    if (ply === prevPlyRef.current) return;
+    prevPlyRef.current = ply;
+    if (ply === 0) return;
+    const h = current.history({ verbose: true });
+    const last = h[h.length - 1];
+    if (last) soundForChessMove(last, current);
+  }, [ply, current]);
 
   // Eval bar: use live eval when available
   const evalWhite = liveEval?.evalWhite ?? 0;

@@ -41,6 +41,13 @@ import { PremiumBadge } from "@/components/site/PremiumBadge";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import { toast } from "sonner";
 import type { Profile } from "@/hooks/useAuth";
+import { getSeasonHistoryForUser, type SeasonHistoryForUser } from "@/lib/api/seasonsClient";
+
+const SEASON_REWARD_LABEL: Record<string, string> = {
+  champion: "🏆 Champion",
+  top_10: "🥈 Top 10",
+  top_100: "🥉 Top 100",
+};
 
 export const Route = createFileRoute("/profile")({
   head: () => ({ meta: [{ title: "Profile — ChessOx" }] }),
@@ -211,10 +218,18 @@ function ProfilePage() {
   const profile = isOwnProfile ? ownProfile : otherProfile;
   const profileLoading = isOwnProfile ? ownProfileLoading : otherProfileLoading;
 
+  useEffect(() => {
+    if (!targetUid) return;
+    getSeasonHistoryForUser(targetUid)
+      .then(setSeasonHistory)
+      .catch(() => setSeasonHistory(null));
+  }, [targetUid]);
+
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [history, setHistory] = useState<RatingHistoryRow[]>([]);
   const [tournamentHistory, setTournamentHistory] = useState<TournamentEntry[]>([]);
+  const [seasonHistory, setSeasonHistory] = useState<SeasonHistoryForUser | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
 
   // Inline upload state (only used when isOwnProfile)
@@ -901,6 +916,95 @@ function ProfilePage() {
               </tbody>
             </table>
           </div>
+        )}
+      </Card>
+
+      {/* Season History */}
+      <Card className="mt-8 p-6">
+        <SectionTitle
+          kicker="Seasons"
+          title="Season History"
+          action={
+            <Link to="/seasons" className="text-sm text-gold hover:underline">
+              Browse
+            </Link>
+          }
+        />
+        {dataLoading ? (
+          <div className="grid place-items-center py-10">
+            <Loader2 className="h-6 w-6 animate-spin text-gold" />
+          </div>
+        ) : !seasonHistory || seasonHistory.seasons.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            No seasons played yet.{" "}
+            <Link to="/seasons" className="text-gold">
+              View current season
+            </Link>
+            .
+          </p>
+        ) : (
+          <>
+            <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { label: "Current Rank", value: seasonHistory.current_season_rank ?? "—" },
+                { label: "Best Rank Ever", value: seasonHistory.best_rank_ever ?? "—" },
+                { label: "Seasons Played", value: seasonHistory.seasons_played },
+                { label: "Seasons Won", value: seasonHistory.seasons_won },
+                { label: "Top 10 Finishes", value: seasonHistory.top_10_finishes },
+                { label: "Top 100 Finishes", value: seasonHistory.top_100_finishes },
+                { label: "Best IQ Level", value: seasonHistory.best_iq_level ?? "—" },
+                { label: "Best Rating", value: seasonHistory.best_rating ?? "—" },
+              ].map((s) => (
+                <div key={s.label} className="rounded-lg border border-white/5 bg-white/[0.02] p-3 text-center">
+                  <div className="font-display text-xl text-gold">{s.value}</div>
+                  <div className="text-[11px] text-muted-foreground">{s.label}</div>
+                </div>
+              ))}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b border-white/5 text-xs uppercase tracking-widest text-muted-foreground">
+                  <tr>
+                    <th className="pb-3 text-left">Season</th>
+                    <th className="pb-3 text-center">Final Rank</th>
+                    <th className="pb-3 text-center">IQ Level</th>
+                    <th className="pb-3 text-center">Rating</th>
+                    <th className="pb-3 text-right">Reward</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {seasonHistory.seasons.map((s) => (
+                    <tr key={s.season_id}>
+                      <td className="py-3">
+                        <div className="font-display">
+                          Season {s.season_number}
+                          {s.season_name ? ` — ${s.season_name}` : ""}
+                        </div>
+                      </td>
+                      <td className="py-3 text-center">
+                        <span
+                          className={
+                            s.final_rank && s.final_rank <= 3
+                              ? "text-gold font-display"
+                              : "text-muted-foreground"
+                          }
+                        >
+                          {s.final_rank ? `#${s.final_rank}` : "—"}
+                        </span>
+                      </td>
+                      <td className="py-3 text-center text-muted-foreground">{s.iq_level}</td>
+                      <td className="py-3 text-center text-muted-foreground">{s.rating_points}</td>
+                      <td className="py-3 text-right text-xs">
+                        {s.rewards.length > 0
+                          ? s.rewards.map((r) => SEASON_REWARD_LABEL[r] ?? r).join(", ")
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </Card>
     </PageShell>

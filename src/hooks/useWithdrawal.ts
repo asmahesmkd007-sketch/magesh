@@ -7,7 +7,7 @@ export type WithdrawalStatus = "pending" | "approved" | "rejected" | "cancelled"
 export type WithdrawalRequest = {
   id: string;
   user_id: string;
-  bank_account_id: string;
+  bank_details_id: string;
   amount: number;
   status: WithdrawalStatus;
   reject_reason: string | null;

@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { AdminShell } from "@/components/site/AdminShell";
 import { Card } from "@/components/site/Primitives";
 import { supabase } from "@/integrations/supabase/client";
-import { resolveReport } from "@/lib/api/adminClient";
 
 export const Route = createFileRoute("/admin/reports")({
   head: () => ({ meta: [{ title: "Admin — Reports — ChessOx" }] }),
@@ -18,10 +17,11 @@ export const Route = createFileRoute("/admin/reports")({
 
 type Report = {
   id: string;
-  target_type: string;
-  target_id: string | null;
-  reason: string;
-  details: string | null;
+  type: string;
+  issue_type: string;
+  reported_user: string | null;
+  reason: string | null;
+  description: string;
   status: string;
   created_at: string;
 };
@@ -29,28 +29,20 @@ type Report = {
 function ReportsAdmin() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("pending");
+  const [filter, setFilter] = useState("open"); // Must match schema check constraint: 'open', 'resolved', 'ignored'
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await (
-      supabase as unknown as {
-        from: (n: string) => {
-          select: (s: string) => {
-            eq: (
-              c: string,
-              v: string,
-            ) => {
-              order: (c: string, o: object) => Promise<{ data: unknown[] | null }>;
-            };
-          };
-        };
-      }
-    )
+    const { data, error } = await supabase
       .from("reports")
-      .select("id,target_type,target_id,reason,details,status,created_at")
+      .select("id,type,issue_type,reported_user,reason,description,status,created_at")
       .eq("status", filter)
       .order("created_at", { ascending: false });
+      
+    if (error) {
+      toast.error(error.message);
+    }
+    
     setReports((data ?? []) as unknown as Report[]);
     setLoading(false);
   }, [filter]);
@@ -59,10 +51,14 @@ function ReportsAdmin() {
     load();
   }, [load]);
 
-  async function act(id: string, action: "ignore" | "warn" | "ban") {
+  async function act(id: string, action: "ignored" | "resolved") {
     try {
-      await resolveReport(id, action);
-      toast.success(`Report ${action}ed`);
+      const { error } = await (supabase as any).rpc("admin_resolve_platform_report", { 
+        p_report_id: id, 
+        p_status: action 
+      });
+      if (error) throw new Error(error.message);
+      toast.success(`Report ${action}`);
       await load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Action failed");
@@ -72,7 +68,7 @@ function ReportsAdmin() {
   return (
     <div>
       <div className="mb-4 flex gap-2">
-        {["pending", "resolved", "ignored"].map((f) => (
+        {["open", "resolved", "ignored"].map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -101,34 +97,28 @@ function ReportsAdmin() {
                 <div>
                   <div className="flex items-center gap-2 text-sm">
                     <Flag className="h-4 w-4 text-rose-400" />
-                    <span className="capitalize text-muted-foreground">{r.target_type}</span>
+                    <span className="capitalize text-muted-foreground">{r.issue_type}</span>
                     <span className="font-medium">{r.reason}</span>
                   </div>
-                  {r.details && <p className="mt-1 text-sm text-muted-foreground">{r.details}</p>}
+                  {r.description && <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">{r.description}</p>}
                   <div className="mt-1 text-xs text-muted-foreground">
                     {new Date(r.created_at).toLocaleString("en-IN")}
-                    {r.target_id && ` · target ${r.target_id.slice(0, 8)}`}
+                    {r.reported_user && ` · Target ID: ${r.reported_user}`}
                   </div>
                 </div>
-                {filter === "pending" && (
+                {filter === "open" && (
                   <div className="flex shrink-0 gap-1.5">
                     <button
-                      onClick={() => act(r.id, "ignore")}
+                      onClick={() => act(r.id, "ignored")}
                       className="flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1 text-xs text-muted-foreground"
                     >
                       <Check className="h-3 w-3" /> Ignore
                     </button>
                     <button
-                      onClick={() => act(r.id, "warn")}
+                      onClick={() => act(r.id, "resolved")}
                       className="flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-400"
                     >
-                      <AlertTriangle className="h-3 w-3" /> Warn
-                    </button>
-                    <button
-                      onClick={() => act(r.id, "ban")}
-                      className="flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs text-rose-400"
-                    >
-                      <Ban className="h-3 w-3" /> Ban
+                      <Check className="h-3 w-3" /> Resolve
                     </button>
                   </div>
                 )}

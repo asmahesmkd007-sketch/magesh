@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { loadSettingsOnce } from "@/lib/settings/settings-sync";
 
 export type Profile = {
   id: string;
@@ -8,6 +9,9 @@ export type Profile = {
   display_name: string;
   bio: string | null;
   country: string | null;
+  state: string | null;
+  district: string | null;
+  favorite_opening: string | null;
   avatar_url: string | null;
   banner_url: string | null;
   title: string | null;
@@ -33,6 +37,9 @@ export function useAuth() {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
       setLoading(false);
+      if (s && (_event === "SIGNED_IN" || _event === "INITIAL_SESSION")) {
+        loadSettingsOnce().catch(console.error);
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, []);

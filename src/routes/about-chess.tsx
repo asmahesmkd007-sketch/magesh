@@ -1,6 +1,17 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Construction } from "lucide-react";
-import { PageShell, Card, GoldButton } from "@/components/site/Primitives";
+// =====================================================================
+// ABOUT CHESS — public page
+// ---------------------------------------------------------------------
+// Renders the complete Chess Encyclopedia plus every published article
+// from the About Chess CMS (admin → About Chess). Articles are shown
+// verbatim through ContentRenderer — no truncation or rewriting.
+// =====================================================================
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { Clock, Tag } from "lucide-react";
+import { PageShell, Card } from "@/components/site/Primitives";
+import { ChessEncyclopedia } from "@/components/about/ChessEncyclopedia";
+import { ContentRenderer } from "@/components/about/ContentRenderer";
+import { listArticles, readingTime, type AboutArticle } from "@/lib/api/aboutClient";
 
 export const Route = createFileRoute("/about-chess")({
   head: () => ({ meta: [{ title: "About Chess — ChessOx" }] }),
@@ -8,31 +19,68 @@ export const Route = createFileRoute("/about-chess")({
 });
 
 function AboutChessPage() {
+  const [articles, setArticles] = useState<AboutArticle[]>([]);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    listArticles(true)
+      .then(setArticles)
+      .catch(() => setArticles([]));
+  }, []);
+
+  const shown = useMemo(
+    () =>
+      articles.filter((a) =>
+        (a.title + " " + a.category + " " + a.tags.join(" "))
+          .toLowerCase()
+          .includes(search.toLowerCase()),
+      ),
+    [articles, search],
+  );
+
   return (
     <PageShell title="About Chess">
-      <Card className="max-w-2xl mx-auto mt-12 p-8 text-center border-gold/20">
-        <div className="grid h-20 w-20 mx-auto place-items-center rounded-full bg-gold/10 text-gold mb-6">
-          <Construction className="h-10 w-10" />
+      {/* Published CMS articles (if any) */}
+      {articles.length > 0 && (
+        <div className="mx-auto mb-10 max-w-4xl">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-2xl text-gradient-gold">Articles &amp; Guides</h2>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search articles…"
+              className="rounded-xl border border-white/10 bg-transparent px-3 py-1.5 text-sm outline-none focus:border-gold/40"
+            />
+          </div>
+          <div className="space-y-6">
+            {shown.map((a) => (
+              <Card key={a.id} className="p-6">
+                <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                  <span className="rounded-full bg-gold/10 px-2.5 py-0.5 capitalize text-gold">
+                    {a.category}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> {readingTime(a.content)} min read
+                  </span>
+                  <span>Updated {new Date(a.updated_at).toLocaleDateString()}</span>
+                  {a.tags.map((t) => (
+                    <span key={t} className="inline-flex items-center gap-1">
+                      <Tag className="h-3 w-3" />
+                      {t}
+                    </span>
+                  ))}
+                </div>
+                <h3 className="mb-3 font-display text-2xl">{a.title}</h3>
+                {/* Full original content — rendered exactly as submitted */}
+                <ContentRenderer content={a.content} />
+              </Card>
+            ))}
+          </div>
         </div>
-        <h1 className="font-display text-4xl mb-4 text-gradient-gold">About Chess</h1>
-        <p className="text-muted-foreground text-lg mb-8 leading-relaxed">
-          Discover the rich history, deep strategies, and cultural significance of the royal game.
-          From its origins in ancient India to the modern digital era.
-        </p>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6 mb-8 text-left">
-          <h3 className="font-display text-xl mb-2 text-gold">Future Feature Integration</h3>
-          <p className="text-sm text-ivory/80">
-            This module is currently under development. Our team is curating high-quality articles,
-            timelines, and interactive history lessons that align with our royal design standards.
-            Stay tuned for upcoming platform updates.
-          </p>
-        </div>
-        <Link to="/home">
-          <GoldButton>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back to Dashboard
-          </GoldButton>
-        </Link>
-      </Card>
+      )}
+
+      {/* The Complete Chess Encyclopedia */}
+      <ChessEncyclopedia />
     </PageShell>
   );
 }

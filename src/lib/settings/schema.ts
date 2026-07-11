@@ -1,4 +1,5 @@
 import type { BoardTheme, PieceTheme } from "@/hooks/useBoardSettings";
+import type { SoundThemeId } from "@/lib/audio/soundThemes";
 
 /**
  * ChessOX Game Settings — single source of truth.
@@ -64,6 +65,7 @@ export type GameSettings = {
   defeat_sound: boolean;
   notify_sound: boolean;
   sound_volume: number; // 0–100
+  move_sound_theme: SoundThemeId;
 
   // ── Analysis ──
   engine_depth: number; // 5–22
@@ -168,6 +170,7 @@ export const DEFAULTS: GameSettings = {
   defeat_sound: true,
   notify_sound: true,
   sound_volume: 70,
+  move_sound_theme: "classic_wood",
 
   engine_depth: 15,
   show_best_move: true,
@@ -352,7 +355,7 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   {
     id: "sound",
     title: "Sound",
-    desc: "Game audio. Sounds are generated locally — no downloads.",
+    desc: "Game audio. Sounds are generated locally — no downloads. Pick a Move Sound Theme below, then Save.",
     items: [
       { ...toggle("sound_master", "Enable sound", "wired") },
       {
@@ -562,9 +565,11 @@ function clampForKey(key: SettingKey, n: number): number {
 }
 
 function isAllowedString(key: SettingKey, v: string): boolean {
-  // board_theme / piece_theme are validated by their own registries downstream;
-  // accept any non-empty string here and let useBoardSettings coerce.
-  if (key === "board_theme" || key === "piece_theme") return v.length > 0;
+  // board_theme / piece_theme / move_sound_theme are validated by their own
+  // registries downstream; accept any non-empty string here and let the
+  // consuming module (useBoardSettings / soundThemes) fall back safely.
+  if (key === "board_theme" || key === "piece_theme" || key === "move_sound_theme")
+    return v.length > 0;
   for (const cat of SETTINGS_CATEGORIES) {
     for (const item of cat.items) {
       if (item.key === key && item.control === "select") {

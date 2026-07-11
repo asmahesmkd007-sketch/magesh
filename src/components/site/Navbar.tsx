@@ -18,10 +18,11 @@ const NAV_AUTH = [
 
 const COMMUNITY_ITEMS = [
   { to: "/community", label: "Community" },
-  { to: "/chat-room", label: "Chat Room" },
+  { to: "/chat", label: "Chat" },
   { to: "/clubs", label: "Club / Clan" },
   { to: "/leaderboards", label: "Leaderboard" },
-  { to: "/events", label: "Events" },
+  { to: "/seasons", label: "Seasons" },
+  { to: "/events", label: "Events", isComingSoon: true },
   { to: "/tournaments", label: "Tournaments" },
 ] as const;
 
@@ -35,7 +36,6 @@ const MORE_ITEMS = [
   { to: "/policies", label: "Policies" },
   { to: "/feedback", label: "Feedback" },
   { to: "/report", label: "Report" },
-  { to: "/community-guidelines", label: "Community Guidelines" },
 ] as const;
 
 const NAV_GUEST = [
@@ -46,6 +46,7 @@ const NAV_GUEST = [
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showComingSoon, setShowComingSoon] = useState(false);
   const [userMenu, setUserMenu] = useState(false);
   const [communityMenu, setCommunityMenu] = useState(false);
   const [moreMenu, setMoreMenu] = useState(false);
@@ -136,7 +137,7 @@ export function Navbar() {
                   />
                 </button>
                 {communityMenu && (
-                  <DropdownMenu items={COMMUNITY_ITEMS} onClose={() => setCommunityMenu(false)} />
+                  <DropdownMenu items={COMMUNITY_ITEMS} onClose={() => setCommunityMenu(false)} onComingSoon={() => setShowComingSoon(true)} />
                 )}
               </div>
 
@@ -351,15 +352,49 @@ export function Navbar() {
                   Community
                 </div>
                 {COMMUNITY_ITEMS.map((n) => (
-                  <Link
-                    key={n.to}
-                    to={n.to}
-                    onClick={() => setMobileOpen(false)}
-                    className="rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
-                  >
-                    {n.label}
-                  </Link>
+                  (n as any).isComingSoon ? (
+                    <button
+                      key={n.to}
+                      onClick={() => {
+                        setMobileOpen(false);
+                        setShowComingSoon(true);
+                      }}
+                      className="w-full text-left rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
+                    >
+                      {n.label}
+                    </button>
+                  ) : (
+                    <Link
+                      key={n.to}
+                      to={n.to}
+                      onClick={() => setMobileOpen(false)}
+                      className="rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
+                    >
+                      {n.label}
+                    </Link>
+                  )
                 ))}
+                <Link
+                  to="/notifications"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center justify-between rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
+                >
+                  <span>Notifications</span>
+                  {unreadCount > 0 && (
+                    <span className="grid h-5 min-w-5 place-items-center rounded-full bg-gold px-1.5 text-[10px] font-bold text-[#0B0D10]">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </Link>
+                {isAdmin && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2 rounded-xl border border-gold/30 bg-gold/5 px-4 py-3 text-sm text-gold"
+                  >
+                    <ShieldCheck className="h-4 w-4" /> Admin Panel
+                  </Link>
+                )}
                 <Link
                   to="/premium"
                   onClick={() => setMobileOpen(false)}
@@ -433,6 +468,23 @@ export function Navbar() {
           </div>
         </div>
       )}
+
+      {showComingSoon && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-gold/20 bg-background p-6 shadow-2xl relative">
+            <button onClick={() => setShowComingSoon(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-white">
+              <X className="h-5 w-5" />
+            </button>
+            <h3 className="font-display text-2xl text-gradient-gold mb-2">Coming Soon</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              This feature is currently under development and will be available soon.
+            </p>
+            <button onClick={() => setShowComingSoon(false)} className="w-full rounded-xl gradient-gold py-2.5 font-medium text-background">
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
@@ -440,21 +492,36 @@ export function Navbar() {
 function DropdownMenu({
   items,
   onClose,
+  onComingSoon,
 }: {
-  items: readonly { to: string; label: string }[];
+  items: readonly { to: string; label: string; isComingSoon?: boolean }[];
   onClose: () => void;
+  onComingSoon?: () => void;
 }) {
   return (
     <div className="absolute left-0 mt-2 w-52 rounded-xl border border-gold/20 bg-background/95 p-1 shadow-xl backdrop-blur-xl">
       {items.map((item) => (
-        <Link
-          key={item.to}
-          to={item.to}
-          onClick={onClose}
-          className="block rounded-lg px-3 py-2 text-sm text-foreground hover:bg-white/5 hover:text-gold"
-        >
-          {item.label}
-        </Link>
+        item.isComingSoon ? (
+          <button
+            key={item.to}
+            onClick={() => {
+              onClose();
+              onComingSoon?.();
+            }}
+            className="w-full text-left block rounded-lg px-3 py-2 text-sm text-foreground hover:bg-white/5 hover:text-gold"
+          >
+            {item.label}
+          </button>
+        ) : (
+          <Link
+            key={item.to}
+            to={item.to}
+            onClick={onClose}
+            className="block rounded-lg px-3 py-2 text-sm text-foreground hover:bg-white/5 hover:text-gold"
+          >
+            {item.label}
+          </Link>
+        )
       ))}
     </div>
   );

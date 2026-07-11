@@ -37,8 +37,10 @@ export function useFriends(userId?: string | null) {
     }
 
     // Resolve other user profiles
+    // requester/addressee are nullable in the DB only for legacy rows that
+    // predate the friends-shape migration; live rows always have both.
     const otherIds = data.map((r) => (r.requester_id === userId ? r.addressee_id : r.requester_id));
-    const uniqueIds = [...new Set(otherIds)];
+    const uniqueIds = [...new Set(otherIds)].filter((id): id is string => !!id);
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id,username,display_name,avatar_url,premium_active,premium_expires_at")
@@ -57,7 +59,7 @@ export function useFriends(userId?: string | null) {
           other_avatar_url: p?.avatar_url ?? null,
           other_premium_active: p?.premium_active,
           other_premium_expires_at: p?.premium_expires_at,
-        };
+        } as FriendRow;
       }),
     );
     setLoading(false);

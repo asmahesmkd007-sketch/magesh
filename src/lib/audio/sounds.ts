@@ -1,31 +1,32 @@
 import { readGameSettings } from "@/hooks/useGameSettings";
 import type { SettingKey } from "@/lib/settings/schema";
+import {
+  RECIPES_BY_THEME,
+  DEFAULT_SOUND_THEME,
+  type GameSound,
+  type SoundThemeId,
+  type Tone,
+} from "./soundThemes";
+
+export type { GameSound } from "./soundThemes";
 
 /**
  * ChessOX sound engine — all game audio is synthesised locally with the Web Audio
  * API. No files are downloaded and nothing is hotlinked; each cue is a short
- * envelope of oscillators, so it's a few bytes of code and works offline.
+ * envelope of oscillators, so it's a few bytes of code, works offline, and has
+ * no load latency at all (there is nothing to load).
  *
  * Every cue is gated by the unified settings: the master `sound_master` switch,
- * the per-cue toggle, and the `sound_volume` slider.
+ * the per-cue toggle, and the `sound_volume` slider. Which *voice* plays is
+ * chosen by `move_sound_theme` (see soundThemes.ts) — 14 selectable themes.
  */
-
-export type GameSound =
-  | "move"
-  | "capture"
-  | "check"
-  | "checkmate"
-  | "draw"
-  | "victory"
-  | "defeat"
-  | "notify"
-  | "lowtime"
-  | "tick";
 
 // Which per-cue setting toggle guards each sound.
 const GUARD: Record<GameSound, SettingKey> = {
   move: "move_sound",
   capture: "capture_sound",
+  castle: "move_sound",
+  promote: "move_sound",
   check: "check_sound",
   checkmate: "checkmate_sound",
   draw: "draw_sound",
@@ -50,8 +51,6 @@ function audio(): AudioContext | null {
   return ctx;
 }
 
-type Tone = { freq: number; start: number; dur: number; type?: OscillatorType; gain?: number };
-
 function render(tones: Tone[], masterGain: number) {
   const ac = audio();
   if (!ac) return;
@@ -72,59 +71,62 @@ function render(tones: Tone[], masterGain: number) {
   }
 }
 
-// Note envelopes per cue. Kept short and distinct so they read at a glance.
-const RECIPES: Record<GameSound, Tone[]> = {
-  move: [{ freq: 320, start: 0, dur: 0.09, type: "triangle", gain: 0.5 }],
-  capture: [
-    { freq: 200, start: 0, dur: 0.11, type: "square", gain: 0.4 },
-    { freq: 140, start: 0.02, dur: 0.12, type: "triangle", gain: 0.4 },
-  ],
-  check: [
-    { freq: 660, start: 0, dur: 0.1, type: "sine", gain: 0.5 },
-    { freq: 880, start: 0.06, dur: 0.12, type: "sine", gain: 0.45 },
-  ],
-  checkmate: [
-    { freq: 523, start: 0, dur: 0.14, gain: 0.5 },
-    { freq: 392, start: 0.12, dur: 0.16, gain: 0.5 },
-    { freq: 262, start: 0.28, dur: 0.28, gain: 0.5 },
-  ],
-  draw: [
-    { freq: 440, start: 0, dur: 0.16, type: "sine", gain: 0.4 },
-    { freq: 440, start: 0.18, dur: 0.16, type: "sine", gain: 0.35 },
-  ],
-  victory: [
-    { freq: 523, start: 0, dur: 0.14, gain: 0.5 },
-    { freq: 659, start: 0.14, dur: 0.14, gain: 0.5 },
-    { freq: 784, start: 0.28, dur: 0.14, gain: 0.5 },
-    { freq: 1047, start: 0.42, dur: 0.3, gain: 0.5 },
-  ],
-  defeat: [
-    { freq: 440, start: 0, dur: 0.16, type: "sawtooth", gain: 0.4 },
-    { freq: 349, start: 0.16, dur: 0.18, type: "sawtooth", gain: 0.4 },
-    { freq: 262, start: 0.34, dur: 0.34, type: "sawtooth", gain: 0.4 },
-  ],
-  notify: [
-    { freq: 880, start: 0, dur: 0.09, gain: 0.4 },
-    { freq: 1175, start: 0.09, dur: 0.12, gain: 0.4 },
-  ],
-  lowtime: [
-    { freq: 988, start: 0, dur: 0.1, type: "square", gain: 0.4 },
-    { freq: 988, start: 0.14, dur: 0.1, type: "square", gain: 0.4 },
-  ],
-  tick: [{ freq: 1200, start: 0, dur: 0.05, type: "square", gain: 0.35 }],
-};
+function recipesFor(theme: string): Record<GameSound, Tone[]> {
+  return RECIPES_BY_THEME[theme as SoundThemeId] ?? RECIPES_BY_THEME[DEFAULT_SOUND_THEME];
+}
 
 /**
  * Play a game cue if the user's settings permit it. Safe to call anywhere; it
  * no-ops on the server, when sound is disabled, or when audio is unavailable.
  */
+const lastPlayed: Partial<Record<GameSound, number>> = {};
+
 export function playGameSound(sound: GameSound) {
+  const now = Date.now();
+  if (lastPlayed[sound] && now - lastPlayed[sound]! < 50) return; // Prevent overlap/double-fire
+  lastPlayed[sound] = now;
+
   const s = readGameSettings();
   if (!s.sound_master) return;
   if (!s[GUARD[sound]]) return;
   const volume = Math.max(0, Math.min(100, s.sound_volume)) / 100;
   if (volume <= 0) return;
-  render(RECIPES[sound], volume * 0.5);
+  const recipes = recipesFor(s.move_sound_theme);
+  if (!recipes[sound]) return;
+  render(recipes[sound], volume * 0.5);
+}
+
+/**
+ * Play a short two-note taste of a theme (move, then capture) regardless of
+ * the user's current sound settings — used by the theme-picker Preview
+ * button so users can audition themes even with sound muted or a specific
+ * cue disabled. Plays instantly; no settings are read or written.
+ */
+export function previewSoundTheme(theme: SoundThemeId) {
+  const recipes = recipesFor(theme);
+  render(recipes.move, 0.5);
+  const ac = audio();
+  if (!ac) return;
+  window.setTimeout(() => render(recipes.capture, 0.5), 220);
+}
+
+/** Minimal shape of a chess.js Move needed to pick the right cue. */
+type MoveLike = { captured?: unknown; flags?: string };
+type GameLike = { isCheckmate: () => boolean; inCheck: () => boolean };
+
+/**
+ * Centralised "which cue fits this move" logic, shared by every surface that
+ * plays move audio (live games, puzzles, analysis/replay navigation) so
+ * castle/promote/check/checkmate are never forgotten in one place and missed
+ * in another.
+ */
+export function soundForChessMove(move: MoveLike, game: GameLike) {
+  if (game.isCheckmate()) return playGameSound("checkmate");
+  if (game.inCheck()) return playGameSound("check");
+  if (move.flags?.includes("k") || move.flags?.includes("q")) return playGameSound("castle");
+  if (move.flags?.includes("p")) return playGameSound("promote");
+  if (move.captured) return playGameSound("capture");
+  return playGameSound("move");
 }
 
 /** Prime the AudioContext from a user gesture (call once on first interaction). */

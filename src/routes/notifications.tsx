@@ -11,6 +11,10 @@ import {
   Flame,
   Swords,
   Info,
+  Heart,
+  MessageCircle,
+  AtSign,
+  Mail,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -45,7 +49,22 @@ function kindIcon(kind: string) {
   switch (kind) {
     case "tournament":
       return Trophy;
+    case "achievement":
+      return Trophy;
     case "friend_request":
+    case "follow":
+      return UserPlus;
+    case "like":
+      return Heart;
+    case "comment":
+    case "reply":
+      return MessageCircle;
+    case "mention":
+    case "chat_mention":
+      return AtSign;
+    case "dm":
+      return Mail;
+    case "room_invite":
       return UserPlus;
     case "club":
       return Users;

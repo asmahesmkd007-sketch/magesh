@@ -31,6 +31,7 @@ import {
   isClassification,
 } from "@/lib/chess/classification";
 import { detectOpening } from "@/lib/chess/openings";
+import { soundForChessMove } from "@/lib/audio/sounds";
 import {
   fetchReviewMoves,
   fetchGameAnalysis,
@@ -411,6 +412,23 @@ function GameReview() {
         if (cell && cell.type === "k" && cell.color === turn) return cell.square;
     return null;
   }, [current]);
+
+  // Move audio when stepping/scrubbing through the replay (manual nav and
+  // auto-play both funnel through `ply`). Skip the very first render so
+  // loading a game doesn't fire a sound for its whole history.
+  const prevPlyRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (prevPlyRef.current === null) {
+      prevPlyRef.current = ply;
+      return;
+    }
+    if (ply === prevPlyRef.current) return;
+    prevPlyRef.current = ply;
+    if (ply === 0) return;
+    const h = current.history({ verbose: true });
+    const last = h[h.length - 1];
+    if (last) soundForChessMove(last, current);
+  }, [ply, current]);
 
   // ── Per-ply data derived from stored moves ──────────────────────────────
   const classByPly = useMemo(() => {

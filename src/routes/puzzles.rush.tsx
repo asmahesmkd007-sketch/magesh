@@ -5,6 +5,7 @@ import { Timer, Zap, Trophy, RotateCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Chess, type Square } from "chess.js";
 import { PUZZLES, type Puzzle } from "@/lib/chess/puzzles";
+import { soundForChessMove } from "@/lib/audio/sounds";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -151,6 +152,7 @@ function Rush() {
         promotion: expected[4] as "q" | "r" | "b" | "n" | undefined,
       });
       setLastMove({ from: m.from, to: m.to });
+      soundForChessMove(m, g);
       setSelected(null);
       setTargets([]);
 
@@ -171,6 +173,7 @@ function Rush() {
               promotion: reply[4] as "q" | undefined,
             });
             setLastMove({ from: rm.from, to: rm.to });
+            soundForChessMove(rm, gameRef.current);
             setSelected(null);
             setTargets([]);
           }, 500),

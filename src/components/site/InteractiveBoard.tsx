@@ -10,6 +10,7 @@ import type { Color, PieceSymbol, Square } from "chess.js";
 import { BOARD_THEMES, type BoardSquareColors, type PieceTheme } from "@/hooks/useBoardSettings";
 import { useGameSettings } from "@/hooks/useGameSettings";
 import { PieceGlyph } from "@/lib/chess/pieceThemes";
+import React from "react";
 
 export type BoardCell = { square: Square; type: PieceSymbol; color: Color } | null;
 
@@ -29,6 +30,7 @@ type Props = {
   /** Override the piece set; defaults to the user's saved piece theme. */
   pieceTheme?: PieceTheme;
   showCoords?: boolean;
+  endState?: { result: "white" | "black" | "draw"; reason: string } | null;
 };
 
 type Placed = { id: string; color: Color; type: PieceSymbol; square: string; fresh: boolean };
@@ -50,10 +52,9 @@ function signature(board: BoardCell[][]): string {
 function useStablePieces(board: BoardCell[][], lastMove?: { from: string; to: string } | null) {
   const prevRef = useRef<Map<string, { id: string; color: Color; type: PieceSymbol }>>(new Map());
   const counterRef = useRef(0);
-  const [placements, setPlacements] = useState<Placed[]>([]);
   const sig = useMemo(() => signature(board), [board]);
 
-  useEffect(() => {
+  const placements = useMemo(() => {
     const prev = prevRef.current;
     const next = new Map<string, { id: string; color: Color; type: PieceSymbol }>();
     const used = new Set<string>();
@@ -85,14 +86,120 @@ function useStablePieces(board: BoardCell[][], lastMove?: { from: string; to: st
     }
 
     prevRef.current = next;
-    setPlacements(out);
+    return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sig]);
 
   return placements;
 }
 
-export function InteractiveBoard({
+const MemoizedSquare = React.memo(function MemoizedSquare({
+  sq,
+  light,
+  activeColors,
+  disabled,
+  onSquare,
+  isLast,
+  isCheck,
+  isSelected,
+  isTarget,
+  hasPiece,
+  isWinnerKing,
+  isLoserKing,
+  endStateActive,
+}: {
+  sq: string;
+  light: boolean;
+  activeColors: BoardSquareColors;
+  disabled: boolean | undefined;
+  onSquare: ((sq: string) => void) | undefined;
+  isLast: boolean | null | undefined;
+  isCheck: boolean;
+  isSelected: boolean;
+  isTarget: boolean;
+  hasPiece: boolean;
+  isWinnerKing: boolean;
+  isLoserKing: boolean;
+  endStateActive: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => onSquare?.(sq)}
+      className="relative focus:outline-none"
+      style={{
+        background: light ? activeColors.light : activeColors.dark,
+        cursor: disabled ? "default" : "pointer",
+      }}
+      aria-label={sq}
+    >
+      <div className="pointer-events-none absolute inset-[6%] border border-black/10" />
+      {isLast && (
+        <div className="pointer-events-none absolute inset-0 bg-[rgba(212,175,55,0.28)]" />
+      )}
+      {isCheck && !endStateActive && (
+        <div className="check-glow pointer-events-none absolute inset-0" />
+      )}
+      {isLoserKing && (
+        <div className="pointer-events-none absolute inset-0 bg-red-500/40 shadow-[inset_0_0_24px_rgba(239,68,68,0.6)]" />
+      )}
+      {isWinnerKing && (
+        <div className="pointer-events-none absolute inset-0 bg-gold/30 shadow-[inset_0_0_24px_rgba(212,175,55,0.6)]" />
+      )}
+      {isSelected && !endStateActive && (
+        <div className="pointer-events-none absolute inset-0 border-[3px] border-gold shadow-[inset_0_0_24px_rgba(212,175,55,0.3)]" />
+      )}
+      {isTarget && !hasPiece && (
+        <span className="pointer-events-none absolute left-1/2 top-1/2 h-[24%] w-[24%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[rgba(212,175,55,0.55)] shadow-[0_0_8px_rgba(212,175,55,0.5)]" />
+      )}
+      {isTarget && hasPiece && (
+        <span className="pointer-events-none absolute inset-[4%] rounded-full border-[3px] border-gold/80" />
+      )}
+    </button>
+  );
+});
+
+const MemoizedPiece = React.memo(function MemoizedPiece({
+  p,
+  col,
+  row,
+  pieceTransition,
+  isDragged,
+  animate,
+  activePieceTheme,
+}: {
+  p: Placed;
+  col: number;
+  row: number;
+  pieceTransition: string;
+  isDragged: boolean;
+  animate: boolean;
+  activePieceTheme: PieceTheme;
+}) {
+  return (
+    <div
+      className="absolute left-0 top-0 grid place-items-center will-change-transform"
+      style={{
+        width: "12.5%",
+        height: "12.5%",
+        transform: `translate3d(${col * 100}%, ${row * 100}%, 0)`,
+        transition: pieceTransition,
+        zIndex: 5,
+        opacity: isDragged ? 0 : 1,
+      }}
+    >
+      <div
+        className={`h-[86%] w-[86%] ${p.fresh && animate ? "piece-pop" : ""}`}
+        style={{ transform: "scale(var(--cx-piece-scale, 1))" }}
+      >
+        <PieceGlyph theme={activePieceTheme} color={p.color} type={p.type} />
+      </div>
+    </div>
+  );
+});
+
+export const InteractiveBoard = React.memo(function InteractiveBoard({
   board,
   orientation,
   selected,
@@ -104,6 +211,7 @@ export function InteractiveBoard({
   colors,
   pieceTheme,
   showCoords,
+  endState,
 }: Props) {
   // Fall back to the user's saved settings so every board mode (Play, Bot,
   // Analysis, Puzzle, Tournament, Replay, Spectator) reflects them automatically.
@@ -113,7 +221,7 @@ export function InteractiveBoard({
   const showCoordinates = showCoords ?? settings.show_coordinates;
   const animate = settings.board_animation && !settings.reduced_motion;
   const allowDrag = settings.move_method !== "click";
-  const pieceTransition = animate ? "transform 0.16s cubic-bezier(0.22, 1, 0.36, 1)" : "none";
+  const pieceTransition = animate ? "transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)" : "none";
 
   // Board size preset × zoom drives the max on-screen width (all boards, all modes).
   const baseWidth = settings.board_size === "small" ? 480 : settings.board_size === "large" ? 720 : 600;
@@ -266,7 +374,7 @@ export function InteractiveBoard({
                 onPointerUp={endDrag}
                 onPointerCancel={endDrag}
                 onClickCapture={onGridClickCapture}
-                style={{ touchAction: drag ? "none" : undefined }}
+                style={{ touchAction: "none" }}
                 className="relative grid aspect-square grid-cols-8 grid-rows-8 overflow-hidden rounded-[14px] border border-gold/25 bg-[#2a120d]"
               >
                 {/* Squares + highlight layer */}
@@ -276,40 +384,41 @@ export function InteractiveBoard({
                     const light = (r + c) % 2 === 0;
                     const isSelected = settings.show_move_highlights && selected === sq;
                     const isTarget = settings.show_legal_moves && targets.includes(sq);
-                    const isLast =
-                      settings.show_last_move && lastMove && (lastMove.from === sq || lastMove.to === sq);
-                    const isCheck = settings.show_check_highlight && checkSquare === sq;
+                    const isLast = settings.show_last_move && lastMove && (lastMove.from === sq || lastMove.to === sq);
                     const hasPiece = board.flat().some((cell) => cell && cell.square === sq);
+
+                    let isCheck = settings.show_check_highlight && checkSquare === sq;
+                    let isWinnerKing = false;
+                    let isLoserKing = false;
+
+                    if (endState && hasPiece) {
+                      const p = board.flat().find((c) => c?.square === sq)!;
+                      if (p.type === "k") {
+                        if (endState.result === "white" && p.color === "w") isWinnerKing = true;
+                        if (endState.result === "white" && p.color === "b") isLoserKing = true;
+                        if (endState.result === "black" && p.color === "b") isWinnerKing = true;
+                        if (endState.result === "black" && p.color === "w") isLoserKing = true;
+                        if (endState.result === "draw") isWinnerKing = true; // highlight both in draw
+                      }
+                    }
+
                     return (
-                      <button
+                      <MemoizedSquare
                         key={sq}
-                        type="button"
+                        sq={sq}
+                        light={light}
+                        activeColors={activeColors}
                         disabled={disabled}
-                        onClick={() => onSquare?.(sq)}
-                        className="relative focus:outline-none"
-                        style={{
-                          background: light ? activeColors.light : activeColors.dark,
-                          cursor: disabled ? "default" : "pointer",
-                        }}
-                        aria-label={sq}
-                      >
-                        <div className="pointer-events-none absolute inset-[6%] border border-black/10" />
-                        {isLast && (
-                          <div className="pointer-events-none absolute inset-0 bg-[rgba(212,175,55,0.28)]" />
-                        )}
-                        {isCheck && (
-                          <div className="check-glow pointer-events-none absolute inset-0" />
-                        )}
-                        {isSelected && (
-                          <div className="pointer-events-none absolute inset-0 border-[3px] border-gold shadow-[inset_0_0_24px_rgba(212,175,55,0.3)]" />
-                        )}
-                        {isTarget && !hasPiece && (
-                          <span className="pointer-events-none absolute left-1/2 top-1/2 h-[24%] w-[24%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[rgba(212,175,55,0.55)] shadow-[0_0_8px_rgba(212,175,55,0.5)]" />
-                        )}
-                        {isTarget && hasPiece && (
-                          <span className="pointer-events-none absolute inset-[4%] rounded-full border-[3px] border-gold/80" />
-                        )}
-                      </button>
+                        onSquare={onSquare}
+                        isLast={isLast}
+                        isCheck={isCheck}
+                        isSelected={isSelected}
+                        isTarget={isTarget}
+                        hasPiece={hasPiece}
+                        isWinnerKing={isWinnerKing}
+                        isLoserKing={isLoserKing}
+                        endStateActive={!!endState}
+                      />
                     );
                   }),
                 )}
@@ -319,25 +428,16 @@ export function InteractiveBoard({
                   {placements.map((p) => {
                     const { col, row } = coords(p.square);
                     return (
-                      <div
+                      <MemoizedPiece
                         key={p.id}
-                        className="absolute left-0 top-0 grid place-items-center will-change-transform"
-                        style={{
-                          width: "12.5%",
-                          height: "12.5%",
-                          transform: `translate(${col * 100}%, ${row * 100}%)`,
-                          transition: pieceTransition,
-                          zIndex: 5,
-                          opacity: drag?.from === p.square ? 0 : 1,
-                        }}
-                      >
-                        <div
-                          className={`h-[86%] w-[86%] ${p.fresh && animate ? "piece-pop" : ""}`}
-                          style={{ transform: "scale(var(--cx-piece-scale, 1))" }}
-                        >
-                          <PieceGlyph theme={activePieceTheme} color={p.color} type={p.type} />
-                        </div>
-                      </div>
+                        p={p}
+                        col={col}
+                        row={row}
+                        pieceTransition={pieceTransition}
+                        isDragged={drag?.from === p.square}
+                        animate={animate}
+                        activePieceTheme={activePieceTheme}
+                      />
                     );
                   })}
                 </div>
@@ -360,6 +460,24 @@ export function InteractiveBoard({
                       </span>
                     );
                   })()}
+                
+                {/* Checkmate / End State Overlay */}
+                {endState && (
+                  <div className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] tw-animate-fade-in tw-duration-500">
+                    <div className="rounded-2xl border border-gold/30 bg-black/80 px-8 py-5 text-center shadow-2xl shadow-gold/20 backdrop-blur-md">
+                      <div className="font-display text-2xl tracking-wide text-gradient-gold">
+                        {endState.result === "white"
+                          ? "White Wins"
+                          : endState.result === "black"
+                            ? "Black Wins"
+                            : "Draw"}
+                      </div>
+                      <div className="mt-1 text-sm font-medium uppercase tracking-widest text-muted-foreground">
+                        {endState.reason}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div />
@@ -380,4 +498,4 @@ export function InteractiveBoard({
       </div>
     </div>
   );
-}
+});

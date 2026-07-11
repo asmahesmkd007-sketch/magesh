@@ -137,6 +137,10 @@ function TxTypeBadge({ type }: { type: TransactionType }) {
       cls: "border-orange-500/30 bg-orange-500/10 text-orange-400",
     },
     refund: { label: "Refund", cls: "border-sky-500/30 bg-sky-500/10 text-sky-400" },
+    tournament_refund: {
+      label: "Tournament Refund",
+      cls: "border-sky-500/30 bg-sky-500/10 text-sky-400",
+    },
     welcome_bonus: { label: "Welcome Bonus", cls: "border-gold/30 bg-gold/10 text-gold" },
   };
   const { label, cls } = map[type] ?? { label: type, cls: "border-white/10 text-muted-foreground" };
@@ -826,14 +830,18 @@ function WalletPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
-              {!bankAccount && !bankLoading && (
-                <button
-                  onClick={() => setShowBankModal(true)}
-                  className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-400 hover:bg-amber-500/15 transition"
-                >
-                  <Building2 className="h-4 w-4" /> Setup Bank
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  if (!bankAccount) {
+                    setShowBankModal(true);
+                  } else {
+                    document.getElementById("withdrawal-section")?.scrollIntoView({ behavior: "smooth" });
+                  }
+                }}
+                className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-400 hover:bg-emerald-500/15 transition"
+              >
+                <BanknoteIcon className="h-4 w-4" /> Withdraw Funds
+              </button>
               <Link to="/premium">
                 <GoldButton className="w-full">
                   <Crown className="h-4 w-4" /> Get More Coins
@@ -880,7 +888,7 @@ function WalletPage() {
 
         {/* ── Withdrawal Section ── */}
         {bankAccount && !wdLoading && (
-          <div className="mt-6">
+          <div id="withdrawal-section" className="mt-6">
             <WithdrawalForm
               balance={balance}
               lockedBalance={lockedBalance}
@@ -897,28 +905,6 @@ function WalletPage() {
           </div>
         )}
 
-        {/* No bank account notice (under balance, when modal isn't showing) */}
-        {!bankAccount && !bankLoading && !showBankModal && (
-          <Card className="mt-6 p-6 border-amber-500/20">
-            <div className="flex items-start gap-4">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-500/10">
-                <AlertCircle className="h-5 w-5 text-amber-400" />
-              </div>
-              <div className="flex-1">
-                <div className="font-medium text-amber-400">Bank Account Required</div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  You need to add and verify your bank account before you can withdraw funds.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowBankModal(true)}
-                className="shrink-0 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-400 hover:bg-amber-500/20 transition"
-              >
-                Setup Now
-              </button>
-            </div>
-          </Card>
-        )}
 
         {/* ── Withdrawal History ── */}
         {withdrawalRequests.length > 0 && <WithdrawalHistory requests={withdrawalRequests} />}

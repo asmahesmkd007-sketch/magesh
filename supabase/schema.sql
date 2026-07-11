@@ -1220,6 +1220,7 @@ GRANT EXECUTE ON FUNCTION public.credit_premium_bonus(TEXT, INT, TEXT) TO authen
 -- =====================================================================
 -- SECTION 36: RPC — JOIN TOURNAMENT PAID
 -- =====================================================================
+DROP FUNCTION IF EXISTS public.join_tournament_paid(UUID);
 CREATE OR REPLACE FUNCTION public.join_tournament_paid(p_tournament_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -2822,6 +2823,15 @@ GRANT EXECUTE ON FUNCTION public.save_bank_account(TEXT, TEXT, TEXT, TEXT, TEXT,
 
 -- 1. Tables
 
+CREATE TABLE IF NOT EXISTS public.community_achievements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    achievement_name TEXT NOT NULL,
+    description TEXT,
+    earned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(user_id, achievement_name)
+);
+
 CREATE TABLE IF NOT EXISTS public.community_posts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -2834,6 +2844,21 @@ CREATE TABLE IF NOT EXISTS public.community_posts (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE public.community_posts
+  ADD COLUMN IF NOT EXISTS post_type text DEFAULT 'text',
+  ADD COLUMN IF NOT EXISTS is_pinned boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS is_hidden boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS is_featured boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS tags text[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS fen text,
+  ADD COLUMN IF NOT EXISTS pgn text,
+  ADD COLUMN IF NOT EXISTS link_url text,
+  ADD COLUMN IF NOT EXISTS puzzle_solution text,
+  ADD COLUMN IF NOT EXISTS poll_options text[],
+  ADD COLUMN IF NOT EXISTS poll_ends_at timestamp with time zone,
+  ADD COLUMN IF NOT EXISTS bookmarks_count integer DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS shares_count integer DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS public.community_reactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2850,15 +2875,81 @@ CREATE TABLE IF NOT EXISTS public.community_comments (
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     parent_id UUID REFERENCES public.community_comments(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    fen TEXT,
+    pgn TEXT,
+    likes_count INTEGER NOT NULL DEFAULT 0,
+    dislikes_count INTEGER NOT NULL DEFAULT 0,
+    replies_count INTEGER NOT NULL DEFAULT 0,
+    is_hidden BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS public.community_saved_posts (
+CREATE TABLE IF NOT EXISTS public.community_bookmarks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     post_id UUID NOT NULL REFERENCES public.community_posts(id) ON DELETE CASCADE,
+    collection TEXT NOT NULL DEFAULT 'Favorites',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE(user_id, post_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.community_follows (
+    follower_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    following_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (follower_id, following_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.community_blocks (
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    blocked_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, blocked_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.community_mutes (
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    muted_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, muted_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.community_hidden_posts (
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    post_id UUID NOT NULL REFERENCES public.community_posts(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, post_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.community_poll_votes (
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    post_id UUID NOT NULL REFERENCES public.community_posts(id) ON DELETE CASCADE,
+    option_idx INTEGER NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, post_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.community_reports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reporter_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    target_type TEXT NOT NULL,
+    target_id UUID NOT NULL,
+    reason TEXT NOT NULL,
+    details TEXT,
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    actor_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    entity_type TEXT,
+    entity_id UUID,
+    is_read BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- 2. Indexes
@@ -2866,7 +2957,7 @@ CREATE INDEX IF NOT EXISTS idx_community_posts_score ON public.community_posts (
 CREATE INDEX IF NOT EXISTS idx_community_posts_created_at ON public.community_posts (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_community_reactions_post_user ON public.community_reactions (post_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_community_comments_post_id ON public.community_comments (post_id);
-CREATE INDEX IF NOT EXISTS idx_community_saved_posts_user_id ON public.community_saved_posts (user_id);
+CREATE INDEX IF NOT EXISTS idx_community_bookmarks_user_id ON public.community_bookmarks (user_id);
 
 -- 3. Triggers for counts and score
 
@@ -2918,11 +3009,20 @@ FOR EACH ROW EXECUTE FUNCTION public.handle_community_comment();
 
 -- 4. RLS Policies
 
+ALTER TABLE public.community_achievements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.community_posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.community_reactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.community_comments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.community_saved_posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.community_bookmarks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.community_follows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.community_blocks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.community_mutes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.community_hidden_posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.community_poll_votes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.community_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
+CREATE POLICY "Anyone can view achievements" ON public.community_achievements FOR SELECT USING (true);
 CREATE POLICY "Anyone can view posts" ON public.community_posts FOR SELECT USING (true);
 CREATE POLICY "Authenticated users can create posts" ON public.community_posts FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own posts" ON public.community_posts FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
@@ -2937,16 +3037,183 @@ CREATE POLICY "Anyone can view comments" ON public.community_comments FOR SELECT
 CREATE POLICY "Authenticated users can comment" ON public.community_comments FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can delete own comments" ON public.community_comments FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can view own saved posts" ON public.community_saved_posts FOR SELECT TO authenticated USING (auth.uid() = user_id);
-CREATE POLICY "Users can save posts" ON public.community_saved_posts FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can unsave posts" ON public.community_saved_posts FOR DELETE TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "Users can view own bookmarks" ON public.community_bookmarks FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "Users can create bookmarks" ON public.community_bookmarks FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own bookmarks" ON public.community_bookmarks FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete own bookmarks" ON public.community_bookmarks FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
--- 5. Realtime publication
-ALTER PUBLICATION supabase_realtime ADD TABLE public.community_posts;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.community_reactions;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.community_comments;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.community_saved_posts;
+CREATE POLICY "Anyone can view follows" ON public.community_follows FOR SELECT USING (true);
+CREATE POLICY "Authenticated users can follow" ON public.community_follows FOR INSERT TO authenticated WITH CHECK (auth.uid() = follower_id);
+CREATE POLICY "Users can unfollow" ON public.community_follows FOR DELETE TO authenticated USING (auth.uid() = follower_id);
+CREATE POLICY "Users can remove followers" ON public.community_follows FOR DELETE TO authenticated USING (auth.uid() = following_id);
 
+CREATE POLICY "Users can view own blocks" ON public.community_blocks FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "Users can block" ON public.community_blocks FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can unblock" ON public.community_blocks FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own mutes" ON public.community_mutes FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "Users can mute" ON public.community_mutes FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can unmute" ON public.community_mutes FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own hidden posts" ON public.community_hidden_posts FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "Users can hide posts" ON public.community_hidden_posts FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can unhide posts" ON public.community_hidden_posts FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+CREATE POLICY "Anyone can view poll votes" ON public.community_poll_votes FOR SELECT USING (true);
+CREATE POLICY "Users can vote on polls" ON public.community_poll_votes FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can change poll votes" ON public.community_poll_votes FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own reports" ON public.community_reports FOR SELECT TO authenticated USING (auth.uid() = reporter_id);
+CREATE POLICY "Users can create reports" ON public.community_reports FOR INSERT TO authenticated WITH CHECK (auth.uid() = reporter_id);
+
+CREATE POLICY "Users can view own notifications" ON public.notifications FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "Users can update own notifications" ON public.notifications FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete own notifications" ON public.notifications FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+-- 5. Realtime publication (handled via dashboard to prevent DDL errors)
+
+-- 6. Community RPCs
+DROP FUNCTION IF EXISTS public.community_feed(text, integer, integer, text, text, text);
+DROP FUNCTION IF EXISTS public.community_feed(text, integer, integer, uuid, text, text);
+CREATE OR REPLACE FUNCTION public.community_feed(
+    p_mode text DEFAULT 'latest',
+    p_limit integer DEFAULT 15,
+    p_offset integer DEFAULT 0,
+    p_author text DEFAULT NULL,
+    p_search text DEFAULT NULL,
+    p_tag text DEFAULT NULL
+)
+RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+    v_result json;
+BEGIN
+    SELECT COALESCE(json_agg(
+        json_build_object(
+            'id', p.id,
+            'user_id', p.user_id,
+            'post_type', p.post_type,
+            'content', p.content,
+            'media_url', p.media_url,
+            'link_url', p.link_url,
+            'fen', p.fen,
+            'pgn', p.pgn,
+            'puzzle_solution', p.puzzle_solution,
+            'poll_options', p.poll_options,
+            'poll_ends_at', p.poll_ends_at,
+            'tags', p.tags,
+            'likes_count', p.likes_count,
+            'dislikes_count', p.dislikes_count,
+            'comments_count', p.comments_count,
+            'shares_count', p.shares_count,
+            'bookmarks_count', p.bookmarks_count,
+            'score', p.score,
+            'is_pinned', p.is_pinned,
+            'is_hidden', p.is_hidden,
+            'is_featured', p.is_featured,
+            'created_at', p.created_at,
+            'updated_at', p.updated_at,
+            'author', json_build_object(
+                'id', pr.id,
+                'username', pr.username,
+                'display_name', pr.display_name,
+                'avatar_url', pr.avatar_url,
+                'title', pr.title,
+                'country', pr.country,
+                'premium_tier', pr.premium_tier,
+                'community_score', pr.community_score,
+                'iq_level', pr.iq_rating,
+                'followers_count', 0
+            ),
+            'my_reaction', (SELECT reaction_type FROM public.community_reactions cr WHERE cr.post_id = p.id AND cr.user_id = v_uid LIMIT 1),
+            'is_bookmarked', EXISTS(SELECT 1 FROM public.community_bookmarks csp WHERE csp.post_id = p.id AND csp.user_id = v_uid),
+            'is_following_author', false,
+            'poll_counts', NULL,
+            'my_poll_vote', NULL
+        )
+        ORDER BY 
+            CASE WHEN p_mode = 'trending' THEN p.score ELSE 0 END DESC,
+            p.created_at DESC
+    ), '[]'::json) INTO v_result
+    FROM (
+        SELECT cp.* 
+        FROM public.community_posts cp
+        JOIN public.profiles pr_inner ON cp.user_id = pr_inner.id
+        WHERE (p_author IS NULL OR pr_inner.username = p_author)
+          AND (p_search IS NULL OR cp.content ILIKE '%' || p_search || '%')
+          AND (p_tag IS NULL OR p_tag = ANY(cp.tags))
+          AND COALESCE(cp.is_hidden, false) = false
+          AND (p_mode != 'following' OR cp.user_id IN (SELECT following_id FROM public.community_follows WHERE follower_id = v_uid))
+        ORDER BY 
+            CASE WHEN p_mode = 'trending' THEN cp.score ELSE 0 END DESC,
+            cp.created_at DESC
+        LIMIT p_limit
+        OFFSET p_offset
+    ) p
+    JOIN public.profiles pr ON p.user_id = pr.id;
+
+    RETURN v_result;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.community_feed(text, integer, integer, text, text, text) TO anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.community_toggle_follow(p_target UUID)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+    v_exists boolean;
+BEGIN
+    IF v_uid IS NULL OR v_uid = p_target THEN RETURN false; END IF;
+    SELECT EXISTS(SELECT 1 FROM public.community_follows WHERE follower_id = v_uid AND following_id = p_target) INTO v_exists;
+    IF v_exists THEN
+        DELETE FROM public.community_follows WHERE follower_id = v_uid AND following_id = p_target;
+        RETURN false;
+    ELSE
+        INSERT INTO public.community_follows (follower_id, following_id) VALUES (v_uid, p_target);
+        RETURN true;
+    END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.community_react(p_target_type text, p_target_id UUID, p_reaction text)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+    v_current text;
+BEGIN
+    IF v_uid IS NULL THEN RETURN NULL; END IF;
+    IF p_target_type = 'post' THEN
+        SELECT reaction_type INTO v_current FROM public.community_reactions WHERE user_id = v_uid AND post_id = p_target_id;
+        IF v_current = p_reaction THEN
+            DELETE FROM public.community_reactions WHERE user_id = v_uid AND post_id = p_target_id;
+            RETURN NULL;
+        ELSE
+            INSERT INTO public.community_reactions (user_id, post_id, reaction_type) VALUES (v_uid, p_target_id, p_reaction)
+            ON CONFLICT (user_id, post_id) DO UPDATE SET reaction_type = p_reaction;
+            RETURN p_reaction;
+        END IF;
+    END IF;
+    RETURN NULL;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.community_toggle_bookmark(p_post_id UUID, p_collection text DEFAULT 'Favorites')
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+    v_exists boolean;
+BEGIN
+    IF v_uid IS NULL THEN RETURN false; END IF;
+    SELECT EXISTS(SELECT 1 FROM public.community_bookmarks WHERE user_id = v_uid AND post_id = p_post_id) INTO v_exists;
+    IF v_exists THEN
+        DELETE FROM public.community_bookmarks WHERE user_id = v_uid AND post_id = p_post_id;
+        RETURN false;
+    ELSE
+        INSERT INTO public.community_bookmarks (user_id, post_id, collection) VALUES (v_uid, p_post_id, p_collection);
+        RETURN true;
+    END IF;
+END;
+$$;
 
 -- =====================================================================
 -- Auto-seed Daily Tournaments RPC
@@ -3286,3 +3553,970 @@ BEGIN
   PERFORM public.apply_iq_change(p_game_id);
 END; $$;
 
+
+
+
+
+-- 0. Ensure missing columns exist in profiles so the view does not fail
+ALTER TABLE public.profiles 
+  ADD COLUMN IF NOT EXISTS state text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS district text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS premium_active boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS premium_expires_at timestamp with time zone,
+  ADD COLUMN IF NOT EXISTS community_score integer DEFAULT 0;
+
+-- 1. Create a view that joins all the player stats together by pivoting the ratings table
+CREATE OR REPLACE VIEW public.leaderboard_view AS
+WITH user_ratings AS (
+  SELECT 
+    user_id,
+    MAX(CASE WHEN time_class = 'rapid' THEN rating END) as rapid_rating,
+    MAX(CASE WHEN time_class = 'blitz' THEN rating END) as blitz_rating,
+    MAX(CASE WHEN time_class = 'bullet' THEN rating END) as bullet_rating,
+    MAX(CASE WHEN time_class = 'classical' THEN rating END) as classical_rating,
+    SUM(wins) as wins,
+    SUM(losses) as losses,
+    SUM(draws) as draws
+  FROM public.ratings
+  GROUP BY user_id
+)
+SELECT 
+    p.id,
+    p.username,
+    p.display_name,
+    p.avatar_url,
+    p.title,
+    p.country,
+    p.state,
+    p.district,
+    p.created_at,
+    p.is_online,
+    p.last_seen,
+    p.premium_active,
+    p.premium_expires_at,
+    p.community_score,
+    r.rapid_rating,
+    r.blitz_rating,
+    r.bullet_rating,
+    r.classical_rating,
+    -- Determine the highest active rating
+    GREATEST(
+        COALESCE(r.rapid_rating, 0), 
+        COALESCE(r.blitz_rating, 0), 
+        COALESCE(r.bullet_rating, 0), 
+        COALESCE(r.classical_rating, 0)
+    )::integer as overall_rating,
+    -- Aggregate stats
+    COALESCE(r.wins, 0)::integer as wins,
+    COALESCE(r.losses, 0)::integer as losses,
+    COALESCE(r.draws, 0)::integer as draws,
+    (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0))::integer as total_matches,
+    -- Calculate win rate safely
+    CASE 
+        WHEN (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0)) > 0 
+        THEN (COALESCE(r.wins, 0)::numeric / (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0))::numeric) * 100 
+        ELSE 0 
+    END::numeric as win_rate,
+    -- Calculate IQ and XP Level
+    p.iq_rating as iq_level,
+    (p.iq_rating * 10 + p.community_score * 5 + COALESCE(r.wins, 0) * 15)::integer as xp,
+    (FLOOR(SQRT(p.iq_rating * 10 + p.community_score * 5 + COALESCE(r.wins, 0) * 15) / 10) + 1)::integer as level,
+    -- Count achievements
+    (SELECT COUNT(*) FROM public.community_achievements ca WHERE ca.user_id = p.id)::integer as achievements_count
+FROM public.profiles p
+LEFT JOIN user_ratings r ON p.id = r.user_id;
+
+-- 2. Create the RPC function that the frontend will call
+DROP FUNCTION IF EXISTS public.get_dynamic_leaderboard(text, text, text, text, text, integer, integer);
+CREATE OR REPLACE FUNCTION public.get_dynamic_leaderboard(
+    p_search text DEFAULT '',
+    p_country text DEFAULT NULL,
+    p_state text DEFAULT NULL,
+    p_district text DEFAULT NULL,
+    p_sort_col text DEFAULT 'iq_desc',
+    p_limit integer DEFAULT 25,
+    p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+    id uuid,
+    username text,
+    display_name text,
+    avatar_url text,
+    title text,
+    country text,
+    state text,
+    district text,
+    created_at timestamp with time zone,
+    is_online boolean,
+    last_seen timestamp with time zone,
+    premium_active boolean,
+    premium_expires_at timestamp with time zone,
+    community_score integer,
+    rapid_rating integer,
+    blitz_rating integer,
+    bullet_rating integer,
+    classical_rating integer,
+    overall_rating integer,
+    wins integer,
+    losses integer,
+    draws integer,
+    total_matches integer,
+    win_rate numeric,
+    iq_level integer,
+    xp integer,
+    level integer,
+    achievements_count integer,
+    total_count bigint
+) AS $$
+BEGIN
+    RETURN QUERY
+    WITH filtered_players AS (
+        SELECT v.* 
+        FROM public.leaderboard_view v
+        WHERE 
+            (p_search = '' OR v.username ILIKE '%' || p_search || '%' OR v.display_name ILIKE '%' || p_search || '%')
+            AND (p_country IS NULL OR v.country = p_country)
+            AND (p_state IS NULL OR v.state = p_state)
+            AND (p_district IS NULL OR v.district = p_district)
+    ),
+    counted_players AS (
+        SELECT COUNT(*) as exact_count FROM filtered_players
+    )
+    SELECT 
+        f.id,
+        f.username,
+        f.display_name,
+        f.avatar_url,
+        f.title,
+        f.country,
+        f.state,
+        f.district,
+        f.created_at,
+        f.is_online,
+        f.last_seen,
+        f.premium_active,
+        f.premium_expires_at,
+        f.community_score,
+        f.rapid_rating,
+        f.blitz_rating,
+        f.bullet_rating,
+        f.classical_rating,
+        f.overall_rating,
+        f.wins,
+        f.losses,
+        f.draws,
+        f.total_matches,
+        f.win_rate,
+        f.iq_level,
+        f.xp,
+        f.level,
+        f.achievements_count,
+        c.exact_count as total_count
+    FROM filtered_players f
+    CROSS JOIN counted_players c
+    ORDER BY 
+        CASE WHEN p_sort_col = 'iq_desc' THEN f.iq_level END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'iq_asc' THEN f.iq_level END ASC NULLS LAST,
+        CASE WHEN p_sort_col = 'rating_desc' THEN f.overall_rating END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'newest' THEN f.created_at END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'oldest' THEN f.created_at END ASC NULLS LAST,
+        CASE WHEN p_sort_col = 'wins_desc' THEN f.wins END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'matches_desc' THEN f.total_matches END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'winrate_desc' THEN f.win_rate END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'active_desc' THEN f.last_seen END DESC NULLS LAST
+    LIMIT p_limit
+    OFFSET p_offset;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- =====================================================================
+-- CHAT SUBSYSTEM
+-- ---------------------------------------------------------------------
+-- Backs src/lib/api/chatClient.ts (Global Chat + Custom Rooms + Direct
+-- Messages) and src/routes/admin.chat.tsx. Prior audit (AUDIT_REPORT.md)
+-- found ~16+ RPCs plus a backing table referenced by the frontend with
+-- no SQL definition anywhere in schema.sql or migrations. This migration
+-- creates the full additive backend: chat_channels, chat_channel_members,
+-- chat_messages, chat_message_reactions, chat_reports tables, and every
+-- RPC the client/admin route calls, matching exact param names/order and
+-- return shapes. Follows the same conventions as public.game_chat
+-- (schema.sql ~line 224) and public.community_comments (~line 2848) for
+-- table/RLS style, and admin_credit_wallet/has_role for the admin gate.
+-- Purely additive: no DROP of anything pre-existing.
+-- =====================================================================
+
+-- ── 1. Core tables ────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS public.chat_channels (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type         TEXT NOT NULL CHECK (type IN ('global', 'room', 'dm')),
+  slug         TEXT UNIQUE,
+  name         TEXT,
+  description  TEXT DEFAULT '',
+  is_private   BOOLEAN NOT NULL DEFAULT false,
+  owner_id     UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  -- For DM channels: canonical pair (least(user), greatest(user)) so a
+  -- unique index can prevent duplicate DM channels between two users.
+  dm_user_a    UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  dm_user_b    UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_channels_dm_pair
+  ON public.chat_channels(dm_user_a, dm_user_b) WHERE type = 'dm';
+CREATE INDEX IF NOT EXISTS idx_chat_channels_type ON public.chat_channels(type);
+
+CREATE TABLE IF NOT EXISTS public.chat_channel_members (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  channel_id  UUID NOT NULL REFERENCES public.chat_channels(id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  role        TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'moderator', 'member')),
+  muted_until TIMESTAMPTZ,
+  is_banned   BOOLEAN NOT NULL DEFAULT false,
+  last_read_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  joined_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (channel_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_channel_members_channel ON public.chat_channel_members(channel_id);
+CREATE INDEX IF NOT EXISTS idx_chat_channel_members_user ON public.chat_channel_members(user_id);
+
+CREATE TABLE IF NOT EXISTS public.chat_messages (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  channel_id   UUID NOT NULL REFERENCES public.chat_channels(id) ON DELETE CASCADE,
+  user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  content      TEXT NOT NULL,
+  reply_to_id  UUID REFERENCES public.chat_messages(id) ON DELETE SET NULL,
+  is_deleted   BOOLEAN NOT NULL DEFAULT false,
+  is_pinned    BOOLEAN NOT NULL DEFAULT false,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_messages_channel_created
+  ON public.chat_messages(channel_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_pinned
+  ON public.chat_messages(channel_id) WHERE is_pinned = true;
+
+CREATE TABLE IF NOT EXISTS public.chat_message_reactions (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id UUID NOT NULL REFERENCES public.chat_messages(id) ON DELETE CASCADE,
+  user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  emoji      TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (message_id, user_id, emoji)
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_message_reactions_message
+  ON public.chat_message_reactions(message_id);
+
+CREATE TABLE IF NOT EXISTS public.chat_reports (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id  UUID NOT NULL REFERENCES public.chat_messages(id) ON DELETE CASCADE,
+  reporter_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  reason      TEXT NOT NULL CHECK (reason IN ('spam', 'abuse', 'harassment', 'fake_information', 'other')),
+  details     TEXT,
+  status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved', 'dismissed')),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_reports_status ON public.chat_reports(status);
+
+-- ── 2. RLS ────────────────────────────────────────────────────────────
+-- All reads/writes to these tables happen through SECURITY DEFINER RPCs
+-- below (mirrors the game_chat / community_comments pattern of a public
+-- SELECT policy plus RPC-gated writes). Direct table access from the
+-- client is only used by admin.chat.tsx for chat_reports (admin-only
+-- SELECT), everything else goes through chatClient.ts RPCs.
+
+ALTER TABLE public.chat_channels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.chat_channel_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.chat_message_reactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.chat_reports ENABLE ROW LEVEL SECURITY;
+
+-- Public rooms/global are readable by anyone; DMs/private rooms only by
+-- members. Used as a fallback if the frontend ever queries these tables
+-- directly; the RPCs below do their own visibility checks internally.
+DROP POLICY IF EXISTS "chat_channels_select" ON public.chat_channels;
+CREATE POLICY "chat_channels_select" ON public.chat_channels
+  FOR SELECT USING (
+    (type IN ('global', 'room') AND is_private = false)
+    OR EXISTS (
+      SELECT 1 FROM public.chat_channel_members m
+      WHERE m.channel_id = chat_channels.id AND m.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "chat_channel_members_select_own" ON public.chat_channel_members;
+CREATE POLICY "chat_channel_members_select_own" ON public.chat_channel_members
+  FOR SELECT USING (
+    user_id = auth.uid()
+    OR EXISTS (
+      SELECT 1 FROM public.chat_channel_members me
+      WHERE me.channel_id = chat_channel_members.channel_id AND me.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "chat_messages_select_members" ON public.chat_messages;
+CREATE POLICY "chat_messages_select_members" ON public.chat_messages
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.chat_channels c
+      WHERE c.id = chat_messages.channel_id
+        AND ((c.type IN ('global', 'room') AND c.is_private = false)
+          OR EXISTS (
+            SELECT 1 FROM public.chat_channel_members m
+            WHERE m.channel_id = c.id AND m.user_id = auth.uid()
+          ))
+    )
+  );
+
+DROP POLICY IF EXISTS "chat_message_reactions_select_members" ON public.chat_message_reactions;
+CREATE POLICY "chat_message_reactions_select_members" ON public.chat_message_reactions
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.chat_messages msg
+      JOIN public.chat_channels c ON c.id = msg.channel_id
+      WHERE msg.id = chat_message_reactions.message_id
+        AND ((c.type IN ('global', 'room') AND c.is_private = false)
+          OR EXISTS (
+            SELECT 1 FROM public.chat_channel_members m
+            WHERE m.channel_id = c.id AND m.user_id = auth.uid()
+          ))
+    )
+  );
+
+-- Reports: only admins and the reporter may read; only authenticated
+-- users may create (via RPC, which sets reporter_id = auth.uid()).
+DROP POLICY IF EXISTS "chat_reports_select_admin_or_own" ON public.chat_reports;
+CREATE POLICY "chat_reports_select_admin_or_own" ON public.chat_reports
+  FOR SELECT USING (
+    reporter_id = auth.uid() OR public.has_role(auth.uid(), 'admin')
+  );
+
+GRANT SELECT ON public.chat_channels, public.chat_channel_members, public.chat_messages,
+  public.chat_message_reactions, public.chat_reports TO authenticated;
+GRANT ALL ON public.chat_channels, public.chat_channel_members, public.chat_messages,
+  public.chat_message_reactions, public.chat_reports TO service_role;
+
+-- Realtime, so open channels can live-update (consistent with game_chat).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'chat_messages'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;
+  END IF;
+END $$;
+
+-- ── 3. Shared helpers ─────────────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public._chat_user_lite(p_user_id UUID)
+RETURNS JSON LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT CASE WHEN p_user_id IS NULL THEN NULL ELSE json_build_object(
+    'id', p.id, 'username', p.username, 'display_name', p.display_name, 'avatar_url', p.avatar_url
+  ) END
+  FROM public.profiles p WHERE p.id = p_user_id;
+$$;
+
+CREATE OR REPLACE FUNCTION public._chat_is_member(p_channel UUID, p_user UUID)
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.chat_channel_members
+    WHERE channel_id = p_channel AND user_id = p_user AND is_banned = false
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public._chat_role(p_channel UUID, p_user UUID)
+RETURNS TEXT LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT role FROM public.chat_channel_members
+  WHERE channel_id = p_channel AND user_id = p_user;
+$$;
+
+-- Ensures the single global channel exists; auto-joins the caller to it.
+CREATE OR REPLACE FUNCTION public._chat_ensure_global(p_user UUID)
+RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+BEGIN
+  SELECT id INTO v_id FROM public.chat_channels WHERE type = 'global' AND slug = 'global' LIMIT 1;
+  IF v_id IS NULL THEN
+    INSERT INTO public.chat_channels (type, slug, name, description, is_private)
+    VALUES ('global', 'global', 'Global Chat', 'ChessOx community chat', false)
+    RETURNING id INTO v_id;
+  END IF;
+
+  IF p_user IS NOT NULL THEN
+    INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+    VALUES (v_id, p_user, 'member')
+    ON CONFLICT (channel_id, user_id) DO NOTHING;
+  END IF;
+
+  RETURN v_id;
+END; $$;
+
+-- Named composite type (NOT the same as a RETURNS TABLE(...) signature,
+-- which is local to a single function and cannot be reused as a type
+-- elsewhere) so both the row-builder helper and every public RPC below
+-- can share one shape: matches ChatChannel in chatClient.ts.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'chat_channel_row') THEN
+    CREATE TYPE public.chat_channel_row AS (
+      id UUID, type TEXT, slug TEXT, name TEXT, description TEXT, is_private BOOLEAN,
+      owner_id UUID, member_count INT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ,
+      my_role TEXT, is_member BOOLEAN, owner JSON, other_user JSON,
+      last_message JSON, unread_count INT
+    );
+  END IF;
+END $$;
+
+-- Builds one ChatChannel row for channel c as seen by p_user.
+CREATE OR REPLACE FUNCTION public._chat_channel_row(p_channel_id UUID, p_user UUID)
+RETURNS SETOF public.chat_channel_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_other UUID;
+BEGIN
+  RETURN QUERY
+  SELECT
+    c.id, c.type, c.slug, c.name, c.description, c.is_private, c.owner_id,
+    (SELECT COUNT(*)::INT FROM public.chat_channel_members m WHERE m.channel_id = c.id),
+    c.created_at, c.updated_at,
+    (SELECT m.role FROM public.chat_channel_members m WHERE m.channel_id = c.id AND m.user_id = p_user),
+    EXISTS (SELECT 1 FROM public.chat_channel_members m WHERE m.channel_id = c.id AND m.user_id = p_user),
+    public._chat_user_lite(c.owner_id),
+    CASE WHEN c.type = 'dm' THEN
+      public._chat_user_lite(CASE WHEN c.dm_user_a = p_user THEN c.dm_user_b ELSE c.dm_user_a END)
+    ELSE NULL END,
+    (SELECT json_build_object('content', msg.content, 'created_at', msg.created_at, 'user_id', msg.user_id)
+       FROM public.chat_messages msg
+       WHERE msg.channel_id = c.id AND msg.is_deleted = false
+       ORDER BY msg.created_at DESC LIMIT 1),
+    (SELECT COUNT(*)::INT FROM public.chat_messages msg
+       JOIN public.chat_channel_members m ON m.channel_id = c.id AND m.user_id = p_user
+       WHERE msg.channel_id = c.id AND msg.is_deleted = false AND msg.created_at > m.last_read_at)
+  FROM public.chat_channels c
+  WHERE c.id = p_channel_id;
+END; $$;
+
+-- ── 4. Channel RPCs ───────────────────────────────────────────────────
+
+DROP FUNCTION IF EXISTS public.chat_my_channels();
+CREATE OR REPLACE FUNCTION public.chat_my_channels()
+RETURNS SETOF public.chat_channel_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_global UUID;
+BEGIN
+  IF auth.uid() IS NULL THEN RETURN; END IF;
+  v_global := public._chat_ensure_global(auth.uid());
+  RETURN QUERY
+  SELECT r.* FROM public.chat_channel_members m
+  CROSS JOIN LATERAL public._chat_channel_row(m.channel_id, auth.uid()) r
+  WHERE m.user_id = auth.uid()
+  ORDER BY (r.last_message->>'created_at') DESC NULLS LAST, r.created_at DESC;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_my_channels() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.chat_my_channels() TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_discover_rooms(TEXT, INT);
+CREATE OR REPLACE FUNCTION public.chat_discover_rooms(p_search TEXT DEFAULT NULL, p_limit INT DEFAULT 30)
+RETURNS SETOF public.chat_channel_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY
+  SELECT r.* FROM public.chat_channels c
+  CROSS JOIN LATERAL public._chat_channel_row(c.id, auth.uid()) r
+  WHERE c.type = 'room' AND c.is_private = false
+    AND (p_search IS NULL OR p_search = '' OR c.name ILIKE '%' || p_search || '%')
+  ORDER BY r.member_count DESC, c.created_at DESC
+  LIMIT p_limit;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_discover_rooms(TEXT, INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.chat_discover_rooms(TEXT, INT) TO anon, authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_get_channel(TEXT);
+CREATE OR REPLACE FUNCTION public.chat_get_channel(p_slug_or_id TEXT)
+RETURNS public.chat_channel_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+  v_row public.chat_channel_row;
+BEGIN
+  BEGIN
+    v_id := p_slug_or_id::UUID;
+  EXCEPTION WHEN OTHERS THEN
+    v_id := NULL;
+  END;
+
+  IF v_id IS NULL THEN
+    SELECT id INTO v_id FROM public.chat_channels WHERE slug = p_slug_or_id;
+  END IF;
+  IF v_id IS NULL THEN RETURN NULL; END IF;
+
+  SELECT * INTO v_row FROM public._chat_channel_row(v_id, auth.uid());
+  RETURN v_row;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_get_channel(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.chat_get_channel(TEXT) TO anon, authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_create_room(TEXT, TEXT, BOOLEAN);
+CREATE OR REPLACE FUNCTION public.chat_create_room(p_name TEXT, p_description TEXT, p_is_private BOOLEAN)
+RETURNS public.chat_channel_row
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+  v_slug TEXT;
+  v_row public.chat_channel_row;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+  IF p_name IS NULL OR trim(p_name) = '' THEN RAISE EXCEPTION 'Room name required'; END IF;
+
+  v_slug := lower(regexp_replace(trim(p_name), '[^a-zA-Z0-9]+', '-', 'g')) || '-' || substr(gen_random_uuid()::TEXT, 1, 6);
+
+  INSERT INTO public.chat_channels (type, slug, name, description, is_private, owner_id)
+  VALUES ('room', v_slug, p_name, COALESCE(p_description, ''), COALESCE(p_is_private, false), auth.uid())
+  RETURNING id INTO v_id;
+
+  INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+  VALUES (v_id, auth.uid(), 'owner');
+
+  SELECT * INTO v_row FROM public._chat_channel_row(v_id, auth.uid());
+  RETURN v_row;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_create_room(TEXT, TEXT, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_create_room(TEXT, TEXT, BOOLEAN) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_update_room(UUID, TEXT, TEXT);
+CREATE OR REPLACE FUNCTION public.chat_update_room(p_channel UUID, p_name TEXT, p_description TEXT)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF public._chat_role(p_channel, auth.uid()) NOT IN ('owner', 'moderator') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  UPDATE public.chat_channels
+  SET name = p_name, description = COALESCE(p_description, ''), updated_at = now()
+  WHERE id = p_channel AND type = 'room';
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_update_room(UUID, TEXT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_update_room(UUID, TEXT, TEXT) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_delete_room(UUID);
+CREATE OR REPLACE FUNCTION public.chat_delete_room(p_channel UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF public._chat_role(p_channel, auth.uid()) != 'owner' AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  DELETE FROM public.chat_channels WHERE id = p_channel AND type = 'room';
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_delete_room(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_delete_room(UUID) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_join_room(UUID);
+CREATE OR REPLACE FUNCTION public.chat_join_room(p_channel UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.chat_channels WHERE id = p_channel AND type = 'room' AND is_private = false) THEN
+    RAISE EXCEPTION 'Room not found or private';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.chat_channel_members WHERE channel_id = p_channel AND user_id = auth.uid() AND is_banned = true) THEN
+    RAISE EXCEPTION 'You are banned from this room';
+  END IF;
+  INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+  VALUES (p_channel, auth.uid(), 'member')
+  ON CONFLICT (channel_id, user_id) DO NOTHING;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_join_room(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_join_room(UUID) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_leave_room(UUID);
+CREATE OR REPLACE FUNCTION public.chat_leave_room(p_channel UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  DELETE FROM public.chat_channel_members WHERE channel_id = p_channel AND user_id = auth.uid();
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_leave_room(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_leave_room(UUID) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_invite_user(UUID, TEXT);
+CREATE OR REPLACE FUNCTION public.chat_invite_user(p_channel UUID, p_username TEXT)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_target UUID;
+BEGIN
+  IF public._chat_role(p_channel, auth.uid()) NOT IN ('owner', 'moderator') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  SELECT id INTO v_target FROM public.profiles WHERE username = p_username;
+  IF v_target IS NULL THEN RAISE EXCEPTION 'User not found'; END IF;
+
+  INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+  VALUES (p_channel, v_target, 'member')
+  ON CONFLICT (channel_id, user_id) DO UPDATE SET is_banned = false;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_invite_user(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_invite_user(UUID, TEXT) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_remove_member(UUID, UUID, BOOLEAN);
+CREATE OR REPLACE FUNCTION public.chat_remove_member(p_channel UUID, p_user UUID, p_ban BOOLEAN DEFAULT false)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF public._chat_role(p_channel, auth.uid()) NOT IN ('owner', 'moderator') AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  IF p_ban THEN
+    UPDATE public.chat_channel_members SET is_banned = true WHERE channel_id = p_channel AND user_id = p_user;
+  ELSE
+    DELETE FROM public.chat_channel_members WHERE channel_id = p_channel AND user_id = p_user;
+  END IF;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_remove_member(UUID, UUID, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_remove_member(UUID, UUID, BOOLEAN) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_mute_member(UUID, UUID, INT);
+CREATE OR REPLACE FUNCTION public.chat_mute_member(p_channel UUID, p_user UUID, p_minutes INT)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF public._chat_role(p_channel, auth.uid()) NOT IN ('owner', 'moderator') AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  UPDATE public.chat_channel_members
+  SET muted_until = now() + make_interval(mins => GREATEST(p_minutes, 0))
+  WHERE channel_id = p_channel AND user_id = p_user;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_mute_member(UUID, UUID, INT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_mute_member(UUID, UUID, INT) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_set_moderator(UUID, UUID, BOOLEAN);
+CREATE OR REPLACE FUNCTION public.chat_set_moderator(p_channel UUID, p_user UUID, p_is_mod BOOLEAN)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF public._chat_role(p_channel, auth.uid()) != 'owner' AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  UPDATE public.chat_channel_members
+  SET role = CASE WHEN p_is_mod THEN 'moderator' ELSE 'member' END
+  WHERE channel_id = p_channel AND user_id = p_user AND role != 'owner';
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_set_moderator(UUID, UUID, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_set_moderator(UUID, UUID, BOOLEAN) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_get_or_create_dm(UUID);
+CREATE OR REPLACE FUNCTION public.chat_get_or_create_dm(p_other UUID)
+RETURNS public.chat_channel_row
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+  v_a UUID;
+  v_b UUID;
+  v_row public.chat_channel_row;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+  IF p_other = auth.uid() THEN RAISE EXCEPTION 'Cannot DM yourself'; END IF;
+
+  v_a := LEAST(auth.uid(), p_other);
+  v_b := GREATEST(auth.uid(), p_other);
+
+  SELECT id INTO v_id FROM public.chat_channels WHERE type = 'dm' AND dm_user_a = v_a AND dm_user_b = v_b;
+
+  IF v_id IS NULL THEN
+    INSERT INTO public.chat_channels (type, is_private, dm_user_a, dm_user_b)
+    VALUES ('dm', true, v_a, v_b)
+    RETURNING id INTO v_id;
+
+    INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+    VALUES (v_id, auth.uid(), 'member'), (v_id, p_other, 'member')
+    ON CONFLICT (channel_id, user_id) DO NOTHING;
+  END IF;
+
+  SELECT * INTO v_row FROM public._chat_channel_row(v_id, auth.uid());
+  RETURN v_row;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_get_or_create_dm(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_get_or_create_dm(UUID) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_mark_read(UUID);
+CREATE OR REPLACE FUNCTION public.chat_mark_read(p_channel UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  UPDATE public.chat_channel_members SET last_read_at = now()
+  WHERE channel_id = p_channel AND user_id = auth.uid();
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_mark_read(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_mark_read(UUID) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_channel_members(UUID);
+CREATE OR REPLACE FUNCTION public.chat_channel_members(p_channel UUID)
+RETURNS TABLE (
+  id UUID, username TEXT, display_name TEXT, avatar_url TEXT,
+  premium_tier TEXT, role TEXT, muted_until TIMESTAMPTZ, joined_at TIMESTAMPTZ
+)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY
+  SELECT p.id, p.username, p.display_name, p.avatar_url,
+    p.premium_tier::TEXT, m.role, m.muted_until, m.joined_at
+  FROM public.chat_channel_members m
+  JOIN public.profiles p ON p.id = m.user_id
+  WHERE m.channel_id = p_channel AND m.is_banned = false
+  ORDER BY CASE m.role WHEN 'owner' THEN 0 WHEN 'moderator' THEN 1 ELSE 2 END, m.joined_at ASC;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_channel_members(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.chat_channel_members(UUID) TO anon, authenticated, service_role;
+
+-- ── 5. Message RPCs ───────────────────────────────────────────────────
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'chat_message_row') THEN
+    CREATE TYPE public.chat_message_row AS (
+      id UUID, channel_id UUID, user_id UUID, content TEXT, reply_to_id UUID,
+      is_deleted BOOLEAN, is_pinned BOOLEAN, created_at TIMESTAMPTZ,
+      author JSON, reply_to JSON, reactions JSON
+    );
+  END IF;
+END $$;
+
+CREATE OR REPLACE FUNCTION public._chat_message_row(p_message_id UUID)
+RETURNS SETOF public.chat_message_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    msg.id, msg.channel_id, msg.user_id, msg.content, msg.reply_to_id,
+    msg.is_deleted, msg.is_pinned, msg.created_at,
+    (SELECT json_build_object(
+       'id', p.id, 'username', p.username, 'display_name', p.display_name,
+       'avatar_url', p.avatar_url, 'premium_tier', p.premium_tier
+     ) FROM public.profiles p WHERE p.id = msg.user_id),
+    (SELECT json_build_object(
+       'id', rp.id, 'content', rp.content, 'user_id', rp.user_id,
+       'author_name', pr.display_name
+     ) FROM public.chat_messages rp
+     LEFT JOIN public.profiles pr ON pr.id = rp.user_id
+     WHERE rp.id = msg.reply_to_id),
+    COALESCE((
+      SELECT json_agg(json_build_object('emoji', t.emoji, 'count', t.cnt, 'mine', t.mine))
+      FROM (
+        SELECT r.emoji, COUNT(*) AS cnt, bool_or(r.user_id = auth.uid()) AS mine
+        FROM public.chat_message_reactions r
+        WHERE r.message_id = msg.id
+        GROUP BY r.emoji
+      ) t
+    ), '[]'::json)
+  FROM public.chat_messages msg
+  WHERE msg.id = p_message_id;
+END; $$;
+
+DROP FUNCTION IF EXISTS public.chat_channel_feed(UUID, TIMESTAMPTZ, INT);
+CREATE OR REPLACE FUNCTION public.chat_channel_feed(p_channel UUID, p_before TIMESTAMPTZ DEFAULT NULL, p_limit INT DEFAULT 40)
+RETURNS SETOF public.chat_message_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT public._chat_is_member(p_channel, auth.uid())
+     AND NOT EXISTS (SELECT 1 FROM public.chat_channels WHERE id = p_channel AND type IN ('global', 'room') AND is_private = false) THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
+  RETURN QUERY
+  SELECT r.* FROM public.chat_messages msg
+  CROSS JOIN LATERAL public._chat_message_row(msg.id) r
+  WHERE msg.channel_id = p_channel
+    AND (p_before IS NULL OR msg.created_at < p_before)
+  ORDER BY msg.created_at DESC
+  LIMIT p_limit;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_channel_feed(UUID, TIMESTAMPTZ, INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.chat_channel_feed(UUID, TIMESTAMPTZ, INT) TO anon, authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_search_messages(UUID, TEXT, INT);
+CREATE OR REPLACE FUNCTION public.chat_search_messages(p_channel UUID, p_query TEXT, p_limit INT DEFAULT 30)
+RETURNS SETOF public.chat_message_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT public._chat_is_member(p_channel, auth.uid())
+     AND NOT EXISTS (SELECT 1 FROM public.chat_channels WHERE id = p_channel AND type IN ('global', 'room') AND is_private = false) THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
+  RETURN QUERY
+  SELECT r.* FROM public.chat_messages msg
+  CROSS JOIN LATERAL public._chat_message_row(msg.id) r
+  WHERE msg.channel_id = p_channel AND msg.is_deleted = false
+    AND msg.content ILIKE '%' || p_query || '%'
+  ORDER BY msg.created_at DESC
+  LIMIT p_limit;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_search_messages(UUID, TEXT, INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.chat_search_messages(UUID, TEXT, INT) TO anon, authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_pinned_messages(UUID);
+CREATE OR REPLACE FUNCTION public.chat_pinned_messages(p_channel UUID)
+RETURNS SETOF public.chat_message_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY
+  SELECT r.* FROM public.chat_messages msg
+  CROSS JOIN LATERAL public._chat_message_row(msg.id) r
+  WHERE msg.channel_id = p_channel AND msg.is_pinned = true AND msg.is_deleted = false
+  ORDER BY msg.created_at DESC;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_pinned_messages(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.chat_pinned_messages(UUID) TO anon, authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_send_message(UUID, TEXT, UUID);
+CREATE OR REPLACE FUNCTION public.chat_send_message(p_channel UUID, p_content TEXT, p_reply_to UUID DEFAULT NULL)
+RETURNS public.chat_message_row
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+  v_muted TIMESTAMPTZ;
+  v_row public.chat_message_row;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+  IF p_content IS NULL OR trim(p_content) = '' THEN RAISE EXCEPTION 'Message cannot be empty'; END IF;
+  IF length(p_content) > 2000 THEN RAISE EXCEPTION 'Message too long'; END IF;
+
+  -- Auto-join global; require existing membership for rooms/dms.
+  IF EXISTS (SELECT 1 FROM public.chat_channels WHERE id = p_channel AND type = 'global') THEN
+    INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+    VALUES (p_channel, auth.uid(), 'member')
+    ON CONFLICT (channel_id, user_id) DO NOTHING;
+  END IF;
+
+  IF NOT public._chat_is_member(p_channel, auth.uid()) THEN
+    RAISE EXCEPTION 'Not a member of this channel';
+  END IF;
+
+  SELECT muted_until INTO v_muted FROM public.chat_channel_members
+  WHERE channel_id = p_channel AND user_id = auth.uid();
+  IF v_muted IS NOT NULL AND v_muted > now() THEN
+    RAISE EXCEPTION 'You are muted in this channel until %', v_muted;
+  END IF;
+
+  INSERT INTO public.chat_messages (channel_id, user_id, content, reply_to_id)
+  VALUES (p_channel, auth.uid(), p_content, p_reply_to)
+  RETURNING id INTO v_id;
+
+  UPDATE public.chat_channels SET updated_at = now() WHERE id = p_channel;
+
+  SELECT * INTO v_row FROM public._chat_message_row(v_id);
+  RETURN v_row;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_send_message(UUID, TEXT, UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_send_message(UUID, TEXT, UUID) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_delete_message(UUID);
+CREATE OR REPLACE FUNCTION public.chat_delete_message(p_message UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_channel UUID;
+  v_author UUID;
+BEGIN
+  SELECT channel_id, user_id INTO v_channel, v_author FROM public.chat_messages WHERE id = p_message;
+  IF v_channel IS NULL THEN RAISE EXCEPTION 'Message not found'; END IF;
+
+  IF v_author != auth.uid()
+     AND public._chat_role(v_channel, auth.uid()) NOT IN ('owner', 'moderator')
+     AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
+  UPDATE public.chat_messages SET is_deleted = true, content = '[deleted]' WHERE id = p_message;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_delete_message(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_delete_message(UUID) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_react(UUID, TEXT);
+CREATE OR REPLACE FUNCTION public.chat_react(p_message UUID, p_emoji TEXT)
+RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_existed BOOLEAN;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM public.chat_message_reactions WHERE message_id = p_message AND user_id = auth.uid() AND emoji = p_emoji
+  ) INTO v_existed;
+
+  IF v_existed THEN
+    DELETE FROM public.chat_message_reactions WHERE message_id = p_message AND user_id = auth.uid() AND emoji = p_emoji;
+    RETURN false;
+  ELSE
+    INSERT INTO public.chat_message_reactions (message_id, user_id, emoji) VALUES (p_message, auth.uid(), p_emoji);
+    RETURN true;
+  END IF;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_react(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_react(UUID, TEXT) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_pin_message(UUID, BOOLEAN);
+CREATE OR REPLACE FUNCTION public.chat_pin_message(p_message UUID, p_pinned BOOLEAN)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_channel UUID;
+BEGIN
+  SELECT channel_id INTO v_channel FROM public.chat_messages WHERE id = p_message;
+  IF v_channel IS NULL THEN RAISE EXCEPTION 'Message not found'; END IF;
+  IF public._chat_role(v_channel, auth.uid()) NOT IN ('owner', 'moderator') AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  UPDATE public.chat_messages SET is_pinned = p_pinned WHERE id = p_message;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_pin_message(UUID, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_pin_message(UUID, BOOLEAN) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_report_message(UUID, TEXT, TEXT);
+CREATE OR REPLACE FUNCTION public.chat_report_message(p_message UUID, p_reason TEXT, p_details TEXT DEFAULT NULL)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.chat_messages WHERE id = p_message) THEN
+    RAISE EXCEPTION 'Message not found';
+  END IF;
+  INSERT INTO public.chat_reports (message_id, reporter_id, reason, details)
+  VALUES (p_message, auth.uid(), p_reason, p_details);
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_report_message(UUID, TEXT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_report_message(UUID, TEXT, TEXT) TO authenticated, service_role;
+
+-- ── 6. Admin RPCs ─────────────────────────────────────────────────────
+
+DROP FUNCTION IF EXISTS public.admin_chat_stats();
+CREATE OR REPLACE FUNCTION public.admin_chat_stats()
+RETURNS JSON LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+  RETURN json_build_object(
+    'rooms', (SELECT COUNT(*) FROM public.chat_channels WHERE type = 'room'),
+    'dms', (SELECT COUNT(*) FROM public.chat_channels WHERE type = 'dm'),
+    'messages_24h', (SELECT COUNT(*) FROM public.chat_messages WHERE created_at > now() - interval '24 hours'),
+    'open_reports', (SELECT COUNT(*) FROM public.chat_reports WHERE status = 'open')
+  );
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.admin_chat_stats() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_chat_stats() TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.admin_resolve_chat_report(UUID, TEXT);
+CREATE OR REPLACE FUNCTION public.admin_resolve_chat_report(p_report_id UUID, p_status TEXT)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+  IF p_status NOT IN ('resolved', 'dismissed', 'open') THEN
+    RAISE EXCEPTION 'Invalid status';
+  END IF;
+  UPDATE public.chat_reports
+  SET status = p_status, resolved_at = CASE WHEN p_status = 'open' THEN NULL ELSE now() END
+  WHERE id = p_report_id;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.admin_resolve_chat_report(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_resolve_chat_report(UUID, TEXT) TO authenticated, service_role;

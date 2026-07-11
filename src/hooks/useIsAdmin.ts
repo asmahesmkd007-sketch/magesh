@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+// profiles.is_admin is the sole authority every backend admin RPC checks
+// (SECURITY DEFINER functions re-verify it server-side on every call).
+// This hook only controls what the UI shows — it is never the real gate.
 export function useIsAdmin(userId?: string | null) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -12,15 +15,14 @@ export function useIsAdmin(userId?: string | null) {
       return;
     }
     let isMounted = true;
-    (supabase as any)
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
+    supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", userId)
       .maybeSingle()
-      .then(({ data }: { data: unknown }) => {
+      .then(({ data }) => {
         if (isMounted) {
-          setIsAdmin(!!data);
+          setIsAdmin(!!data?.is_admin);
           setLoading(false);
         }
       });

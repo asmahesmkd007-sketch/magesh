@@ -63,10 +63,11 @@ function ReportPage() {
         .from("reports")
         .insert({
           reporter_id: user.id,
-          target_type: targetType,
-          target_id: initId ?? null,
+          type: targetType === 'user' || targetType === 'game' ? 'player' : 'issue',
+          issue_type: targetType,
+          reported_user: initId ?? null,
           reason,
-          details: details.trim() || null,
+          description: details.trim() || reason,
         });
       if (error) throw new Error(error.message);
       toast.success("Report submitted — our moderation team will review it.");

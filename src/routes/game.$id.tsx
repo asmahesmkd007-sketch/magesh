@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Chess, type Square } from "chess.js";
 import { toast } from "sonner";
 import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Primitives";
@@ -8,10 +8,11 @@ import { CapturedPieces } from "@/components/site/CapturedPieces";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
 import { UserAvatar } from "@/components/site/UserAvatar";
+import { GameEndModal, type GameEndResult } from "@/components/site/GameEndModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameSettings } from "@/hooks/useGameSettings";
-import { playGameSound } from "@/lib/audio/sounds";
+import { playGameSound, soundForChessMove } from "@/lib/audio/sounds";
 import { buzz } from "@/lib/haptics";
 import { submitMove, joinGame, resignGame, respondDraw, claimTimeout } from "@/lib/api/gameClient";
 import {
@@ -95,9 +96,11 @@ function LiveGame() {
   } | null>(null);
   // Optimistic local move — board updates instantly while the server write/realtime
   // round-trip completes, then is reconciled by the authoritative FEN.
-  const [optimistic, setOptimistic] = useState<{ fen: string; from: string; to: string } | null>(
+  const [optimistic, setOptimistic] = useState<{ fen: string; from: string; to: string; at: number; isCheckmate: boolean } | null>(
     null,
   );
+  const [showEndModal, setShowEndModal] = useState(false);
+  const [hasShownEndModal, setHasShownEndModal] = useState(false);
 
   // Prevent double-submission of moves
   const submittingRef = useRef(false);
@@ -113,6 +116,13 @@ function LiveGame() {
     else if (user && game.winner_id === user.id) playGameSound("victory");
     else if (user && game.winner_id) playGameSound("defeat");
   }, [game?.status, game?.result, game?.winner_id, user?.id]);
+
+  useEffect(() => {
+    if (game?.status === "finished" && !hasShownEndModal) {
+      setShowEndModal(true);
+      setHasShownEndModal(true);
+    }
+  }, [game?.status, hasShownEndModal]);
 
   const activeFen = optimistic?.fen ?? game?.fen;
   const chess = useMemo(() => {
@@ -213,44 +223,57 @@ function LiveGame() {
     };
   }, [id]);
 
-  // Clock tick
+  // Move audio for moves that arrive over realtime — the mover's own move
+  // already got its cue from the optimistic local apply above, so this only
+  // sounds for the opponent's moves (and every move, for spectators).
+  const prevMoveCountRef = useRef(0);
   useEffect(() => {
-    if (!game || game.status !== "active") return;
-    const t = setInterval(() => setTick((x) => x + 1), 250);
-    return () => clearInterval(t);
-  }, [game?.status]);
+    if (moves.length <= prevMoveCountRef.current) {
+      prevMoveCountRef.current = moves.length;
+      return;
+    }
+    prevMoveCountRef.current = moves.length;
+    const last = moves[moves.length - 1];
+    if (!last?.san) return;
+    const moverColor: "w" | "b" = last.ply % 2 === 1 ? "w" : "b";
+    const myColorNow: "w" | "b" | null =
+      user && game?.white_id === user.id ? "w" : user && game?.black_id === user.id ? "b" : null;
+    if (myColorNow && myColorNow === moverColor) return; // already heard the optimistic cue
+    const san = last.san;
+    if (san.includes("#")) playGameSound("checkmate");
+    else if (san.includes("+")) playGameSound("check");
+    else if (san.startsWith("O-O")) playGameSound("castle");
+    else if (san.includes("=")) playGameSound("promote");
+    else if (san.includes("x")) playGameSound("capture");
+    else playGameSound("move");
+  }, [moves, user, game?.white_id, game?.black_id]);
+
+  // Clock ticking has been moved to PlayerCard to avoid 250ms re-renders on the main game board
 
   // Reset timeout claim flag when game status or id changes
   useEffect(() => {
     timeoutClaimedRef.current = false;
   }, [game?.status, id]);
 
-  if (!game)
-    return (
-      <PageShell title="Loading throne…">
-        <div />
-      </PageShell>
-    );
+
 
   const myColor: "w" | "b" | null =
-    user && game.white_id === user.id ? "w" : user && game.black_id === user.id ? "b" : null;
+    user && game?.white_id === user.id ? "w" : user && game?.black_id === user.id ? "b" : null;
   const baseOrientation = myColor ?? "w";
   const orientation: "w" | "b" = flipped ? (baseOrientation === "w" ? "b" : "w") : baseOrientation;
-  const isMyTurn = !!myColor && myColor === game.turn && game.status === "active" && !optimistic;
+  const isMyTurn = !!myColor && myColor === game?.turn && game?.status === "active" && !optimistic;
 
-  // Live clock — recomputed on every tick render
-  const elapsed =
-    game.last_move_at && game.status === "active"
-      ? Date.now() - new Date(game.last_move_at).getTime()
-      : 0;
-  void tick;
-  const whiteMs =
-    game.turn === "w" ? Math.max(0, game.white_time_ms - elapsed) : game.white_time_ms;
-  const blackMs =
-    game.turn === "b" ? Math.max(0, game.black_time_ms - elapsed) : game.black_time_ms;
+  // Live clock values passed to PlayerCards
+  const activeTurn = optimistic ? (game?.turn === "w" ? "b" : "w") : game?.turn;
+  const realLastMoveAt = game?.last_move_at ? new Date(game.last_move_at).getTime() : null;
+  const currentMoveAt = optimistic ? optimistic.at : realLastMoveAt;
+
+  // The base ms remaining for each player
+  const whiteMs = (game?.white_time_ms ?? 0) - (game?.turn === "w" && optimistic && realLastMoveAt ? optimistic.at - realLastMoveAt : 0);
+  const blackMs = (game?.black_time_ms ?? 0) - (game?.turn === "b" && optimistic && realLastMoveAt ? optimistic.at - realLastMoveAt : 0);
 
   // Opponent timeout watcher — when it's NOT my turn and the opponent's displayed clock hits 0
-  if (game.status === "active" && myColor && user && !timeoutClaimedRef.current) {
+  if (game?.status === "active" && myColor && user && !timeoutClaimedRef.current) {
     const isOppTurn = game.turn !== myColor;
     const oppMs = myColor === "w" ? blackMs : whiteMs;
     if (isOppTurn && oppMs <= 0) {
@@ -262,26 +285,38 @@ function LiveGame() {
   }
 
   // Board cells
-  const board: BoardCell[][] = chess
+  const board: BoardCell[][] = useMemo(() => chess
     .board()
-    .map((row) => row.map((p) => (p ? { square: p.square, type: p.type, color: p.color } : null)));
-  const lastMove = optimistic
+    .map((row) => row.map((p) => (p ? { square: p.square, type: p.type, color: p.color } : null))), [chess]);
+  const lastMove = useMemo(() => optimistic
     ? { from: optimistic.from, to: optimistic.to }
     : moves.length
       ? (() => {
           const u = moves[moves.length - 1].uci;
           return { from: u.slice(0, 2), to: u.slice(2, 4) };
         })()
-      : null;
+      : null, [optimistic, moves]);
   const inCheck = chess.inCheck();
-  const checkSquare = inCheck
+  const checkSquare = useMemo(() => inCheck
     ? (chess
         .board()
         .flat()
         .find((p) => p && p.type === "k" && p.color === chess.turn())?.square ?? null)
-    : null;
+    : null, [inCheck, chess]);
 
-  async function handleSquare(sq: string) {
+  const endState = useMemo(() => {
+    if (optimistic?.isCheckmate) {
+      return { result: game?.turn === "w" ? "white" : "black", reason: "Checkmate" };
+    }
+    if (game?.status !== "finished") return null;
+    let result: "white" | "black" | "draw" = "draw";
+    if (game.result === "white" || game.result === "black") {
+      result = game.result as "white" | "black";
+    }
+    return { result, reason: game.end_reason?.replace(/_/g, " ") ?? "Finished" };
+  }, [game?.status, game?.result, game?.end_reason, game?.turn, optimistic?.isCheckmate]);
+
+  const handleSquare = useCallback(async (sq: string) => {
     if (!isMyTurn || promotion || submittingRef.current) return;
     const square = sq as Square;
     if (selected) {
@@ -313,7 +348,7 @@ function LiveGame() {
       setSelected(null);
       setTargets([]);
     }
-  }
+  }, [isMyTurn, promotion, selected, chess, settings.auto_queen, game, myColor]);
 
   async function commitMove(from: string, to: string, promo?: "q" | "r" | "b" | "n") {
     if (!game || !user || !myColor || submittingRef.current) return;
@@ -326,12 +361,12 @@ function LiveGame() {
       c.load(activeFen!);
       const mv = c.move({ from, to, promotion: promo });
       if (mv) {
-        setOptimistic({ fen: c.fen(), from, to });
+        setOptimistic({ fen: c.fen(), from, to, at: Date.now(), isCheckmate: c.isCheckmate() });
         buzz();
-        if (c.isCheckmate()) playGameSound("checkmate");
-        else if (c.inCheck()) playGameSound("check");
-        else if (mv.captured) playGameSound("capture");
-        else playGameSound("move");
+        soundForChessMove(mv, c);
+        if (c.isCheckmate()) {
+          setShowEndModal(true);
+        }
       }
     } catch {
       /* invalid locally — let the server be the judge */
@@ -384,6 +419,8 @@ function LiveGame() {
     try {
       const res = await respondDraw(id);
       if (res === "offered") toast.info("Draw offer sent to opponent.");
+      // The RPC's TS union omits "declined", but the server can still return it.
+      if ((res as string) === "declined") toast.error("Draw request declined.");
       // "accepted" → respond_draw finishes game + apply_elo_change; Realtime updates UI
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Draw action failed.");
@@ -408,6 +445,13 @@ function LiveGame() {
     });
   }
 
+  if (!game)
+    return (
+      <PageShell title="Loading throne…">
+        <div />
+      </PageShell>
+    );
+
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/game/${id}` : "";
   const opp =
     myColor === "w"
@@ -415,6 +459,7 @@ function LiveGame() {
           name: game.black_username ?? "Awaiting…",
           rating: game.black_rating,
           ms: blackMs,
+          lastMoveAt: activeTurn === "b" ? currentMoveAt : null,
           p_active: blackProfile?.premium_active,
           p_exp: blackProfile?.premium_expires_at,
           avatar: blackProfile?.avatar_url,
@@ -423,6 +468,7 @@ function LiveGame() {
           name: game.white_username ?? "Awaiting…",
           rating: game.white_rating,
           ms: whiteMs,
+          lastMoveAt: activeTurn === "w" ? currentMoveAt : null,
           p_active: whiteProfile?.premium_active,
           p_exp: whiteProfile?.premium_expires_at,
           avatar: whiteProfile?.avatar_url,
@@ -433,6 +479,7 @@ function LiveGame() {
           name: game.white_username ?? "You",
           rating: game.white_rating,
           ms: whiteMs,
+          lastMoveAt: activeTurn === "w" ? currentMoveAt : null,
           p_active: whiteProfile?.premium_active,
           p_exp: whiteProfile?.premium_expires_at,
           avatar: whiteProfile?.avatar_url,
@@ -441,11 +488,12 @@ function LiveGame() {
           name: game.black_username ?? "You",
           rating: game.black_rating,
           ms: blackMs,
+          lastMoveAt: activeTurn === "b" ? currentMoveAt : null,
           p_active: blackProfile?.premium_active,
           p_exp: blackProfile?.premium_expires_at,
           avatar: blackProfile?.avatar_url,
         }
-    : { name: "Spectator", rating: null, ms: 0, p_active: false, p_exp: null, avatar: null };
+    : { name: "Spectator", rating: null, ms: 0, lastMoveAt: null, p_active: false, p_exp: null, avatar: null };
 
   const isWaiting = game.status === "waiting";
   const isFinished = game.status === "finished";
@@ -453,30 +501,45 @@ function LiveGame() {
     isWaiting && !!user && (!game.white_id || !game.black_id) && game.host_id !== user.id;
   const isHostWaiting = isWaiting && user?.id === game.host_id;
   const drawFromMe = game.draw_offered_by === user?.id;
+  const drawFromOpponent = game.draw_offered_by && game.draw_offered_by !== user?.id;
 
   return (
     <PageShell>
+      {showEndModal && game.status === "finished" && (
+        <GameEndModal
+          result={
+            game.end_reason?.includes("resign")
+              ? "resigned"
+              : (game.result as GameEndResult)
+          }
+          reason={game.end_reason?.replace(/_/g, " ") ?? "Finished"}
+          onClose={() => setShowEndModal(false)}
+          gameId={id}
+        />
+      )}
       <div className="grid gap-6 lg:grid-cols-12">
         <div className="space-y-4 lg:col-span-3">
           <PlayerCard
             name={opp.name}
             rating={opp.rating}
-            ms={opp.ms}
+            baseMs={opp.ms}
+            lastMoveAt={opp.lastMoveAt}
             p_active={opp.p_active}
             p_exp={opp.p_exp}
             avatar={opp.avatar}
-            active={!isWaiting && game.turn !== myColor}
+            active={!isWaiting && activeTurn !== myColor}
             board={board}
             player={orientation === "w" ? "b" : "w"}
           />
           <PlayerCard
             name={me.name}
             rating={me.rating}
-            ms={me.ms}
+            baseMs={me.ms}
+            lastMoveAt={me.lastMoveAt}
             p_active={me.p_active}
             p_exp={me.p_exp}
             avatar={me.avatar}
-            active={!isWaiting && game.turn === myColor}
+            active={!isWaiting && activeTurn === myColor}
             board={board}
             player={orientation}
             me
@@ -577,6 +640,7 @@ function LiveGame() {
             checkSquare={checkSquare}
             onSquare={handleSquare}
             disabled={!isMyTurn || !!promotion || submittingRef.current}
+            endState={endState as { result: "white" | "black" | "draw"; reason: string } | null}
           />
           <div className="mt-3 flex justify-center">
             <button
@@ -599,9 +663,23 @@ function LiveGame() {
               />
             </div>
           )}
+          {drawFromOpponent && !isFinished && (
+            <div className="mt-4 flex flex-col items-center justify-center rounded-xl border border-gold/30 bg-gold/10 p-4 shadow-lg shadow-gold/5 animate-in fade-in slide-in-from-bottom-2">
+              <div className="flex items-center gap-2 font-display text-lg text-gold">
+                <Handshake className="h-5 w-5" /> Draw Request Received
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Your opponent has offered a draw.
+              </div>
+              <div className="mt-3 flex gap-3">
+                <GoldButton onClick={offerOrAcceptDraw}>Accept</GoldButton>
+                <GhostButton onClick={offerOrAcceptDraw} className="border border-white/10">Decline</GhostButton>
+              </div>
+            </div>
+          )}
           {!isWaiting && !isFinished && myColor && (
             <div className="mt-4 flex flex-wrap justify-center gap-2">
-              <GhostButton onClick={offerOrAcceptDraw} disabled={drawFromMe}>
+              <GhostButton onClick={offerOrAcceptDraw} disabled={!!(drawFromMe || drawFromOpponent)}>
                 <Handshake className="h-4 w-4" />
                 {game.draw_offered_by && !drawFromMe
                   ? "Accept Draw"
@@ -669,7 +747,8 @@ function LiveGame() {
 function PlayerCard({
   name,
   rating,
-  ms,
+  baseMs,
+  lastMoveAt,
   p_active,
   p_exp,
   avatar,
@@ -680,7 +759,8 @@ function PlayerCard({
 }: {
   name: string;
   rating: number | null;
-  ms: number;
+  baseMs: number;
+  lastMoveAt: number | null;
   p_active?: boolean;
   p_exp?: string | null;
   avatar?: string | null;
@@ -689,6 +769,15 @@ function PlayerCard({
   board: BoardCell[][];
   player: "w" | "b";
 }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!active || !lastMoveAt) return;
+    const t = setInterval(() => setNow(Date.now()), 100);
+    return () => clearInterval(t);
+  }, [active, lastMoveAt]);
+
+  const elapsed = active && lastMoveAt ? Math.max(0, now - lastMoveAt) : 0;
+  const currentMs = Math.max(0, baseMs - elapsed);
   return (
     <Card className={`p-4 ${active ? "ring-1 ring-gold/60" : ""}`}>
       <div className="flex items-center gap-3">
@@ -706,7 +795,7 @@ function PlayerCard({
         <div
           className={`rounded-lg px-3 py-1.5 font-mono text-sm tabular-nums ${active ? "bg-gold text-[#0B0D10]" : "bg-white/5"}`}
         >
-          {fmtClock(ms)}
+          {fmtClock(currentMs)}
         </div>
       </div>
     </Card>

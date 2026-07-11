@@ -6,8 +6,9 @@ import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Prim
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
 import { CapturedPieces } from "@/components/site/CapturedPieces";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
+import { GameEndModal, type GameEndResult } from "@/components/site/GameEndModal";
 import { useGameSettings } from "@/hooks/useGameSettings";
-import { playGameSound } from "@/lib/audio/sounds";
+import { playGameSound, soundForChessMove } from "@/lib/audio/sounds";
 import { buzz } from "@/lib/haptics";
 import { useAuth } from "@/hooks/useAuth";
 import { saveLocalGame } from "@/lib/api/gameClient";
@@ -43,6 +44,7 @@ function LocalPlay() {
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
   const [history, setHistory] = useState<string[]>([]);
   const [result, setResult] = useState<string | null>(null);
+  const [showEndModal, setShowEndModal] = useState(false);
   const [whiteTime, setWhiteTime] = useState(0);
   const [blackTime, setBlackTime] = useState(0);
 
@@ -91,6 +93,7 @@ function LocalPlay() {
     stopTimer();
     setResult(msg);
     setPhase("over");
+    setShowEndModal(true);
     if (!savedRef.current) {
       savedRef.current = true;
       persistGame(msg);
@@ -167,6 +170,7 @@ function LocalPlay() {
     setLastMove(null);
     setHistory([]);
     setResult(null);
+    setShowEndModal(false);
     setWhiteTime(tc.sec);
     setBlackTime(tc.sec);
     setPhase("playing");
@@ -239,12 +243,8 @@ function LocalPlay() {
     }
     if (g.isDraw() || g.isStalemate()) {
       playGameSound("draw");
-    } else if (g.inCheck()) {
-      playGameSound("check");
-    } else if (m.captured) {
-      playGameSound("capture");
     } else {
-      playGameSound("move");
+      soundForChessMove(m, g);
     }
 
     if (g.isDraw()) {
@@ -272,6 +272,14 @@ function LocalPlay() {
     );
   }, [boardState]);
 
+  const endState = useMemo(() => {
+    if (phase !== "over" || !result) return null;
+    let res: "white" | "black" | "draw" = "draw";
+    if (result.includes("White wins")) res = "white";
+    if (result.includes("Black wins")) res = "black";
+    return { result: res, reason: result };
+  }, [phase, result]);
+
   const turn = gameRef.current.turn();
 
   return (
@@ -280,6 +288,22 @@ function LocalPlay() {
       title="Two Player"
       subtitle="Both players on the same device — pass and play."
     >
+      {showEndModal && result && (
+        <GameEndModal
+          result={
+            result.toLowerCase().includes("resign")
+              ? "resigned"
+              : result.includes("White wins")
+                ? "white"
+                : result.includes("Black wins")
+                  ? "black"
+                  : "draw"
+          }
+          reason={result}
+          onClose={() => setShowEndModal(false)}
+          isLocal
+        />
+      )}
       {phase === "setup" && (
         <div className="mx-auto max-w-lg">
           <Card className="p-8">
@@ -386,6 +410,7 @@ function LocalPlay() {
                 checkSquare={checkSquare ?? undefined}
                 onSquare={handleSquare}
                 disabled={phase !== "playing" || !!promotion}
+                endState={endState}
               />
               {promotion && (
                 <PromotionPicker

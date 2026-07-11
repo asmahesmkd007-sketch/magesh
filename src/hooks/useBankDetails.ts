@@ -29,9 +29,10 @@ export function useBankDetails(userId?: string) {
     let isMounted = true;
 
     async function fetchDetails() {
+      if (!userId) return;
       try {
         const { data, error } = await supabase
-          .from("bank_accounts")
+          .from("bank_details")
           .select("*")
           .eq("user_id", userId)
           .single();
@@ -65,7 +66,7 @@ export function useBankDetails(userId?: string) {
     accountType: "savings" | "current";
   }) => {
     try {
-      const { data, error } = await supabase.rpc("save_bank_account", {
+      const { data, error } = await supabase.rpc("save_bank_details", {
         p_account_holder_name: params.accountHolderName,
         p_account_number: params.accountNumber,
         p_ifsc_code: params.ifscCode,
@@ -85,7 +86,7 @@ export function useBankDetails(userId?: string) {
       // Re-fetch the updated details to get the masked account number
       if (userId) {
         const { data: newData } = await supabase
-          .from("bank_accounts")
+          .from("bank_details")
           .select("*")
           .eq("user_id", userId)
           .single();

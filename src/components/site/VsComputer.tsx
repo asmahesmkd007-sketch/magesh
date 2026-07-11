@@ -8,7 +8,7 @@ import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveB
 import { CapturedPieces } from "@/components/site/CapturedPieces";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
 import { useGameSettings } from "@/hooks/useGameSettings";
-import { playGameSound } from "@/lib/audio/sounds";
+import { playGameSound, soundForChessMove } from "@/lib/audio/sounds";
 import { buzz } from "@/lib/haptics";
 import type { Move } from "chess.js";
 import {
@@ -42,9 +42,7 @@ const PIECE_VALUES: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 
 // Play the appropriate cue for a move (non-terminal positions only).
 function soundForMove(made: Move, game: Chess) {
   if (game.isCheckmate() || game.isGameOver()) return; // terminal cue handled at game end
-  if (game.inCheck()) playGameSound("check");
-  else if (made.captured) playGameSound("capture");
-  else playGameSound("move");
+  soundForChessMove(made, game);
 }
 
 export function VsComputer() {
@@ -117,7 +115,7 @@ export function VsComputer() {
     if (!move) return;
     const game = gameRef.current;
     try {
-      const made = game.move({ from: move.from, to: move.to, promotion: move.promotion ?? "q" });
+      const made = game.move({ from: move.from, to: move.to, promotion: move.promotion });
       setLastMove({ from: made.from, to: made.to });
       syncBoard();
       soundForMove(made, game);

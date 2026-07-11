@@ -82,7 +82,7 @@ function FollowListModal({
           data.map((u: CommunityUserLite) => (
             <div key={u.id} className="flex items-center gap-2.5 py-2">
               <Link to="/u/$username" params={{ username: u.username }} onClick={onClose}>
-                <UserAvatar avatarUrl={u.avatar_url} displayName={u.display_name} size="sm" />
+                <UserAvatar avatarUrl={u.avatar_url} displayName={u.full_name} size="sm" />
               </Link>
               <div className="min-w-0 flex-1">
                 <Link
@@ -91,7 +91,7 @@ function FollowListModal({
                   onClick={onClose}
                   className="block truncate text-xs font-medium hover:underline"
                 >
-                  {u.display_name}
+                  {u.full_name}
                 </Link>
                 <div className="truncate text-[11px] text-muted-foreground">@{u.username}</div>
               </div>
@@ -218,7 +218,7 @@ function PublicProfile() {
           <div className="-mt-10 flex items-end justify-between">
             <UserAvatar
               avatarUrl={profile.avatar_url}
-              displayName={profile.display_name}
+              displayName={profile.full_name}
               size="xl"
               className="border-4 border-[#0d0f13]"
               shape="rounded-2xl"
@@ -314,7 +314,7 @@ function PublicProfile() {
 
           <div className="mt-3">
             <div className="flex items-center gap-1.5">
-              <h1 className="text-xl font-medium">{profile.display_name}</h1>
+              <h1 className="text-xl font-medium">{profile.full_name}</h1>
               {profile.premium_tier && profile.premium_tier !== "free" && (
                 <BadgeCheck className="h-5 w-5 text-gold" aria-label="Premium" />
               )}

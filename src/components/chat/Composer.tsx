@@ -2,9 +2,10 @@
 // text-only (no attachments) per spec — emoji reactions live on the
 // message itself, not the composer.
 import { useRef, useState } from "react";
-import { Loader2, Send, X } from "lucide-react";
-import { useChatActions } from "@/hooks/useChat";
+import { Loader2, Send, SmilePlus, X } from "lucide-react";
+import { useChatActions, useTypingIndicator } from "@/hooks/useChat";
 import type { ChatMessage } from "@/lib/api/chatClient";
+import { EmojiPicker } from "./EmojiPicker";
 
 export function Composer({
   channelId,
@@ -18,8 +19,11 @@ export function Composer({
   disabledReason?: string | null;
 }) {
   const { send, user } = useChatActions();
+  const { sendTyping } = useTypingIndicator(channelId);
   const [text, setText] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const lastTypingSent = useRef(0);
 
   if (!user) {
     return (
@@ -48,7 +52,7 @@ export function Composer({
       {replyTo && (
         <div className="mb-2 flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-1.5 text-xs">
           <span className="truncate text-muted-foreground">
-            Replying to <span className="text-gold">{replyTo.author.display_name}</span>: {replyTo.content}
+            Replying to <span className="text-gold">{replyTo.author.full_name}</span>: {replyTo.content}
           </span>
           <button type="button" onClick={onClearReply} aria-label="Cancel reply">
             <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
@@ -61,10 +65,37 @@ export function Composer({
         </div>
       ) : (
         <div className="flex items-end gap-2">
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setPickerOpen((o) => !o)}
+              className="grid h-10 w-10 place-items-center rounded-xl text-muted-foreground hover:bg-white/[0.05] hover:text-gold"
+              aria-label="Emoji"
+            >
+              <SmilePlus className="h-4 w-4" />
+            </button>
+            {pickerOpen && (
+              <EmojiPicker
+                onPick={(emoji) => {
+                  setText((t) => t + emoji);
+                  setPickerOpen(false);
+                  inputRef.current?.focus();
+                }}
+                onClose={() => setPickerOpen(false)}
+              />
+            )}
+          </div>
           <textarea
             ref={inputRef}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              const now = Date.now();
+              if (user && now - lastTypingSent.current > 2000) {
+                lastTypingSent.current = now;
+                sendTyping((user.user_metadata?.full_name as string) || user.email || "Someone");
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();

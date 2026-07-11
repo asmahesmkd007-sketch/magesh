@@ -174,7 +174,7 @@ function CommentItem({
     <div className={depth > 0 ? "ml-4 border-l border-white/10 pl-3 sm:ml-6 sm:pl-4" : ""}>
       <div className="flex gap-2.5 py-2.5">
         <Link to="/u/$username" params={{ username: a?.username ?? "" }} className="shrink-0">
-          <UserAvatar avatarUrl={a?.avatar_url} displayName={a?.display_name} size="sm" />
+          <UserAvatar avatarUrl={a?.avatar_url} displayName={a?.full_name} size="sm" />
         </Link>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 text-xs">
@@ -183,7 +183,7 @@ function CommentItem({
               params={{ username: a?.username ?? "" }}
               className="font-medium hover:underline"
             >
-              {a?.display_name ?? "Unknown"}
+              {a?.full_name ?? "Unknown"}
             </Link>
             {a?.premium_tier && a.premium_tier !== "free" && (
               <BadgeCheck className="h-3.5 w-3.5 text-gold" />

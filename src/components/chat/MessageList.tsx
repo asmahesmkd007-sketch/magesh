@@ -109,7 +109,7 @@ export function MessageList({
         <div className="max-h-40 space-y-1 overflow-y-auto border-b border-white/10 bg-gold/[0.03] p-2">
           {pinned.map((m) => (
             <div key={m.id} className="rounded-lg px-2 py-1 text-xs">
-              <span className="text-gold">{m.author.display_name}:</span> {m.content}
+              <span className="text-gold">{m.author.full_name}:</span> {m.content}
             </div>
           ))}
         </div>

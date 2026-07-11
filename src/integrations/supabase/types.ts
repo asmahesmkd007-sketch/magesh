@@ -2262,12 +2262,12 @@ export type Database = {
           country_name: string | null
           created_at: string | null
           current_streak: number | null
-          display_name: string
+          full_name: string
           draws: number | null
           facebook_url: string | null
           followers_count: number
           following_count: number
-          full_name: string | null
+          full_name: string
           id: string
           instagram_url: string | null
           iq_level: number | null
@@ -2324,12 +2324,12 @@ export type Database = {
           country_name?: string | null
           created_at?: string | null
           current_streak?: number | null
-          display_name?: string
+          full_name?: string
           draws?: number | null
           facebook_url?: string | null
           followers_count?: number
           following_count?: number
-          full_name?: string | null
+          full_name?: string
           id: string
           instagram_url?: string | null
           iq_level?: number | null
@@ -2386,12 +2386,12 @@ export type Database = {
           country_name?: string | null
           created_at?: string | null
           current_streak?: number | null
-          display_name?: string
+          full_name?: string
           draws?: number | null
           facebook_url?: string | null
           followers_count?: number
           following_count?: number
-          full_name?: string | null
+          full_name?: string
           id?: string
           instagram_url?: string | null
           iq_level?: number | null

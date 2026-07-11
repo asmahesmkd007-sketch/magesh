@@ -24,7 +24,7 @@ function FriendsPage() {
     {
       id: string;
       username: string;
-      display_name: string | null;
+      full_name: string | null;
       avatar_url?: string | null;
       premium_active?: boolean;
       premium_expires_at?: string | null;
@@ -41,7 +41,7 @@ function FriendsPage() {
     setSearching(true);
     const { data } = await supabase
       .from("profiles")
-      .select("id,username,display_name,avatar_url,premium_active,premium_expires_at")
+      .select("id,username,full_name,avatar_url,premium_active,premium_expires_at")
       .ilike("username", `%${search.trim()}%`)
       .neq("id", user?.id ?? "")
       .limit(10);
@@ -49,7 +49,7 @@ function FriendsPage() {
       (data ?? []) as {
         id: string;
         username: string;
-        display_name: string | null;
+        full_name: string | null;
         avatar_url?: string | null;
         premium_active?: boolean;
         premium_expires_at?: string | null;
@@ -116,12 +116,12 @@ function FriendsPage() {
                 >
                   <UserAvatar
                     avatarUrl={p.avatar_url}
-                    displayName={p.display_name ?? p.username}
+                    displayName={p.full_name ?? p.username}
                     size="sm"
                   />
                   <div className="flex-1">
                     <div className="flex items-center">
-                      {p.display_name ?? p.username}
+                      {p.full_name ?? p.username}
                       <PremiumBadge
                         premiumActive={p.premium_active}
                         premiumExpiresAt={p.premium_expires_at}

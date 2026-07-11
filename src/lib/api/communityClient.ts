@@ -36,7 +36,7 @@ export type PostType =
 export type CommunityAuthor = {
   id: string;
   username: string;
-  display_name: string;
+  full_name: string;
   avatar_url: string | null;
   title: string | null;
   country: string | null;
@@ -92,7 +92,7 @@ export type CommunityComment = {
   created_at: string;
   author: Pick<
     CommunityAuthor,
-    "id" | "username" | "display_name" | "avatar_url" | "premium_tier" | "community_score"
+    "id" | "username" | "full_name" | "avatar_url" | "premium_tier" | "community_score"
   > | null;
   my_reaction: "like" | "dislike" | null;
 };
@@ -100,7 +100,7 @@ export type CommunityComment = {
 export type CommunityProfile = {
   id: string;
   username: string;
-  display_name: string;
+  full_name: string;
   bio: string | null;
   country: string | null;
   avatar_url: string | null;
@@ -130,7 +130,7 @@ export type CommunityProfile = {
 export type CommunityUserLite = {
   id: string;
   username: string;
-  display_name: string;
+  full_name: string;
   avatar_url: string | null;
   premium_tier: string | null;
   community_score: number;

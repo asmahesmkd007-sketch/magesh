@@ -9,8 +9,8 @@ export const Route = createFileRoute("/search")({
   component: Search,
 });
 
-type Profile = { id: string; username: string; display_name: string | null };
-type Club = { id: string; name: string; member_count: number | null };
+type Profile = { id: string; username: string; full_name: string | null };
+type Clan = { id: string; name: string; member_count: number | null };
 type Tournament = { id: string; name: string; format: string | null };
 type Article = {
   id: string;
@@ -24,7 +24,7 @@ function Search() {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [players, setPlayers] = useState<Profile[]>([]);
-  const [clubs, setClubs] = useState<Club[]>([]);
+  const [clans, setclans] = useState<Clan[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -33,7 +33,7 @@ function Search() {
     if (debounce.current) clearTimeout(debounce.current);
     if (!q.trim()) {
       setPlayers([]);
-      setClubs([]);
+      setclans([]);
       setTournaments([]);
       setArticles([]);
       return;
@@ -44,10 +44,10 @@ function Search() {
       const [{ data: p }, { data: c }, { data: t }, { data: a }] = await Promise.all([
         supabase
           .from("profiles")
-          .select("id,username,display_name")
-          .or(`username.ilike.${term},display_name.ilike.${term}`)
+          .select("id,username,full_name")
+          .or(`username.ilike.${term},full_name.ilike.${term}`)
           .limit(5),
-        supabase.from("clubs").select("id,name,member_count").ilike("name", term).limit(5),
+        supabase.from("clans").select("id,name,member_count").ilike("name", term).limit(5),
         supabase.from("tournaments").select("id,name,format").ilike("name", term).limit(5),
         supabase
           .from("news_articles")
@@ -56,7 +56,7 @@ function Search() {
           .limit(5),
       ]);
       setPlayers((p ?? []) as Profile[]);
-      setClubs((c ?? []) as Club[]);
+      setclans((c ?? []) as Clan[]);
       setTournaments((t ?? []) as Tournament[]);
       setArticles((a ?? []) as Article[]);
       setLoading(false);
@@ -66,7 +66,7 @@ function Search() {
     };
   }, [q]);
 
-  const hasResults = players.length + clubs.length + tournaments.length + articles.length > 0;
+  const hasResults = players.length + clans.length + tournaments.length + articles.length > 0;
 
   return (
     <PageShell eyebrow="Find" title="Search the Court">
@@ -77,7 +77,7 @@ function Search() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           className="flex-1 bg-transparent px-2 py-2 text-base outline-none"
-          placeholder="Players, clubs, tournaments, articles…"
+          placeholder="Players, clans, tournaments, articles…"
         />
         {loading && <Loader2 className="h-4 w-4 animate-spin text-gold" />}
         <span className="rounded-full bg-gold/10 px-2.5 py-1 text-xs text-gold">⌘K</span>
@@ -110,7 +110,7 @@ function Search() {
                         <User className="h-4 w-4" />
                       </span>
                       <div className="flex-1">
-                        <div>{p.display_name ?? p.username}</div>
+                        <div>{p.full_name ?? p.username}</div>
                         <div className="text-xs text-muted-foreground">@{p.username}</div>
                       </div>
                     </Link>
@@ -120,14 +120,14 @@ function Search() {
             </Card>
           )}
 
-          {clubs.length > 0 && (
+          {clans.length > 0 && (
             <Card className="p-6">
-              <SectionTitle kicker="Clubs" title="Communities" />
+              <SectionTitle kicker="clans" title="Communities" />
               <ul className="space-y-2">
-                {clubs.map((c) => (
+                {clans.map((c) => (
                   <li key={c.id}>
                     <Link
-                      to="/clubs"
+                      to="/clans"
                       className="flex items-center gap-3 rounded-lg border border-white/5 p-3 text-sm hover:border-gold/20"
                     >
                       <span className="grid h-9 w-9 place-items-center rounded-full bg-gold/10 text-gold">

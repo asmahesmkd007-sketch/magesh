@@ -10,6 +10,7 @@ import {
   upsertPuzzle,
   deletePuzzle,
   bulkImportPuzzles,
+  setPuzzleEnabled,
   type AdminPuzzle,
 } from "@/lib/api/adminClient";
 import { PUZZLES, DIFFICULTY_BANDS, difficultyOf } from "@/lib/chess/puzzles";
@@ -74,12 +75,22 @@ function PuzzlesAdmin() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setRows(await listPuzzles(search, category, range[0], range[1], 200));
+      setRows(await listPuzzles(search, category, range[0], range[1], 200, band));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load puzzles");
     }
     setLoading(false);
-  }, [search, category, range]);
+  }, [search, category, range, band]);
+
+  async function toggleEnabled(p: AdminPuzzle) {
+    try {
+      await setPuzzleEnabled(p.id, !p.enabled);
+      toast.success(p.enabled ? "Puzzle disabled" : "Puzzle enabled");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update status");
+    }
+  }
 
   useEffect(() => {
     load();
@@ -142,7 +153,7 @@ function PuzzlesAdmin() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search FEN…"
+            placeholder="Search FEN or Puzzle ID…"
             className="bg-transparent text-sm outline-none"
           />
         </div>
@@ -203,11 +214,25 @@ function PuzzlesAdmin() {
                     </span>
                     <span className="font-medium">{p.theme}</span>
                     <span className="text-xs text-muted-foreground">· {p.category}</span>
+                    {p.enabled === false && (
+                      <span className="rounded bg-rose-500/10 px-1.5 py-0.5 text-xs text-rose-400">
+                        Disabled
+                      </span>
+                    )}
+                  </div>
+                  <div className="truncate font-mono text-[10px] text-muted-foreground/60">
+                    {p.id}
                   </div>
                   <div className="truncate font-mono text-xs text-muted-foreground">{p.fen}</div>
                   <div className="text-xs text-muted-foreground/70">→ {p.moves}</div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => toggleEnabled(p)}
+                    className="flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1 text-xs hover:text-gold"
+                  >
+                    {p.enabled === false ? "Enable" : "Disable"}
+                  </button>
                   <button
                     onClick={() => setEditing({ ...p })}
                     className="flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1 text-xs hover:text-gold"

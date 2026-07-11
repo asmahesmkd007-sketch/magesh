@@ -22,6 +22,9 @@ const SORT_LABELS: Record<SortOption, string> = {
   matches_desc: "Most Matches",
   winrate_desc: "Highest Win Rate",
   active_desc: "Recently Active",
+  puzzle_desc: "Highest Puzzle Rating",
+  streak_desc: "Longest Win Streak",
+  score_desc: "Highest Comm. Score",
 };
 
 const RANK_STYLES = [
@@ -37,6 +40,8 @@ function LB() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("iq_desc");
+  const [timeframe, setTimeframe] = useState<'all_time' | 'today' | 'week' | 'month'>('all_time');
+  const [friendsOnly, setFriendsOnly] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Debounce free-text search so every keystroke doesn't refetch.
@@ -46,8 +51,8 @@ function LB() {
   }, [searchInput]);
 
   const filters = useMemo(
-    () => ({ country, state, district, search, sort }),
-    [country, state, district, search, sort],
+    () => ({ country, state, district, search, sort, timeframe, friendsOnly }),
+    [country, state, district, search, sort, timeframe, friendsOnly],
   );
   const { entries, total, page, pageCount, setPage, loading } = useLeaderboard(filters);
 
@@ -64,6 +69,31 @@ function LB() {
     setDistrict(null);
   }
 
+  let primaryLabel = "IQ Level";
+  let primaryValue = (e: any) => e.iq_level;
+  if (sort === "puzzle_desc") {
+    primaryLabel = "Puzzle Rating";
+    primaryValue = (e: any) => e.puzzle_rating;
+  } else if (sort === "rating_desc") {
+    primaryLabel = "Overall Rating";
+    primaryValue = (e: any) => e.overall_rating;
+  } else if (sort === "wins_desc") {
+    primaryLabel = "Wins";
+    primaryValue = (e: any) => e.wins;
+  } else if (sort === "matches_desc") {
+    primaryLabel = "Matches";
+    primaryValue = (e: any) => e.total_matches;
+  } else if (sort === "winrate_desc") {
+    primaryLabel = "Win Rate";
+    primaryValue = (e: any) => `${Number(e.win_rate).toFixed(1)}%`;
+  } else if (sort === "streak_desc") {
+    primaryLabel = "Win Streak";
+    primaryValue = (e: any) => e.win_streak;
+  } else if (sort === "score_desc") {
+    primaryLabel = "Comm. Score";
+    primaryValue = (e: any) => e.community_score;
+  }
+
   return (
     <PageShell
       eyebrow="Hall of Kings"
@@ -71,7 +101,7 @@ function LB() {
       subtitle="Where royalty is ranked, and legends are born."
     >
       {/* ── Filter bar ── */}
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
         <div className="relative lg:col-span-2">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -83,11 +113,32 @@ function LB() {
         </div>
 
         <select
+          value={timeframe}
+          onChange={(e) => setTimeframe(e.target.value as any)}
+          className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm outline-none focus:border-gold/40"
+        >
+          <option value="all_time">All Time</option>
+          <option value="today">Today</option>
+          <option value="week">This Week</option>
+          <option value="month">This Month</option>
+        </select>
+
+        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white/80 hover:border-gold/40">
+          <input 
+            type="checkbox" 
+            checked={friendsOnly} 
+            onChange={(e) => setFriendsOnly(e.target.checked)} 
+            className="rounded border-white/10 bg-white/5 text-gold focus:ring-gold focus:ring-offset-0"
+          />
+          Friends
+        </label>
+
+        <select
           value={country ?? "Global"}
           onChange={(e) => onCountryChange(e.target.value)}
           className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm outline-none focus:border-gold/40"
         >
-          <option value="Global">🌍 Global (All Players)</option>
+          <option value="Global">🌍 Global</option>
           {COUNTRIES.map((c) => (
             <option key={c} value={c}>
               {c}
@@ -161,8 +212,7 @@ function LB() {
                   <th className="px-4 py-3 text-left">Rank</th>
                   <th className="px-4 py-3 text-left">Player</th>
                   <th className="hidden px-4 py-3 text-left md:table-cell">Region</th>
-                  <th className="px-4 py-3 text-right">IQ Level</th>
-                  <th className="hidden px-4 py-3 text-right md:table-cell">Rating Pts</th>
+                  <th className="px-4 py-3 text-right">{primaryLabel}</th>
                   <th className="px-4 py-3 text-right">Profile</th>
                 </tr>
               </thead>
@@ -195,7 +245,7 @@ function LB() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="relative">
-                            <UserAvatar avatarUrl={e.avatar_url} displayName={e.display_name ?? e.username} size="sm" />
+                            <UserAvatar avatarUrl={e.avatar_url} displayName={e.full_name ?? e.username} size="sm" />
                             {e.is_online && (
                               <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full border-2 border-[#0B0D10] bg-green-500" />
                             )}
@@ -208,7 +258,7 @@ function LB() {
                               onClick={(ev) => ev.stopPropagation()}
                             >
                               {e.title && <span className="mr-1 font-bold text-red-500">{e.title}</span>}
-                              {e.display_name ?? e.username ?? "Unknown"}
+                              {e.full_name ?? e.username ?? "Unknown"}
                               <PremiumBadge
                                 premiumActive={e.premium_active}
                                 premiumExpiresAt={e.premium_expires_at}
@@ -223,10 +273,7 @@ function LB() {
                       <td className="hidden px-4 py-3 text-left text-muted-foreground md:table-cell">
                         {[e.district, e.state, e.country].filter(Boolean).join(", ") || "—"}
                       </td>
-                      <td className="px-4 py-3 text-right font-display text-gold">{e.iq_level}</td>
-                      <td className="hidden px-4 py-3 text-right text-muted-foreground md:table-cell">
-                        {e.community_score}
-                      </td>
+                      <td className="px-4 py-3 text-right font-display text-gold">{primaryValue(e)}</td>
                       <td className="px-4 py-3 text-right">
                         <button
                           className="rounded-full border border-white/10 px-3 py-1 text-xs text-muted-foreground hover:border-gold/40 hover:text-gold"
@@ -238,7 +285,7 @@ function LB() {
                     {expandedId === e.id && (
                       <tr className="bg-black/20">
                         <td colSpan={6} className="p-0">
-                          <div className="grid gap-4 border-b border-white/5 p-4 sm:grid-cols-2 lg:grid-cols-4">
+                          <div className="grid gap-4 border-b border-white/5 p-4 sm:grid-cols-2 lg:grid-cols-5">
                             <div className="space-y-1">
                               <p className="text-xs text-muted-foreground uppercase tracking-wider">Ratings</p>
                               <div className="flex justify-between text-sm"><span className="text-white/60">Rapid</span> <span className="font-medium text-white">{e.rapid_rating || "Unrated"}</span></div>
@@ -252,6 +299,18 @@ function LB() {
                               <div className="flex justify-between text-sm"><span className="text-white/60">Wins</span> <span className="font-medium text-green-400">{e.wins}</span></div>
                               <div className="flex justify-between text-sm"><span className="text-white/60">Losses</span> <span className="font-medium text-red-400">{e.losses}</span></div>
                               <div className="flex justify-between text-sm"><span className="text-white/60">Win Rate</span> <span className="font-medium text-gold">{Number(e.win_rate || 0).toFixed(1)}%</span></div>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground uppercase tracking-wider">Puzzles</p>
+                              <div className="flex justify-between text-sm"><span className="text-white/60">Rating</span> <span className="font-medium text-white">{e.puzzle_rating}</span></div>
+                              <div className="flex justify-between text-sm"><span className="text-white/60">Solved</span> <span className="font-medium text-white">{e.puzzle_solved}</span></div>
+                              <div className="flex justify-between text-sm"><span className="text-white/60">Win Streak</span> <span className="font-medium text-amber-400">{e.win_streak}</span></div>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground uppercase tracking-wider">Social</p>
+                              <div className="flex justify-between text-sm"><span className="text-white/60">Followers</span> <span className="font-medium text-white">{e.followers}</span></div>
+                              <div className="flex justify-between text-sm"><span className="text-white/60">Following</span> <span className="font-medium text-white">{e.following}</span></div>
+                              <div className="flex justify-between text-sm"><span className="text-white/60">Comm. Score</span> <span className="font-medium text-gold">{e.community_score}</span></div>
                             </div>
                             <div className="space-y-1">
                               <p className="text-xs text-muted-foreground uppercase tracking-wider">Progression</p>

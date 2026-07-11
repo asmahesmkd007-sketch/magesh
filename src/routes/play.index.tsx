@@ -146,74 +146,89 @@ function Play() {
       eyebrow="The Arena"
       title="Play Chess"
       subtitle="Choose your battlefield and begin your reign."
-    >
-      {/* Tab bar */}
-      <div className="mb-8 flex flex-wrap gap-2">
-        {(["modes", "quick", "bot", "settings"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`rounded-full border px-5 py-2 text-sm capitalize transition ${tab === t
-                ? "border-gold bg-gold/10 text-gold"
-                : "border-white/10 text-muted-foreground hover:border-gold/30"
-              }`}
+      action={
+        <div className="flex items-center gap-3">
+          <Link
+            to="/play/history"
+            className="flex items-center gap-2 rounded-full border border-white/10 px-5 py-2.5 text-sm text-muted-foreground transition hover:border-gold/30 hover:text-foreground"
           >
-            {t === "modes"
-              ? "Play Modes"
-              : t === "quick"
-                ? "Quick Match"
-                : t === "bot"
-                  ? "Vs Computer"
-                  : "Board Settings"}
+            <History className="h-4 w-4" />
+            Game History
+          </Link>
+          <button
+            onClick={() => setTab("settings")}
+            className="flex items-center gap-2 rounded-full border border-gold/30 bg-gold/5 px-5 py-2.5 text-sm text-gold transition hover:bg-gold/10 hover:text-gold"
+          >
+            Board Settings
           </button>
-        ))}
-        <Link
-          to="/room"
-          className="rounded-full border border-white/10 px-5 py-2 text-sm text-muted-foreground transition hover:border-gold/30 hover:text-foreground"
-        >
-          Public Room
-        </Link>
-      </div>
-
+        </div>
+      }
+    >
       {tab === "modes" && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {MODES.map((m) => {
+        <div className="mx-auto grid max-w-5xl gap-4 md:grid-cols-3">
+          {MODES.filter(m => m.id !== 'history').map((m, i) => {
+            const isWide = i === 0 || i === 3;
             const Icon = m.icon;
+            
             const inner = (
               <Card
-                className={`group relative flex h-full cursor-pointer flex-col overflow-hidden p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-gold/10 ${m.gold
-                    ? "border-gold/40 bg-gradient-to-b from-gold/10 to-background/50"
-                    : "border-white/5 bg-white/[0.02] hover:border-gold/30 hover:bg-gold/[0.02]"
-                  }`}
+                className={`group relative flex h-full cursor-pointer overflow-hidden p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-gold/10 ${m.gold
+                  ? "border-gold/40 bg-gradient-to-br from-gold/10 to-background/50"
+                  : "border-white/5 bg-white/[0.02] hover:border-gold/30 hover:bg-gold/[0.02]"
+                  } ${isWide ? "flex-col md:flex-row items-start md:items-center gap-6 md:gap-8" : "flex-col justify-between"}`}
               >
                 {/* Subtle glow effect on hover */}
-                <div className={`absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${m.gold ? "bg-gradient-to-tr from-gold/10 via-transparent to-transparent" : "bg-gradient-to-tr from-gold/5 via-transparent to-transparent"}`} />
+                <div className={`absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${m.gold ? "bg-gradient-to-tr from-gold/10 via-transparent to-transparent" : "bg-gradient-to-tr from-white/5 via-transparent to-transparent"}`} />
 
-                <span
-                  className={`relative z-10 grid h-14 w-14 place-items-center rounded-2xl shadow-lg transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${m.gold ? "gradient-gold text-background shadow-gold/20" : "bg-gradient-to-br from-white/10 to-white/5 text-gold shadow-black/50 border border-white/5"}`}
-                >
-                  <Icon className="h-7 w-7" />
-                </span>
+                {isWide ? (
+                  <>
+                    <span
+                      className={`relative z-10 flex shrink-0 items-center justify-center rounded-3xl shadow-lg transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${m.gold ? "h-20 w-20 md:h-24 md:w-24 gradient-gold text-background shadow-gold/20" : "h-16 w-16 md:h-20 md:w-20 bg-gradient-to-br from-white/10 to-white/5 text-gold shadow-black/50 border border-white/5"}`}
+                    >
+                      <Icon className={m.gold ? "h-10 w-10 md:h-12 md:w-12" : "h-8 w-8 md:h-10 md:w-10"} />
+                    </span>
+                    <div className="relative z-10 flex-1 w-full mt-4 md:mt-0">
+                      <div className={`font-display text-3xl md:text-4xl transition-colors ${m.gold ? "text-gold" : "group-hover:text-gold"}`}>{m.title}</div>
+                      <div className="mt-2 text-sm md:text-base text-muted-foreground">{m.sub}</div>
+                    </div>
+                    <div className="relative z-10 flex shrink-0 items-center gap-2 text-[10px] md:text-xs font-bold tracking-[0.2em] uppercase text-gold opacity-80 transition-all group-hover:opacity-100 group-hover:translate-x-1 mt-4 md:mt-0">
+                      {m.gold ? "Play now" : "Open"} <ChevronRight className="h-3 w-3 md:h-4 md:w-4" />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-start justify-between">
+                      <span
+                        className={`relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-lg transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${m.gold ? "gradient-gold text-background shadow-gold/20" : "bg-gradient-to-br from-white/10 to-white/5 text-gold shadow-black/50 border border-white/5"}`}
+                      >
+                        <Icon className="h-7 w-7" />
+                      </span>
+                      
+                      <div className="relative z-10 flex items-center gap-1.5 text-[10px] font-bold tracking-[0.2em] uppercase text-gold opacity-80 transition-all group-hover:opacity-100 group-hover:translate-x-1 mt-2">
+                        {m.gold ? "Play now" : "Open"} <ChevronRight className="h-3 w-3" />
+                      </div>
+                    </div>
 
-                <div className="relative z-10 mt-6">
-                  <div className={`font-display text-xl transition-colors ${m.gold ? "text-gold" : "group-hover:text-gold"}`}>{m.title}</div>
-                  <div className="mt-2 text-sm leading-relaxed text-muted-foreground">{m.sub}</div>
-                </div>
-
-                <div className="relative z-10 mt-auto pt-6 flex items-center gap-1.5 text-xs font-semibold tracking-widest uppercase text-gold opacity-80 transition-all group-hover:opacity-100">
-                  {m.gold ? "Play now" : "Open"} <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                </div>
+                    <div className="relative z-10 mt-12">
+                      <div className={`font-display text-3xl transition-colors ${m.gold ? "text-gold" : "group-hover:text-gold"}`}>{m.title}</div>
+                      <div className="mt-2 text-sm text-muted-foreground">{m.sub}</div>
+                    </div>
+                  </>
+                )}
               </Card>
             );
+
+            const wrapperClass = isWide ? "md:col-span-2" : "md:col-span-1";
+
             if (!m.href) {
               return (
-                <div key={m.id} onClick={() => setTab(m.tab ?? "bot")}>
+                <div key={m.id} className={wrapperClass} onClick={() => setTab(m.tab ?? "bot")}>
                   {inner}
                 </div>
               );
             }
             return (
-              <Link key={m.id} to={m.href}>
+              <Link key={m.id} to={m.href} className={wrapperClass}>
                 {inner}
               </Link>
             );
@@ -258,8 +273,8 @@ function Play() {
                     key={t}
                     onClick={() => setDraftBoard(t)}
                     className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm transition ${draftBoard === t
-                        ? "border-gold bg-gold/10 text-gold"
-                        : "border-white/10 hover:border-gold/30"
+                      ? "border-gold bg-gold/10 text-gold"
+                      : "border-white/10 hover:border-gold/30"
                       }`}
                   >
                     <span
@@ -289,8 +304,8 @@ function Play() {
                     key={t}
                     onClick={() => setDraftPiece(t)}
                     className={`flex flex-col items-center justify-center gap-3 rounded-xl border p-4 text-sm transition hover:-translate-y-0.5 hover:shadow-lg ${draftPiece === t
-                        ? "border-gold bg-gold/10 text-gold shadow-gold/10"
-                        : "border-white/10 bg-white/[0.02] text-muted-foreground hover:border-gold/30 hover:bg-gold/[0.02]"
+                      ? "border-gold bg-gold/10 text-gold shadow-gold/10"
+                      : "border-white/10 bg-white/[0.02] text-muted-foreground hover:border-gold/30 hover:bg-gold/[0.02]"
                       }`}
                   >
                     <span className="h-12 w-12 drop-shadow-md">

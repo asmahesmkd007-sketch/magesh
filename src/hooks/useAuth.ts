@@ -6,7 +6,7 @@ import { loadSettingsOnce } from "@/lib/settings/settings-sync";
 export type Profile = {
   id: string;
   username: string;
-  display_name: string;
+  full_name: string;
   bio: string | null;
   country: string | null;
   state: string | null;
@@ -63,8 +63,55 @@ export function useProfile(userId?: string | null) {
       .select("*")
       .eq("id", userId)
       .maybeSingle()
-      .then(({ data }) => {
-        setProfile(data as Profile | null);
+      .then(async ({ data }) => {
+        let prof = data as Profile | null;
+        
+        if (prof) {
+          // Shim for local dev if migration hasn't run yet
+          if (!(prof as any).full_name && (prof as any).display_name) {
+            prof.full_name = (prof as any).display_name;
+          }
+
+          let needsUpdate = false;
+          let newFullName = prof.full_name;
+          let newUsername = prof.username;
+
+          if (!newFullName || newFullName.toLowerCase().startsWith("player")) {
+            // Get email prefix if possible
+            const { data: userData } = await supabase.auth.getUser();
+            const email = userData.user?.email || "";
+            newFullName = email.split('@')[0] || "User";
+            needsUpdate = true;
+          }
+          
+          if (!newUsername || newUsername.toLowerCase().startsWith("player")) {
+            const { generateUsername } = await import("@/lib/utils/profile");
+            newUsername = generateUsername(newFullName);
+            needsUpdate = true;
+          }
+
+          if (needsUpdate) {
+            let { error } = await supabase
+              .from("profiles")
+              .update({ full_name: newFullName, username: newUsername })
+              .eq("id", userId);
+            
+            // Fallback for unmigrated local database
+            if (error && error.message.includes("full_name")) {
+              const fallback = await supabase
+                .from("profiles")
+                .update({ display_name: newFullName, username: newUsername } as any)
+                .eq("id", userId);
+              error = fallback.error;
+            }
+            
+            if (!error) {
+              prof = { ...prof, full_name: newFullName, username: newUsername };
+            }
+          }
+        }
+        
+        setProfile(prof);
         setLoading(false);
       });
   }, [userId]);

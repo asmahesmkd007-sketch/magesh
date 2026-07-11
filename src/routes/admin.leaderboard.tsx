@@ -19,7 +19,7 @@ export const Route = createFileRoute("/admin/leaderboard")({
 type Row = {
   id: string;
   username: string;
-  display_name: string;
+  full_name: string;
   country: string | null;
   state: string | null;
   iq_level: number;
@@ -43,7 +43,7 @@ function LeaderboardAdmin() {
     const t = setTimeout(() => {
       let query = (supabase as any)
         .from("profiles")
-        .select("id, username, display_name, country, state, iq_level, community_score, status, created_at", {
+        .select("id, username, full_name, country, state, iq_level, community_score, status, created_at", {
           count: "exact",
         })
         .order("iq_level", { ascending: false })
@@ -51,7 +51,7 @@ function LeaderboardAdmin() {
         .limit(PAGE_SIZE);
       if (search.trim()) {
         const q = search.trim().replace(/[%_]/g, "");
-        query = query.or(`display_name.ilike.%${q}%,username.ilike.%${q}%`);
+        query = query.or(`full_name.ilike.%${q}%,username.ilike.%${q}%`);
       }
       query.then(({ data, count }: { data: Row[] | null; count: number | null }) => {
         if (cancelled) return;
@@ -101,7 +101,7 @@ function LeaderboardAdmin() {
         [
           i + 1,
           r.username,
-          r.display_name,
+          r.full_name,
           r.country ?? "",
           r.state ?? "",
           r.iq_level,
@@ -172,7 +172,7 @@ function LeaderboardAdmin() {
                 <tr key={r.id} className="border-t border-white/5 hover:bg-white/[0.02]">
                   <td className="px-4 py-3 text-muted-foreground">{i + 1}</td>
                   <td className="px-4 py-3">
-                    <div className="font-medium">{r.display_name || r.username}</div>
+                    <div className="font-medium">{r.full_name || r.username}</div>
                     <div className="text-xs text-muted-foreground">@{r.username}</div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">

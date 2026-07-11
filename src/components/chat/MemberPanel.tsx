@@ -63,10 +63,10 @@ export function MemberPanel({ channel, onClose }: { channel: ChatChannel; onClos
           ) : (
             members.map((m) => (
               <div key={m.id} className="flex items-center gap-2.5 rounded-xl px-2 py-2 hover:bg-white/[0.03]">
-                <UserAvatar avatarUrl={m.avatar_url} displayName={m.display_name} size="sm" />
+                <UserAvatar avatarUrl={m.avatar_url} displayName={m.full_name} size="sm" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1 truncate text-sm">
-                    {m.display_name}
+                    {m.full_name}
                     {m.role === "owner" && <Crown className="h-3 w-3 text-gold" />}
                     {m.role === "moderator" && <Shield className="h-3 w-3 text-emerald" />}
                   </div>

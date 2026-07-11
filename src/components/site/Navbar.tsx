@@ -19,7 +19,7 @@ const NAV_AUTH = [
 const COMMUNITY_ITEMS = [
   { to: "/community", label: "Community" },
   { to: "/chat", label: "Chat" },
-  { to: "/clubs", label: "Club / Clan" },
+  { to: "/clans", label: "Clans" },
   { to: "/leaderboards", label: "Leaderboard" },
   { to: "/seasons", label: "Seasons" },
   { to: "/events", label: "Events", isComingSoon: true },
@@ -82,16 +82,11 @@ export function Navbar() {
           <img
             src="/chessox-icon.ico"
             alt="ChessOx"
-            className="h-10 w-10 rounded-xl shadow-gold-glow"
+            className="h-16 w-auto object-contain"
             draggable={false}
           />
-          <div>
-            <div className="font-display text-[1.65rem] leading-none text-gradient-gold">
-              ChessOx
-            </div>
-            <div className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
-              Royal Chess Platform
-            </div>
+          <div className="font-display text-[1.75rem] tracking-wide leading-none text-gradient-gold">
+            CHESS OX
           </div>
         </Link>
 
@@ -243,11 +238,11 @@ export function Navbar() {
               >
                 <UserAvatar
                   avatarUrl={profile?.avatar_url}
-                  displayName={profile?.display_name ?? user.email}
+                  displayName={profile?.full_name ?? user.email}
                   size="sm"
                 />
                 <span className="max-w-[100px] truncate text-foreground flex items-center">
-                  {profile?.username ?? user.email?.split("@")[0]}
+                  {profile?.full_name ?? user.email?.split("@")[0]}
                   <PremiumBadge
                     premiumActive={profile?.premium_active}
                     premiumExpiresAt={profile?.premium_expires_at}

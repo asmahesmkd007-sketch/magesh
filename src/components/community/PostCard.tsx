@@ -220,7 +220,7 @@ export function PostCard({ post, detail = false }: { post: CommunityPost; detail
           onClick={(e) => e.stopPropagation()}
           className="shrink-0"
         >
-          <UserAvatar avatarUrl={a?.avatar_url} displayName={a?.display_name} size="md" />
+          <UserAvatar avatarUrl={a?.avatar_url} displayName={a?.full_name} size="md" />
         </Link>
         <div className="min-w-0 flex-1" onClick={openDetail}>
           {/* header */}
@@ -231,7 +231,7 @@ export function PostCard({ post, detail = false }: { post: CommunityPost; detail
               onClick={(e) => e.stopPropagation()}
               className="truncate text-sm font-medium hover:underline"
             >
-              {a?.display_name ?? "Unknown"}
+              {a?.full_name ?? "Unknown"}
             </Link>
             {a?.premium_tier && a.premium_tier !== "free" && (
               <BadgeCheck className="h-4 w-4 shrink-0 text-gold" aria-label="Premium" />

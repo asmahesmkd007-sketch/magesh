@@ -123,7 +123,7 @@ function Settings() {
   const { profile, loading: pLoading, setProfile } = useProfile(user?.id);
   const { bankAccount, loading: bankLoading, saveBankDetails } = useBankDetails(user?.id);
   const [form, setForm] = useState({
-    display_name: "",
+    full_name: "",
     username: "",
     country: "India",
     state: "",
@@ -147,7 +147,7 @@ function Settings() {
   useEffect(() => {
     if (profile) {
       setForm({
-        display_name: profile.display_name,
+        full_name: profile.full_name,
         username: profile.username,
         country: profile.country ?? "India",
         state: profile.state ?? "",
@@ -261,7 +261,7 @@ function Settings() {
     const { error, data } = await (supabase as any)
       .from("profiles")
       .update({
-        display_name: form.display_name,
+        full_name: form.full_name,
         username: form.username,
         country: form.country,
         state: form.country === "India" ? form.state : "",
@@ -362,7 +362,7 @@ function Settings() {
                   <div className="relative">
                     <UserAvatar
                       avatarUrl={currentAvatarUrl}
-                      displayName={profile.display_name}
+                      displayName={profile.full_name}
                       size="xl"
                       shape="rounded-2xl"
                       className="ring-4 ring-background"
@@ -423,9 +423,9 @@ function Settings() {
 
               {/* ── Basic info ── */}
               <Field
-                label="Display Name"
-                value={form.display_name}
-                onChange={(v) => setForm({ ...form, display_name: v })}
+                label="Full Name"
+                value={form.full_name}
+                onChange={(v) => setForm({ ...form, full_name: v })}
                 placeholder="Your name shown publicly"
               />
               <Field

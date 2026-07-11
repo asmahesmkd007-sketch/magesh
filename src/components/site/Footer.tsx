@@ -80,14 +80,11 @@ export function Footer() {
             <img
               src="/chessox-icon.ico"
               alt="ChessOx Logo"
-              className="h-8 w-8 rounded-lg shadow-gold-glow"
+              className="h-14 w-auto object-contain"
               draggable={false}
             />
-            <div>
-              <div className="font-display text-2xl leading-none text-gradient-gold">ChessOx</div>
-              <div className="text-[9px] uppercase tracking-[0.26em] text-muted-foreground mt-0.5">
-                Birthplace of chess · reimagined
-              </div>
+            <div className="font-display text-3xl tracking-wide leading-none text-gradient-gold">
+              CHESS OX
             </div>
           </div>
 
@@ -141,7 +138,7 @@ export function Footer() {
             title: "World",
             links: [
               ["Community", "/community"],
-              ["Clubs", "/clubs"],
+              ["Clubs", "/clans"],
               ["News", "/news"],
               ["Settings", "/settings"],
             ],

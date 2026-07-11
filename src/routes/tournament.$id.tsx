@@ -560,7 +560,7 @@ function TournamentPage() {
                   {(e.profiles?.username ?? "P")[0].toUpperCase()}
                 </div>
                 <div className="text-[11px] truncate w-full text-center text-muted-foreground flex items-center justify-center">
-                  {e.profiles?.username ?? "Player"}
+                  {e.profiles?.username ?? "User"}
                   <PremiumBadge
                     premiumActive={e.profiles?.premium_active}
                     premiumExpiresAt={e.profiles?.premium_expires_at}
@@ -613,9 +613,9 @@ function TournamentPage() {
                     {ROUND_LABEL(ri + 1, totalRounds)}
                   </div>
                   {roundMatches.map((m) => {
-                    const p1 = m.player1_id ? (names[m.player1_id] ?? "Player") : "—";
+                    const p1 = m.player1_id ? (names[m.player1_id] ?? "User") : "—";
                     const p2 = m.player2_id
-                      ? (names[m.player2_id] ?? "Player")
+                      ? (names[m.player2_id] ?? "User")
                       : m.status === "bye"
                         ? "Bye"
                         : "TBD";
@@ -685,7 +685,7 @@ function TournamentPage() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {entries.map((e, i) => {
-                  const name = e.profiles?.username || "Player";
+                  const name = e.profiles?.username || "User";
                   const rank = e.rank ?? i + 1;
                   return (
                     <tr key={e.id} className={rank <= 3 ? "text-gold" : ""}>

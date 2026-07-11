@@ -48,7 +48,7 @@ REVOKE EXECUTE ON FUNCTION public.set_updated_at() FROM PUBLIC, anon, authentica
 CREATE TABLE IF NOT EXISTS public.profiles (
   id           UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   username     TEXT UNIQUE NOT NULL,
-  display_name TEXT NOT NULL,
+  full_name    TEXT NOT NULL,
   bio          TEXT DEFAULT '',
   country      TEXT DEFAULT 'India',
   avatar_url    TEXT,
@@ -89,6 +89,13 @@ DROP TRIGGER IF EXISTS trg_profiles_updated_at ON public.profiles;
 CREATE TRIGGER trg_profiles_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- Migrate full_name to full_name if necessary
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='profiles' AND column_name='full_name') THEN
+  END IF;
+END $$;
 
 -- =====================================================================
 -- SECTION 4: USER ROLES
@@ -352,65 +359,6 @@ CREATE TRIGGER trg_friends_updated_at
   BEFORE UPDATE ON public.friends
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
--- =====================================================================
--- SECTION 13: CLUBS
--- =====================================================================
-CREATE TABLE IF NOT EXISTS public.clubs (
-  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  slug           TEXT UNIQUE NOT NULL,
-  name           TEXT NOT NULL,
-  description    TEXT DEFAULT '',
-  banner_url     TEXT,
-  owner_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  member_count   INT NOT NULL DEFAULT 1,
-  is_public      BOOLEAN NOT NULL DEFAULT true,
-  cover_gradient TEXT,
-  created_by     UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-GRANT SELECT ON public.clubs TO anon, authenticated;
-GRANT INSERT, UPDATE ON public.clubs TO authenticated;
-GRANT ALL ON public.clubs TO service_role;
-ALTER TABLE public.clubs ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Public clubs viewable" ON public.clubs;
-CREATE POLICY "Public clubs viewable"
-  ON public.clubs FOR SELECT USING (is_public OR auth.uid() = owner_id);
-DROP POLICY IF EXISTS "Authenticated create clubs" ON public.clubs;
-CREATE POLICY "Authenticated create clubs"
-  ON public.clubs FOR INSERT WITH CHECK (auth.uid() = owner_id);
-DROP POLICY IF EXISTS "Owners update clubs" ON public.clubs;
-CREATE POLICY "Owners update clubs"
-  ON public.clubs FOR UPDATE USING (auth.uid() = owner_id);
-DROP TRIGGER IF EXISTS trg_clubs_updated_at ON public.clubs;
-CREATE TRIGGER trg_clubs_updated_at
-  BEFORE UPDATE ON public.clubs
-  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-
--- =====================================================================
--- SECTION 14: CLUB MEMBERS
--- =====================================================================
-CREATE TABLE IF NOT EXISTS public.club_members (
-  id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  club_id  UUID NOT NULL REFERENCES public.clubs(id) ON DELETE CASCADE,
-  user_id  UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  role     public.club_role NOT NULL DEFAULT 'member',
-  joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (club_id, user_id)
-);
-GRANT SELECT ON public.club_members TO anon, authenticated;
-GRANT INSERT, DELETE, UPDATE ON public.club_members TO authenticated;
-GRANT ALL ON public.club_members TO service_role;
-ALTER TABLE public.club_members ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Club members visible" ON public.club_members;
-CREATE POLICY "Club members visible"
-  ON public.club_members FOR SELECT USING (true);
-DROP POLICY IF EXISTS "Users join clubs" ON public.club_members;
-CREATE POLICY "Users join clubs"
-  ON public.club_members FOR INSERT WITH CHECK (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Users leave clubs" ON public.club_members;
-CREATE POLICY "Users leave clubs"
-  ON public.club_members FOR DELETE USING (auth.uid() = user_id);
 
 -- =====================================================================
 -- SECTION 15: TOURNAMENTS
@@ -614,32 +562,30 @@ CREATE POLICY "users read own rating history"
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-  v_username TEXT;
-  v_display  TEXT;
-  v_base     TEXT;
-  v_suffix   INT := 0;
+  v_username   TEXT;
+  v_full_name  TEXT;
+  v_base       TEXT;
+  v_base_clean TEXT;
 BEGIN
-  v_display := COALESCE(
-    NEW.raw_user_meta_data->>'display_name',
+  v_full_name := COALESCE(
+    NEW.raw_user_meta_data->>'full_name',
     NEW.raw_user_meta_data->>'full_name',
     NEW.raw_user_meta_data->>'name',
-    split_part(NEW.email, '@', 1),
-    'Player'
+    split_part(NEW.email, '@', 1)
   );
-  v_base := lower(regexp_replace(COALESCE(
-    NEW.raw_user_meta_data->>'username',
-    split_part(NEW.email, '@', 1),
-    'player'
-  ), '[^a-z0-9_]', '', 'g'));
-  IF length(v_base) < 3 THEN v_base := 'player' || substr(NEW.id::text, 1, 6); END IF;
+
+  v_base_clean := lower(regexp_replace(v_full_name, '[^a-zA-Z0-9]', '', 'g'));
+  IF length(v_base_clean) < 1 THEN v_base_clean := 'user'; END IF;
+
+  v_base := substr(v_base_clean, 1, 5) || '_' || substr(md5(random()::text), 1, 5);
   v_username := v_base;
+  
   WHILE EXISTS (SELECT 1 FROM public.profiles WHERE username = v_username) LOOP
-    v_suffix   := v_suffix + 1;
-    v_username := v_base || v_suffix::text;
+    v_username := substr(v_base_clean, 1, 5) || '_' || substr(md5(random()::text), 1, 5);
   END LOOP;
 
-  INSERT INTO public.profiles (id, username, display_name, avatar_url)
-  VALUES (NEW.id, v_username, v_display, NEW.raw_user_meta_data->>'avatar_url');
+  INSERT INTO public.profiles (id, username, full_name, avatar_url)
+  VALUES (NEW.id, v_username, v_full_name, NEW.raw_user_meta_data->>'avatar_url');
 
   INSERT INTO public.user_roles (user_id, role) VALUES (NEW.id, 'user');
 
@@ -818,7 +764,7 @@ BEGIN
   IF v_username IS NULL OR trim(v_username) = '' THEN
     v_username := 'Player_' || substr(v_uid::text, 1, 6);
     
-    INSERT INTO public.profiles (id, username, display_name)
+    INSERT INTO public.profiles (id, username, full_name)
     VALUES (v_uid, v_username, 'Player')
     ON CONFLICT (id) DO UPDATE SET 
       username = EXCLUDED.username
@@ -2380,7 +2326,7 @@ BEGIN
     SELECT id FROM auth.users 
     WHERE id NOT IN (SELECT id FROM public.profiles) 
   LOOP
-    INSERT INTO public.profiles (id, username, display_name)
+    INSERT INTO public.profiles (id, username, full_name)
     VALUES (r.id, 'Player_' || substr(r.id::text, 1, 6), 'Player')
     ON CONFLICT (id) DO NOTHING;
   END LOOP;
@@ -3116,7 +3062,7 @@ BEGIN
             'author', json_build_object(
                 'id', pr.id,
                 'username', pr.username,
-                'display_name', pr.display_name,
+                'full_name', pr.full_name,
                 'avatar_url', pr.avatar_url,
                 'title', pr.title,
                 'country', pr.country,
@@ -3565,7 +3511,579 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS premium_expires_at timestamp with time zone,
   ADD COLUMN IF NOT EXISTS community_score integer DEFAULT 0;
 
+
 -- 1. Create a view that joins all the player stats together by pivoting the ratings table
+
+CREATE TABLE IF NOT EXISTS public.user_puzzle_stats (
+  user_id               UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  completed_today       INT NOT NULL DEFAULT 0,
+  daily_reset_time      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  next_unlock_time      TIMESTAMPTZ,
+  current_streak        INT NOT NULL DEFAULT 0,
+  longest_streak        INT NOT NULL DEFAULT 0,
+  total_solved          INT NOT NULL DEFAULT 0,
+  total_failed          INT NOT NULL DEFAULT 0,
+  total_attempts        INT NOT NULL DEFAULT 0,
+  total_puzzle_rating   INT NOT NULL DEFAULT 0,
+  xp                    INT NOT NULL DEFAULT 0,
+  coins_earned          INT NOT NULL DEFAULT 0,
+  last_played_puzzle    UUID REFERENCES public.puzzles(id) ON DELETE SET NULL,
+  last_active           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.user_puzzle_stats ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE ON public.user_puzzle_stats TO authenticated;
+GRANT ALL ON public.user_puzzle_stats TO service_role;
+
+DROP POLICY IF EXISTS "Users can view own puzzle stats" ON public.user_puzzle_stats;
+CREATE POLICY "Users can view own puzzle stats" ON public.user_puzzle_stats FOR SELECT USING (auth.uid() = user_id);
+
+CREATE TABLE IF NOT EXISTS public.user_puzzle_progress (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id               UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  puzzle_id             UUID NOT NULL REFERENCES public.puzzles(id) ON DELETE CASCADE,
+  status                TEXT NOT NULL DEFAULT 'NOT_STARTED', -- NOT_STARTED, IN_PROGRESS, SOLVED, FAILED, SKIPPED
+  started_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  solved_at             TIMESTAMPTZ,
+  attempts              INT NOT NULL DEFAULT 0,
+  time_spent_ms         INT NOT NULL DEFAULT 0,
+  hint_used             BOOLEAN NOT NULL DEFAULT false,
+  wrong_moves_count     INT NOT NULL DEFAULT 0,
+  correct_move          TEXT,
+  completion_percentage INT NOT NULL DEFAULT 0,
+  last_viewed_time      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_move_played      TEXT,
+  rating_earned         INT NOT NULL DEFAULT 0,
+  xp_earned             INT NOT NULL DEFAULT 0,
+  board_fen             TEXT,
+  step_index            INT NOT NULL DEFAULT 0,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(user_id, puzzle_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_puzzle_prog_user ON public.user_puzzle_progress(user_id, status);
+
+ALTER TABLE public.user_puzzle_progress ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE ON public.user_puzzle_progress TO authenticated;
+GRANT ALL ON public.user_puzzle_progress TO service_role;
+
+DROP POLICY IF EXISTS "Users can view own puzzle progress" ON public.user_puzzle_progress;
+CREATE POLICY "Users can view own puzzle progress" ON public.user_puzzle_progress FOR SELECT USING (auth.uid() = user_id);
+
+-- RPC for fetching the daily puzzle
+DROP FUNCTION IF EXISTS public.get_daily_puzzle();
+CREATE OR REPLACE FUNCTION public.get_daily_puzzle()
+RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_stats public.user_puzzle_stats;
+  v_puzzle public.puzzles;
+  v_progress public.user_puzzle_progress;
+  v_now TIMESTAMPTZ := now();
+  v_limit INT := 3;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  -- Ensure stats exist
+  INSERT INTO public.user_puzzle_stats (user_id, daily_reset_time) 
+  VALUES (v_user_id, v_now) 
+  ON CONFLICT (user_id) DO NOTHING;
+
+  SELECT * INTO v_stats FROM public.user_puzzle_stats WHERE user_id = v_user_id FOR UPDATE;
+
+  -- Check daily reset
+  IF v_stats.daily_reset_time < v_now THEN
+    -- A new day has started, reset counts
+    UPDATE public.user_puzzle_stats 
+    SET completed_today = 0, 
+        next_unlock_time = NULL, 
+        daily_reset_time = v_now + interval '24 hours'
+    WHERE user_id = v_user_id
+    RETURNING * INTO v_stats;
+  END IF;
+
+  -- Lockout check
+  IF v_stats.completed_today >= v_limit THEN
+    -- If user already did 3 today, they are locked.
+    -- The next unlock is when daily_reset_time hits
+    RETURN json_build_object(
+      'locked', true,
+      'completed_today', v_stats.completed_today,
+      'remaining_today', 0,
+      'next_unlock_time', v_stats.daily_reset_time,
+      'stats', row_to_json(v_stats)
+    );
+  END IF;
+
+  -- Check for IN_PROGRESS puzzle
+  SELECT * INTO v_progress FROM public.user_puzzle_progress 
+  WHERE user_id = v_user_id AND status = 'IN_PROGRESS' 
+  ORDER BY last_viewed_time DESC LIMIT 1;
+
+  IF FOUND THEN
+    SELECT * INTO v_puzzle FROM public.puzzles WHERE id = v_progress.puzzle_id;
+    -- Update last_viewed
+    UPDATE public.user_puzzle_progress SET last_viewed_time = v_now WHERE id = v_progress.id;
+    RETURN json_build_object(
+      'locked', false,
+      'puzzle', row_to_json(v_puzzle),
+      'progress', row_to_json(v_progress),
+      'completed_today', v_stats.completed_today,
+      'remaining_today', v_limit - v_stats.completed_today,
+      'stats', row_to_json(v_stats)
+    );
+  END IF;
+
+  -- No IN_PROGRESS puzzle. Find a NEW puzzle the user hasn't seen
+  SELECT * INTO v_puzzle FROM public.puzzles p
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.user_puzzle_progress up WHERE up.puzzle_id = p.id AND up.user_id = v_user_id
+  )
+  ORDER BY random() LIMIT 1;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'No more puzzles available';
+  END IF;
+
+  -- Insert new progress record
+  INSERT INTO public.user_puzzle_progress (user_id, puzzle_id, status, board_fen)
+  VALUES (v_user_id, v_puzzle.id, 'IN_PROGRESS', v_puzzle.fen)
+  RETURNING * INTO v_progress;
+
+  RETURN json_build_object(
+    'locked', false,
+    'puzzle', row_to_json(v_puzzle),
+    'progress', row_to_json(v_progress),
+    'completed_today', v_stats.completed_today,
+    'remaining_today', v_limit - v_stats.completed_today,
+    'stats', row_to_json(v_stats)
+  );
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.get_daily_puzzle() TO authenticated;
+
+-- RPC for updating puzzle progress
+DROP FUNCTION IF EXISTS public.update_puzzle_progress(UUID, TEXT, INT, TEXT, INT, INT, BOOLEAN, TEXT);
+CREATE OR REPLACE FUNCTION public.update_puzzle_progress(
+  p_puzzle_id UUID,
+  p_status TEXT,
+  p_time_spent_ms INT,
+  p_board_fen TEXT,
+  p_step_index INT,
+  p_wrong_moves INT,
+  p_hint_used BOOLEAN,
+  p_last_move TEXT
+)
+RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_progress public.user_puzzle_progress;
+  v_stats public.user_puzzle_stats;
+  v_now TIMESTAMPTZ := now();
+  v_is_completion BOOLEAN := false;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  -- Ensure stats exist (should already be there from get_daily_puzzle)
+  SELECT * INTO v_stats FROM public.user_puzzle_stats WHERE user_id = v_user_id FOR UPDATE;
+
+  SELECT * INTO v_progress FROM public.user_puzzle_progress 
+  WHERE user_id = v_user_id AND puzzle_id = p_puzzle_id FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Progress record not found';
+  END IF;
+
+  -- If status changes to SOLVED, FAILED, or SKIPPED, handle completion logic
+  IF p_status IN ('SOLVED', 'FAILED', 'SKIPPED') AND v_progress.status = 'IN_PROGRESS' THEN
+    v_is_completion := true;
+  END IF;
+
+  UPDATE public.user_puzzle_progress
+  SET status = p_status,
+      time_spent_ms = p_time_spent_ms,
+      board_fen = p_board_fen,
+      step_index = p_step_index,
+      wrong_moves_count = p_wrong_moves,
+      hint_used = p_hint_used,
+      last_move_played = p_last_move,
+      last_viewed_time = v_now,
+      solved_at = CASE WHEN v_is_completion THEN v_now ELSE solved_at END,
+      updated_at = v_now
+  WHERE id = v_progress.id
+  RETURNING * INTO v_progress;
+
+  IF v_is_completion THEN
+    -- Update stats
+    UPDATE public.user_puzzle_stats
+    SET completed_today = completed_today + 1,
+        total_attempts = total_attempts + 1,
+        total_solved = CASE WHEN p_status = 'SOLVED' THEN total_solved + 1 ELSE total_solved END,
+        total_failed = CASE WHEN p_status = 'FAILED' THEN total_failed + 1 ELSE total_failed END,
+        current_streak = CASE WHEN p_status = 'SOLVED' THEN current_streak + 1 ELSE 0 END,
+        longest_streak = CASE WHEN (current_streak + 1) > longest_streak AND p_status = 'SOLVED' THEN current_streak + 1 ELSE longest_streak END,
+        last_played_puzzle = p_puzzle_id,
+        last_active = v_now
+    WHERE user_id = v_user_id
+    RETURNING * INTO v_stats;
+  END IF;
+
+  RETURN json_build_object(
+    'progress', row_to_json(v_progress),
+    'stats', row_to_json(v_stats)
+  );
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.update_puzzle_progress(UUID, TEXT, INT, TEXT, INT, INT, BOOLEAN, TEXT) TO authenticated;
+
+-- =====================================================================
+-- SECTION: PUZZLE LIBRARY EXPANSION (500+ puzzles, rotation, admin RPCs)
+-- Idempotent: folds in metadata columns + admin RPCs that previously only
+-- existed in the unmerged migrations_puzzles.sql draft. Safe to re-run.
+-- =====================================================================
+
+-- ── puzzles: additional metadata columns (additive, non-breaking) ──────
+ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'Tactics';
+ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS difficulty TEXT NOT NULL DEFAULT 'Intermediate';
+ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS explanation TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS slug TEXT;
+ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS alternative_lines JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS hints JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+CREATE INDEX IF NOT EXISTS idx_puzzles_goal ON public.puzzles(goal);
+CREATE INDEX IF NOT EXISTS idx_puzzles_category ON public.puzzles(category);
+CREATE INDEX IF NOT EXISTS idx_puzzles_enabled ON public.puzzles(enabled);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_puzzles_slug ON public.puzzles(slug) WHERE slug IS NOT NULL;
+
+-- Only expose enabled puzzles to normal clients; admins/service_role see all
+-- via SECURITY DEFINER RPCs, so the public read policy is narrowed here.
+DROP POLICY IF EXISTS "Puzzles public read" ON public.puzzles;
+CREATE POLICY "Puzzles public read"
+  ON public.puzzles FOR SELECT USING (enabled = true);
+
+-- ── user_puzzle_stats: puzzle ELO rating (default 100, matching the
+--    rating-default-100 convention used elsewhere in this schema) ──────
+ALTER TABLE public.user_puzzle_stats ADD COLUMN IF NOT EXISTS puzzle_rating INT NOT NULL DEFAULT 100;
+
+-- =====================================================================
+-- Daily rotation: 1st puzzle of the day = Mate in 1, 2nd = Mate in 2,
+-- 3rd = Mate in 3. Every 10th puzzle SOLVED overall (10th, 20th, 30th…)
+-- is a harder Mate in 5 special challenge instead of the normal rotation.
+-- Solved/failed/skipped puzzles never repeat for a user (enforced by the
+-- NOT EXISTS exclusion against user_puzzle_progress, unchanged below).
+-- =====================================================================
+CREATE OR REPLACE FUNCTION public.get_daily_puzzle()
+RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_stats public.user_puzzle_stats;
+  v_puzzle public.puzzles;
+  v_progress public.user_puzzle_progress;
+  v_now TIMESTAMPTZ := now();
+  v_limit INT := 3;
+  v_target_goal TEXT;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  INSERT INTO public.user_puzzle_stats (user_id, daily_reset_time)
+  VALUES (v_user_id, v_now)
+  ON CONFLICT (user_id) DO NOTHING;
+
+  SELECT * INTO v_stats FROM public.user_puzzle_stats WHERE user_id = v_user_id FOR UPDATE;
+
+  IF v_stats.daily_reset_time < v_now THEN
+    UPDATE public.user_puzzle_stats
+    SET completed_today = 0,
+        next_unlock_time = NULL,
+        daily_reset_time = v_now + interval '24 hours'
+    WHERE user_id = v_user_id
+    RETURNING * INTO v_stats;
+  END IF;
+
+  IF v_stats.completed_today >= v_limit THEN
+    RETURN json_build_object(
+      'locked', true,
+      'completed_today', v_stats.completed_today,
+      'remaining_today', 0,
+      'next_unlock_time', v_stats.daily_reset_time,
+      'stats', row_to_json(v_stats)
+    );
+  END IF;
+
+  SELECT * INTO v_progress FROM public.user_puzzle_progress
+  WHERE user_id = v_user_id AND status = 'IN_PROGRESS'
+  ORDER BY last_viewed_time DESC LIMIT 1;
+
+  IF FOUND THEN
+    SELECT * INTO v_puzzle FROM public.puzzles WHERE id = v_progress.puzzle_id;
+    UPDATE public.user_puzzle_progress SET last_viewed_time = v_now WHERE id = v_progress.id;
+    RETURN json_build_object(
+      'locked', false,
+      'puzzle', row_to_json(v_puzzle),
+      'progress', row_to_json(v_progress),
+      'completed_today', v_stats.completed_today,
+      'remaining_today', v_limit - v_stats.completed_today,
+      'stats', row_to_json(v_stats)
+    );
+  END IF;
+
+  -- Rotation rule: every 10th SOLVED puzzle overall is a Mate in 5 special;
+  -- otherwise slot 0/1/2 of the day maps to Mate in 1 / 2 / 3.
+  IF (v_stats.total_solved + 1) % 10 = 0 THEN
+    v_target_goal := 'Mate in 5';
+  ELSE
+    v_target_goal := CASE v_stats.completed_today
+      WHEN 0 THEN 'Mate in 1'
+      WHEN 1 THEN 'Mate in 2'
+      ELSE 'Mate in 3'
+    END;
+  END IF;
+
+  SELECT * INTO v_puzzle FROM public.puzzles p
+  WHERE p.enabled = true
+    AND p.goal = v_target_goal
+    AND NOT EXISTS (
+      SELECT 1 FROM public.user_puzzle_progress up WHERE up.puzzle_id = p.id AND up.user_id = v_user_id
+    )
+  ORDER BY random() LIMIT 1;
+
+  IF NOT FOUND THEN
+    -- Fallback: no unseen puzzle left in the target bucket, pick any unseen enabled puzzle.
+    SELECT * INTO v_puzzle FROM public.puzzles p
+    WHERE p.enabled = true
+      AND NOT EXISTS (
+        SELECT 1 FROM public.user_puzzle_progress up WHERE up.puzzle_id = p.id AND up.user_id = v_user_id
+      )
+    ORDER BY random() LIMIT 1;
+  END IF;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'No more puzzles available';
+  END IF;
+
+  INSERT INTO public.user_puzzle_progress (user_id, puzzle_id, status, board_fen)
+  VALUES (v_user_id, v_puzzle.id, 'IN_PROGRESS', v_puzzle.fen)
+  RETURNING * INTO v_progress;
+
+  RETURN json_build_object(
+    'locked', false,
+    'puzzle', row_to_json(v_puzzle),
+    'progress', row_to_json(v_progress),
+    'completed_today', v_stats.completed_today,
+    'remaining_today', v_limit - v_stats.completed_today,
+    'stats', row_to_json(v_stats)
+  );
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.get_daily_puzzle() TO authenticated;
+
+-- update_puzzle_progress: same signature, now also applies an ELO-style
+-- adjustment to the user's puzzle_rating (K=24) on SOLVED/FAILED completion.
+CREATE OR REPLACE FUNCTION public.update_puzzle_progress(
+  p_puzzle_id UUID,
+  p_status TEXT,
+  p_time_spent_ms INT,
+  p_board_fen TEXT,
+  p_step_index INT,
+  p_wrong_moves INT,
+  p_hint_used BOOLEAN,
+  p_last_move TEXT
+)
+RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_progress public.user_puzzle_progress;
+  v_stats public.user_puzzle_stats;
+  v_puzzle public.puzzles;
+  v_now TIMESTAMPTZ := now();
+  v_is_completion BOOLEAN := false;
+  v_k CONSTANT NUMERIC := 24;
+  v_expected NUMERIC;
+  v_score NUMERIC;
+  v_delta INT;
+  v_rating_earned INT := 0;
+  v_xp_earned INT := 0;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  SELECT * INTO v_stats FROM public.user_puzzle_stats WHERE user_id = v_user_id FOR UPDATE;
+
+  SELECT * INTO v_progress FROM public.user_puzzle_progress
+  WHERE user_id = v_user_id AND puzzle_id = p_puzzle_id FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Progress record not found';
+  END IF;
+
+  IF p_status IN ('SOLVED', 'FAILED', 'SKIPPED') AND v_progress.status = 'IN_PROGRESS' THEN
+    v_is_completion := true;
+  END IF;
+
+  IF v_is_completion AND p_status IN ('SOLVED', 'FAILED') THEN
+    SELECT * INTO v_puzzle FROM public.puzzles WHERE id = p_puzzle_id;
+    v_score := CASE WHEN p_status = 'SOLVED' THEN 1 ELSE 0 END;
+    v_expected := 1.0 / (1.0 + power(10, ((COALESCE(v_puzzle.rating, 1500) - v_stats.puzzle_rating)::NUMERIC / 400)));
+    v_delta := round(v_k * (v_score - v_expected));
+    -- Hints/wrong moves temper the reward on a solve without penalizing rating below 100.
+    IF p_status = 'SOLVED' AND NOT p_hint_used THEN v_delta := v_delta + 2; END IF;
+    v_rating_earned := v_delta;
+    v_xp_earned := CASE WHEN p_status = 'SOLVED' THEN GREATEST(5, 10 + v_delta) ELSE 2 END;
+  END IF;
+
+  UPDATE public.user_puzzle_progress
+  SET status = p_status,
+      time_spent_ms = p_time_spent_ms,
+      board_fen = p_board_fen,
+      step_index = p_step_index,
+      wrong_moves_count = p_wrong_moves,
+      hint_used = p_hint_used,
+      last_move_played = p_last_move,
+      last_viewed_time = v_now,
+      solved_at = CASE WHEN v_is_completion THEN v_now ELSE solved_at END,
+      rating_earned = CASE WHEN v_is_completion THEN v_rating_earned ELSE rating_earned END,
+      xp_earned = CASE WHEN v_is_completion THEN v_xp_earned ELSE xp_earned END,
+      completion_percentage = CASE WHEN p_status = 'SOLVED' THEN 100 ELSE completion_percentage END,
+      updated_at = v_now
+  WHERE id = v_progress.id
+  RETURNING * INTO v_progress;
+
+  IF v_is_completion THEN
+    UPDATE public.user_puzzle_stats
+    SET completed_today = completed_today + 1,
+        total_attempts = total_attempts + 1,
+        total_solved = CASE WHEN p_status = 'SOLVED' THEN total_solved + 1 ELSE total_solved END,
+        total_failed = CASE WHEN p_status = 'FAILED' THEN total_failed + 1 ELSE total_failed END,
+        current_streak = CASE WHEN p_status = 'SOLVED' THEN current_streak + 1 ELSE 0 END,
+        longest_streak = CASE WHEN (current_streak + 1) > longest_streak AND p_status = 'SOLVED' THEN current_streak + 1 ELSE longest_streak END,
+        total_puzzle_rating = total_puzzle_rating + v_rating_earned,
+        puzzle_rating = GREATEST(100, puzzle_rating + v_rating_earned),
+        xp = xp + v_xp_earned,
+        last_played_puzzle = p_puzzle_id,
+        last_active = v_now
+    WHERE user_id = v_user_id
+    RETURNING * INTO v_stats;
+  END IF;
+
+  RETURN json_build_object(
+    'progress', row_to_json(v_progress),
+    'stats', row_to_json(v_stats)
+  );
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.update_puzzle_progress(UUID, TEXT, INT, TEXT, INT, INT, BOOLEAN, TEXT) TO authenticated;
+
+-- ── Admin RPCs for /admin/puzzles (were referenced by src/lib/api/adminClient.ts
+--    but never defined anywhere — added here rather than a new migration file) ──
+CREATE OR REPLACE FUNCTION public.admin_upsert_puzzle(
+  p_id UUID,
+  p_fen TEXT,
+  p_moves TEXT,
+  p_rating INT,
+  p_theme TEXT,
+  p_category TEXT,
+  p_goal TEXT,
+  p_difficulty TEXT,
+  p_explanation TEXT,
+  p_themes TEXT[],
+  p_enabled BOOLEAN DEFAULT true
+)
+RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin only';
+  END IF;
+
+  IF p_id IS NULL THEN
+    INSERT INTO public.puzzles (fen, moves, rating, theme, category, goal, difficulty, explanation, themes, enabled)
+    VALUES (p_fen, p_moves, p_rating, p_theme, p_category, p_goal, p_difficulty, p_explanation, COALESCE(p_themes, '{}'), COALESCE(p_enabled, true))
+    RETURNING id INTO v_id;
+  ELSE
+    UPDATE public.puzzles
+    SET fen = p_fen, moves = p_moves, rating = p_rating, theme = p_theme, category = p_category,
+        goal = p_goal, difficulty = p_difficulty, explanation = p_explanation, themes = COALESCE(p_themes, '{}'),
+        enabled = COALESCE(p_enabled, enabled)
+    WHERE id = p_id
+    RETURNING id INTO v_id;
+  END IF;
+
+  RETURN v_id;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.admin_upsert_puzzle(UUID, TEXT, TEXT, INT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT[], BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_upsert_puzzle(UUID, TEXT, TEXT, INT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT[], BOOLEAN) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_set_puzzle_enabled(p_id UUID, p_enabled BOOLEAN)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin only';
+  END IF;
+  UPDATE public.puzzles SET enabled = p_enabled WHERE id = p_id;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.admin_set_puzzle_enabled(UUID, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_set_puzzle_enabled(UUID, BOOLEAN) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_delete_puzzle(p_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin only';
+  END IF;
+  DELETE FROM public.puzzles WHERE id = p_id;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.admin_delete_puzzle(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_delete_puzzle(UUID) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_bulk_import_puzzles(p_items JSONB)
+RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_item JSONB;
+  v_count INT := 0;
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin only';
+  END IF;
+
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    INSERT INTO public.puzzles (fen, moves, rating, theme, category, goal, difficulty, explanation, themes, enabled)
+    VALUES (
+      v_item->>'fen',
+      v_item->>'moves',
+      COALESCE((v_item->>'rating')::INT, 1500),
+      COALESCE(v_item->>'theme', 'Tactics'),
+      COALESCE(v_item->>'category', 'Tactics'),
+      COALESCE(v_item->>'goal', 'Best move'),
+      COALESCE(v_item->>'difficulty', 'Intermediate'),
+      COALESCE(v_item->>'explanation', ''),
+      CASE WHEN v_item ? 'themes' THEN ARRAY(SELECT jsonb_array_elements_text(v_item->'themes')) ELSE '{}' END,
+      COALESCE((v_item->>'enabled')::BOOLEAN, true)
+    );
+    v_count := v_count + 1;
+  END LOOP;
+
+  RETURN v_count;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.admin_bulk_import_puzzles(JSONB) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_bulk_import_puzzles(JSONB) TO authenticated, service_role;
+DROP VIEW IF EXISTS public.leaderboard_view CASCADE;
 CREATE OR REPLACE VIEW public.leaderboard_view AS
 WITH user_ratings AS (
   SELECT 
@@ -3583,7 +4101,7 @@ WITH user_ratings AS (
 SELECT 
     p.id,
     p.username,
-    p.display_name,
+    p.full_name,
     p.avatar_url,
     p.title,
     p.country,
@@ -3599,48 +4117,52 @@ SELECT
     r.blitz_rating,
     r.bullet_rating,
     r.classical_rating,
-    -- Determine the highest active rating
     GREATEST(
         COALESCE(r.rapid_rating, 0), 
         COALESCE(r.blitz_rating, 0), 
         COALESCE(r.bullet_rating, 0), 
         COALESCE(r.classical_rating, 0)
     )::integer as overall_rating,
-    -- Aggregate stats
     COALESCE(r.wins, 0)::integer as wins,
     COALESCE(r.losses, 0)::integer as losses,
     COALESCE(r.draws, 0)::integer as draws,
     (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0))::integer as total_matches,
-    -- Calculate win rate safely
     CASE 
         WHEN (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0)) > 0 
         THEN (COALESCE(r.wins, 0)::numeric / (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0))::numeric) * 100 
         ELSE 0 
     END::numeric as win_rate,
-    -- Calculate IQ and XP Level
     p.iq_rating as iq_level,
     (p.iq_rating * 10 + p.community_score * 5 + COALESCE(r.wins, 0) * 15)::integer as xp,
     (FLOOR(SQRT(p.iq_rating * 10 + p.community_score * 5 + COALESCE(r.wins, 0) * 15) / 10) + 1)::integer as level,
-    -- Count achievements
-    (SELECT COUNT(*) FROM public.community_achievements ca WHERE ca.user_id = p.id)::integer as achievements_count
+    (SELECT COUNT(*) FROM public.community_achievements ca WHERE ca.user_id = p.id)::integer as achievements_count,
+    COALESCE(pz.puzzle_rating, 100)::integer as puzzle_rating,
+    COALESCE(pz.total_solved, 0)::integer as puzzle_solved,
+    COALESCE(pz.current_streak, 0)::integer as win_streak,
+    (SELECT COUNT(*) FROM public.community_follows cf WHERE cf.following_id = p.id)::integer as followers,
+    (SELECT COUNT(*) FROM public.community_follows cf WHERE cf.follower_id = p.id)::integer as following
 FROM public.profiles p
-LEFT JOIN user_ratings r ON p.id = r.user_id;
+LEFT JOIN user_ratings r ON p.id = r.user_id
+LEFT JOIN public.user_puzzle_stats pz ON p.id = pz.user_id;
 
 -- 2. Create the RPC function that the frontend will call
 DROP FUNCTION IF EXISTS public.get_dynamic_leaderboard(text, text, text, text, text, integer, integer);
+DROP FUNCTION IF EXISTS public.get_dynamic_leaderboard(text, text, text, text, text, text, boolean, integer, integer);
 CREATE OR REPLACE FUNCTION public.get_dynamic_leaderboard(
     p_search text DEFAULT '',
     p_country text DEFAULT NULL,
     p_state text DEFAULT NULL,
     p_district text DEFAULT NULL,
     p_sort_col text DEFAULT 'iq_desc',
+    p_timeframe text DEFAULT 'all_time',
+    p_friends_only boolean DEFAULT false,
     p_limit integer DEFAULT 25,
     p_offset integer DEFAULT 0
 )
 RETURNS TABLE (
     id uuid,
     username text,
-    display_name text,
+    full_name text,
     avatar_url text,
     title text,
     country text,
@@ -3666,51 +4188,72 @@ RETURNS TABLE (
     xp integer,
     level integer,
     achievements_count integer,
+    puzzle_rating integer,
+    puzzle_solved integer,
+    win_streak integer,
+    followers integer,
+    following integer,
     total_count bigint
-) AS $$
+) AS $body$
+DECLARE
+  v_cutoff TIMESTAMPTZ;
 BEGIN
+    IF p_timeframe = 'today' THEN v_cutoff := date_trunc('day', now());
+    ELSIF p_timeframe = 'week' THEN v_cutoff := date_trunc('week', now());
+    ELSIF p_timeframe = 'month' THEN v_cutoff := date_trunc('month', now());
+    ELSE v_cutoff := '1970-01-01'::timestamptz;
+    END IF;
+
     RETURN QUERY
-    WITH filtered_players AS (
-        SELECT v.* 
+    WITH dynamic_stats AS (
+        SELECT 
+            u.id as user_id,
+            SUM(CASE WHEN g.winner_id = u.id THEN 1 ELSE 0 END)::integer as dyn_wins,
+            SUM(CASE WHEN g.result = 'draw' OR g.result = 'stalemate' THEN 1 ELSE 0 END)::integer as dyn_draws,
+            SUM(CASE WHEN g.winner_id IS NOT NULL AND g.winner_id != u.id THEN 1 ELSE 0 END)::integer as dyn_losses
+        FROM public.profiles u
+        LEFT JOIN public.games g ON (g.white_id = u.id OR g.black_id = u.id) AND g.created_at >= v_cutoff
+        WHERE p_timeframe != 'all_time'
+        GROUP BY u.id
+    ),
+    filtered_players AS (
+        SELECT 
+            v.id, v.username, v.full_name, v.avatar_url, v.title, v.country, v.state, v.district, 
+            v.created_at, v.is_online, v.last_seen, v.premium_active, v.premium_expires_at, 
+            v.community_score, v.rapid_rating, v.blitz_rating, v.bullet_rating, v.classical_rating, 
+            v.overall_rating, 
+            CASE WHEN p_timeframe = 'all_time' THEN v.wins ELSE COALESCE(d.dyn_wins, 0) END as wins,
+            CASE WHEN p_timeframe = 'all_time' THEN v.losses ELSE COALESCE(d.dyn_losses, 0) END as losses,
+            CASE WHEN p_timeframe = 'all_time' THEN v.draws ELSE COALESCE(d.dyn_draws, 0) END as draws,
+            CASE WHEN p_timeframe = 'all_time' THEN v.total_matches ELSE (COALESCE(d.dyn_wins, 0) + COALESCE(d.dyn_losses, 0) + COALESCE(d.dyn_draws, 0)) END as total_matches,
+            CASE 
+              WHEN p_timeframe = 'all_time' THEN v.win_rate 
+              ELSE 
+                CASE WHEN (COALESCE(d.dyn_wins, 0) + COALESCE(d.dyn_losses, 0) + COALESCE(d.dyn_draws, 0)) > 0 
+                THEN (COALESCE(d.dyn_wins, 0)::numeric / (COALESCE(d.dyn_wins, 0) + COALESCE(d.dyn_losses, 0) + COALESCE(d.dyn_draws, 0))::numeric) * 100 
+                ELSE 0 END 
+            END as win_rate,
+            v.iq_level, v.xp, v.level, v.achievements_count, 
+            v.puzzle_rating, v.puzzle_solved, v.win_streak, v.followers, v.following
         FROM public.leaderboard_view v
+        LEFT JOIN dynamic_stats d ON v.id = d.user_id
         WHERE 
-            (p_search = '' OR v.username ILIKE '%' || p_search || '%' OR v.display_name ILIKE '%' || p_search || '%')
+            (p_search = '' OR v.username ILIKE '%' || p_search || '%' OR v.full_name ILIKE '%' || p_search || '%')
             AND (p_country IS NULL OR v.country = p_country)
             AND (p_state IS NULL OR v.state = p_state)
             AND (p_district IS NULL OR v.district = p_district)
+            AND (p_friends_only = false OR EXISTS (SELECT 1 FROM public.community_follows cf WHERE cf.follower_id = auth.uid() AND cf.following_id = v.id))
     ),
     counted_players AS (
         SELECT COUNT(*) as exact_count FROM filtered_players
     )
     SELECT 
-        f.id,
-        f.username,
-        f.display_name,
-        f.avatar_url,
-        f.title,
-        f.country,
-        f.state,
-        f.district,
-        f.created_at,
-        f.is_online,
-        f.last_seen,
-        f.premium_active,
-        f.premium_expires_at,
-        f.community_score,
-        f.rapid_rating,
-        f.blitz_rating,
-        f.bullet_rating,
-        f.classical_rating,
-        f.overall_rating,
-        f.wins,
-        f.losses,
-        f.draws,
-        f.total_matches,
-        f.win_rate,
-        f.iq_level,
-        f.xp,
-        f.level,
-        f.achievements_count,
+        f.id, f.username, f.full_name, f.avatar_url, f.title, f.country, f.state, f.district,
+        f.created_at, f.is_online, f.last_seen, f.premium_active, f.premium_expires_at,
+        f.community_score, f.rapid_rating, f.blitz_rating, f.bullet_rating, f.classical_rating,
+        f.overall_rating, f.wins, f.losses, f.draws, f.total_matches, f.win_rate,
+        f.iq_level, f.xp, f.level, f.achievements_count,
+        f.puzzle_rating, f.puzzle_solved, f.win_streak, f.followers, f.following,
         c.exact_count as total_count
     FROM filtered_players f
     CROSS JOIN counted_players c
@@ -3723,11 +4266,14 @@ BEGIN
         CASE WHEN p_sort_col = 'wins_desc' THEN f.wins END DESC NULLS LAST,
         CASE WHEN p_sort_col = 'matches_desc' THEN f.total_matches END DESC NULLS LAST,
         CASE WHEN p_sort_col = 'winrate_desc' THEN f.win_rate END DESC NULLS LAST,
-        CASE WHEN p_sort_col = 'active_desc' THEN f.last_seen END DESC NULLS LAST
+        CASE WHEN p_sort_col = 'active_desc' THEN f.last_seen END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'puzzle_desc' THEN f.puzzle_rating END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'streak_desc' THEN f.win_streak END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'score_desc' THEN f.community_score END DESC NULLS LAST
     LIMIT p_limit
     OFFSET p_offset;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$body$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
 -- =====================================================================
@@ -3918,7 +4464,7 @@ END $$;
 CREATE OR REPLACE FUNCTION public._chat_user_lite(p_user_id UUID)
 RETURNS JSON LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT CASE WHEN p_user_id IS NULL THEN NULL ELSE json_build_object(
-    'id', p.id, 'username', p.username, 'display_name', p.display_name, 'avatar_url', p.avatar_url
+    'id', p.id, 'username', p.username, 'full_name', p.full_name, 'avatar_url', p.avatar_url
   ) END
   FROM public.profiles p WHERE p.id = p_user_id;
 $$;
@@ -4254,13 +4800,13 @@ GRANT EXECUTE ON FUNCTION public.chat_mark_read(UUID) TO authenticated, service_
 DROP FUNCTION IF EXISTS public.chat_channel_members(UUID);
 CREATE OR REPLACE FUNCTION public.chat_channel_members(p_channel UUID)
 RETURNS TABLE (
-  id UUID, username TEXT, display_name TEXT, avatar_url TEXT,
+  id UUID, username TEXT, full_name TEXT, avatar_url TEXT,
   premium_tier TEXT, role TEXT, muted_until TIMESTAMPTZ, joined_at TIMESTAMPTZ
 )
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   RETURN QUERY
-  SELECT p.id, p.username, p.display_name, p.avatar_url,
+  SELECT p.id, p.username, p.full_name, p.avatar_url,
     p.premium_tier::TEXT, m.role, m.muted_until, m.joined_at
   FROM public.chat_channel_members m
   JOIN public.profiles p ON p.id = m.user_id
@@ -4291,12 +4837,12 @@ BEGIN
     msg.id, msg.channel_id, msg.user_id, msg.content, msg.reply_to_id,
     msg.is_deleted, msg.is_pinned, msg.created_at,
     (SELECT json_build_object(
-       'id', p.id, 'username', p.username, 'display_name', p.display_name,
+       'id', p.id, 'username', p.username, 'full_name', p.full_name,
        'avatar_url', p.avatar_url, 'premium_tier', p.premium_tier
      ) FROM public.profiles p WHERE p.id = msg.user_id),
     (SELECT json_build_object(
        'id', rp.id, 'content', rp.content, 'user_id', rp.user_id,
-       'author_name', pr.display_name
+       'author_name', pr.full_name
      ) FROM public.chat_messages rp
      LEFT JOIN public.profiles pr ON pr.id = rp.user_id
      WHERE rp.id = msg.reply_to_id),
@@ -4520,3 +5066,1599 @@ BEGIN
 END; $$;
 REVOKE EXECUTE ON FUNCTION public.admin_resolve_chat_report(UUID, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_resolve_chat_report(UUID, TEXT) TO authenticated, service_role;
+
+-- =====================================================================
+-- CHAT SUBSYSTEM — ROOM SYSTEM UPGRADE
+-- ---------------------------------------------------------------------
+-- Adds: 14 permanent/system rooms (World Chat + 11 language General
+-- Chats + New Player Chat + a "coming soon" Location Chat), Public/
+-- Private room browsing with Room ID + search, password-protected
+-- private rooms (pgcrypto, server-side only — hash never leaves the
+-- DB), and richer chat_channel_row fields (room_code, icon,
+-- max_members, online_count, is_permanent, coming_soon,
+-- password_protected). Purely additive on top of the CHAT SUBSYSTEM
+-- section above; no existing object is dropped/renamed.
+-- =====================================================================
+
+-- ── 1. New columns on chat_channels ──────────────────────────────────
+ALTER TABLE public.chat_channels ADD COLUMN IF NOT EXISTS room_code TEXT;
+ALTER TABLE public.chat_channels ADD COLUMN IF NOT EXISTS is_permanent BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.chat_channels ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE public.chat_channels ADD COLUMN IF NOT EXISTS max_members INT;
+ALTER TABLE public.chat_channels ADD COLUMN IF NOT EXISTS icon TEXT DEFAULT '💬';
+ALTER TABLE public.chat_channels ADD COLUMN IF NOT EXISTS coming_soon BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.chat_channels ADD COLUMN IF NOT EXISTS sort_order INT NOT NULL DEFAULT 0;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_chat_channels_room_code') THEN
+    CREATE UNIQUE INDEX idx_chat_channels_room_code ON public.chat_channels(room_code) WHERE room_code IS NOT NULL;
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS idx_chat_channels_name_search ON public.chat_channels(name);
+CREATE INDEX IF NOT EXISTS idx_chat_channels_permanent ON public.chat_channels(is_permanent) WHERE is_permanent = true;
+
+-- ── 2. Seed the 13 permanent room-type channels ──────────────────────
+-- (World Chat is the pre-existing 'global' type channel, upgraded to
+-- permanent below — not duplicated here.)
+INSERT INTO public.chat_channels (type, slug, name, description, is_private, is_permanent, icon, sort_order)
+VALUES
+  ('room', 'general-en', 'General Chat (English)', 'General chat in English', false, true, '🇮🇳', 2),
+  ('room', 'general-ta', 'General Chat (Tamil)', 'General chat in Tamil', false, true, '🇮🇳', 3),
+  ('room', 'general-ml', 'General Chat (Malayalam)', 'General chat in Malayalam', false, true, '🇮🇳', 4),
+  ('room', 'general-te', 'General Chat (Telugu)', 'General chat in Telugu', false, true, '🇮🇳', 5),
+  ('room', 'general-kn', 'General Chat (Kannada)', 'General chat in Kannada', false, true, '🇮🇳', 6),
+  ('room', 'general-hi', 'General Chat (Hindi)', 'General chat in Hindi', false, true, '🇮🇳', 7),
+  ('room', 'general-mr', 'General Chat (Marathi)', 'General chat in Marathi', false, true, '🇮🇳', 8),
+  ('room', 'general-gu', 'General Chat (Gujarati)', 'General chat in Gujarati', false, true, '🇮🇳', 9),
+  ('room', 'general-bn', 'General Chat (Bengali)', 'General chat in Bengali', false, true, '🇮🇳', 10),
+  ('room', 'general-or', 'General Chat (Odia)', 'General chat in Odia', false, true, '🇮🇳', 11),
+  ('room', 'general-ur', 'General Chat (Urdu)', 'General chat in Urdu', false, true, '🇮🇳', 12),
+  ('room', 'new-player-chat', 'New Player Chat', 'Say hello — a welcoming room for new ChessOx players', false, true, '🆕', 13),
+  ('room', 'location-chat', 'Location Chat', 'Chat with players near you — coming soon', false, true, '📍', 14)
+ON CONFLICT (slug) DO NOTHING;
+
+UPDATE public.chat_channels SET coming_soon = true, is_permanent = true
+WHERE slug = 'location-chat' AND coming_soon = false;
+
+-- ── 3. Upgrade _chat_ensure_global to mark World Chat permanent ─────
+CREATE OR REPLACE FUNCTION public._chat_ensure_global(p_user UUID)
+RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+BEGIN
+  SELECT id INTO v_id FROM public.chat_channels WHERE type = 'global' AND slug = 'global' LIMIT 1;
+  IF v_id IS NULL THEN
+    INSERT INTO public.chat_channels (type, slug, name, description, is_private, is_permanent, icon, sort_order)
+    VALUES ('global', 'global', 'World Chat', 'Every ChessOx player, one room', false, true, '🌍', 1)
+    RETURNING id INTO v_id;
+  ELSE
+    UPDATE public.chat_channels
+    SET is_permanent = true, icon = COALESCE(icon, '🌍'), sort_order = 1
+    WHERE id = v_id AND (is_permanent = false OR icon IS NULL);
+  END IF;
+
+  IF p_user IS NOT NULL THEN
+    INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+    VALUES (v_id, p_user, 'member')
+    ON CONFLICT (channel_id, user_id) DO NOTHING;
+  END IF;
+
+  RETURN v_id;
+END; $$;
+
+-- ── 4. Extend chat_channel_row with the new display fields ──────────
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'public.chat_channel_row'::regclass AND attname = 'room_code') THEN
+    ALTER TYPE public.chat_channel_row ADD ATTRIBUTE room_code TEXT;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'public.chat_channel_row'::regclass AND attname = 'icon') THEN
+    ALTER TYPE public.chat_channel_row ADD ATTRIBUTE icon TEXT;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'public.chat_channel_row'::regclass AND attname = 'max_members') THEN
+    ALTER TYPE public.chat_channel_row ADD ATTRIBUTE max_members INT;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'public.chat_channel_row'::regclass AND attname = 'online_count') THEN
+    ALTER TYPE public.chat_channel_row ADD ATTRIBUTE online_count INT;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'public.chat_channel_row'::regclass AND attname = 'is_permanent') THEN
+    ALTER TYPE public.chat_channel_row ADD ATTRIBUTE is_permanent BOOLEAN;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'public.chat_channel_row'::regclass AND attname = 'coming_soon') THEN
+    ALTER TYPE public.chat_channel_row ADD ATTRIBUTE coming_soon BOOLEAN;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = 'public.chat_channel_row'::regclass AND attname = 'password_protected') THEN
+    ALTER TYPE public.chat_channel_row ADD ATTRIBUTE password_protected BOOLEAN;
+  END IF;
+END $$;
+
+-- Re-declare the row-builder so the SELECT list matches the now-wider
+-- type (new columns appended at the end, matching ALTER TYPE ADD
+-- ATTRIBUTE ordering above).
+CREATE OR REPLACE FUNCTION public._chat_channel_row(p_channel_id UUID, p_user UUID)
+RETURNS SETOF public.chat_channel_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    c.id, c.type, c.slug, c.name, c.description, c.is_private, c.owner_id,
+    (SELECT COUNT(*)::INT FROM public.chat_channel_members m WHERE m.channel_id = c.id),
+    c.created_at, c.updated_at,
+    (SELECT m.role FROM public.chat_channel_members m WHERE m.channel_id = c.id AND m.user_id = p_user),
+    EXISTS (SELECT 1 FROM public.chat_channel_members m WHERE m.channel_id = c.id AND m.user_id = p_user),
+    public._chat_user_lite(c.owner_id),
+    CASE WHEN c.type = 'dm' THEN
+      public._chat_user_lite(CASE WHEN c.dm_user_a = p_user THEN c.dm_user_b ELSE c.dm_user_a END)
+    ELSE NULL END,
+    (SELECT json_build_object('content', msg.content, 'created_at', msg.created_at, 'user_id', msg.user_id)
+       FROM public.chat_messages msg
+       WHERE msg.channel_id = c.id AND msg.is_deleted = false
+       ORDER BY msg.created_at DESC LIMIT 1),
+    (SELECT COUNT(*)::INT FROM public.chat_messages msg
+       JOIN public.chat_channel_members m ON m.channel_id = c.id AND m.user_id = p_user
+       WHERE msg.channel_id = c.id AND msg.is_deleted = false AND msg.created_at > m.last_read_at),
+    c.room_code, c.icon, c.max_members,
+    (SELECT COUNT(*)::INT FROM public.chat_channel_members m
+       WHERE m.channel_id = c.id AND m.last_read_at > now() - interval '5 minutes'),
+    c.is_permanent, c.coming_soon, (c.password_hash IS NOT NULL)
+  FROM public.chat_channels c
+  WHERE c.id = p_channel_id;
+END; $$;
+
+-- ── 5. Room code generator (ROOM-XXXXXXXX, guaranteed unique) ───────
+CREATE OR REPLACE FUNCTION public._chat_gen_room_code()
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  chars TEXT := '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  v_code TEXT;
+  i INT;
+BEGIN
+  LOOP
+    v_code := 'ROOM-';
+    FOR i IN 1..8 LOOP
+      v_code := v_code || substr(chars, floor(random() * length(chars))::int + 1, 1);
+    END LOOP;
+    EXIT WHEN NOT EXISTS (SELECT 1 FROM public.chat_channels WHERE room_code = v_code);
+  END LOOP;
+  RETURN v_code;
+END; $$;
+
+-- ── 6. Permanent rooms list (Global filter, Column 2) ────────────────
+-- Auto-joins the caller to every permanent room (per spec: "every
+-- registered user can join, everyone can read/send"), except the
+-- coming-soon Location Chat.
+DROP FUNCTION IF EXISTS public.chat_permanent_rooms();
+CREATE OR REPLACE FUNCTION public.chat_permanent_rooms()
+RETURNS SETOF public.chat_channel_row
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  PERFORM public._chat_ensure_global(auth.uid());
+  IF auth.uid() IS NOT NULL THEN
+    INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+    SELECT c.id, auth.uid(), 'member'
+    FROM public.chat_channels c
+    WHERE c.is_permanent = true AND c.type = 'room' AND c.coming_soon = false
+    ON CONFLICT (channel_id, user_id) DO NOTHING;
+  END IF;
+
+  RETURN QUERY
+  SELECT r.* FROM public.chat_channels c
+  CROSS JOIN LATERAL public._chat_channel_row(c.id, auth.uid()) r
+  WHERE c.is_permanent = true
+  ORDER BY c.sort_order ASC;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_permanent_rooms() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.chat_permanent_rooms() TO anon, authenticated, service_role;
+
+-- ── 7. Public / Private room discovery (search by name or Room ID) ──
+CREATE OR REPLACE FUNCTION public.chat_discover_rooms(p_search TEXT DEFAULT NULL, p_limit INT DEFAULT 30)
+RETURNS SETOF public.chat_channel_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY
+  SELECT r.* FROM public.chat_channels c
+  CROSS JOIN LATERAL public._chat_channel_row(c.id, auth.uid()) r
+  WHERE c.type = 'room' AND c.is_private = false AND c.is_permanent = false
+    AND (p_search IS NULL OR p_search = '' OR c.name ILIKE '%' || p_search || '%' OR c.room_code ILIKE '%' || p_search || '%')
+  ORDER BY r.member_count DESC, c.created_at DESC
+  LIMIT p_limit;
+END; $$;
+
+DROP FUNCTION IF EXISTS public.chat_discover_private_rooms(TEXT, INT);
+CREATE OR REPLACE FUNCTION public.chat_discover_private_rooms(p_search TEXT DEFAULT NULL, p_limit INT DEFAULT 30)
+RETURNS SETOF public.chat_channel_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  -- Metadata only (name/owner/counts/last message) — password_hash is
+  -- never selected into chat_channel_row, so it can never leak here.
+  RETURN QUERY
+  SELECT r.* FROM public.chat_channels c
+  CROSS JOIN LATERAL public._chat_channel_row(c.id, auth.uid()) r
+  WHERE c.type = 'room' AND c.is_private = true AND c.is_permanent = false
+    AND (p_search IS NULL OR p_search = '' OR c.name ILIKE '%' || p_search || '%' OR c.room_code ILIKE '%' || p_search || '%')
+  ORDER BY r.member_count DESC, c.created_at DESC
+  LIMIT p_limit;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_discover_private_rooms(TEXT, INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.chat_discover_private_rooms(TEXT, INT) TO anon, authenticated, service_role;
+
+-- ── 8. Create room — extended with icon / max members / password ────
+DROP FUNCTION IF EXISTS public.chat_create_room(TEXT, TEXT, BOOLEAN);
+CREATE OR REPLACE FUNCTION public.chat_create_room(
+  p_name TEXT, p_description TEXT, p_is_private BOOLEAN,
+  p_icon TEXT DEFAULT '💬', p_max_members INT DEFAULT NULL, p_password TEXT DEFAULT NULL
+)
+RETURNS public.chat_channel_row
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+  v_slug TEXT;
+  v_code TEXT;
+  v_row public.chat_channel_row;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+  IF p_name IS NULL OR trim(p_name) = '' THEN RAISE EXCEPTION 'Room name required'; END IF;
+  IF p_is_private AND (p_password IS NULL OR trim(p_password) = '') THEN
+    RAISE EXCEPTION 'Password required for private rooms';
+  END IF;
+
+  v_slug := lower(regexp_replace(trim(p_name), '[^a-zA-Z0-9]+', '-', 'g')) || '-' || substr(gen_random_uuid()::TEXT, 1, 6);
+  v_code := public._chat_gen_room_code();
+
+  INSERT INTO public.chat_channels (
+    type, slug, name, description, is_private, owner_id,
+    room_code, icon, max_members, password_hash
+  )
+  VALUES (
+    'room', v_slug, p_name, COALESCE(p_description, ''), COALESCE(p_is_private, false), auth.uid(),
+    v_code, COALESCE(NULLIF(trim(p_icon), ''), '💬'), p_max_members,
+    CASE WHEN p_is_private THEN crypt(p_password, gen_salt('bf')) ELSE NULL END
+  )
+  RETURNING id INTO v_id;
+
+  INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+  VALUES (v_id, auth.uid(), 'owner');
+
+  SELECT * INTO v_row FROM public._chat_channel_row(v_id, auth.uid());
+  RETURN v_row;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_create_room(TEXT, TEXT, BOOLEAN, TEXT, INT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_create_room(TEXT, TEXT, BOOLEAN, TEXT, INT, TEXT) TO authenticated, service_role;
+
+-- ── 9. Join a private room — Room ID + password, validated server-side
+-- only. The hash is compared inside this SECURITY DEFINER function and
+-- never returned to the client (chat_channel_row has no hash column).
+DROP FUNCTION IF EXISTS public.chat_join_private_room(TEXT, TEXT);
+CREATE OR REPLACE FUNCTION public.chat_join_private_room(p_room_code TEXT, p_password TEXT)
+RETURNS public.chat_channel_row
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+  v_hash TEXT;
+  v_max INT;
+  v_count INT;
+  v_row public.chat_channel_row;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+
+  SELECT id, password_hash, max_members INTO v_id, v_hash, v_max
+  FROM public.chat_channels
+  WHERE (room_code = p_room_code OR slug = p_room_code) AND type = 'room' AND is_private = true;
+
+  IF v_id IS NULL THEN RAISE EXCEPTION 'Room not found'; END IF;
+  IF v_hash IS NULL OR p_password IS NULL OR crypt(p_password, v_hash) != v_hash THEN
+    RAISE EXCEPTION 'Incorrect room ID or password';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.chat_channel_members WHERE channel_id = v_id AND user_id = auth.uid() AND is_banned = true) THEN
+    RAISE EXCEPTION 'You are banned from this room';
+  END IF;
+
+  IF v_max IS NOT NULL THEN
+    SELECT COUNT(*) INTO v_count FROM public.chat_channel_members WHERE channel_id = v_id;
+    IF v_count >= v_max AND NOT EXISTS (SELECT 1 FROM public.chat_channel_members WHERE channel_id = v_id AND user_id = auth.uid()) THEN
+      RAISE EXCEPTION 'This room is full';
+    END IF;
+  END IF;
+
+  INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+  VALUES (v_id, auth.uid(), 'member')
+  ON CONFLICT (channel_id, user_id) DO NOTHING;
+
+  SELECT * INTO v_row FROM public._chat_channel_row(v_id, auth.uid());
+  RETURN v_row;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_join_private_room(TEXT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_join_private_room(TEXT, TEXT) TO authenticated, service_role;
+
+-- ── 10. Protect permanent rooms from rename/delete ───────────────────
+CREATE OR REPLACE FUNCTION public.chat_update_room(p_channel UUID, p_name TEXT, p_description TEXT)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF public._chat_role(p_channel, auth.uid()) NOT IN ('owner', 'moderator') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.chat_channels WHERE id = p_channel AND is_permanent = true) THEN
+    RAISE EXCEPTION 'Permanent rooms cannot be renamed';
+  END IF;
+  UPDATE public.chat_channels
+  SET name = p_name, description = COALESCE(p_description, ''), updated_at = now()
+  WHERE id = p_channel AND type = 'room';
+END; $$;
+
+CREATE OR REPLACE FUNCTION public.chat_delete_room(p_channel UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.chat_channels WHERE id = p_channel AND is_permanent = true) THEN
+    RAISE EXCEPTION 'Permanent rooms cannot be deleted';
+  END IF;
+  IF public._chat_role(p_channel, auth.uid()) != 'owner' AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  DELETE FROM public.chat_channels WHERE id = p_channel AND type = 'room';
+END; $$;
+
+-- Also block joining a permanent room's public-join RPC as a no-op
+-- guard (they are auto-joined via chat_permanent_rooms already).
+CREATE OR REPLACE FUNCTION public.chat_join_room(p_channel UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.chat_channels WHERE id = p_channel AND type = 'room' AND is_private = false) THEN
+    RAISE EXCEPTION 'Room not found or private';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.chat_channel_members WHERE channel_id = p_channel AND user_id = auth.uid() AND is_banned = true) THEN
+    RAISE EXCEPTION 'You are banned from this room';
+  END IF;
+  INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+  VALUES (p_channel, auth.uid(), 'member')
+  ON CONFLICT (channel_id, user_id) DO NOTHING;
+END; $$;
+-- =====================================================================
+-- SECTION: PUZZLE PROGRESS AND DAILY LIMITS
+-- =====================================================================
+-- =====================================================================
+-- 1. Create a view that joins all the player stats together by pivoting the ratings table
+DROP VIEW IF EXISTS public.leaderboard_view CASCADE;
+CREATE OR REPLACE VIEW public.leaderboard_view AS
+WITH user_ratings AS (
+  SELECT 
+    user_id,
+    MAX(CASE WHEN time_class = 'rapid' THEN rating END) as rapid_rating,
+    MAX(CASE WHEN time_class = 'blitz' THEN rating END) as blitz_rating,
+    MAX(CASE WHEN time_class = 'bullet' THEN rating END) as bullet_rating,
+    MAX(CASE WHEN time_class = 'classical' THEN rating END) as classical_rating,
+    SUM(wins) as wins,
+    SUM(losses) as losses,
+    SUM(draws) as draws
+  FROM public.ratings
+  GROUP BY user_id
+)
+SELECT 
+    p.id,
+    p.username,
+    p.full_name,
+    p.avatar_url,
+    p.title,
+    p.country,
+    p.state,
+    p.district,
+    p.created_at,
+    p.is_online,
+    p.last_seen,
+    p.premium_active,
+    p.premium_expires_at,
+    p.community_score,
+    r.rapid_rating,
+    r.blitz_rating,
+    r.bullet_rating,
+    r.classical_rating,
+    GREATEST(
+        COALESCE(r.rapid_rating, 0), 
+        COALESCE(r.blitz_rating, 0), 
+        COALESCE(r.bullet_rating, 0), 
+        COALESCE(r.classical_rating, 0)
+    )::integer as overall_rating,
+    COALESCE(r.wins, 0)::integer as wins,
+    COALESCE(r.losses, 0)::integer as losses,
+    COALESCE(r.draws, 0)::integer as draws,
+    (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0))::integer as total_matches,
+    CASE 
+        WHEN (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0)) > 0 
+        THEN (COALESCE(r.wins, 0)::numeric / (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0))::numeric) * 100 
+        ELSE 0 
+    END::numeric as win_rate,
+    p.iq_rating as iq_level,
+    (p.iq_rating * 10 + p.community_score * 5 + COALESCE(r.wins, 0) * 15)::integer as xp,
+    (FLOOR(SQRT(p.iq_rating * 10 + p.community_score * 5 + COALESCE(r.wins, 0) * 15) / 10) + 1)::integer as level,
+    (SELECT COUNT(*) FROM public.community_achievements ca WHERE ca.user_id = p.id)::integer as achievements_count,
+    COALESCE(pz.puzzle_rating, 100)::integer as puzzle_rating,
+    COALESCE(pz.total_solved, 0)::integer as puzzle_solved,
+    COALESCE(pz.current_streak, 0)::integer as win_streak,
+    (SELECT COUNT(*) FROM public.community_follows cf WHERE cf.following_id = p.id)::integer as followers,
+    (SELECT COUNT(*) FROM public.community_follows cf WHERE cf.follower_id = p.id)::integer as following
+FROM public.profiles p
+LEFT JOIN user_ratings r ON p.id = r.user_id
+LEFT JOIN public.user_puzzle_stats pz ON p.id = pz.user_id;
+
+-- 2. Create the RPC function that the frontend will call
+DROP FUNCTION IF EXISTS public.get_dynamic_leaderboard(text, text, text, text, text, integer, integer);
+DROP FUNCTION IF EXISTS public.get_dynamic_leaderboard(text, text, text, text, text, text, boolean, integer, integer);
+CREATE OR REPLACE FUNCTION public.get_dynamic_leaderboard(
+    p_search text DEFAULT '',
+    p_country text DEFAULT NULL,
+    p_state text DEFAULT NULL,
+    p_district text DEFAULT NULL,
+    p_sort_col text DEFAULT 'iq_desc',
+    p_timeframe text DEFAULT 'all_time',
+    p_friends_only boolean DEFAULT false,
+    p_limit integer DEFAULT 25,
+    p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+    id uuid,
+    username text,
+    full_name text,
+    avatar_url text,
+    title text,
+    country text,
+    state text,
+    district text,
+    created_at timestamp with time zone,
+    is_online boolean,
+    last_seen timestamp with time zone,
+    premium_active boolean,
+    premium_expires_at timestamp with time zone,
+    community_score integer,
+    rapid_rating integer,
+    blitz_rating integer,
+    bullet_rating integer,
+    classical_rating integer,
+    overall_rating integer,
+    wins integer,
+    losses integer,
+    draws integer,
+    total_matches integer,
+    win_rate numeric,
+    iq_level integer,
+    xp integer,
+    level integer,
+    achievements_count integer,
+    puzzle_rating integer,
+    puzzle_solved integer,
+    win_streak integer,
+    followers integer,
+    following integer,
+    total_count bigint
+) AS $body$
+DECLARE
+  v_cutoff TIMESTAMPTZ;
+BEGIN
+    IF p_timeframe = 'today' THEN v_cutoff := date_trunc('day', now());
+    ELSIF p_timeframe = 'week' THEN v_cutoff := date_trunc('week', now());
+    ELSIF p_timeframe = 'month' THEN v_cutoff := date_trunc('month', now());
+    ELSE v_cutoff := '1970-01-01'::timestamptz;
+    END IF;
+
+    RETURN QUERY
+    WITH dynamic_stats AS (
+        SELECT 
+            u.id as user_id,
+            SUM(CASE WHEN g.winner_id = u.id THEN 1 ELSE 0 END)::integer as dyn_wins,
+            SUM(CASE WHEN g.result = 'draw' OR g.result = 'stalemate' THEN 1 ELSE 0 END)::integer as dyn_draws,
+            SUM(CASE WHEN g.winner_id IS NOT NULL AND g.winner_id != u.id THEN 1 ELSE 0 END)::integer as dyn_losses
+        FROM public.profiles u
+        LEFT JOIN public.games g ON (g.white_id = u.id OR g.black_id = u.id) AND g.created_at >= v_cutoff
+        WHERE p_timeframe != 'all_time'
+        GROUP BY u.id
+    ),
+    filtered_players AS (
+        SELECT 
+            v.id, v.username, v.full_name, v.avatar_url, v.title, v.country, v.state, v.district, 
+            v.created_at, v.is_online, v.last_seen, v.premium_active, v.premium_expires_at, 
+            v.community_score, v.rapid_rating, v.blitz_rating, v.bullet_rating, v.classical_rating, 
+            v.overall_rating, 
+            CASE WHEN p_timeframe = 'all_time' THEN v.wins ELSE COALESCE(d.dyn_wins, 0) END as wins,
+            CASE WHEN p_timeframe = 'all_time' THEN v.losses ELSE COALESCE(d.dyn_losses, 0) END as losses,
+            CASE WHEN p_timeframe = 'all_time' THEN v.draws ELSE COALESCE(d.dyn_draws, 0) END as draws,
+            CASE WHEN p_timeframe = 'all_time' THEN v.total_matches ELSE (COALESCE(d.dyn_wins, 0) + COALESCE(d.dyn_losses, 0) + COALESCE(d.dyn_draws, 0)) END as total_matches,
+            CASE 
+              WHEN p_timeframe = 'all_time' THEN v.win_rate 
+              ELSE 
+                CASE WHEN (COALESCE(d.dyn_wins, 0) + COALESCE(d.dyn_losses, 0) + COALESCE(d.dyn_draws, 0)) > 0 
+                THEN (COALESCE(d.dyn_wins, 0)::numeric / (COALESCE(d.dyn_wins, 0) + COALESCE(d.dyn_losses, 0) + COALESCE(d.dyn_draws, 0))::numeric) * 100 
+                ELSE 0 END 
+            END as win_rate,
+            v.iq_level, v.xp, v.level, v.achievements_count, 
+            v.puzzle_rating, v.puzzle_solved, v.win_streak, v.followers, v.following
+        FROM public.leaderboard_view v
+        LEFT JOIN dynamic_stats d ON v.id = d.user_id
+        WHERE 
+            (p_search = '' OR v.username ILIKE '%' || p_search || '%' OR v.full_name ILIKE '%' || p_search || '%')
+            AND (p_country IS NULL OR v.country = p_country)
+            AND (p_state IS NULL OR v.state = p_state)
+            AND (p_district IS NULL OR v.district = p_district)
+            AND (p_friends_only = false OR EXISTS (SELECT 1 FROM public.community_follows cf WHERE cf.follower_id = auth.uid() AND cf.following_id = v.id))
+    ),
+    counted_players AS (
+        SELECT COUNT(*) as exact_count FROM filtered_players
+    )
+    SELECT 
+        f.id, f.username, f.full_name, f.avatar_url, f.title, f.country, f.state, f.district,
+        f.created_at, f.is_online, f.last_seen, f.premium_active, f.premium_expires_at,
+        f.community_score, f.rapid_rating, f.blitz_rating, f.bullet_rating, f.classical_rating,
+        f.overall_rating, f.wins, f.losses, f.draws, f.total_matches, f.win_rate,
+        f.iq_level, f.xp, f.level, f.achievements_count,
+        f.puzzle_rating, f.puzzle_solved, f.win_streak, f.followers, f.following,
+        c.exact_count as total_count
+    FROM filtered_players f
+    CROSS JOIN counted_players c
+    ORDER BY 
+        CASE WHEN p_sort_col = 'iq_desc' THEN f.iq_level END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'iq_asc' THEN f.iq_level END ASC NULLS LAST,
+        CASE WHEN p_sort_col = 'rating_desc' THEN f.overall_rating END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'newest' THEN f.created_at END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'oldest' THEN f.created_at END ASC NULLS LAST,
+        CASE WHEN p_sort_col = 'wins_desc' THEN f.wins END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'matches_desc' THEN f.total_matches END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'winrate_desc' THEN f.win_rate END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'active_desc' THEN f.last_seen END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'puzzle_desc' THEN f.puzzle_rating END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'streak_desc' THEN f.win_streak END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'score_desc' THEN f.community_score END DESC NULLS LAST
+    LIMIT p_limit
+    OFFSET p_offset;
+END;
+$body$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+
+
+
+-- 1. Create a view that joins all the player stats together by pivoting the ratings table
+DROP VIEW IF EXISTS public.leaderboard_view CASCADE;
+CREATE OR REPLACE VIEW public.leaderboard_view AS
+WITH user_ratings AS (
+  SELECT 
+    user_id,
+    MAX(CASE WHEN time_class = 'rapid' THEN rating END) as rapid_rating,
+    MAX(CASE WHEN time_class = 'blitz' THEN rating END) as blitz_rating,
+    MAX(CASE WHEN time_class = 'bullet' THEN rating END) as bullet_rating,
+    MAX(CASE WHEN time_class = 'classical' THEN rating END) as classical_rating,
+    SUM(wins) as wins,
+    SUM(losses) as losses,
+    SUM(draws) as draws
+  FROM public.ratings
+  GROUP BY user_id
+)
+SELECT 
+    p.id,
+    p.username,
+    p.full_name,
+    p.avatar_url,
+    p.title,
+    p.country,
+    p.state,
+    p.district,
+    p.created_at,
+    p.is_online,
+    p.last_seen,
+    p.premium_active,
+    p.premium_expires_at,
+    p.community_score,
+    r.rapid_rating,
+    r.blitz_rating,
+    r.bullet_rating,
+    r.classical_rating,
+    GREATEST(
+        COALESCE(r.rapid_rating, 0), 
+        COALESCE(r.blitz_rating, 0), 
+        COALESCE(r.bullet_rating, 0), 
+        COALESCE(r.classical_rating, 0)
+    )::integer as overall_rating,
+    COALESCE(r.wins, 0)::integer as wins,
+    COALESCE(r.losses, 0)::integer as losses,
+    COALESCE(r.draws, 0)::integer as draws,
+    (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0))::integer as total_matches,
+    CASE 
+        WHEN (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0)) > 0 
+        THEN (COALESCE(r.wins, 0)::numeric / (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0))::numeric) * 100 
+        ELSE 0 
+    END::numeric as win_rate,
+    p.iq_rating as iq_level,
+    (p.iq_rating * 10 + p.community_score * 5 + COALESCE(r.wins, 0) * 15)::integer as xp,
+    (FLOOR(SQRT(p.iq_rating * 10 + p.community_score * 5 + COALESCE(r.wins, 0) * 15) / 10) + 1)::integer as level,
+    (SELECT COUNT(*) FROM public.community_achievements ca WHERE ca.user_id = p.id)::integer as achievements_count,
+    COALESCE(pz.puzzle_rating, 100)::integer as puzzle_rating,
+    COALESCE(pz.total_solved, 0)::integer as puzzle_solved,
+    COALESCE(pz.current_streak, 0)::integer as win_streak,
+    (SELECT COUNT(*) FROM public.community_follows cf WHERE cf.following_id = p.id)::integer as followers,
+    (SELECT COUNT(*) FROM public.community_follows cf WHERE cf.follower_id = p.id)::integer as following
+FROM public.profiles p
+LEFT JOIN user_ratings r ON p.id = r.user_id
+LEFT JOIN public.user_puzzle_stats pz ON p.id = pz.user_id;
+
+-- 2. Create the RPC function that the frontend will call
+DROP FUNCTION IF EXISTS public.get_dynamic_leaderboard(text, text, text, text, text, integer, integer);
+DROP FUNCTION IF EXISTS public.get_dynamic_leaderboard(text, text, text, text, text, text, boolean, integer, integer);
+CREATE OR REPLACE FUNCTION public.get_dynamic_leaderboard(
+    p_search text DEFAULT '',
+    p_country text DEFAULT NULL,
+    p_state text DEFAULT NULL,
+    p_district text DEFAULT NULL,
+    p_sort_col text DEFAULT 'iq_desc',
+    p_timeframe text DEFAULT 'all_time',
+    p_friends_only boolean DEFAULT false,
+    p_limit integer DEFAULT 25,
+    p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+    id uuid,
+    username text,
+    full_name text,
+    avatar_url text,
+    title text,
+    country text,
+    state text,
+    district text,
+    created_at timestamp with time zone,
+    is_online boolean,
+    last_seen timestamp with time zone,
+    premium_active boolean,
+    premium_expires_at timestamp with time zone,
+    community_score integer,
+    rapid_rating integer,
+    blitz_rating integer,
+    bullet_rating integer,
+    classical_rating integer,
+    overall_rating integer,
+    wins integer,
+    losses integer,
+    draws integer,
+    total_matches integer,
+    win_rate numeric,
+    iq_level integer,
+    xp integer,
+    level integer,
+    achievements_count integer,
+    puzzle_rating integer,
+    puzzle_solved integer,
+    win_streak integer,
+    followers integer,
+    following integer,
+    total_count bigint
+) AS $body$
+DECLARE
+  v_cutoff TIMESTAMPTZ;
+BEGIN
+    IF p_timeframe = 'today' THEN v_cutoff := date_trunc('day', now());
+    ELSIF p_timeframe = 'week' THEN v_cutoff := date_trunc('week', now());
+    ELSIF p_timeframe = 'month' THEN v_cutoff := date_trunc('month', now());
+    ELSE v_cutoff := '1970-01-01'::timestamptz;
+    END IF;
+
+    RETURN QUERY
+    WITH dynamic_stats AS (
+        SELECT 
+            u.id as user_id,
+            SUM(CASE WHEN g.winner_id = u.id THEN 1 ELSE 0 END)::integer as dyn_wins,
+            SUM(CASE WHEN g.result = 'draw' OR g.result = 'stalemate' THEN 1 ELSE 0 END)::integer as dyn_draws,
+            SUM(CASE WHEN g.winner_id IS NOT NULL AND g.winner_id != u.id THEN 1 ELSE 0 END)::integer as dyn_losses
+        FROM public.profiles u
+        LEFT JOIN public.games g ON (g.white_id = u.id OR g.black_id = u.id) AND g.created_at >= v_cutoff
+        WHERE p_timeframe != 'all_time'
+        GROUP BY u.id
+    ),
+    filtered_players AS (
+        SELECT 
+            v.id, v.username, v.full_name, v.avatar_url, v.title, v.country, v.state, v.district, 
+            v.created_at, v.is_online, v.last_seen, v.premium_active, v.premium_expires_at, 
+            v.community_score, v.rapid_rating, v.blitz_rating, v.bullet_rating, v.classical_rating, 
+            v.overall_rating, 
+            CASE WHEN p_timeframe = 'all_time' THEN v.wins ELSE COALESCE(d.dyn_wins, 0) END as wins,
+            CASE WHEN p_timeframe = 'all_time' THEN v.losses ELSE COALESCE(d.dyn_losses, 0) END as losses,
+            CASE WHEN p_timeframe = 'all_time' THEN v.draws ELSE COALESCE(d.dyn_draws, 0) END as draws,
+            CASE WHEN p_timeframe = 'all_time' THEN v.total_matches ELSE (COALESCE(d.dyn_wins, 0) + COALESCE(d.dyn_losses, 0) + COALESCE(d.dyn_draws, 0)) END as total_matches,
+            CASE 
+              WHEN p_timeframe = 'all_time' THEN v.win_rate 
+              ELSE 
+                CASE WHEN (COALESCE(d.dyn_wins, 0) + COALESCE(d.dyn_losses, 0) + COALESCE(d.dyn_draws, 0)) > 0 
+                THEN (COALESCE(d.dyn_wins, 0)::numeric / (COALESCE(d.dyn_wins, 0) + COALESCE(d.dyn_losses, 0) + COALESCE(d.dyn_draws, 0))::numeric) * 100 
+                ELSE 0 END 
+            END as win_rate,
+            v.iq_level, v.xp, v.level, v.achievements_count, 
+            v.puzzle_rating, v.puzzle_solved, v.win_streak, v.followers, v.following
+        FROM public.leaderboard_view v
+        LEFT JOIN dynamic_stats d ON v.id = d.user_id
+        WHERE 
+            (p_search = '' OR v.username ILIKE '%' || p_search || '%' OR v.full_name ILIKE '%' || p_search || '%')
+            AND (p_country IS NULL OR v.country = p_country)
+            AND (p_state IS NULL OR v.state = p_state)
+            AND (p_district IS NULL OR v.district = p_district)
+            AND (p_friends_only = false OR EXISTS (SELECT 1 FROM public.community_follows cf WHERE cf.follower_id = auth.uid() AND cf.following_id = v.id))
+    ),
+    counted_players AS (
+        SELECT COUNT(*) as exact_count FROM filtered_players
+    )
+    SELECT 
+        f.id, f.username, f.full_name, f.avatar_url, f.title, f.country, f.state, f.district,
+        f.created_at, f.is_online, f.last_seen, f.premium_active, f.premium_expires_at,
+        f.community_score, f.rapid_rating, f.blitz_rating, f.bullet_rating, f.classical_rating,
+        f.overall_rating, f.wins, f.losses, f.draws, f.total_matches, f.win_rate,
+        f.iq_level, f.xp, f.level, f.achievements_count,
+        f.puzzle_rating, f.puzzle_solved, f.win_streak, f.followers, f.following,
+        c.exact_count as total_count
+    FROM filtered_players f
+    CROSS JOIN counted_players c
+    ORDER BY 
+        CASE WHEN p_sort_col = 'iq_desc' THEN f.iq_level END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'iq_asc' THEN f.iq_level END ASC NULLS LAST,
+        CASE WHEN p_sort_col = 'rating_desc' THEN f.overall_rating END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'newest' THEN f.created_at END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'oldest' THEN f.created_at END ASC NULLS LAST,
+        CASE WHEN p_sort_col = 'wins_desc' THEN f.wins END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'matches_desc' THEN f.total_matches END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'winrate_desc' THEN f.win_rate END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'active_desc' THEN f.last_seen END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'puzzle_desc' THEN f.puzzle_rating END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'streak_desc' THEN f.win_streak END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'score_desc' THEN f.community_score END DESC NULLS LAST
+    LIMIT p_limit
+    OFFSET p_offset;
+END;
+$body$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+
+-- 1. Ensure puzzle tables exist first so the leaderboard view can reference them
+CREATE TABLE IF NOT EXISTS public.puzzles (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  fen        TEXT NOT NULL,
+  moves      TEXT NOT NULL,
+  rating     INT NOT NULL DEFAULT 1500,
+  themes     TEXT[] NOT NULL DEFAULT '{}',
+  popularity INT NOT NULL DEFAULT 0,
+  theme      TEXT NOT NULL DEFAULT 'Tactics',
+  goal       TEXT NOT NULL DEFAULT 'Best move',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.user_puzzle_stats (
+  user_id               UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  completed_today       INT NOT NULL DEFAULT 0,
+  daily_reset_time      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  next_unlock_time      TIMESTAMPTZ,
+  current_streak        INT NOT NULL DEFAULT 0,
+  longest_streak        INT NOT NULL DEFAULT 0,
+  total_solved          INT NOT NULL DEFAULT 0,
+  total_failed          INT NOT NULL DEFAULT 0,
+  total_attempts        INT NOT NULL DEFAULT 0,
+  total_puzzle_rating   INT NOT NULL DEFAULT 0,
+  xp                    INT NOT NULL DEFAULT 0,
+  coins_earned          INT NOT NULL DEFAULT 0,
+  last_played_puzzle    UUID REFERENCES public.puzzles(id) ON DELETE SET NULL,
+  last_active           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  puzzle_rating         INT NOT NULL DEFAULT 100
+);
+
+CREATE TABLE IF NOT EXISTS public.user_puzzle_progress (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id               UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  puzzle_id             UUID NOT NULL REFERENCES public.puzzles(id) ON DELETE CASCADE,
+  status                TEXT NOT NULL DEFAULT 'NOT_STARTED',
+  started_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  solved_at             TIMESTAMPTZ,
+  attempts              INT NOT NULL DEFAULT 0,
+  time_spent_ms         INT NOT NULL DEFAULT 0,
+  hint_used             BOOLEAN NOT NULL DEFAULT false,
+  wrong_moves_count     INT NOT NULL DEFAULT 0,
+  correct_move          TEXT,
+  completion_percentage INT NOT NULL DEFAULT 0,
+  last_viewed_time      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_move_played      TEXT,
+  rating_earned         INT NOT NULL DEFAULT 0,
+  xp_earned             INT NOT NULL DEFAULT 0,
+  board_fen             TEXT,
+  step_index            INT NOT NULL DEFAULT 0,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(user_id, puzzle_id)
+);
+
+-- 2. Drop the old view
+DROP VIEW IF EXISTS public.leaderboard_view CASCADE;
+
+-- 3. Create the new dynamic view
+CREATE OR REPLACE VIEW public.leaderboard_view AS
+WITH user_ratings AS (
+  SELECT 
+    r.user_id,
+    MAX(CASE WHEN r.time_class = 'rapid' THEN r.rating END) as rapid_rating,
+    MAX(CASE WHEN r.time_class = 'blitz' THEN r.rating END) as blitz_rating,
+    MAX(CASE WHEN r.time_class = 'bullet' THEN r.rating END) as bullet_rating,
+    MAX(CASE WHEN r.time_class = 'classical' THEN r.rating END) as classical_rating,
+    SUM(r.wins) as wins,
+    SUM(r.losses) as losses,
+    SUM(r.draws) as draws
+  FROM public.ratings r
+  GROUP BY r.user_id
+),
+overall_ratings AS (
+  SELECT 
+    user_id,
+    rapid_rating,
+    blitz_rating,
+    bullet_rating,
+    classical_rating,
+    ROUND((
+      COALESCE(rapid_rating, 1000) * 0.4 +
+      COALESCE(blitz_rating, 1000) * 0.3 +
+      COALESCE(bullet_rating, 1000) * 0.2 +
+      COALESCE(classical_rating, 1000) * 0.1
+    ))::integer as overall_rating,
+    wins,
+    losses,
+    draws
+  FROM user_ratings
+)
+SELECT 
+  p.id,
+  p.username,
+  p.full_name,
+  p.avatar_url,
+  p.title,
+  p.country,
+  p.state,
+  p.district,
+  p.created_at,
+  p.is_online,
+  p.last_seen,
+  p.premium_active,
+  p.premium_expires_at,
+  COALESCE(p.community_score, 0) as community_score,
+  COALESCE(r.rapid_rating, 1000) as rapid_rating,
+  COALESCE(r.blitz_rating, 1000) as blitz_rating,
+  COALESCE(r.bullet_rating, 1000) as bullet_rating,
+  COALESCE(r.classical_rating, 1000) as classical_rating,
+  COALESCE(r.overall_rating, 1000) as overall_rating,
+  COALESCE(r.wins, 0) as wins,
+  COALESCE(r.losses, 0) as losses,
+  COALESCE(r.draws, 0) as draws,
+  (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0)) as total_matches,
+  CASE 
+    WHEN (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0)) > 0 
+    THEN (COALESCE(r.wins, 0)::numeric / (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0))::numeric) * 100 
+    ELSE 0 
+  END as win_rate,
+  COALESCE(p.iq_rating, 100) as iq_level,
+  (COALESCE(p.iq_rating, 100) * 10 + COALESCE(p.community_score, 0) * 5 + COALESCE(r.wins, 0) * 15)::integer as xp,
+  (FLOOR(SQRT(COALESCE(p.iq_rating, 100) * 10 + COALESCE(p.community_score, 0) * 5 + COALESCE(r.wins, 0) * 15) / 10) + 1)::integer as level,
+  COALESCE((SELECT COUNT(*) FROM public.community_achievements ca WHERE ca.user_id = p.id), 0)::integer as achievements_count,
+  COALESCE(pz.puzzle_rating, 100) as puzzle_rating,
+  COALESCE(pz.total_solved, 0) as puzzle_solved,
+  COALESCE(pz.current_streak, 0) as win_streak,
+  COALESCE((SELECT COUNT(*) FROM public.community_follows WHERE following_id = p.id), 0) as followers,
+  COALESCE((SELECT COUNT(*) FROM public.community_follows WHERE follower_id = p.id), 0) as following
+FROM public.profiles p
+LEFT JOIN overall_ratings r ON p.id = r.user_id
+LEFT JOIN public.user_puzzle_stats pz ON p.id = pz.user_id;
+
+-- 4. Create the new dynamic RPC
+CREATE OR REPLACE FUNCTION public.get_dynamic_leaderboard(
+    p_search text DEFAULT '',
+    p_country text DEFAULT NULL,
+    p_state text DEFAULT NULL,
+    p_district text DEFAULT NULL,
+    p_sort_col text DEFAULT 'iq_desc',
+    p_timeframe text DEFAULT 'all_time',
+    p_friends_only boolean DEFAULT false,
+    p_limit integer DEFAULT 25,
+    p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+    id uuid, username text, full_name text, avatar_url text, title text,
+    country text, state text, district text, created_at timestamp with time zone,
+    is_online boolean, last_seen timestamp with time zone, premium_active boolean,
+    premium_expires_at timestamp with time zone, community_score integer,
+    rapid_rating integer, blitz_rating integer, bullet_rating integer,
+    classical_rating integer, overall_rating integer, wins integer, losses integer,
+    draws integer, total_matches integer, win_rate numeric, iq_level integer,
+    xp integer, level integer, achievements_count integer, puzzle_rating integer,
+    puzzle_solved integer, win_streak integer, followers integer, following integer, total_count bigint
+) AS $body$
+DECLARE
+  v_cutoff TIMESTAMPTZ;
+BEGIN
+    IF p_timeframe = 'today' THEN v_cutoff := date_trunc('day', now());
+    ELSIF p_timeframe = 'week' THEN v_cutoff := date_trunc('week', now());
+    ELSIF p_timeframe = 'month' THEN v_cutoff := date_trunc('month', now());
+    ELSE v_cutoff := '1970-01-01'::timestamptz;
+    END IF;
+
+    RETURN QUERY
+    WITH dynamic_stats AS (
+        SELECT 
+            u.id as user_id,
+            SUM(CASE WHEN g.winner_id = u.id THEN 1 ELSE 0 END)::integer as dyn_wins,
+            SUM(CASE WHEN g.result = 'draw' OR g.result = 'stalemate' THEN 1 ELSE 0 END)::integer as dyn_draws,
+            SUM(CASE WHEN g.winner_id IS NOT NULL AND g.winner_id != u.id THEN 1 ELSE 0 END)::integer as dyn_losses
+        FROM public.profiles u
+        LEFT JOIN public.games g ON (g.white_id = u.id OR g.black_id = u.id) AND g.created_at >= v_cutoff
+        WHERE p_timeframe != 'all_time'
+        GROUP BY u.id
+    ),
+    filtered_players AS (
+        SELECT 
+            v.id, v.username, v.full_name, v.avatar_url, v.title, v.country, v.state, v.district, 
+            v.created_at, v.is_online, v.last_seen, v.premium_active, v.premium_expires_at, 
+            v.community_score, v.rapid_rating, v.blitz_rating, v.bullet_rating, v.classical_rating, 
+            v.overall_rating, 
+            CASE WHEN p_timeframe = 'all_time' THEN v.wins ELSE COALESCE(d.dyn_wins, 0) END as wins,
+            CASE WHEN p_timeframe = 'all_time' THEN v.losses ELSE COALESCE(d.dyn_losses, 0) END as losses,
+            CASE WHEN p_timeframe = 'all_time' THEN v.draws ELSE COALESCE(d.dyn_draws, 0) END as draws,
+            CASE WHEN p_timeframe = 'all_time' THEN v.total_matches ELSE (COALESCE(d.dyn_wins, 0) + COALESCE(d.dyn_losses, 0) + COALESCE(d.dyn_draws, 0)) END as total_matches,
+            CASE 
+              WHEN p_timeframe = 'all_time' THEN v.win_rate 
+              ELSE 
+                CASE WHEN (COALESCE(d.dyn_wins, 0) + COALESCE(d.dyn_losses, 0) + COALESCE(d.dyn_draws, 0)) > 0 
+                THEN (COALESCE(d.dyn_wins, 0)::numeric / (COALESCE(d.dyn_wins, 0) + COALESCE(d.dyn_losses, 0) + COALESCE(d.dyn_draws, 0))::numeric) * 100 
+                ELSE 0 END 
+            END as win_rate,
+            v.iq_level, v.xp, v.level, v.achievements_count, 
+            v.puzzle_rating, v.puzzle_solved, v.win_streak, v.followers, v.following
+        FROM public.leaderboard_view v
+        LEFT JOIN dynamic_stats d ON v.id = d.user_id
+        WHERE 
+            (p_search = '' OR v.username ILIKE '%' || p_search || '%' OR v.full_name ILIKE '%' || p_search || '%')
+            AND (p_country IS NULL OR v.country = p_country)
+            AND (p_state IS NULL OR v.state = p_state)
+            AND (p_district IS NULL OR v.district = p_district)
+            AND (p_friends_only = false OR EXISTS (SELECT 1 FROM public.community_follows cf WHERE cf.follower_id = auth.uid() AND cf.following_id = v.id))
+    ),
+    counted_players AS (
+        SELECT COUNT(*) as exact_count FROM filtered_players
+    )
+    SELECT 
+        fp.*,
+        (SELECT exact_count FROM counted_players LIMIT 1) as total_count
+    FROM filtered_players fp
+    ORDER BY 
+        CASE WHEN p_sort_col = 'iq_desc' THEN fp.iq_level END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'iq_asc' THEN fp.iq_level END ASC NULLS LAST,
+        CASE WHEN p_sort_col = 'rating_desc' THEN fp.overall_rating END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'newest' THEN fp.created_at END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'oldest' THEN fp.created_at END ASC NULLS LAST,
+        CASE WHEN p_sort_col = 'wins_desc' THEN fp.wins END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'matches_desc' THEN fp.total_matches END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'winrate_desc' THEN fp.win_rate END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'puzzle_desc' THEN fp.puzzle_rating END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'streak_desc' THEN fp.win_streak END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'score_desc' THEN fp.community_score END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'active_desc' THEN fp.last_seen END DESC NULLS LAST
+    LIMIT p_limit
+    OFFSET p_offset;
+END;
+$body$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+GRANT EXECUTE ON FUNCTION public.get_dynamic_leaderboard(text, text, text, text, text, text, boolean, integer, integer) TO authenticated, anon;
+
+
+
+
+-- =====================================================================
+-- SECTION 25: CLAN SYSTEM
+-- =====================================================================
+
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'clan_privacy') THEN
+    CREATE TYPE public.clan_privacy AS ENUM ('public', 'private', 'invite_only');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'clan_role') THEN
+    CREATE TYPE public.clan_role AS ENUM ('leader', 'co_leader', 'member');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'clan_request_status') THEN
+    CREATE TYPE public.clan_request_status AS ENUM ('pending', 'accepted', 'rejected');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'clan_war_status') THEN
+    CREATE TYPE public.clan_war_status AS ENUM ('pending', 'accepted', 'active', 'finished');
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS public.clans (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug            TEXT UNIQUE NOT NULL,
+  name            TEXT NOT NULL,
+  tag             TEXT UNIQUE NOT NULL,
+  description     TEXT DEFAULT '',
+  country         TEXT DEFAULT 'International',
+  language        TEXT DEFAULT 'English',
+  logo_url        TEXT,
+  banner_url      TEXT,
+  privacy         public.clan_privacy NOT NULL DEFAULT 'public',
+  max_members     INT NOT NULL DEFAULT 20 CHECK (max_members <= 20),
+  clan_rating     INT NOT NULL DEFAULT 1200,
+  clan_score      INT NOT NULL DEFAULT 0,
+  war_wins        INT NOT NULL DEFAULT 0,
+  war_losses      INT NOT NULL DEFAULT 0,
+  war_draws       INT NOT NULL DEFAULT 0,
+  total_wars      INT NOT NULL DEFAULT 0,
+  clan_level      INT NOT NULL DEFAULT 1,
+  clan_xp         INT NOT NULL DEFAULT 0,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.clan_members (
+  clan_id   UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
+  user_id   UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  role      public.clan_role NOT NULL DEFAULT 'member',
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (clan_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.clan_join_requests (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clan_id    UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
+  user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  status     public.clan_request_status NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(clan_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.clan_invites (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clan_id    UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
+  inviter_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  invitee_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  status     public.clan_request_status NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(clan_id, invitee_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.clan_chat (
+  clan_id    UUID PRIMARY KEY REFERENCES public.clans(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.clan_messages (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  chat_id      UUID NOT NULL REFERENCES public.clan_chat(clan_id) ON DELETE CASCADE,
+  sender_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  content_type TEXT NOT NULL DEFAULT 'text',
+  content      TEXT NOT NULL,
+  is_pinned    BOOLEAN NOT NULL DEFAULT false,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.clan_wars (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  challenger_clan_id UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
+  defender_clan_id   UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
+  status             public.clan_war_status NOT NULL DEFAULT 'pending',
+  starts_at          TIMESTAMPTZ,
+  ends_at            TIMESTAMPTZ,
+  winner_clan_id     UUID REFERENCES public.clans(id) ON DELETE SET NULL,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (challenger_clan_id != defender_clan_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.clan_war_lineups (
+  war_id       UUID NOT NULL REFERENCES public.clan_wars(id) ON DELETE CASCADE,
+  clan_id      UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
+  user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  board_number INT NOT NULL CHECK (board_number >= 1 AND board_number <= 16),
+  PRIMARY KEY (war_id, clan_id, user_id),
+  UNIQUE (war_id, clan_id, board_number)
+);
+
+CREATE TABLE IF NOT EXISTS public.clan_matches (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  war_id         UUID NOT NULL REFERENCES public.clan_wars(id) ON DELETE CASCADE,
+  white_user_id  UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  black_user_id  UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  winner_id      UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  moves_count    INT NOT NULL DEFAULT 0,
+  pgn            TEXT,
+  duration       INT NOT NULL DEFAULT 0,
+  points_awarded INT NOT NULL DEFAULT 0,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.clan_notifications (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clan_id    UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
+  user_id    UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  type       TEXT NOT NULL,
+  message    TEXT NOT NULL,
+  read       BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.clan_activity (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clan_id     UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
+  action_type TEXT NOT NULL,
+  actor_id    UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  target_id   UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  metadata    JSONB,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS public.clan_leaderboard AS
+SELECT 
+  id, slug, name, tag, logo_url, country, clan_rating, clan_score, war_wins, total_wars,
+  (SELECT COUNT(*) FROM public.clan_members WHERE clan_id = public.clans.id) as member_count
+FROM public.clans
+ORDER BY clan_score DESC, war_wins DESC, clan_rating DESC;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_clan_leaderboard_id ON public.clan_leaderboard(id);
+
+-- RLS & Grants
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+
+ALTER TABLE public.clans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clan_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clan_join_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clan_invites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clan_chat ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clan_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clan_wars ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clan_war_lineups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clan_matches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clan_notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clan_activity ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Clans viewable by everyone" ON public.clans;
+CREATE POLICY "Clans viewable by everyone" ON public.clans FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Clan members viewable by everyone" ON public.clan_members;
+CREATE POLICY "Clan members viewable by everyone" ON public.clan_members FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Wars viewable by everyone" ON public.clan_wars;
+CREATE POLICY "Wars viewable by everyone" ON public.clan_wars FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Lineups viewable by everyone" ON public.clan_war_lineups;
+CREATE POLICY "Lineups viewable by everyone" ON public.clan_war_lineups FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Matches viewable by everyone" ON public.clan_matches;
+CREATE POLICY "Matches viewable by everyone" ON public.clan_matches FOR SELECT USING (true);
+
+-- Users can read their own join requests
+DROP POLICY IF EXISTS "View own join requests" ON public.clan_join_requests;
+CREATE POLICY "View own join requests" ON public.clan_join_requests FOR SELECT USING (auth.uid() = user_id OR EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = public.clan_join_requests.clan_id AND user_id = auth.uid() AND role IN ('leader', 'co_leader')));
+
+-- Users can read their own invites
+DROP POLICY IF EXISTS "View own invites" ON public.clan_invites;
+CREATE POLICY "View own invites" ON public.clan_invites FOR SELECT USING (auth.uid() = invitee_id OR auth.uid() = inviter_id);
+
+-- Only clan members can view/insert clan messages
+DROP POLICY IF EXISTS "Clan members can chat" ON public.clan_messages;
+CREATE POLICY "Clan members can chat" ON public.clan_messages FOR SELECT USING (EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = public.clan_messages.chat_id AND user_id = auth.uid()));
+
+DROP POLICY IF EXISTS "Clan members can send messages" ON public.clan_messages;
+CREATE POLICY "Clan members can send messages" ON public.clan_messages FOR INSERT WITH CHECK (auth.uid() = sender_id AND EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = public.clan_messages.chat_id AND user_id = auth.uid()));
+
+-- Enable Realtime
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOR t IN SELECT unnest(ARRAY['clans', 'clan_members', 'clan_messages', 'clan_wars', 'clan_join_requests'])
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables 
+      WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t
+    ) THEN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+    END IF;
+  END LOOP;
+END $$;
+
+
+
+-- =====================================================================
+-- CLAN RPC FUNCTIONS
+-- =====================================================================
+
+DROP FUNCTION IF EXISTS public.clan_create(TEXT, TEXT, TEXT, TEXT, TEXT, public.clan_privacy, TEXT, TEXT);
+DROP FUNCTION IF EXISTS public.clan_create(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
+
+CREATE OR REPLACE FUNCTION public.clan_create(
+  p_name TEXT,
+  p_tag TEXT,
+  p_description TEXT,
+  p_country TEXT,
+  p_language TEXT,
+  p_privacy TEXT,
+  p_logo_url TEXT,
+  p_banner_url TEXT
+) RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_clan_id UUID;
+  v_user_id UUID := auth.uid();
+  v_existing_clan UUID;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  
+  -- Check if user is already in a clan
+  SELECT clan_id INTO v_existing_clan FROM public.clan_members WHERE user_id = v_user_id;
+  IF v_existing_clan IS NOT NULL THEN RAISE EXCEPTION 'User is already in a clan'; END IF;
+  
+  -- Insert clan
+  INSERT INTO public.clans (slug, name, tag, description, country, language, privacy, logo_url, banner_url)
+  VALUES (
+    LOWER(REGEXP_REPLACE(p_name, '[^a-zA-Z0-9]+', '-', 'g')) || '-' || extract(epoch from now())::int,
+    p_name, UPPER(p_tag), p_description, COALESCE(p_country, 'International'), COALESCE(p_language, 'English'), 
+    p_privacy::public.clan_privacy, p_logo_url, p_banner_url
+  ) RETURNING id INTO v_clan_id;
+  
+  -- Add creator as leader
+  INSERT INTO public.clan_members (clan_id, user_id, role)
+  VALUES (v_clan_id, v_user_id, 'leader');
+  
+  -- Create clan chat
+  INSERT INTO public.clan_chat (clan_id) VALUES (v_clan_id);
+  
+  RETURN v_clan_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.clan_create(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.clan_request_join(p_clan_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_privacy public.clan_privacy;
+  v_existing_clan UUID;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  
+  SELECT clan_id INTO v_existing_clan FROM public.clan_members WHERE user_id = v_user_id;
+  IF v_existing_clan IS NOT NULL THEN RAISE EXCEPTION 'User is already in a clan'; END IF;
+  
+  SELECT privacy INTO v_privacy FROM public.clans WHERE id = p_clan_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Clan not found'; END IF;
+  
+  IF v_privacy = 'invite_only' THEN
+    RAISE EXCEPTION 'Clan is invite only';
+  END IF;
+  
+  IF v_privacy = 'public' THEN
+    -- Join immediately
+    INSERT INTO public.clan_members (clan_id, user_id, role) VALUES (p_clan_id, v_user_id, 'member');
+  ELSE
+    -- Private, create request
+    INSERT INTO public.clan_join_requests (clan_id, user_id, status) VALUES (p_clan_id, v_user_id, 'pending')
+    ON CONFLICT (clan_id, user_id) DO UPDATE SET status = 'pending';
+  END IF;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_request_join(UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.clan_approve_join(p_request_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_req public.clan_join_requests;
+  v_is_admin BOOLEAN;
+  v_count INT;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  
+  SELECT * INTO v_req FROM public.clan_join_requests WHERE id = p_request_id AND status = 'pending';
+  IF NOT FOUND THEN RAISE EXCEPTION 'Request not found or not pending'; END IF;
+  
+  SELECT EXISTS(SELECT 1 FROM public.clan_members WHERE clan_id = v_req.clan_id AND user_id = v_user_id AND role IN ('leader', 'co_leader')) INTO v_is_admin;
+  IF NOT v_is_admin THEN RAISE EXCEPTION 'Not authorized'; END IF;
+  
+  SELECT COUNT(*) INTO v_count FROM public.clan_members WHERE clan_id = v_req.clan_id;
+  IF v_count >= 20 THEN
+    RAISE EXCEPTION 'Clan is full';
+  END IF;
+  
+  UPDATE public.clan_join_requests SET status = 'accepted' WHERE id = p_request_id;
+  
+  INSERT INTO public.clan_members (clan_id, user_id, role) VALUES (v_req.clan_id, v_req.user_id, 'member')
+  ON CONFLICT DO NOTHING;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_approve_join(UUID) TO authenticated;
+
+-- (More RPCs like clan_declare_war, clan_calculate_war_results can be added, but this covers the core requirement for phase 1)
+
+-- =====================================================================
+-- CLAN MEMBER MANAGEMENT RPC FUNCTIONS
+-- =====================================================================
+
+CREATE OR REPLACE FUNCTION public.clan_promote_member(p_clan_id UUID, p_user_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_caller_id UUID := auth.uid();
+  v_is_leader BOOLEAN;
+BEGIN
+  IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  
+  SELECT EXISTS(SELECT 1 FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_caller_id AND role = 'leader') INTO v_is_leader;
+  IF NOT v_is_leader THEN RAISE EXCEPTION 'Only the leader can promote members'; END IF;
+  
+  UPDATE public.clan_members SET role = 'co_leader' WHERE clan_id = p_clan_id AND user_id = p_user_id AND role = 'member';
+  IF NOT FOUND THEN RAISE EXCEPTION 'User not found or is already a co-leader'; END IF;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_promote_member(UUID, UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.clan_demote_member(p_clan_id UUID, p_user_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_caller_id UUID := auth.uid();
+  v_is_leader BOOLEAN;
+BEGIN
+  IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  
+  SELECT EXISTS(SELECT 1 FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_caller_id AND role = 'leader') INTO v_is_leader;
+  IF NOT v_is_leader THEN RAISE EXCEPTION 'Only the leader can demote members'; END IF;
+  
+  UPDATE public.clan_members SET role = 'member' WHERE clan_id = p_clan_id AND user_id = p_user_id AND role = 'co_leader';
+  IF NOT FOUND THEN RAISE EXCEPTION 'User not found or is already a member'; END IF;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_demote_member(UUID, UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.clan_kick_member(p_clan_id UUID, p_user_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_caller_id UUID := auth.uid();
+  v_caller_role public.clan_role;
+  v_target_role public.clan_role;
+BEGIN
+  IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  
+  SELECT role INTO v_caller_role FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_caller_id;
+  IF v_caller_role IS NULL OR v_caller_role = 'member' THEN RAISE EXCEPTION 'Not authorized to kick'; END IF;
+  
+  SELECT role INTO v_target_role FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = p_user_id;
+  IF v_target_role IS NULL THEN RAISE EXCEPTION 'User not in clan'; END IF;
+  
+  IF v_target_role = 'leader' THEN RAISE EXCEPTION 'Cannot kick the leader'; END IF;
+  IF v_target_role = 'co_leader' AND v_caller_role != 'leader' THEN RAISE EXCEPTION 'Only the leader can kick a co-leader'; END IF;
+  
+  DELETE FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = p_user_id;
+  
+  -- Update member count cache in leaderboard view isn't direct, but the trigger will handle stats if configured.
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_kick_member(UUID, UUID) TO authenticated;
+-- =====================================================================
+-- PUZZLE LIBRARY EXPANSION
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS public.puzzles (
+    id TEXT PRIMARY KEY,
+    fen TEXT NOT NULL,
+    moves TEXT[] NOT NULL,
+    rating INTEGER DEFAULT 1200,
+    themes TEXT[] DEFAULT '{}',
+    goal TEXT DEFAULT 'Find the best move',
+    popularity INTEGER DEFAULT 100,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+CREATE TABLE IF NOT EXISTS public.user_puzzle_stats (
+    user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    completed_today INTEGER DEFAULT 0,
+    daily_reset_time TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) + interval '1 day',
+    next_unlock_time TIMESTAMP WITH TIME ZONE,
+    current_streak INTEGER DEFAULT 0,
+    longest_streak INTEGER DEFAULT 0,
+    total_solved INTEGER DEFAULT 0,
+    total_failed INTEGER DEFAULT 0,
+    total_attempts INTEGER DEFAULT 0,
+    total_puzzle_rating INTEGER DEFAULT 1200,
+    xp INTEGER DEFAULT 0,
+    coins_earned INTEGER DEFAULT 0,
+    last_active TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+CREATE TABLE IF NOT EXISTS public.puzzle_progress (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    puzzle_id TEXT NOT NULL REFERENCES public.puzzles(id) ON DELETE CASCADE,
+    status TEXT DEFAULT 'NOT_STARTED' CHECK (status IN ('NOT_STARTED', 'IN_PROGRESS', 'SOLVED', 'FAILED', 'SKIPPED')),
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+    solved_at TIMESTAMP WITH TIME ZONE,
+    attempts INTEGER DEFAULT 0,
+    time_spent_ms INTEGER DEFAULT 0,
+    hint_used BOOLEAN DEFAULT FALSE,
+    wrong_moves_count INTEGER DEFAULT 0,
+    board_fen TEXT,
+    step_index INTEGER DEFAULT 0,
+    last_move_played TEXT,
+    last_viewed_time TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+    UNIQUE(user_id, puzzle_id)
+);
+
+CREATE OR REPLACE FUNCTION public.get_daily_puzzle()
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+    v_user_id UUID := auth.uid();
+    v_stats public.user_puzzle_stats;
+    v_puzzle public.puzzles;
+    v_progress public.puzzle_progress;
+    v_locked BOOLEAN := FALSE;
+    v_remaining INT := 3;
+BEGIN
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    -- Upsert stats
+    INSERT INTO public.user_puzzle_stats (user_id, daily_reset_time)
+    VALUES (v_user_id, timezone('utc'::text, now()) + interval '1 day')
+    ON CONFLICT (user_id) DO UPDATE SET last_active = timezone('utc'::text, now())
+    RETURNING * INTO v_stats;
+
+    -- Check if reset time has passed
+    IF timezone('utc'::text, now()) >= v_stats.daily_reset_time THEN
+        UPDATE public.user_puzzle_stats 
+        SET completed_today = 0, 
+            daily_reset_time = timezone('utc'::text, now()) + interval '1 day'
+        WHERE user_id = v_user_id
+        RETURNING * INTO v_stats;
+    END IF;
+
+    -- Check lock
+    IF v_stats.completed_today >= 3 THEN
+        v_locked := TRUE;
+        v_remaining := 0;
+        RETURN json_build_object(
+            'locked', v_locked,
+            'remaining_today', v_remaining,
+            'stats', row_to_json(v_stats),
+            'puzzle', NULL,
+            'progress', NULL
+        );
+    END IF;
+
+    v_remaining := 3 - v_stats.completed_today;
+
+    -- Find an IN_PROGRESS puzzle first
+    SELECT pp.* INTO v_progress
+    FROM public.puzzle_progress pp
+    WHERE pp.user_id = v_user_id AND pp.status IN ('NOT_STARTED', 'IN_PROGRESS')
+    ORDER BY pp.last_viewed_time DESC
+    LIMIT 1;
+
+    IF FOUND THEN
+        SELECT * INTO v_puzzle FROM public.puzzles WHERE id = v_progress.puzzle_id;
+    ELSE
+        -- Find a new puzzle the user hasn't solved/failed yet
+        SELECT p.* INTO v_puzzle
+        FROM public.puzzles p
+        LEFT JOIN public.puzzle_progress pp ON p.id = pp.puzzle_id AND pp.user_id = v_user_id
+        WHERE pp.id IS NULL
+        ORDER BY random()
+        LIMIT 1;
+
+        IF NOT FOUND THEN
+            -- No more puzzles in DB!
+            RETURN json_build_object(
+                'locked', FALSE,
+                'remaining_today', v_remaining,
+                'stats', row_to_json(v_stats),
+                'puzzle', NULL,
+                'progress', NULL
+            );
+        END IF;
+
+        -- Create progress
+        INSERT INTO public.puzzle_progress (user_id, puzzle_id, board_fen)
+        VALUES (v_user_id, v_puzzle.id, v_puzzle.fen)
+        RETURNING * INTO v_progress;
+    END IF;
+
+    -- Update last viewed
+    UPDATE public.puzzle_progress SET last_viewed_time = timezone('utc'::text, now()) WHERE id = v_progress.id;
+
+    RETURN json_build_object(
+        'locked', v_locked,
+        'remaining_today', v_remaining,
+        'stats', row_to_json(v_stats),
+        'puzzle', row_to_json(v_puzzle),
+        'progress', row_to_json(v_progress)
+    );
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.get_daily_puzzle() TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.update_puzzle_progress(
+    p_puzzle_id TEXT,
+    p_status TEXT,
+    p_time_spent_ms INTEGER,
+    p_board_fen TEXT,
+    p_step_index INTEGER,
+    p_wrong_moves INTEGER,
+    p_hint_used BOOLEAN,
+    p_last_move TEXT
+)
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+    v_user_id UUID := auth.uid();
+    v_progress public.puzzle_progress;
+    v_stats public.user_puzzle_stats;
+    v_new_status TEXT;
+BEGIN
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    SELECT * INTO v_progress FROM public.puzzle_progress WHERE user_id = v_user_id AND puzzle_id = p_puzzle_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Progress not found';
+    END IF;
+
+    -- Don't allow changing status if already solved/skipped
+    IF v_progress.status IN ('SOLVED', 'SKIPPED') THEN
+        v_new_status := v_progress.status;
+    ELSE
+        v_new_status := p_status;
+    END IF;
+
+    UPDATE public.puzzle_progress
+    SET status = v_new_status,
+        time_spent_ms = p_time_spent_ms,
+        board_fen = p_board_fen,
+        step_index = p_step_index,
+        wrong_moves_count = p_wrong_moves,
+        hint_used = p_hint_used,
+        last_move_played = p_last_move,
+        last_viewed_time = timezone('utc'::text, now()),
+        solved_at = CASE WHEN v_new_status = 'SOLVED' AND v_progress.status != 'SOLVED' THEN timezone('utc'::text, now()) ELSE solved_at END
+    WHERE id = v_progress.id
+    RETURNING * INTO v_progress;
+
+    -- Update stats if newly solved
+    SELECT * INTO v_stats FROM public.user_puzzle_stats WHERE user_id = v_user_id;
+
+    IF v_new_status IN ('SOLVED', 'FAILED', 'SKIPPED') AND v_progress.status NOT IN ('SOLVED', 'FAILED', 'SKIPPED') THEN
+        UPDATE public.user_puzzle_stats
+        SET completed_today = completed_today + 1,
+            total_solved = total_solved + CASE WHEN v_new_status = 'SOLVED' THEN 1 ELSE 0 END,
+            total_failed = total_failed + CASE WHEN v_new_status != 'SOLVED' THEN 1 ELSE 0 END,
+            current_streak = CASE WHEN v_new_status = 'SOLVED' THEN current_streak + 1 ELSE 0 END,
+            longest_streak = GREATEST(longest_streak, CASE WHEN v_new_status = 'SOLVED' THEN current_streak + 1 ELSE 0 END),
+            xp = xp + CASE WHEN v_new_status = 'SOLVED' THEN 10 ELSE 0 END
+        WHERE user_id = v_user_id
+        RETURNING * INTO v_stats;
+    END IF;
+
+    RETURN json_build_object(
+        'progress', row_to_json(v_progress),
+        'stats', row_to_json(v_stats)
+    );
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.update_puzzle_progress(TEXT, TEXT, INTEGER, TEXT, INTEGER, INTEGER, BOOLEAN, TEXT) TO authenticated;
+
+-- Seed some test puzzles
+INSERT INTO public.puzzles (id, fen, moves, rating, themes, goal) VALUES
+('puzzle_001', 'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4', ARRAY['f3e5', 'c6e5'], 1100, ARRAY['opening', 'fork'], 'Find the best move'),
+('puzzle_002', 'r1bqk2r/pppp1ppp/2n2n2/4p3/1b2P3/2N2N2/PPPP1PPP/R1BQKB1R w KQkq - 4 5', ARRAY['f3e5', 'c6e5', 'd2d4'], 1200, ARRAY['opening', 'center'], 'Find the best move'),
+('puzzle_003', 'r1bqk2r/pppp1ppp/2n2n2/4p3/1b2P3/2N2N2/PPPP1PPP/R1BQKB1R w KQkq - 4 5', ARRAY['a2a3'], 1300, ARRAY['prophylaxis'], 'Find the best move'),
+('puzzle_004', '4r1k1/1p3ppp/p7/3p4/8/2P1b1P1/PP2RP1P/R5K1 w - - 0 23', ARRAY['a1e1', 'e3f2', 'g1f2'], 1600, ARRAY['pin', 'endgame'], 'Find the best move')
+ON CONFLICT (id) DO NOTHING;
+

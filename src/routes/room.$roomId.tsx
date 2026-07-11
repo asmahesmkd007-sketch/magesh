@@ -36,7 +36,7 @@ export const Route = createFileRoute("/room/$roomId")({
 type Profile = {
   id: string;
   username: string;
-  display_name: string | null;
+  full_name: string | null;
   avatar_url: string | null;
   premium_active?: boolean;
   premium_expires_at?: string | null;
@@ -73,7 +73,7 @@ async function fetchRoomById(roomId: string): Promise<PublicRoom | null> {
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await (supabase as any)
     .from("profiles")
-    .select("id, username, display_name, avatar_url, premium_active, premium_expires_at")
+    .select("id, username, full_name, avatar_url, premium_active, premium_expires_at")
     .eq("id", userId)
     .maybeSingle();
   if (error) {
@@ -122,13 +122,13 @@ function PlayerCard({
         <div className="flex items-center gap-3">
           <UserAvatar
             avatarUrl={profile.avatar_url}
-            displayName={profile.display_name || profile.username}
+            displayName={profile.full_name || profile.username}
             size="lg"
             className="shrink-0"
           />
           <div>
             <div className="font-display text-xl flex items-center">
-              {profile.display_name ?? profile.username}
+              {profile.full_name ?? profile.username}
               <PremiumBadge
                 className="h-4 w-4 ml-2"
                 premiumActive={profile.premium_active}
@@ -576,7 +576,7 @@ function RoomWaiting() {
           <div className="space-y-2">
             {queueEntries.map((entry) => {
               const isMe = entry.user_id === user.id;
-              const name = entry.profile?.display_name || entry.profile?.username || "Player";
+              const name = entry.profile?.full_name || entry.profile?.username || "User";
               return (
                 <div
                   key={entry.user_id}

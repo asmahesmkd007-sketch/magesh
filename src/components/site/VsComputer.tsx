@@ -461,7 +461,7 @@ export function VsComputer() {
   }
 
   // ============ PLAYING / OVER ============
-  const myName = profile?.display_name ?? profile?.username ?? "You";
+  const myName = profile?.full_name ?? profile?.username ?? "You";
   const myInitial = myName[0]?.toUpperCase() ?? "Y";
   const myTime = myColor === "w" ? whiteTime : blackTime;
   const oppTime = myColor === "w" ? blackTime : whiteTime;

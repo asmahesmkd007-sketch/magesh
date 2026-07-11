@@ -147,7 +147,7 @@ export function PostComposer({ onPosted }: { onPosted?: () => void }) {
   return (
     <Card className="p-4 sm:p-5">
       <div className="flex gap-3">
-        <UserAvatar avatarUrl={profile?.avatar_url} displayName={profile?.display_name} size="md" />
+        <UserAvatar avatarUrl={profile?.avatar_url} displayName={profile?.full_name} size="md" />
         <div className="min-w-0 flex-1">
           <textarea
             value={content}

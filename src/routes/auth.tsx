@@ -65,7 +65,7 @@ function AuthPage() {
           password: cleanPassword,
           options: {
             emailRedirectTo: window.location.origin + "/home",
-            data: { username, display_name: username },
+            data: { username, full_name: username },
           },
         });
         if (error) throw error;

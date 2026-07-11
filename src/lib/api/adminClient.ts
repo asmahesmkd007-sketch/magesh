@@ -33,7 +33,7 @@ export type AdminStats = {
 export type AdminUser = {
   id: string;
   username: string;
-  display_name: string;
+  full_name: string;
   account_status: "active" | "banned" | "suspended" | "muted";
   premium_active: boolean;
   premium_tier: string;
@@ -165,6 +165,7 @@ export type AdminPuzzle = {
   difficulty: string;
   explanation: string;
   themes: string[];
+  enabled?: boolean;
 };
 
 export async function listPuzzles(
@@ -173,17 +174,26 @@ export async function listPuzzles(
   minRating = 0,
   maxRating = 4000,
   limit = 100,
+  difficulty = "",
 ): Promise<AdminPuzzle[]> {
   // Loose client: the puzzles table columns aren't in the generated types.
   let q = (supabase as unknown as { from: (n: string) => any })
     .from("puzzles")
-    .select("id,fen,moves,rating,theme,category,goal,difficulty,explanation,themes")
+    .select("id,fen,moves,rating,theme,category,goal,difficulty,explanation,themes,enabled")
     .gte("rating", minRating)
     .lte("rating", maxRating)
     .order("rating", { ascending: true })
     .limit(limit);
   if (category) q = q.eq("category", category);
-  if (search) q = q.ilike("fen", `%${search}%`);
+  if (difficulty) q = q.eq("difficulty", difficulty);
+  if (search) {
+    // `id` is a UUID column — Postgres has no ILIKE for uuid, so route a
+    // UUID-shaped search to an exact id match and everything else to a FEN
+    // substring search.
+    const trimmed = search.trim();
+    const looksLikeId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
+    q = looksLikeId ? q.eq("id", trimmed) : q.ilike("fen", `%${trimmed}%`);
+  }
   const { data, error } = await q;
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as AdminPuzzle[];
@@ -201,9 +211,13 @@ export const upsertPuzzle = (p: Omit<Partial<AdminPuzzle>, "id"> & { id?: string
     p_difficulty: p.difficulty ?? "Intermediate",
     p_explanation: p.explanation ?? "",
     p_themes: p.themes ?? [],
+    p_enabled: p.enabled ?? true,
   });
 
 export const deletePuzzle = (id: string) => rpc<void>("admin_delete_puzzle", { p_id: id });
+
+export const setPuzzleEnabled = (id: string, enabled: boolean) =>
+  rpc<void>("admin_set_puzzle_enabled", { p_id: id, p_enabled: enabled });
 
 export const bulkImportPuzzles = (items: unknown[]) =>
   rpc<number>("admin_bulk_import_puzzles", { p_items: items });

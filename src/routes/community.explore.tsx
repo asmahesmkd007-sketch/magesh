@@ -40,8 +40,8 @@ function LeaderboardCard({ kind, label }: { kind: (typeof LEADERBOARDS)[number][
           className="flex items-center gap-2.5 rounded-lg px-1 py-1.5 hover:bg-white/[0.04]"
         >
           <span className="w-4 text-center text-xs text-muted-foreground">{i + 1}</span>
-          <UserAvatar avatarUrl={u.avatar_url} displayName={u.display_name} size="xs" />
-          <span className="min-w-0 flex-1 truncate text-xs">{u.display_name}</span>
+          <UserAvatar avatarUrl={u.avatar_url} displayName={u.full_name} size="xs" />
+          <span className="min-w-0 flex-1 truncate text-xs">{u.full_name}</span>
           <span className="text-xs text-gold">{u.metric}</span>
         </Link>
       ))}
@@ -110,10 +110,10 @@ function Explore() {
                 params={{ username: u.username }}
                 className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-white/[0.04]"
               >
-                <UserAvatar avatarUrl={u.avatar_url} displayName={u.display_name} size="sm" />
+                <UserAvatar avatarUrl={u.avatar_url} displayName={u.full_name} size="sm" />
                 <div className="min-w-0">
                   <div className="flex items-center gap-1 truncate text-xs font-medium">
-                    {u.display_name}
+                    {u.full_name}
                     {u.premium_tier && u.premium_tier !== "free" && (
                       <BadgeCheck className="h-3 w-3 text-gold" />
                     )}

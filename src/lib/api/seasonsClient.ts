@@ -32,7 +32,7 @@ export type SeasonLeaderboardEntry = {
   district: string | null;
   rewards: string[];
   username: string;
-  display_name: string;
+  full_name: string;
   avatar_url: string | null;
   premium_active: boolean;
   premium_expires_at: string | null;

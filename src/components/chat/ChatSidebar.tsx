@@ -1,16 +1,17 @@
-// Left rail: Global Chat, My Rooms, Direct Messages, + Create Room.
-// Mirrors the requested nav shape:
-//   Chat
-//   ├── Global Chat
-//   ├── Direct Messages
-//   └── My Rooms
+// Column 1 (filter) + Column 2 (room/channel list) — stacked in one
+// rail. Filter defaults to Global; switching it swaps Column 2 content
+// instantly (client-side state only). Direct Messages stay reachable
+// below the filtered list since they're wired in from user profiles
+// elsewhere in the app.
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
-import { Globe2, Hash, MessageSquare, Plus, Users } from "lucide-react";
+import { MessageSquare, Plus } from "lucide-react";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import { GhostButton } from "@/components/site/Primitives";
 import { useMyChannels, useMyChannelsRealtime } from "@/hooks/useChat";
 import { CreateRoomModal } from "./CreateRoomModal";
+import { ChatFilterTabs, type ChatFilter } from "./ChatFilterTabs";
+import { GlobalRoomsList, PrivateRoomsList, PublicRoomsList } from "./RoomBrowser";
 
 function relTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -27,9 +28,8 @@ export function ChatSidebar() {
   const { data: channels = [] } = useMyChannels();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [creating, setCreating] = useState(false);
+  const [filter, setFilter] = useState<ChatFilter>("global");
 
-  const global = channels.find((c) => c.type === "global");
-  const rooms = channels.filter((c) => c.type === "room");
   const dms = channels.filter((c) => c.type === "dm");
 
   const rowClass = (active: boolean) =>
@@ -40,26 +40,57 @@ export function ChatSidebar() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-white/10 p-3">
-        <h2 className="px-1 text-xs font-medium uppercase tracking-wider text-gold/80">Chat</h2>
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wider text-gold/80">Chat</h2>
+        <ChatFilterTabs value={filter} onChange={setFilter} />
       </div>
       <div className="flex-1 overflow-y-auto p-2">
-        {global && (
-          <Link to="/chat/global" className={rowClass(pathname === "/chat/global")}>
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full gradient-gold text-background">
-              <Globe2 className="h-4 w-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="truncate font-medium">Global Chat</div>
-              <div className="truncate text-[11px] text-muted-foreground">
-                {global.last_message ? global.last_message.content : "Every ChessOX player, one room"}
-              </div>
-            </div>
-            {global.unread_count > 0 && (
-              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-gold px-1 text-[10px] font-medium text-background">
-                {global.unread_count > 99 ? "99+" : global.unread_count}
+        {filter === "global" && (
+          <>
+            <div className="mb-1 flex items-center justify-between px-1">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Global Rooms
               </span>
-            )}
-          </Link>
+            </div>
+            <GlobalRoomsList />
+          </>
+        )}
+
+        {filter === "public" && (
+          <>
+            <div className="mb-1 flex items-center justify-between px-1">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Public Rooms
+              </span>
+              <button
+                type="button"
+                onClick={() => setCreating(true)}
+                className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:bg-white/[0.05] hover:text-gold"
+                aria-label="Create room"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <PublicRoomsList />
+          </>
+        )}
+
+        {filter === "private" && (
+          <>
+            <div className="mb-1 flex items-center justify-between px-1">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Private Rooms
+              </span>
+              <button
+                type="button"
+                onClick={() => setCreating(true)}
+                className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:bg-white/[0.05] hover:text-gold"
+                aria-label="Create room"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <PrivateRoomsList />
+          </>
         )}
 
         <div className="mt-4 flex items-center justify-between px-1">
@@ -75,9 +106,9 @@ export function ChatSidebar() {
           )}
           {dms.map((c) => (
             <Link key={c.id} to="/chat/dm/$username" params={{ username: c.other_user?.username ?? "" }} className={rowClass(pathname === `/chat/dm/${c.other_user?.username}`)}>
-              <UserAvatar avatarUrl={c.other_user?.avatar_url} displayName={c.other_user?.display_name} size="sm" />
+              <UserAvatar avatarUrl={c.other_user?.avatar_url} displayName={c.other_user?.full_name} size="sm" />
               <div className="min-w-0 flex-1">
-                <div className="truncate font-medium">{c.other_user?.display_name}</div>
+                <div className="truncate font-medium">{c.other_user?.full_name}</div>
                 {c.last_message && (
                   <div className="truncate text-[11px] text-muted-foreground">{c.last_message.content}</div>
                 )}
@@ -92,52 +123,16 @@ export function ChatSidebar() {
           ))}
         </div>
 
-        <div className="mt-4 flex items-center justify-between px-1">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">My Rooms</span>
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:bg-white/[0.05] hover:text-gold"
-            aria-label="Create room"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="mt-1 space-y-0.5">
-          {rooms.map((c) => (
-            <Link key={c.id} to="/chat/room/$slug" params={{ slug: c.slug ?? c.id }} className={rowClass(pathname === `/chat/room/${c.slug}`)}>
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/5 text-emerald">
-                <Hash className="h-4 w-4" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-medium">{c.name}</div>
-                <div className="truncate text-[11px] text-muted-foreground">
-                  {c.member_count} member{c.member_count === 1 ? "" : "s"}
-                  {c.is_private ? " · Private" : ""}
-                </div>
-              </div>
-              {c.unread_count > 0 && (
-                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-gold px-1 text-[10px] font-medium text-background">
-                  {c.unread_count > 99 ? "99+" : c.unread_count}
-                </span>
-              )}
-            </Link>
-          ))}
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm text-muted-foreground hover:bg-white/[0.04] hover:text-gold"
-          >
-            <span className="grid h-8 w-8 place-items-center rounded-full border border-dashed border-white/15">
-              <Plus className="h-4 w-4" />
-            </span>
-            Create room
-          </button>
-        </div>
-
-        <Link to="/chat/discover" className="mt-4 flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm text-muted-foreground hover:bg-white/[0.04] hover:text-gold">
-          <Users className="h-4 w-4" /> Discover rooms
-        </Link>
+        <button
+          type="button"
+          onClick={() => setCreating(true)}
+          className="mt-4 flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm text-muted-foreground hover:bg-white/[0.04] hover:text-gold"
+        >
+          <span className="grid h-8 w-8 place-items-center rounded-full border border-dashed border-white/15">
+            <Plus className="h-4 w-4" />
+          </span>
+          Create room
+        </button>
       </div>
 
       {creating && <CreateRoomModal onClose={() => setCreating(false)} />}

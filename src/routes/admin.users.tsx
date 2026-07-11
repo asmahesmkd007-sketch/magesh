@@ -109,7 +109,7 @@ function UsersPage() {
                   <tr key={u.id} className="hover:bg-white/[0.02]">
                     <td className="px-4 py-3">
                       <div className="font-medium">{u.username}</div>
-                      <div className="text-xs text-muted-foreground">{u.display_name}</div>
+                      <div className="text-xs text-muted-foreground">{u.full_name}</div>
                     </td>
                     <td className={`px-4 py-3 capitalize ${STATUS_CLS[u.account_status] ?? ""}`}>
                       {u.account_status}
@@ -184,7 +184,7 @@ function ManageModal({
             <div>
               <div className="font-display text-xl">{user.username}</div>
               <div className="text-xs text-muted-foreground">
-                {user.display_name} · {user.role} · {user.account_status}
+                {user.full_name} · {user.role} · {user.account_status}
               </div>
             </div>
             <button onClick={onClose} className="text-muted-foreground hover:text-foreground">

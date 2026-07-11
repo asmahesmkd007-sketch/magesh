@@ -65,7 +65,7 @@ function UserRow({ u }: { u: CommunityUserLite }) {
   return (
     <div className="flex items-center gap-2.5 py-1.5">
       <Link to="/u/$username" params={{ username: u.username }} className="shrink-0">
-        <UserAvatar avatarUrl={u.avatar_url} displayName={u.display_name} size="sm" />
+        <UserAvatar avatarUrl={u.avatar_url} displayName={u.full_name} size="sm" />
       </Link>
       <div className="min-w-0 flex-1">
         <Link
@@ -73,7 +73,7 @@ function UserRow({ u }: { u: CommunityUserLite }) {
           params={{ username: u.username }}
           className="flex items-center gap-1 truncate text-xs font-medium hover:underline"
         >
-          {u.display_name}
+          {u.full_name}
           {u.premium_tier && u.premium_tier !== "free" && (
             <BadgeCheck className="h-3 w-3 shrink-0 text-gold" />
           )}
@@ -151,9 +151,9 @@ export function CommunityLayout({ children }: { children: ReactNode }) {
               params={{ username: profile.username }}
               className="mt-6 hidden items-center gap-2.5 rounded-full px-3 py-2 hover:bg-white/[0.05] xl:flex"
             >
-              <UserAvatar avatarUrl={profile.avatar_url} displayName={profile.display_name} size="sm" />
+              <UserAvatar avatarUrl={profile.avatar_url} displayName={profile.full_name} size="sm" />
               <div className="min-w-0">
-                <div className="truncate text-xs font-medium">{profile.display_name}</div>
+                <div className="truncate text-xs font-medium">{profile.full_name}</div>
                 <div className="truncate text-[11px] text-muted-foreground">@{profile.username}</div>
               </div>
             </Link>

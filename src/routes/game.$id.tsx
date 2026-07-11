@@ -440,7 +440,7 @@ function LiveGame() {
     await supabase.from("game_chat").insert({
       game_id: id,
       user_id: user.id,
-      username: profile?.username ?? "Player",
+      username: profile?.username ?? "User",
       body,
     });
   }

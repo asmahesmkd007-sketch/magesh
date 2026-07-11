@@ -72,7 +72,7 @@ export function MessageBubble({
   return (
     <div className="group flex gap-2.5 rounded-xl px-2 py-1.5 hover:bg-white/[0.03]">
       <Link to="/u/$username" params={{ username: message.author.username }} className="shrink-0">
-        <UserAvatar avatarUrl={message.author.avatar_url} displayName={message.author.display_name} size="sm" />
+        <UserAvatar avatarUrl={message.author.avatar_url} displayName={message.author.full_name} size="sm" />
       </Link>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
@@ -81,7 +81,7 @@ export function MessageBubble({
             params={{ username: message.author.username }}
             className="text-sm font-medium hover:underline"
           >
-            {message.author.display_name}
+            {message.author.full_name}
           </Link>
           <span className="text-[11px] text-muted-foreground">{relTime(message.created_at)}</span>
           {message.is_pinned && <Pin className="h-3 w-3 text-gold" />}

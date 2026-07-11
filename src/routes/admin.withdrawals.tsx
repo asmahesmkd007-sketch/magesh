@@ -106,7 +106,7 @@ function RejectModal({
           <div>
             <h2 className="font-display text-xl text-rose-400">Reject Withdrawal</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              This will return ₹{request.amount} to {request.display_name}'s wallet.
+              This will return ₹{request.amount} to {request.full_name}'s wallet.
             </p>
           </div>
         </div>
@@ -197,7 +197,7 @@ function WithdrawalRow({
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">{req.display_name}</span>
+              <span className="text-sm font-medium">{req.full_name}</span>
               <span className="text-xs text-muted-foreground">@{req.username}</span>
               <StatusBadge status={req.status} />
             </div>

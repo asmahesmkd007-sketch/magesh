@@ -24,6 +24,7 @@ import {
   X,
   Youtube,
   Zap,
+  Shield,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -230,6 +231,10 @@ function ProfilePage() {
   const [history, setHistory] = useState<RatingHistoryRow[]>([]);
   const [tournamentHistory, setTournamentHistory] = useState<TournamentEntry[]>([]);
   const [seasonHistory, setSeasonHistory] = useState<SeasonHistoryForUser | null>(null);
+  const [puzzleStats, setPuzzleStats] = useState<any>(null);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [userClan, setUserClan] = useState<any>(null);
   const [dataLoading, setDataLoading] = useState(true);
 
   // Inline upload state (only used when isOwnProfile)
@@ -267,11 +272,19 @@ function ProfilePage() {
         .eq("user_id", targetUid)
         .order("joined_at", { ascending: false })
         .limit(30),
-    ]).then(([r, g, h, t]) => {
+      (supabase as any).from("user_puzzle_stats").select("*").eq("user_id", targetUid).maybeSingle(),
+      (supabase as any).from("community_follows").select("*", { count: "exact", head: true }).eq("following_id", targetUid),
+      (supabase as any).from("community_follows").select("*", { count: "exact", head: true }).eq("follower_id", targetUid),
+      (supabase as any).from("clan_members").select("role, clans(name, tag, slug)").eq("user_id", targetUid).maybeSingle(),
+    ]).then(([r, g, h, t, p, followers, following, clanData]) => {
       setRatings((r.data as unknown as Rating[]) ?? []);
       setGames((g.data as unknown as Game[]) ?? []);
       setHistory((h.data as unknown as RatingHistoryRow[]) ?? []);
       setTournamentHistory((t.data as unknown as TournamentEntry[]) ?? []);
+      setPuzzleStats(p.data ?? null);
+      setFollowersCount(followers.count ?? 0);
+      setFollowingCount(following.count ?? 0);
+      setUserClan(clanData.data ?? null);
       setDataLoading(false);
     });
   }, [targetUid]);
@@ -501,7 +514,7 @@ function ProfilePage() {
             <div className="relative group/av">
               <UserAvatar
                 avatarUrl={profile.avatar_url}
-                displayName={profile.display_name}
+                displayName={profile.full_name}
                 size="xl"
                 shape="rounded-full"
                 className="ring-4 ring-background"
@@ -534,7 +547,7 @@ function ProfilePage() {
             {/* Name + meta */}
             <div className="flex-1 min-w-0">
               <h1 className="font-display text-3xl md:text-4xl flex flex-wrap items-center gap-2">
-                {profile.display_name}
+                {profile.full_name}
                 <PremiumBadge
                   className="h-6 w-6"
                   premiumActive={profile.premium_active}
@@ -546,6 +559,7 @@ function ProfilePage() {
                   <MapPin className="h-3.5 w-3.5" /> {profile.country ?? "India"}
                 </span>
                 <span>· @{profile.username}</span>
+                <span>· Joined {new Date(profile.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</span>
                 {profile.title && (
                   <span className="rounded-full bg-gold/15 px-2 py-0.5 text-xs text-gold">
                     {profile.title}
@@ -556,6 +570,25 @@ function ProfilePage() {
                     {profile.premium_tier}
                   </span>
                 )}
+                {userClan?.clans && (
+                  <Link to="/clan/$slug" params={{ slug: userClan.clans.slug }} className="hover:opacity-80 transition-opacity">
+                    <span className="rounded-full border border-gold/30 bg-gold/10 px-2.5 py-0.5 text-xs font-medium text-gold flex items-center gap-1.5 shadow-[0_0_10px_rgba(212,175,55,0.2)]">
+                      <Shield className="h-3 w-3" />
+                      {userClan.clans.name} [{userClan.clans.tag}]
+                    </span>
+                  </Link>
+                )}
+              </div>
+              
+              <div className="mt-2 flex flex-wrap items-center gap-4 text-sm">
+                <div className="flex items-center gap-1.5 hover:text-white cursor-pointer transition-colors">
+                  <span className="font-bold text-white">{followersCount}</span>
+                  <span className="text-muted-foreground">Followers</span>
+                </div>
+                <div className="flex items-center gap-1.5 hover:text-white cursor-pointer transition-colors">
+                  <span className="font-bold text-white">{followingCount}</span>
+                  <span className="text-muted-foreground">Following</span>
+                </div>
               </div>
               {profile.bio && (
                 <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{profile.bio}</p>
@@ -598,10 +631,14 @@ function ProfilePage() {
           </div>
 
           {/* Rating chips */}
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-6">
             <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
               <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1.5"><Crown className="h-3.5 w-3.5 text-gold"/> IQ Rating</div>
               <div className="font-display text-2xl text-gradient-gold">{(profile as any).iq_rating ?? 100}</div>
+            </div>
+            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+              <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">Puzzle</div>
+              <div className="font-display text-2xl text-gradient-gold">{puzzleStats?.puzzle_rating ?? 100}</div>
             </div>
             {(["rapid", "blitz", "bullet", "classical"] as const).map((cls) => (
               <div key={cls} className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
@@ -612,7 +649,7 @@ function ProfilePage() {
           </div>
 
           {/* Stats chips */}
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-7">
             {(
               [
                 ["Total Games", totals.games, "text-foreground"],
@@ -620,6 +657,8 @@ function ProfilePage() {
                 ["Losses", totals.losses, "text-rose-400"],
                 ["Draws", totals.draws, "text-muted-foreground"],
                 ["Win Rate", `${winRate}%`, "text-gold"],
+                ["Puzzles Solved", puzzleStats?.total_solved ?? 0, "text-sky-400"],
+                ["Win Streak", puzzleStats?.current_streak ?? 0, "text-amber-400"],
               ] as const
             ).map(([label, value, cls]) => (
               <div key={label} className="rounded-xl border border-white/5 bg-white/[0.02] p-4">

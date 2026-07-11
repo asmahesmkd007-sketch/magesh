@@ -46,9 +46,9 @@ function ChatIndex() {
         )}
         {dms.map((c) => (
           <Link key={c.id} to="/chat/dm/$username" params={{ username: c.other_user?.username ?? "" }} className="flex items-center gap-3 rounded-xl px-2.5 py-2.5 hover:bg-white/[0.04]">
-            <UserAvatar avatarUrl={c.other_user?.avatar_url} displayName={c.other_user?.display_name} size="md" />
+            <UserAvatar avatarUrl={c.other_user?.avatar_url} displayName={c.other_user?.full_name} size="md" />
             <div className="min-w-0 flex-1">
-              <div className="font-medium">{c.other_user?.display_name}</div>
+              <div className="font-medium">{c.other_user?.full_name}</div>
               {c.last_message && <div className="truncate text-xs text-muted-foreground">{c.last_message.content}</div>}
             </div>
             {c.unread_count > 0 && (

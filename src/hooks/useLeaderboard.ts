@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 export type LeaderboardEntry = {
   id: string;
   username: string;
-  display_name: string;
+  full_name: string;
   avatar_url: string | null;
   country: string | null;
   state: string | null;
@@ -28,13 +28,19 @@ export type LeaderboardEntry = {
   blitz_rating: number;
   bullet_rating: number;
   classical_rating: number;
+  overall_rating: number;
+  puzzle_rating: number;
+  puzzle_solved: number;
+  win_streak: number;
+  followers: number;
+  following: number;
   achievements_count: number;
   level: number;
   xp: number;
   total_count: number; // for pagination
 };
 
-export type SortOption = "iq_desc" | "iq_asc" | "rating_desc" | "newest" | "oldest" | "wins_desc" | "matches_desc" | "winrate_desc" | "active_desc";
+export type SortOption = "iq_desc" | "iq_asc" | "rating_desc" | "newest" | "oldest" | "wins_desc" | "matches_desc" | "winrate_desc" | "active_desc" | "puzzle_desc" | "streak_desc" | "score_desc";
 
 export type LeaderboardFilters = {
   country: string | null; // null = Global
@@ -42,6 +48,8 @@ export type LeaderboardFilters = {
   district: string | null;
   search: string;
   sort: SortOption;
+  timeframe: 'all_time' | 'today' | 'week' | 'month';
+  friendsOnly: boolean;
 };
 
 const PAGE_SIZE = 25;
@@ -54,22 +62,25 @@ export function useLeaderboard(filters: LeaderboardFilters) {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refetchTick, setRefetchTick] = useState(0);
 
   // Reset to page 0 whenever filters change (a new filter set is a new result set).
   useEffect(() => {
     setPage(0);
-  }, [filters.country, filters.state, filters.district, filters.search, filters.sort]);
+  }, [filters.country, filters.state, filters.district, filters.search, filters.sort, filters.timeframe, filters.friendsOnly]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
     const queryFilters = {
-      p_search: filters.search.trim().replace(/[%_]/g, "") || null,
+      p_search: filters.search.trim().replace(/[%_]/g, "") || "",
       p_country: filters.country || null,
       p_state: filters.state || null,
       p_district: filters.district || null,
-      p_sort: filters.sort,
+      p_sort_col: filters.sort,
+      p_timeframe: filters.timeframe || 'all_time',
+      p_friends_only: filters.friendsOnly || false,
       p_limit: PAGE_SIZE,
       p_offset: page * PAGE_SIZE,
     };
@@ -91,7 +102,23 @@ export function useLeaderboard(filters: LeaderboardFilters) {
     return () => {
       cancelled = true;
     };
-  }, [filters.country, filters.state, filters.district, filters.search, filters.sort, page]);
+  }, [filters.country, filters.state, filters.district, filters.search, filters.sort, filters.timeframe, filters.friendsOnly, page, refetchTick]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("leaderboard_realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "ratings" }, () => {
+        setRefetchTick((t) => t + 1);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_puzzle_stats" }, () => {
+        setRefetchTick((t) => t + 1);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   return {
     entries,

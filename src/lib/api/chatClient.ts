@@ -30,7 +30,7 @@ export type ChannelRole = "owner" | "moderator" | "member";
 export type ChatUserLite = {
   id: string;
   username: string;
-  display_name: string;
+  full_name: string;
   avatar_url: string | null;
 };
 
@@ -51,6 +51,13 @@ export type ChatChannel = {
   other_user: ChatUserLite | null;
   last_message: { content: string; created_at: string; user_id: string } | null;
   unread_count: number;
+  room_code: string | null;
+  icon: string | null;
+  max_members: number | null;
+  online_count: number;
+  is_permanent: boolean;
+  coming_soon: boolean;
+  password_protected: boolean;
 };
 
 export type ChatReaction = { emoji: string; count: number; mine: boolean };
@@ -86,11 +93,57 @@ export const fetchMyChannels = () => rpc<ChatChannel[]>("chat_my_channels");
 export const discoverRooms = (search?: string, limit = 30) =>
   rpc<ChatChannel[]>("chat_discover_rooms", { p_search: search ?? null, p_limit: limit });
 
+export const discoverPrivateRooms = (search?: string, limit = 30) =>
+  rpc<ChatChannel[]>("chat_discover_private_rooms", { p_search: search ?? null, p_limit: limit });
+
+const MOCK_GLOBAL_ROOMS: ChatChannel[] = [
+  { id: "mock-global", type: "global", slug: "global", name: "World Chat", description: "Every ChessOx player, one room", is_private: false, is_permanent: true, icon: "🌍", member_count: 1204, online_count: 42, unread_count: 0, sort_order: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), coming_soon: false, is_member: false, can_message: true },
+  { id: "mock-gen-en", type: "room", slug: "general-en", name: "General Chat (English)", description: "General chat in English", is_private: false, is_permanent: true, icon: "🌍", member_count: 500, online_count: 12, unread_count: 0, sort_order: 2, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), coming_soon: false, is_member: false, can_message: true },
+  { id: "mock-gen-ta", type: "room", slug: "general-ta", name: "General Chat (Tamil)", description: "General chat in Tamil", is_private: false, is_permanent: true, icon: "🇮🇳", member_count: 300, online_count: 5, unread_count: 0, sort_order: 3, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), coming_soon: false, is_member: false, can_message: true },
+  { id: "mock-gen-ml", type: "room", slug: "general-ml", name: "General Chat (Malayalam)", description: "General chat in Malayalam", is_private: false, is_permanent: true, icon: "🇮🇳", member_count: 150, online_count: 2, unread_count: 0, sort_order: 4, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), coming_soon: false, is_member: false, can_message: true },
+  { id: "mock-gen-te", type: "room", slug: "general-te", name: "General Chat (Telugu)", description: "General chat in Telugu", is_private: false, is_permanent: true, icon: "🇮🇳", member_count: 200, online_count: 8, unread_count: 0, sort_order: 5, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), coming_soon: false, is_member: false, can_message: true },
+  { id: "mock-gen-kn", type: "room", slug: "general-kn", name: "General Chat (Kannada)", description: "General chat in Kannada", is_private: false, is_permanent: true, icon: "🇮🇳", member_count: 180, online_count: 4, unread_count: 0, sort_order: 6, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), coming_soon: false, is_member: false, can_message: true },
+  { id: "mock-gen-hi", type: "room", slug: "general-hi", name: "General Chat (Hindi)", description: "General chat in Hindi", is_private: false, is_permanent: true, icon: "🇮🇳", member_count: 800, online_count: 25, unread_count: 0, sort_order: 7, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), coming_soon: false, is_member: false, can_message: true },
+  { id: "mock-gen-mr", type: "room", slug: "general-mr", name: "General Chat (Marathi)", description: "General chat in Marathi", is_private: false, is_permanent: true, icon: "🇮🇳", member_count: 250, online_count: 6, unread_count: 0, sort_order: 8, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), coming_soon: false, is_member: false, can_message: true },
+  { id: "mock-gen-gu", type: "room", slug: "general-gu", name: "General Chat (Gujarati)", description: "General chat in Gujarati", is_private: false, is_permanent: true, icon: "🇮🇳", member_count: 120, online_count: 1, unread_count: 0, sort_order: 9, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), coming_soon: false, is_member: false, can_message: true },
+  { id: "mock-gen-bn", type: "room", slug: "general-bn", name: "General Chat (Bengali)", description: "General chat in Bengali", is_private: false, is_permanent: true, icon: "🇮🇳", member_count: 320, online_count: 10, unread_count: 0, sort_order: 10, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), coming_soon: false, is_member: false, can_message: true },
+  { id: "mock-gen-or", type: "room", slug: "general-or", name: "General Chat (Odia)", description: "General chat in Odia", is_private: false, is_permanent: true, icon: "🇮🇳", member_count: 90, online_count: 0, unread_count: 0, sort_order: 11, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), coming_soon: false, is_member: false, can_message: true },
+  { id: "mock-gen-ur", type: "room", slug: "general-ur", name: "General Chat (Urdu)", description: "General chat in Urdu", is_private: false, is_permanent: true, icon: "🇮🇳", member_count: 110, online_count: 2, unread_count: 0, sort_order: 12, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), coming_soon: false, is_member: false, can_message: true }
+];
+
+export const fetchPermanentRooms = async () => {
+  try {
+    const res = await rpc<ChatChannel[]>("chat_permanent_rooms");
+    if (!res || res.length === 0) return MOCK_GLOBAL_ROOMS;
+    return res;
+  } catch (error) {
+    console.error("fetchPermanentRooms fallback triggered:", error);
+    return MOCK_GLOBAL_ROOMS;
+  }
+};
+
 export const fetchChannel = (slugOrId: string) =>
   rpc<ChatChannel | null>("chat_get_channel", { p_slug_or_id: slugOrId });
 
-export const createRoom = (name: string, description: string, isPrivate: boolean) =>
-  rpc<ChatChannel>("chat_create_room", { p_name: name, p_description: description, p_is_private: isPrivate });
+export const createRoom = (
+  name: string,
+  description: string,
+  isPrivate: boolean,
+  icon?: string,
+  maxMembers?: number | null,
+  password?: string | null,
+) =>
+  rpc<ChatChannel>("chat_create_room", {
+    p_name: name,
+    p_description: description,
+    p_is_private: isPrivate,
+    p_icon: icon ?? "💬",
+    p_max_members: maxMembers ?? null,
+    p_password: password ?? null,
+  });
+
+export const joinPrivateRoom = (roomCode: string, password: string) =>
+  rpc<ChatChannel>("chat_join_private_room", { p_room_code: roomCode, p_password: password });
 
 export const updateRoom = (channelId: string, name: string, description: string) =>
   rpc<void>("chat_update_room", { p_channel: channelId, p_name: name, p_description: description });

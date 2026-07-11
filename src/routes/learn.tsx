@@ -1,11 +1,11 @@
-﻿import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { PageShell, Card } from "@/components/site/Primitives";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { YouTubeTopicVideo } from "@/components/site/YouTubeTopicVideo";
 
 export const Route = createFileRoute("/learn")({
-  head: () => ({ meta: [{ title: "How To Use — ChessOx" }] }),
+  head: () => ({ meta: [{ title: "How To Use � ChessOx" }] }),
   component: HowToUse,
 });
 
@@ -73,17 +73,17 @@ function HowToUse() {
         <Card className="p-6">
           <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground mb-4">
             <span className="text-gold font-medium">CHESScom</span>
-            <span>·</span>
+            <span>�</span>
             <span>Updated: Mar 31, 2026, 7:43 AM</span>
-            <span>·</span>
+            <span>�</span>
             <span>1,095</span>
-            <span>·</span>
+            <span>�</span>
             <span className="rounded-full border border-gold/25 bg-gold/10 px-3 py-0.5 text-xs text-gold">
               For Beginners
             </span>
           </div>
           <p className="text-foreground leading-relaxed">
-            It's never too late to learn how to play chess—the most popular game in the world!
+            It's never too late to learn how to play chess�the most popular game in the world!
             Learning the rules of chess is easy:
           </p>
           <ol className="mt-4 space-y-2 text-sm text-muted-foreground">
@@ -130,7 +130,7 @@ function HowToUse() {
             <p className="text-muted-foreground text-sm">
               Set up the pieces at the beginning of the game will be really easy.
             </p>
-            <TipBox icon="🔭" text="Recommended Tool → Train your vision of the board" />
+            <TipBox icon="??" text="Recommended Tool ? Train your vision of the board" />
           </Card>
         </section>
 
@@ -166,14 +166,14 @@ function HowToUse() {
               />
               <PieceCard
                 name="How To Move The Knight In Chess"
-                description='Knights move in a very different way from the other pieces – going two squares in one direction, and then one more move at a 90-degree angle, just like the shape of an "L". Knights are also the only pieces that can move over other pieces.'
+                description='Knights move in a very different way from the other pieces � going two squares in one direction, and then one more move at a 90-degree angle, just like the shape of an "L". Knights are also the only pieces that can move over other pieces.'
               />
               <PieceCard
                 name="How To Move The Pawn In Chess"
                 description="Pawns are unusual because they move and capture in different ways: they move forward but capture diagonally. Pawns can only move forward one square at a time, except for their very first move where they can move forward two squares. Pawns can only capture one square diagonally in front of them. They can never move or capture backward. If there is another piece directly in front of a pawn he cannot move past or capture that piece."
               />
             </div>
-            <TipBox icon="🏆" text="Recommended Tool → Solitaire Chess (capture all your pieces)" />
+            <TipBox icon="??" text="Recommended Tool ? Solitaire Chess (capture all your pieces)" />
           </Card>
         </section>
 
@@ -246,7 +246,7 @@ function HowToUse() {
                   "the king may not be in check or pass through check",
                 ].map((rule, i) => (
                   <li key={i} className="flex items-start gap-2">
-                    <span className="text-gold mt-0.5 shrink-0">•</span>
+                    <span className="text-gold mt-0.5 shrink-0">�</span>
                     {rule}
                   </li>
                 ))}
@@ -312,7 +312,7 @@ function HowToUse() {
                   "capture the piece threatening the king.",
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-2">
-                    <span className="text-gold mt-0.5 shrink-0">•</span>
+                    <span className="text-gold mt-0.5 shrink-0">�</span>
                     {item}
                   </li>
                 ))}
@@ -421,7 +421,7 @@ function HowToUse() {
                     ["A bishop is worth", "3"],
                     ["A rook is worth", "5"],
                     ["A queen is worth", "9"],
-                    ["The king is infinitely valuable", "∞"],
+                    ["The king is infinitely valuable", "8"],
                   ].map(([label, val]) => (
                     <div key={label} className="flex justify-between text-muted-foreground">
                       <span>{label}</span>
@@ -430,7 +430,7 @@ function HowToUse() {
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
-                  At the end of the game, these points don't mean anything—it is simply a system you
+                  At the end of the game, these points don't mean anything�it is simply a system you
                   can use to make decisions while playing, helping you know when to capture,
                   exchange, or make other moves.
                 </p>
@@ -460,7 +460,7 @@ function HowToUse() {
                 </p>
               </div>
             </div>
-            <TipBox icon="📄" text="Recommended Article → 10 Common Mistakes Among Beginners" />
+            <TipBox icon="??" text="Recommended Article ? 10 Common Mistakes Among Beginners" />
           </Card>
         </section>
 
@@ -527,7 +527,7 @@ function HowToUse() {
               keywords={["chess variants", "crazyhouse", "bughouse", "chess960"]}
               category="chess"
             />
-            <TipBox icon="📁" text="Recommended Article → 5 Amazing Chess Variants" />
+            <TipBox icon="??" text="Recommended Article ? 5 Amazing Chess Variants" />
           </Card>
         </section>
 
@@ -548,8 +548,8 @@ function HowToUse() {
               category="chess"
             />
             <div className="grid gap-3 sm:grid-cols-2">
-              <TipBox icon="💻" text="Recommended Tool → Play Chess960 vs the Computer" />
-              <TipBox icon="♟️" text="Recommended Tool → Play Chess960 with Friends" />
+              <TipBox icon="??" text="Recommended Tool ? Play Chess960 vs the Computer" />
+              <TipBox icon="??" text="Recommended Tool ? Play Chess960 with Friends" />
             </div>
           </Card>
         </section>
@@ -614,23 +614,23 @@ function HowToUse() {
                   </p>
                   <ul className="space-y-2">
                     <li>
-                      <strong className="text-gold">Play lots of chess</strong> — Just keep playing!
-                      Play as much as possible. You should learn from each game – those you win and
+                      <strong className="text-gold">Play lots of chess</strong> � Just keep playing!
+                      Play as much as possible. You should learn from each game � those you win and
                       those you lose.
                     </li>
                     <li>
-                      <strong className="text-gold">Study with chess lessons</strong> — If you
+                      <strong className="text-gold">Study with chess lessons</strong> � If you
                       really want to improve quickly then you should do some online chess lessons.
                       You can find online chess lessons here.
                     </li>
                     <li>
-                      <strong className="text-gold">Have fun</strong> — Don't get discouraged if you
-                      don't win all of your games right away. Everyone loses – even world champions.
+                      <strong className="text-gold">Have fun</strong> � Don't get discouraged if you
+                      don't win all of your games right away. Everyone loses � even world champions.
                       As long as you continue to have fun and learn from the games you lose then you
                       can enjoy chess forever!
                     </li>
                   </ul>
-                  <TipBox icon="📊" text="Recommended Article → 7 Tips to Get Better at Chess" />
+                  <TipBox icon="??" text="Recommended Article ? 7 Tips to Get Better at Chess" />
                 </div>
               }
             />
@@ -665,8 +665,8 @@ function HowToUse() {
                     popular in Europe.
                   </p>
                   <TipBox
-                    icon="📖"
-                    text="Recommended Article → The 10 Most Important Moments in Chess History"
+                    icon="??"
+                    text="Recommended Article ? The 10 Most Important Moments in Chess History"
                   />
                 </div>
               }
@@ -677,13 +677,13 @@ function HowToUse() {
                 <div className="space-y-3">
                   <p>
                     The longest tournament chess game (in terms of moves) ever to be played was
-                    Nikolić vs. Arsović in 1989 and played in Belgrade, Serbia.
+                    Nikolic vs. Arsovic in 1989 and played in Belgrade, Serbia.
                   </p>
                   <div className="rounded-lg border border-gold/15 bg-black/20 p-4 font-mono text-xs text-muted-foreground space-y-1">
                     <p>Ivan Nikolic vs. Goran Arsovic</p>
                     <p>1/2-1/2 17 Feb 1989 ECO: E95</p>
                   </div>
-                  <TipBox icon="📄" text="The Longest Chess Games in History (article)" />
+                  <TipBox icon="??" text="The Longest Chess Games in History (article)" />
                 </div>
               }
             />
@@ -705,8 +705,8 @@ function HowToUse() {
                     knight, B for bishop, Q for queen, R for rook, and K for king).
                   </p>
                   <TipBox
-                    icon="📝"
-                    text="Recommended Article → Chess Notation - The Language of The Game"
+                    icon="??"
+                    text="Recommended Article ? Chess Notation - The Language of The Game"
                   />
                 </div>
               }

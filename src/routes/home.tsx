@@ -101,7 +101,7 @@ function HomePage() {
   }
 
   const displayName =
-    profile?.display_name ?? profile?.username ?? user?.email?.split("@")[0] ?? "Player";
+    profile?.full_name ?? profile?.username ?? user?.email?.split("@")[0] ?? "User";
   const username = profile?.username ?? "";
   const tier = profile?.premium_tier ?? "free";
 
@@ -305,9 +305,9 @@ function HomePage() {
         </Card>
       </div>
 
-      {/* Performance + Tournament */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <Card className="p-6 lg:col-span-2">
+      {/* Performance */}
+      <div className="mt-6">
+        <Card className="p-6">
           <SectionTitle kicker="Stats" title="Performance" />
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div>
@@ -334,23 +334,6 @@ function HomePage() {
                   : (ratings.find((r) => r.time_class === "rapid")?.peak_rating ?? "—")}
               </div>
             </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <SectionTitle kicker="Arena" title="Upcoming Tournament" />
-          <div className="rounded-xl border border-gold/20 bg-gold/5 p-4">
-            <Trophy className="h-6 w-6 text-gold" />
-            <div className="mt-2 font-display text-xl">Maharaja Cup</div>
-            <div className="text-sm text-muted-foreground">
-              Starts tomorrow · ₹10,00,000 prize pool
-            </div>
-            <Link
-              to="/tournaments"
-              className="mt-3 inline-flex w-full justify-center rounded-full border border-gold/30 px-4 py-2 text-sm text-gold"
-            >
-              View Details
-            </Link>
           </div>
         </Card>
       </div>

@@ -5,7 +5,7 @@
 // and mutations for the ChessOX chat system (Global Chat, Rooms, DMs).
 // =====================================================================
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
@@ -27,6 +27,23 @@ export function useDiscoverRooms(search?: string) {
     queryKey: ["chat_discover_rooms", search ?? null],
     queryFn: () => api.discoverRooms(search),
     staleTime: 15_000,
+  });
+}
+
+export function useDiscoverPrivateRooms(search?: string) {
+  return useQuery({
+    queryKey: ["chat_discover_private_rooms", search ?? null],
+    queryFn: () => api.discoverPrivateRooms(search),
+    staleTime: 15_000,
+  });
+}
+
+export function usePermanentRooms() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["chat_permanent_rooms", user?.id ?? null],
+    queryFn: api.fetchPermanentRooms,
+    staleTime: 30_000,
   });
 }
 
@@ -113,6 +130,45 @@ export function useMyChannelsRealtime() {
   }, [user, queryClient]);
 }
 
+/** Ephemeral typing indicator: broadcast-only (no DB writes/history). */
+export function useTypingIndicator(channelId: string | undefined) {
+  const { user } = useAuth();
+  const [typingNames, setTypingNames] = useState<string[]>([]);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => {
+    if (!channelId) return;
+    const ch = supabase.channel(`chat_typing:${channelId}`, { config: { broadcast: { self: false } } });
+    ch.on("broadcast", { event: "typing" }, ({ payload }) => {
+      const name = payload?.name as string | undefined;
+      const uid = payload?.uid as string | undefined;
+      if (!name || uid === user?.id) return;
+      setTypingNames((prev) => (prev.includes(name) ? prev : [...prev, name]));
+      const existing = timers.current.get(name);
+      if (existing) clearTimeout(existing);
+      timers.current.set(
+        name,
+        setTimeout(() => setTypingNames((prev) => prev.filter((n) => n !== name)), 3000),
+      );
+    });
+    ch.subscribe();
+    channelRef.current = ch;
+    return () => {
+      timers.current.forEach((t) => clearTimeout(t));
+      timers.current.clear();
+      supabase.removeChannel(ch);
+      channelRef.current = null;
+    };
+  }, [channelId, user?.id]);
+
+  const sendTyping = (name: string) => {
+    channelRef.current?.send({ type: "broadcast", event: "typing", payload: { name, uid: user?.id } });
+  };
+
+  return { typingNames, sendTyping };
+}
+
 export function useChatActions() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -173,14 +229,31 @@ export function useChatActions() {
   });
 
   const createRoom = useMutation({
-    mutationFn: (args: { name: string; description: string; isPrivate: boolean }) =>
-      api.createRoom(args.name, args.description, args.isPrivate),
+    mutationFn: (args: {
+      name: string;
+      description: string;
+      isPrivate: boolean;
+      icon?: string;
+      maxMembers?: number | null;
+      password?: string | null;
+    }) => api.createRoom(args.name, args.description, args.isPrivate, args.icon, args.maxMembers, args.password),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chat_my_channels"] });
       queryClient.invalidateQueries({ queryKey: ["chat_discover_rooms"] });
+      queryClient.invalidateQueries({ queryKey: ["chat_discover_private_rooms"] });
       toast.success("Room created");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to create room"),
+  });
+
+  const joinPrivateRoom = useMutation({
+    mutationFn: (args: { roomCode: string; password: string }) => api.joinPrivateRoom(args.roomCode, args.password),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chat_my_channels"] });
+      queryClient.invalidateQueries({ queryKey: ["chat_discover_private_rooms"] });
+      toast.success("Joined room");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to join room"),
   });
 
   const updateRoom = useMutation({
@@ -287,6 +360,7 @@ export function useChatActions() {
     updateRoom,
     deleteRoom,
     joinRoom,
+    joinPrivateRoom,
     leaveRoom,
     invite,
     removeMember,

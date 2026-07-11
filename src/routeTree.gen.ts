@@ -44,7 +44,8 @@ import { Route as CommunityPolicyRouteImport } from './routes/community-policy'
 import { Route as CommunityGuidelinesRouteImport } from './routes/community-guidelines'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as ClubsRouteImport } from './routes/clubs'
-import { Route as ClubRouteImport } from './routes/club'
+import { Route as ClansRouteImport } from './routes/clans'
+import { Route as ClanRouteImport } from './routes/clan'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AnalysisRouteImport } from './routes/analysis'
@@ -72,7 +73,7 @@ import { Route as GameIdRouteImport } from './routes/game.$id'
 import { Route as CourseSlugRouteImport } from './routes/course.$slug'
 import { Route as CommunityExploreRouteImport } from './routes/community.explore'
 import { Route as CommunityBookmarksRouteImport } from './routes/community.bookmarks'
-import { Route as ClubSlugRouteImport } from './routes/club.$slug'
+import { Route as ClanSlugRouteImport } from './routes/clan.$slug'
 import { Route as ChatGlobalRouteImport } from './routes/chat.global'
 import { Route as ChatDiscoverRouteImport } from './routes/chat.discover'
 import { Route as AdminWithdrawalsRouteImport } from './routes/admin.withdrawals'
@@ -272,9 +273,14 @@ const ClubsRoute = ClubsRouteImport.update({
   path: '/clubs',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ClubRoute = ClubRouteImport.update({
-  id: '/club',
-  path: '/club',
+const ClansRoute = ClansRouteImport.update({
+  id: '/clans',
+  path: '/clans',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClanRoute = ClanRouteImport.update({
+  id: '/clan',
+  path: '/clan',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatRoute = ChatRouteImport.update({
@@ -412,10 +418,10 @@ const CommunityBookmarksRoute = CommunityBookmarksRouteImport.update({
   path: '/bookmarks',
   getParentRoute: () => CommunityRoute,
 } as any)
-const ClubSlugRoute = ClubSlugRouteImport.update({
+const ClanSlugRoute = ClanSlugRouteImport.update({
   id: '/$slug',
   path: '/$slug',
-  getParentRoute: () => ClubRoute,
+  getParentRoute: () => ClanRoute,
 } as any)
 const ChatGlobalRoute = ChatGlobalRouteImport.update({
   id: '/global',
@@ -540,7 +546,8 @@ export interface FileRoutesByFullPath {
   '/analysis': typeof AnalysisRoute
   '/auth': typeof AuthRoute
   '/chat': typeof ChatRouteWithChildren
-  '/club': typeof ClubRouteWithChildren
+  '/clan': typeof ClanRouteWithChildren
+  '/clans': typeof ClansRoute
   '/clubs': typeof ClubsRoute
   '/community': typeof CommunityRouteWithChildren
   '/community-guidelines': typeof CommunityGuidelinesRoute
@@ -595,7 +602,7 @@ export interface FileRoutesByFullPath {
   '/admin/withdrawals': typeof AdminWithdrawalsRoute
   '/chat/discover': typeof ChatDiscoverRoute
   '/chat/global': typeof ChatGlobalRoute
-  '/club/$slug': typeof ClubSlugRoute
+  '/clan/$slug': typeof ClanSlugRoute
   '/community/bookmarks': typeof CommunityBookmarksRoute
   '/community/explore': typeof CommunityExploreRoute
   '/course/$slug': typeof CourseSlugRoute
@@ -628,7 +635,8 @@ export interface FileRoutesByTo {
   '/about-chess': typeof AboutChessRoute
   '/analysis': typeof AnalysisRoute
   '/auth': typeof AuthRoute
-  '/club': typeof ClubRouteWithChildren
+  '/clan': typeof ClanRouteWithChildren
+  '/clans': typeof ClansRoute
   '/clubs': typeof ClubsRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/community-policy': typeof CommunityPolicyRoute
@@ -678,7 +686,7 @@ export interface FileRoutesByTo {
   '/admin/withdrawals': typeof AdminWithdrawalsRoute
   '/chat/discover': typeof ChatDiscoverRoute
   '/chat/global': typeof ChatGlobalRoute
-  '/club/$slug': typeof ClubSlugRoute
+  '/clan/$slug': typeof ClanSlugRoute
   '/community/bookmarks': typeof CommunityBookmarksRoute
   '/community/explore': typeof CommunityExploreRoute
   '/course/$slug': typeof CourseSlugRoute
@@ -713,7 +721,8 @@ export interface FileRoutesById {
   '/analysis': typeof AnalysisRoute
   '/auth': typeof AuthRoute
   '/chat': typeof ChatRouteWithChildren
-  '/club': typeof ClubRouteWithChildren
+  '/clan': typeof ClanRouteWithChildren
+  '/clans': typeof ClansRoute
   '/clubs': typeof ClubsRoute
   '/community': typeof CommunityRouteWithChildren
   '/community-guidelines': typeof CommunityGuidelinesRoute
@@ -768,7 +777,7 @@ export interface FileRoutesById {
   '/admin/withdrawals': typeof AdminWithdrawalsRoute
   '/chat/discover': typeof ChatDiscoverRoute
   '/chat/global': typeof ChatGlobalRoute
-  '/club/$slug': typeof ClubSlugRoute
+  '/clan/$slug': typeof ClanSlugRoute
   '/community/bookmarks': typeof CommunityBookmarksRoute
   '/community/explore': typeof CommunityExploreRoute
   '/course/$slug': typeof CourseSlugRoute
@@ -804,7 +813,8 @@ export interface FileRouteTypes {
     | '/analysis'
     | '/auth'
     | '/chat'
-    | '/club'
+    | '/clan'
+    | '/clans'
     | '/clubs'
     | '/community'
     | '/community-guidelines'
@@ -859,7 +869,7 @@ export interface FileRouteTypes {
     | '/admin/withdrawals'
     | '/chat/discover'
     | '/chat/global'
-    | '/club/$slug'
+    | '/clan/$slug'
     | '/community/bookmarks'
     | '/community/explore'
     | '/course/$slug'
@@ -892,7 +902,8 @@ export interface FileRouteTypes {
     | '/about-chess'
     | '/analysis'
     | '/auth'
-    | '/club'
+    | '/clan'
+    | '/clans'
     | '/clubs'
     | '/community-guidelines'
     | '/community-policy'
@@ -942,7 +953,7 @@ export interface FileRouteTypes {
     | '/admin/withdrawals'
     | '/chat/discover'
     | '/chat/global'
-    | '/club/$slug'
+    | '/clan/$slug'
     | '/community/bookmarks'
     | '/community/explore'
     | '/course/$slug'
@@ -976,7 +987,8 @@ export interface FileRouteTypes {
     | '/analysis'
     | '/auth'
     | '/chat'
-    | '/club'
+    | '/clan'
+    | '/clans'
     | '/clubs'
     | '/community'
     | '/community-guidelines'
@@ -1031,7 +1043,7 @@ export interface FileRouteTypes {
     | '/admin/withdrawals'
     | '/chat/discover'
     | '/chat/global'
-    | '/club/$slug'
+    | '/clan/$slug'
     | '/community/bookmarks'
     | '/community/explore'
     | '/course/$slug'
@@ -1066,7 +1078,8 @@ export interface RootRouteChildren {
   AnalysisRoute: typeof AnalysisRoute
   AuthRoute: typeof AuthRoute
   ChatRoute: typeof ChatRouteWithChildren
-  ClubRoute: typeof ClubRouteWithChildren
+  ClanRoute: typeof ClanRouteWithChildren
+  ClansRoute: typeof ClansRoute
   ClubsRoute: typeof ClubsRoute
   CommunityRoute: typeof CommunityRouteWithChildren
   CommunityGuidelinesRoute: typeof CommunityGuidelinesRoute
@@ -1373,11 +1386,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClubsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/club': {
-      id: '/club'
-      path: '/club'
-      fullPath: '/club'
-      preLoaderRoute: typeof ClubRouteImport
+    '/clans': {
+      id: '/clans'
+      path: '/clans'
+      fullPath: '/clans'
+      preLoaderRoute: typeof ClansRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clan': {
+      id: '/clan'
+      path: '/clan'
+      fullPath: '/clan'
+      preLoaderRoute: typeof ClanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat': {
@@ -1569,12 +1589,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CommunityBookmarksRouteImport
       parentRoute: typeof CommunityRoute
     }
-    '/club/$slug': {
-      id: '/club/$slug'
+    '/clan/$slug': {
+      id: '/clan/$slug'
       path: '/$slug'
-      fullPath: '/club/$slug'
-      preLoaderRoute: typeof ClubSlugRouteImport
-      parentRoute: typeof ClubRoute
+      fullPath: '/clan/$slug'
+      preLoaderRoute: typeof ClanSlugRouteImport
+      parentRoute: typeof ClanRoute
     }
     '/chat/global': {
       id: '/chat/global'
@@ -1758,15 +1778,15 @@ const ChatRouteChildren: ChatRouteChildren = {
 
 const ChatRouteWithChildren = ChatRoute._addFileChildren(ChatRouteChildren)
 
-interface ClubRouteChildren {
-  ClubSlugRoute: typeof ClubSlugRoute
+interface ClanRouteChildren {
+  ClanSlugRoute: typeof ClanSlugRoute
 }
 
-const ClubRouteChildren: ClubRouteChildren = {
-  ClubSlugRoute: ClubSlugRoute,
+const ClanRouteChildren: ClanRouteChildren = {
+  ClanSlugRoute: ClanSlugRoute,
 }
 
-const ClubRouteWithChildren = ClubRoute._addFileChildren(ClubRouteChildren)
+const ClanRouteWithChildren = ClanRoute._addFileChildren(ClanRouteChildren)
 
 interface CommunityRouteChildren {
   CommunityBookmarksRoute: typeof CommunityBookmarksRoute
@@ -1880,7 +1900,8 @@ const rootRouteChildren: RootRouteChildren = {
   AnalysisRoute: AnalysisRoute,
   AuthRoute: AuthRoute,
   ChatRoute: ChatRouteWithChildren,
-  ClubRoute: ClubRouteWithChildren,
+  ClanRoute: ClanRouteWithChildren,
+  ClansRoute: ClansRoute,
   ClubsRoute: ClubsRoute,
   CommunityRoute: CommunityRouteWithChildren,
   CommunityGuidelinesRoute: CommunityGuidelinesRoute,

@@ -43,7 +43,7 @@ export function useFriends(userId?: string | null) {
     const uniqueIds = [...new Set(otherIds)].filter((id): id is string => !!id);
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id,username,display_name,avatar_url,premium_active,premium_expires_at")
+      .select("id,username,full_name,avatar_url,premium_active,premium_expires_at")
       .in("id", uniqueIds);
 
     const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
@@ -55,7 +55,7 @@ export function useFriends(userId?: string | null) {
         return {
           ...r,
           other_username: p?.username ?? null,
-          other_display: p?.display_name ?? null,
+          other_display: p?.full_name ?? null,
           other_avatar_url: p?.avatar_url ?? null,
           other_premium_active: p?.premium_active,
           other_premium_expires_at: p?.premium_expires_at,

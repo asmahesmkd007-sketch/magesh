@@ -21,7 +21,7 @@ export type AdminWithdrawalRequest = {
   id: string;
   user_id: string;
   username: string;
-  display_name: string;
+  full_name: string;
   amount: number;
   bank_name: string;
   account_last4: string;

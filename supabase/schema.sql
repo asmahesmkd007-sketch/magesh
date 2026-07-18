@@ -66,11 +66,17 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   iq_rating INT NOT NULL DEFAULT 100,
   board_theme  TEXT NOT NULL DEFAULT 'royal',
-  piece_theme  TEXT NOT NULL DEFAULT 'classic'
+  piece_theme  TEXT NOT NULL DEFAULT 'classic',
+  display_name TEXT,
+  community_score INT NOT NULL DEFAULT 0,
+  iq_level INT NOT NULL DEFAULT 100
 );
 -- Board / piece appearance columns (idempotent for pre-existing databases).
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS board_theme TEXT NOT NULL DEFAULT 'royal';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS piece_theme TEXT NOT NULL DEFAULT 'classic';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS display_name TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS community_score INT NOT NULL DEFAULT 0;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS iq_level INT NOT NULL DEFAULT 100;
 GRANT SELECT ON public.profiles TO anon;
 GRANT SELECT, INSERT, UPDATE ON public.profiles TO authenticated;
 GRANT ALL ON public.profiles TO service_role;
@@ -281,7 +287,7 @@ CREATE POLICY "pool own update"
 -- SECTION 10: PUZZLES
 -- =====================================================================
 CREATE TABLE IF NOT EXISTS public.puzzles (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id         TEXT PRIMARY KEY,
   fen        TEXT NOT NULL,
   moves      TEXT NOT NULL,
   rating     INT NOT NULL DEFAULT 1500,
@@ -305,7 +311,7 @@ CREATE POLICY "Puzzles public read"
 CREATE TABLE IF NOT EXISTS public.puzzle_attempts (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  puzzle_id     UUID NOT NULL REFERENCES public.puzzles(id) ON DELETE CASCADE,
+  puzzle_id     TEXT NOT NULL REFERENCES public.puzzles(id) ON DELETE CASCADE,
   solved        BOOLEAN NOT NULL,
   time_ms       INT NOT NULL DEFAULT 0,
   rating_change INT NOT NULL DEFAULT 0,
@@ -2933,6 +2939,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS trigger_community_reactions ON public.community_reactions;
 CREATE TRIGGER trigger_community_reactions
 AFTER INSERT OR UPDATE OR DELETE ON public.community_reactions
 FOR EACH ROW EXECUTE FUNCTION public.handle_community_reaction();
@@ -2949,6 +2956,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS trigger_community_comments ON public.community_comments;
 CREATE TRIGGER trigger_community_comments
 AFTER INSERT OR DELETE ON public.community_comments
 FOR EACH ROW EXECUTE FUNCTION public.handle_community_comment();
@@ -2968,52 +2976,89 @@ ALTER TABLE public.community_poll_votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.community_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view achievements" ON public.community_achievements;
 CREATE POLICY "Anyone can view achievements" ON public.community_achievements FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Anyone can view posts" ON public.community_posts;
 CREATE POLICY "Anyone can view posts" ON public.community_posts FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Authenticated users can create posts" ON public.community_posts;
 CREATE POLICY "Authenticated users can create posts" ON public.community_posts FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own posts" ON public.community_posts;
 CREATE POLICY "Users can update own posts" ON public.community_posts FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own posts" ON public.community_posts;
 CREATE POLICY "Users can delete own posts" ON public.community_posts FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Anyone can view reactions" ON public.community_reactions;
 CREATE POLICY "Anyone can view reactions" ON public.community_reactions FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Authenticated users can react" ON public.community_reactions;
 CREATE POLICY "Authenticated users can react" ON public.community_reactions FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own reactions" ON public.community_reactions;
 CREATE POLICY "Users can update own reactions" ON public.community_reactions FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own reactions" ON public.community_reactions;
 CREATE POLICY "Users can delete own reactions" ON public.community_reactions FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Anyone can view comments" ON public.community_comments;
 CREATE POLICY "Anyone can view comments" ON public.community_comments FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Authenticated users can comment" ON public.community_comments;
 CREATE POLICY "Authenticated users can comment" ON public.community_comments FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own comments" ON public.community_comments;
 CREATE POLICY "Users can delete own comments" ON public.community_comments FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can view own bookmarks" ON public.community_bookmarks;
 CREATE POLICY "Users can view own bookmarks" ON public.community_bookmarks FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create bookmarks" ON public.community_bookmarks;
 CREATE POLICY "Users can create bookmarks" ON public.community_bookmarks FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own bookmarks" ON public.community_bookmarks;
 CREATE POLICY "Users can update own bookmarks" ON public.community_bookmarks FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own bookmarks" ON public.community_bookmarks;
 CREATE POLICY "Users can delete own bookmarks" ON public.community_bookmarks FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Anyone can view follows" ON public.community_follows;
 CREATE POLICY "Anyone can view follows" ON public.community_follows FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Authenticated users can follow" ON public.community_follows;
 CREATE POLICY "Authenticated users can follow" ON public.community_follows FOR INSERT TO authenticated WITH CHECK (auth.uid() = follower_id);
+DROP POLICY IF EXISTS "Users can unfollow" ON public.community_follows;
 CREATE POLICY "Users can unfollow" ON public.community_follows FOR DELETE TO authenticated USING (auth.uid() = follower_id);
+DROP POLICY IF EXISTS "Users can remove followers" ON public.community_follows;
 CREATE POLICY "Users can remove followers" ON public.community_follows FOR DELETE TO authenticated USING (auth.uid() = following_id);
 
+DROP POLICY IF EXISTS "Users can view own blocks" ON public.community_blocks;
 CREATE POLICY "Users can view own blocks" ON public.community_blocks FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can block" ON public.community_blocks;
 CREATE POLICY "Users can block" ON public.community_blocks FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can unblock" ON public.community_blocks;
 CREATE POLICY "Users can unblock" ON public.community_blocks FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can view own mutes" ON public.community_mutes;
 CREATE POLICY "Users can view own mutes" ON public.community_mutes FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can mute" ON public.community_mutes;
 CREATE POLICY "Users can mute" ON public.community_mutes FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can unmute" ON public.community_mutes;
 CREATE POLICY "Users can unmute" ON public.community_mutes FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can view own hidden posts" ON public.community_hidden_posts;
 CREATE POLICY "Users can view own hidden posts" ON public.community_hidden_posts FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can hide posts" ON public.community_hidden_posts;
 CREATE POLICY "Users can hide posts" ON public.community_hidden_posts FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can unhide posts" ON public.community_hidden_posts;
 CREATE POLICY "Users can unhide posts" ON public.community_hidden_posts FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Anyone can view poll votes" ON public.community_poll_votes;
 CREATE POLICY "Anyone can view poll votes" ON public.community_poll_votes FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Users can vote on polls" ON public.community_poll_votes;
 CREATE POLICY "Users can vote on polls" ON public.community_poll_votes FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can change poll votes" ON public.community_poll_votes;
 CREATE POLICY "Users can change poll votes" ON public.community_poll_votes FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can view own reports" ON public.community_reports;
 CREATE POLICY "Users can view own reports" ON public.community_reports FOR SELECT TO authenticated USING (auth.uid() = reporter_id);
+DROP POLICY IF EXISTS "Users can create reports" ON public.community_reports;
 CREATE POLICY "Users can create reports" ON public.community_reports FOR INSERT TO authenticated WITH CHECK (auth.uid() = reporter_id);
 
+DROP POLICY IF EXISTS "Users can view own notifications" ON public.notifications;
 CREATE POLICY "Users can view own notifications" ON public.notifications FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own notifications" ON public.notifications;
 CREATE POLICY "Users can update own notifications" ON public.notifications FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete own notifications" ON public.notifications;
 CREATE POLICY "Users can delete own notifications" ON public.notifications FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
 -- 5. Realtime publication (handled via dashboard to prevent DDL errors)
@@ -3527,7 +3572,7 @@ CREATE TABLE IF NOT EXISTS public.user_puzzle_stats (
   total_puzzle_rating   INT NOT NULL DEFAULT 0,
   xp                    INT NOT NULL DEFAULT 0,
   coins_earned          INT NOT NULL DEFAULT 0,
-  last_played_puzzle    UUID REFERENCES public.puzzles(id) ON DELETE SET NULL,
+  last_played_puzzle    TEXT REFERENCES public.puzzles(id) ON DELETE SET NULL,
   last_active           TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -3543,7 +3588,7 @@ CREATE POLICY "Users can view own puzzle stats" ON public.user_puzzle_stats FOR 
 CREATE TABLE IF NOT EXISTS public.user_puzzle_progress (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id               UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  puzzle_id             UUID NOT NULL REFERENCES public.puzzles(id) ON DELETE CASCADE,
+  puzzle_id             TEXT NOT NULL REFERENCES public.puzzles(id) ON DELETE CASCADE,
   status                TEXT NOT NULL DEFAULT 'NOT_STARTED', -- NOT_STARTED, IN_PROGRESS, SOLVED, FAILED, SKIPPED
   started_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
   solved_at             TIMESTAMPTZ,
@@ -3573,175 +3618,6 @@ GRANT ALL ON public.user_puzzle_progress TO service_role;
 DROP POLICY IF EXISTS "Users can view own puzzle progress" ON public.user_puzzle_progress;
 CREATE POLICY "Users can view own puzzle progress" ON public.user_puzzle_progress FOR SELECT USING (auth.uid() = user_id);
 
--- RPC for fetching the daily puzzle
-DROP FUNCTION IF EXISTS public.get_daily_puzzle();
-CREATE OR REPLACE FUNCTION public.get_daily_puzzle()
-RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  v_user_id UUID := auth.uid();
-  v_stats public.user_puzzle_stats;
-  v_puzzle public.puzzles;
-  v_progress public.user_puzzle_progress;
-  v_now TIMESTAMPTZ := now();
-  v_limit INT := 3;
-BEGIN
-  IF v_user_id IS NULL THEN
-    RAISE EXCEPTION 'Not authenticated';
-  END IF;
-
-  -- Ensure stats exist
-  INSERT INTO public.user_puzzle_stats (user_id, daily_reset_time) 
-  VALUES (v_user_id, v_now) 
-  ON CONFLICT (user_id) DO NOTHING;
-
-  SELECT * INTO v_stats FROM public.user_puzzle_stats WHERE user_id = v_user_id FOR UPDATE;
-
-  -- Check daily reset
-  IF v_stats.daily_reset_time < v_now THEN
-    -- A new day has started, reset counts
-    UPDATE public.user_puzzle_stats 
-    SET completed_today = 0, 
-        next_unlock_time = NULL, 
-        daily_reset_time = v_now + interval '24 hours'
-    WHERE user_id = v_user_id
-    RETURNING * INTO v_stats;
-  END IF;
-
-  -- Lockout check
-  IF v_stats.completed_today >= v_limit THEN
-    -- If user already did 3 today, they are locked.
-    -- The next unlock is when daily_reset_time hits
-    RETURN json_build_object(
-      'locked', true,
-      'completed_today', v_stats.completed_today,
-      'remaining_today', 0,
-      'next_unlock_time', v_stats.daily_reset_time,
-      'stats', row_to_json(v_stats)
-    );
-  END IF;
-
-  -- Check for IN_PROGRESS puzzle
-  SELECT * INTO v_progress FROM public.user_puzzle_progress 
-  WHERE user_id = v_user_id AND status = 'IN_PROGRESS' 
-  ORDER BY last_viewed_time DESC LIMIT 1;
-
-  IF FOUND THEN
-    SELECT * INTO v_puzzle FROM public.puzzles WHERE id = v_progress.puzzle_id;
-    -- Update last_viewed
-    UPDATE public.user_puzzle_progress SET last_viewed_time = v_now WHERE id = v_progress.id;
-    RETURN json_build_object(
-      'locked', false,
-      'puzzle', row_to_json(v_puzzle),
-      'progress', row_to_json(v_progress),
-      'completed_today', v_stats.completed_today,
-      'remaining_today', v_limit - v_stats.completed_today,
-      'stats', row_to_json(v_stats)
-    );
-  END IF;
-
-  -- No IN_PROGRESS puzzle. Find a NEW puzzle the user hasn't seen
-  SELECT * INTO v_puzzle FROM public.puzzles p
-  WHERE NOT EXISTS (
-    SELECT 1 FROM public.user_puzzle_progress up WHERE up.puzzle_id = p.id AND up.user_id = v_user_id
-  )
-  ORDER BY random() LIMIT 1;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'No more puzzles available';
-  END IF;
-
-  -- Insert new progress record
-  INSERT INTO public.user_puzzle_progress (user_id, puzzle_id, status, board_fen)
-  VALUES (v_user_id, v_puzzle.id, 'IN_PROGRESS', v_puzzle.fen)
-  RETURNING * INTO v_progress;
-
-  RETURN json_build_object(
-    'locked', false,
-    'puzzle', row_to_json(v_puzzle),
-    'progress', row_to_json(v_progress),
-    'completed_today', v_stats.completed_today,
-    'remaining_today', v_limit - v_stats.completed_today,
-    'stats', row_to_json(v_stats)
-  );
-END;
-$$;
-GRANT EXECUTE ON FUNCTION public.get_daily_puzzle() TO authenticated;
-
--- RPC for updating puzzle progress
-DROP FUNCTION IF EXISTS public.update_puzzle_progress(UUID, TEXT, INT, TEXT, INT, INT, BOOLEAN, TEXT);
-CREATE OR REPLACE FUNCTION public.update_puzzle_progress(
-  p_puzzle_id UUID,
-  p_status TEXT,
-  p_time_spent_ms INT,
-  p_board_fen TEXT,
-  p_step_index INT,
-  p_wrong_moves INT,
-  p_hint_used BOOLEAN,
-  p_last_move TEXT
-)
-RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  v_user_id UUID := auth.uid();
-  v_progress public.user_puzzle_progress;
-  v_stats public.user_puzzle_stats;
-  v_now TIMESTAMPTZ := now();
-  v_is_completion BOOLEAN := false;
-BEGIN
-  IF v_user_id IS NULL THEN
-    RAISE EXCEPTION 'Not authenticated';
-  END IF;
-
-  -- Ensure stats exist (should already be there from get_daily_puzzle)
-  SELECT * INTO v_stats FROM public.user_puzzle_stats WHERE user_id = v_user_id FOR UPDATE;
-
-  SELECT * INTO v_progress FROM public.user_puzzle_progress 
-  WHERE user_id = v_user_id AND puzzle_id = p_puzzle_id FOR UPDATE;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Progress record not found';
-  END IF;
-
-  -- If status changes to SOLVED, FAILED, or SKIPPED, handle completion logic
-  IF p_status IN ('SOLVED', 'FAILED', 'SKIPPED') AND v_progress.status = 'IN_PROGRESS' THEN
-    v_is_completion := true;
-  END IF;
-
-  UPDATE public.user_puzzle_progress
-  SET status = p_status,
-      time_spent_ms = p_time_spent_ms,
-      board_fen = p_board_fen,
-      step_index = p_step_index,
-      wrong_moves_count = p_wrong_moves,
-      hint_used = p_hint_used,
-      last_move_played = p_last_move,
-      last_viewed_time = v_now,
-      solved_at = CASE WHEN v_is_completion THEN v_now ELSE solved_at END,
-      updated_at = v_now
-  WHERE id = v_progress.id
-  RETURNING * INTO v_progress;
-
-  IF v_is_completion THEN
-    -- Update stats
-    UPDATE public.user_puzzle_stats
-    SET completed_today = completed_today + 1,
-        total_attempts = total_attempts + 1,
-        total_solved = CASE WHEN p_status = 'SOLVED' THEN total_solved + 1 ELSE total_solved END,
-        total_failed = CASE WHEN p_status = 'FAILED' THEN total_failed + 1 ELSE total_failed END,
-        current_streak = CASE WHEN p_status = 'SOLVED' THEN current_streak + 1 ELSE 0 END,
-        longest_streak = CASE WHEN (current_streak + 1) > longest_streak AND p_status = 'SOLVED' THEN current_streak + 1 ELSE longest_streak END,
-        last_played_puzzle = p_puzzle_id,
-        last_active = v_now
-    WHERE user_id = v_user_id
-    RETURNING * INTO v_stats;
-  END IF;
-
-  RETURN json_build_object(
-    'progress', row_to_json(v_progress),
-    'stats', row_to_json(v_stats)
-  );
-END;
-$$;
-GRANT EXECUTE ON FUNCTION public.update_puzzle_progress(UUID, TEXT, INT, TEXT, INT, INT, BOOLEAN, TEXT) TO authenticated;
 
 -- =====================================================================
 -- SECTION: PUZZLE LIBRARY EXPANSION (500+ puzzles, rotation, admin RPCs)
@@ -3773,216 +3649,7 @@ CREATE POLICY "Puzzles public read"
 --    rating-default-100 convention used elsewhere in this schema) ──────
 ALTER TABLE public.user_puzzle_stats ADD COLUMN IF NOT EXISTS puzzle_rating INT NOT NULL DEFAULT 100;
 
--- =====================================================================
--- Daily rotation: 1st puzzle of the day = Mate in 1, 2nd = Mate in 2,
--- 3rd = Mate in 3. Every 10th puzzle SOLVED overall (10th, 20th, 30th…)
--- is a harder Mate in 5 special challenge instead of the normal rotation.
--- Solved/failed/skipped puzzles never repeat for a user (enforced by the
--- NOT EXISTS exclusion against user_puzzle_progress, unchanged below).
--- =====================================================================
-CREATE OR REPLACE FUNCTION public.get_daily_puzzle()
-RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  v_user_id UUID := auth.uid();
-  v_stats public.user_puzzle_stats;
-  v_puzzle public.puzzles;
-  v_progress public.user_puzzle_progress;
-  v_now TIMESTAMPTZ := now();
-  v_limit INT := 3;
-  v_target_goal TEXT;
-BEGIN
-  IF v_user_id IS NULL THEN
-    RAISE EXCEPTION 'Not authenticated';
-  END IF;
 
-  INSERT INTO public.user_puzzle_stats (user_id, daily_reset_time)
-  VALUES (v_user_id, v_now)
-  ON CONFLICT (user_id) DO NOTHING;
-
-  SELECT * INTO v_stats FROM public.user_puzzle_stats WHERE user_id = v_user_id FOR UPDATE;
-
-  IF v_stats.daily_reset_time < v_now THEN
-    UPDATE public.user_puzzle_stats
-    SET completed_today = 0,
-        next_unlock_time = NULL,
-        daily_reset_time = v_now + interval '24 hours'
-    WHERE user_id = v_user_id
-    RETURNING * INTO v_stats;
-  END IF;
-
-  IF v_stats.completed_today >= v_limit THEN
-    RETURN json_build_object(
-      'locked', true,
-      'completed_today', v_stats.completed_today,
-      'remaining_today', 0,
-      'next_unlock_time', v_stats.daily_reset_time,
-      'stats', row_to_json(v_stats)
-    );
-  END IF;
-
-  SELECT * INTO v_progress FROM public.user_puzzle_progress
-  WHERE user_id = v_user_id AND status = 'IN_PROGRESS'
-  ORDER BY last_viewed_time DESC LIMIT 1;
-
-  IF FOUND THEN
-    SELECT * INTO v_puzzle FROM public.puzzles WHERE id = v_progress.puzzle_id;
-    UPDATE public.user_puzzle_progress SET last_viewed_time = v_now WHERE id = v_progress.id;
-    RETURN json_build_object(
-      'locked', false,
-      'puzzle', row_to_json(v_puzzle),
-      'progress', row_to_json(v_progress),
-      'completed_today', v_stats.completed_today,
-      'remaining_today', v_limit - v_stats.completed_today,
-      'stats', row_to_json(v_stats)
-    );
-  END IF;
-
-  -- Rotation rule: every 10th SOLVED puzzle overall is a Mate in 5 special;
-  -- otherwise slot 0/1/2 of the day maps to Mate in 1 / 2 / 3.
-  IF (v_stats.total_solved + 1) % 10 = 0 THEN
-    v_target_goal := 'Mate in 5';
-  ELSE
-    v_target_goal := CASE v_stats.completed_today
-      WHEN 0 THEN 'Mate in 1'
-      WHEN 1 THEN 'Mate in 2'
-      ELSE 'Mate in 3'
-    END;
-  END IF;
-
-  SELECT * INTO v_puzzle FROM public.puzzles p
-  WHERE p.enabled = true
-    AND p.goal = v_target_goal
-    AND NOT EXISTS (
-      SELECT 1 FROM public.user_puzzle_progress up WHERE up.puzzle_id = p.id AND up.user_id = v_user_id
-    )
-  ORDER BY random() LIMIT 1;
-
-  IF NOT FOUND THEN
-    -- Fallback: no unseen puzzle left in the target bucket, pick any unseen enabled puzzle.
-    SELECT * INTO v_puzzle FROM public.puzzles p
-    WHERE p.enabled = true
-      AND NOT EXISTS (
-        SELECT 1 FROM public.user_puzzle_progress up WHERE up.puzzle_id = p.id AND up.user_id = v_user_id
-      )
-    ORDER BY random() LIMIT 1;
-  END IF;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'No more puzzles available';
-  END IF;
-
-  INSERT INTO public.user_puzzle_progress (user_id, puzzle_id, status, board_fen)
-  VALUES (v_user_id, v_puzzle.id, 'IN_PROGRESS', v_puzzle.fen)
-  RETURNING * INTO v_progress;
-
-  RETURN json_build_object(
-    'locked', false,
-    'puzzle', row_to_json(v_puzzle),
-    'progress', row_to_json(v_progress),
-    'completed_today', v_stats.completed_today,
-    'remaining_today', v_limit - v_stats.completed_today,
-    'stats', row_to_json(v_stats)
-  );
-END;
-$$;
-GRANT EXECUTE ON FUNCTION public.get_daily_puzzle() TO authenticated;
-
--- update_puzzle_progress: same signature, now also applies an ELO-style
--- adjustment to the user's puzzle_rating (K=24) on SOLVED/FAILED completion.
-CREATE OR REPLACE FUNCTION public.update_puzzle_progress(
-  p_puzzle_id UUID,
-  p_status TEXT,
-  p_time_spent_ms INT,
-  p_board_fen TEXT,
-  p_step_index INT,
-  p_wrong_moves INT,
-  p_hint_used BOOLEAN,
-  p_last_move TEXT
-)
-RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  v_user_id UUID := auth.uid();
-  v_progress public.user_puzzle_progress;
-  v_stats public.user_puzzle_stats;
-  v_puzzle public.puzzles;
-  v_now TIMESTAMPTZ := now();
-  v_is_completion BOOLEAN := false;
-  v_k CONSTANT NUMERIC := 24;
-  v_expected NUMERIC;
-  v_score NUMERIC;
-  v_delta INT;
-  v_rating_earned INT := 0;
-  v_xp_earned INT := 0;
-BEGIN
-  IF v_user_id IS NULL THEN
-    RAISE EXCEPTION 'Not authenticated';
-  END IF;
-
-  SELECT * INTO v_stats FROM public.user_puzzle_stats WHERE user_id = v_user_id FOR UPDATE;
-
-  SELECT * INTO v_progress FROM public.user_puzzle_progress
-  WHERE user_id = v_user_id AND puzzle_id = p_puzzle_id FOR UPDATE;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Progress record not found';
-  END IF;
-
-  IF p_status IN ('SOLVED', 'FAILED', 'SKIPPED') AND v_progress.status = 'IN_PROGRESS' THEN
-    v_is_completion := true;
-  END IF;
-
-  IF v_is_completion AND p_status IN ('SOLVED', 'FAILED') THEN
-    SELECT * INTO v_puzzle FROM public.puzzles WHERE id = p_puzzle_id;
-    v_score := CASE WHEN p_status = 'SOLVED' THEN 1 ELSE 0 END;
-    v_expected := 1.0 / (1.0 + power(10, ((COALESCE(v_puzzle.rating, 1500) - v_stats.puzzle_rating)::NUMERIC / 400)));
-    v_delta := round(v_k * (v_score - v_expected));
-    -- Hints/wrong moves temper the reward on a solve without penalizing rating below 100.
-    IF p_status = 'SOLVED' AND NOT p_hint_used THEN v_delta := v_delta + 2; END IF;
-    v_rating_earned := v_delta;
-    v_xp_earned := CASE WHEN p_status = 'SOLVED' THEN GREATEST(5, 10 + v_delta) ELSE 2 END;
-  END IF;
-
-  UPDATE public.user_puzzle_progress
-  SET status = p_status,
-      time_spent_ms = p_time_spent_ms,
-      board_fen = p_board_fen,
-      step_index = p_step_index,
-      wrong_moves_count = p_wrong_moves,
-      hint_used = p_hint_used,
-      last_move_played = p_last_move,
-      last_viewed_time = v_now,
-      solved_at = CASE WHEN v_is_completion THEN v_now ELSE solved_at END,
-      rating_earned = CASE WHEN v_is_completion THEN v_rating_earned ELSE rating_earned END,
-      xp_earned = CASE WHEN v_is_completion THEN v_xp_earned ELSE xp_earned END,
-      completion_percentage = CASE WHEN p_status = 'SOLVED' THEN 100 ELSE completion_percentage END,
-      updated_at = v_now
-  WHERE id = v_progress.id
-  RETURNING * INTO v_progress;
-
-  IF v_is_completion THEN
-    UPDATE public.user_puzzle_stats
-    SET completed_today = completed_today + 1,
-        total_attempts = total_attempts + 1,
-        total_solved = CASE WHEN p_status = 'SOLVED' THEN total_solved + 1 ELSE total_solved END,
-        total_failed = CASE WHEN p_status = 'FAILED' THEN total_failed + 1 ELSE total_failed END,
-        current_streak = CASE WHEN p_status = 'SOLVED' THEN current_streak + 1 ELSE 0 END,
-        longest_streak = CASE WHEN (current_streak + 1) > longest_streak AND p_status = 'SOLVED' THEN current_streak + 1 ELSE longest_streak END,
-        total_puzzle_rating = total_puzzle_rating + v_rating_earned,
-        puzzle_rating = GREATEST(100, puzzle_rating + v_rating_earned),
-        xp = xp + v_xp_earned,
-        last_played_puzzle = p_puzzle_id,
-        last_active = v_now
-    WHERE user_id = v_user_id
-    RETURNING * INTO v_stats;
-  END IF;
-
-  RETURN json_build_object(
-    'progress', row_to_json(v_progress),
-    'stats', row_to_json(v_stats)
-  );
-END;
-$$;
-GRANT EXECUTE ON FUNCTION public.update_puzzle_progress(UUID, TEXT, INT, TEXT, INT, INT, BOOLEAN, TEXT) TO authenticated;
 
 -- ── Admin RPCs for /admin/puzzles (were referenced by src/lib/api/adminClient.ts
 --    but never defined anywhere — added here rather than a new migration file) ──
@@ -4602,6 +4269,7 @@ BEGIN
   IF v_id IS NULL THEN
     SELECT id INTO v_id FROM public.chat_channels WHERE slug = p_slug_or_id;
   END IF;
+  
   IF v_id IS NULL THEN RETURN NULL; END IF;
 
   SELECT * INTO v_row FROM public._chat_channel_row(v_id, auth.uid());
@@ -4928,15 +4596,20 @@ BEGIN
   IF p_content IS NULL OR trim(p_content) = '' THEN RAISE EXCEPTION 'Message cannot be empty'; END IF;
   IF length(p_content) > 2000 THEN RAISE EXCEPTION 'Message too long'; END IF;
 
-  -- Auto-join global; require existing membership for rooms/dms.
-  IF EXISTS (SELECT 1 FROM public.chat_channels WHERE id = p_channel AND type = 'global') THEN
+  -- Auto-join global or public rooms; require existing membership for private rooms/dms.
+  IF EXISTS (SELECT 1 FROM public.chat_channels WHERE id = p_channel AND (type = 'global' OR (type = 'room' AND is_private = false))) THEN
     INSERT INTO public.chat_channel_members (channel_id, user_id, role)
     VALUES (p_channel, auth.uid(), 'member')
     ON CONFLICT (channel_id, user_id) DO NOTHING;
-  END IF;
 
-  IF NOT public._chat_is_member(p_channel, auth.uid()) THEN
-    RAISE EXCEPTION 'Not a member of this channel';
+    -- Inline check avoids snapshot caching issues of STABLE _chat_is_member
+    IF EXISTS (SELECT 1 FROM public.chat_channel_members WHERE channel_id = p_channel AND user_id = auth.uid() AND is_banned = true) THEN
+      RAISE EXCEPTION 'You are banned from this channel';
+    END IF;
+  ELSE
+    IF NOT public._chat_is_member(p_channel, auth.uid()) THEN
+      RAISE EXCEPTION 'Not a member of this channel';
+    END IF;
   END IF;
 
   SELECT muted_until INTO v_muted FROM public.chat_channel_members
@@ -5822,7 +5495,7 @@ $body$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 1. Ensure puzzle tables exist first so the leaderboard view can reference them
 CREATE TABLE IF NOT EXISTS public.puzzles (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id         TEXT PRIMARY KEY,
   fen        TEXT NOT NULL,
   moves      TEXT NOT NULL,
   rating     INT NOT NULL DEFAULT 1500,
@@ -5846,7 +5519,7 @@ CREATE TABLE IF NOT EXISTS public.user_puzzle_stats (
   total_puzzle_rating   INT NOT NULL DEFAULT 0,
   xp                    INT NOT NULL DEFAULT 0,
   coins_earned          INT NOT NULL DEFAULT 0,
-  last_played_puzzle    UUID REFERENCES public.puzzles(id) ON DELETE SET NULL,
+  last_played_puzzle    TEXT REFERENCES public.puzzles(id) ON DELETE SET NULL,
   last_active           TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -5856,7 +5529,7 @@ CREATE TABLE IF NOT EXISTS public.user_puzzle_stats (
 CREATE TABLE IF NOT EXISTS public.user_puzzle_progress (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id               UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  puzzle_id             UUID NOT NULL REFERENCES public.puzzles(id) ON DELETE CASCADE,
+  puzzle_id             TEXT NOT NULL REFERENCES public.puzzles(id) ON DELETE CASCADE,
   status                TEXT NOT NULL DEFAULT 'NOT_STARTED',
   started_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
   solved_at             TIMESTAMPTZ,
@@ -6101,6 +5774,7 @@ CREATE TABLE IF NOT EXISTS public.clans (
 );
 
 CREATE TABLE IF NOT EXISTS public.clan_members (
+  id        UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   clan_id   UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
   user_id   UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   role      public.clan_role NOT NULL DEFAULT 'member',
@@ -6134,7 +5808,7 @@ CREATE TABLE IF NOT EXISTS public.clan_chat (
 
 CREATE TABLE IF NOT EXISTS public.clan_messages (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  chat_id      UUID NOT NULL REFERENCES public.clan_chat(clan_id) ON DELETE CASCADE,
+  clan_id      UUID NOT NULL REFERENCES public.clan_chat(clan_id) ON DELETE CASCADE,
   sender_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   content_type TEXT NOT NULL DEFAULT 'text',
   content      TEXT NOT NULL,
@@ -6186,24 +5860,39 @@ CREATE TABLE IF NOT EXISTS public.clan_notifications (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+DROP TABLE IF EXISTS public.clan_activity CASCADE;
 CREATE TABLE IF NOT EXISTS public.clan_activity (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  clan_id     UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
-  action_type TEXT NOT NULL,
-  actor_id    UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  target_id   UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  metadata    JSONB,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clan_id    UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
+  actor_id   UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  target_id  UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  type       TEXT NOT NULL CHECK (type IN (
+    'created','joined','left','kicked','promoted','demoted','edited',
+    'transferred','request_approved','request_rejected',
+    'war_declared','war_started','war_declined','war_finished'
+  )),
+  meta       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS public.clan_leaderboard AS
+DO $$
+BEGIN
+    DROP VIEW IF EXISTS public.clan_leaderboard CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    DROP MATERIALIZED VIEW IF EXISTS public.clan_leaderboard CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+CREATE OR REPLACE VIEW public.clan_leaderboard AS
 SELECT 
   id, slug, name, tag, logo_url, country, clan_rating, clan_score, war_wins, total_wars,
   (SELECT COUNT(*) FROM public.clan_members WHERE clan_id = public.clans.id) as member_count
 FROM public.clans
 ORDER BY clan_score DESC, war_wins DESC, clan_rating DESC;
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_clan_leaderboard_id ON public.clan_leaderboard(id);
 
 -- RLS & Grants
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
@@ -6247,10 +5936,10 @@ CREATE POLICY "View own invites" ON public.clan_invites FOR SELECT USING (auth.u
 
 -- Only clan members can view/insert clan messages
 DROP POLICY IF EXISTS "Clan members can chat" ON public.clan_messages;
-CREATE POLICY "Clan members can chat" ON public.clan_messages FOR SELECT USING (EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = public.clan_messages.chat_id AND user_id = auth.uid()));
+CREATE POLICY "Clan members can chat" ON public.clan_messages FOR SELECT USING (EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = public.clan_messages.clan_id AND user_id = auth.uid()));
 
 DROP POLICY IF EXISTS "Clan members can send messages" ON public.clan_messages;
-CREATE POLICY "Clan members can send messages" ON public.clan_messages FOR INSERT WITH CHECK (auth.uid() = sender_id AND EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = public.clan_messages.chat_id AND user_id = auth.uid()));
+CREATE POLICY "Clan members can send messages" ON public.clan_messages FOR INSERT WITH CHECK (auth.uid() = sender_id AND EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = public.clan_messages.clan_id AND user_id = auth.uid()));
 
 -- Enable Realtime
 DO $$
@@ -6319,6 +6008,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.clan_create(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated;
 
+DROP FUNCTION IF EXISTS public.clan_request_join(UUID);
 CREATE OR REPLACE FUNCTION public.clan_request_join(p_clan_id UUID)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -6447,6 +6137,11 @@ GRANT EXECUTE ON FUNCTION public.clan_kick_member(UUID, UUID) TO authenticated;
 -- PUZZLE LIBRARY EXPANSION
 -- =====================================================================
 
+DROP TABLE IF EXISTS public.puzzle_progress CASCADE;
+DROP TABLE IF EXISTS public.user_puzzle_progress CASCADE;
+DROP TABLE IF EXISTS public.user_puzzle_stats CASCADE;
+DROP TABLE IF EXISTS public.puzzles CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.puzzles (
     id TEXT PRIMARY KEY,
     fen TEXT NOT NULL,
@@ -6546,13 +6241,29 @@ BEGIN
     IF FOUND THEN
         SELECT * INTO v_puzzle FROM public.puzzles WHERE id = v_progress.puzzle_id;
     ELSE
-        -- Find a new puzzle the user hasn't solved/failed yet
+        -- Find a new puzzle based on progress (1st: Mate in 1, 2nd: Mate in 2, 3rd: Mate in 3)
         SELECT p.* INTO v_puzzle
         FROM public.puzzles p
         LEFT JOIN public.puzzle_progress pp ON p.id = pp.puzzle_id AND pp.user_id = v_user_id
         WHERE pp.id IS NULL
+          AND (
+            (v_stats.completed_today = 0 AND p.goal = 'Mate in 1') OR
+            (v_stats.completed_today = 1 AND p.goal = 'Mate in 2') OR
+            (v_stats.completed_today = 2 AND p.goal = 'Mate in 3') OR
+            (v_stats.completed_today > 2)
+          )
         ORDER BY random()
         LIMIT 1;
+
+        -- Fallback if the specific puzzle type runs out
+        IF NOT FOUND THEN
+            SELECT p.* INTO v_puzzle
+            FROM public.puzzles p
+            LEFT JOIN public.puzzle_progress pp ON p.id = pp.puzzle_id AND pp.user_id = v_user_id
+            WHERE pp.id IS NULL
+            ORDER BY random()
+            LIMIT 1;
+        END IF;
 
         IF NOT FOUND THEN
             -- No more puzzles in DB!
@@ -6584,6 +6295,10 @@ BEGIN
 END;
 $$;
 GRANT EXECUTE ON FUNCTION public.get_daily_puzzle() TO authenticated;
+
+-- DROP the old function signature first if it exists, to avoid Postgres duplicate function overloading
+DROP FUNCTION IF EXISTS public.update_puzzle_progress(UUID, TEXT, INT, TEXT, INT, INT, BOOLEAN, TEXT);
+DROP FUNCTION IF EXISTS public.update_puzzle_progress(TEXT, TEXT, INTEGER, TEXT, INTEGER, INTEGER, BOOLEAN, TEXT);
 
 CREATE OR REPLACE FUNCTION public.update_puzzle_progress(
     p_puzzle_id TEXT,
@@ -6654,11 +6369,7607 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.update_puzzle_progress(TEXT, TEXT, INTEGER, TEXT, INTEGER, INTEGER, BOOLEAN, TEXT) TO authenticated;
 
--- Seed some test puzzles
+-- Seed some test puzzles with the correct goal types for the daily structure
 INSERT INTO public.puzzles (id, fen, moves, rating, themes, goal) VALUES
-('puzzle_001', 'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4', ARRAY['f3e5', 'c6e5'], 1100, ARRAY['opening', 'fork'], 'Find the best move'),
-('puzzle_002', 'r1bqk2r/pppp1ppp/2n2n2/4p3/1b2P3/2N2N2/PPPP1PPP/R1BQKB1R w KQkq - 4 5', ARRAY['f3e5', 'c6e5', 'd2d4'], 1200, ARRAY['opening', 'center'], 'Find the best move'),
-('puzzle_003', 'r1bqk2r/pppp1ppp/2n2n2/4p3/1b2P3/2N2N2/PPPP1PPP/R1BQKB1R w KQkq - 4 5', ARRAY['a2a3'], 1300, ARRAY['prophylaxis'], 'Find the best move'),
+('puzzle_001', '4k3/R7/8/8/8/8/8/4K2R w - - 0 1', ARRAY['h1h8'], 1100, ARRAY['mateIn1'], 'Mate in 1'),
+('puzzle_002', '3r2k1/5ppp/8/8/8/8/4Q3/4R1K1 w - - 0 1', ARRAY['e2e8', 'd8e8', 'e1e8'], 1200, ARRAY['mateIn2'], 'Mate in 2'),
+('puzzle_003', '5rk1/p4ppp/8/3N3Q/8/3R4/8/3K4 w - - 0 1', ARRAY['d5e7', 'g8h8', 'h5h7', 'h8h7', 'd3h3'], 1300, ARRAY['mateIn3'], 'Mate in 3'),
 ('puzzle_004', '4r1k1/1p3ppp/p7/3p4/8/2P1b1P1/PP2RP1P/R5K1 w - - 0 23', ARRAY['a1e1', 'e3f2', 'g1f2'], 1600, ARRAY['pin', 'endgame'], 'Find the best move')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET fen = EXCLUDED.fen, moves = EXCLUDED.moves, goal = EXCLUDED.goal, themes = EXCLUDED.themes;
 
+-- =====================================================================
+-- SECTION 26: CLAN SYSTEM — REWRITE FIXES
+-- Corrects bugs found in the original Section 25 (clan_leaderboard was a
+-- stale materialized view, clan_messages used chat_id while every client
+-- query used clan_id, clan_wars had no INSERT/UPDATE policy, there was no
+-- awards table, and leaving as leader had no safe transfer path).
+-- =====================================================================
+
+-- Live member counts: a materialized view does not reflect joins/leaves
+-- until manually refreshed, which breaks "update instantly" requirements.
+DO $$
+BEGIN
+    DROP VIEW IF EXISTS public.clan_leaderboard CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    DROP MATERIALIZED VIEW IF EXISTS public.clan_leaderboard CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+CREATE OR REPLACE VIEW public.clan_leaderboard AS
+SELECT
+  c.id, c.slug, c.name, c.tag, c.description, c.logo_url, c.country, c.language,
+  c.privacy, c.clan_rating, c.clan_score, c.war_wins, c.war_losses, c.war_draws,
+  c.total_wars, c.created_at,
+  (SELECT COUNT(*) FROM public.clan_members cm WHERE cm.clan_id = c.id) AS member_count
+FROM public.clans c
+ORDER BY c.clan_score DESC, c.war_wins DESC, c.clan_rating DESC;
+
+GRANT SELECT ON public.clan_leaderboard TO authenticated, anon;
+
+-- Rename clan_messages.chat_id -> clan_id to match every client query and
+-- remove the indirection through clan_chat for read/write filters.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'clan_messages' AND column_name = 'chat_id'
+  ) THEN
+    ALTER TABLE public.clan_messages RENAME COLUMN chat_id TO clan_id;
+  END IF;
+END $$;
+
+DROP POLICY IF EXISTS "Clan members can chat" ON public.clan_messages;
+CREATE POLICY "Clan members can chat" ON public.clan_messages FOR SELECT USING (
+  EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = public.clan_messages.clan_id AND user_id = auth.uid())
+);
+
+DROP POLICY IF EXISTS "Clan members can send messages" ON public.clan_messages;
+CREATE POLICY "Clan members can send messages" ON public.clan_messages FOR INSERT WITH CHECK (
+  auth.uid() = sender_id AND EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = public.clan_messages.clan_id AND user_id = auth.uid())
+);
+
+DROP POLICY IF EXISTS "Clan members/mods can delete messages" ON public.clan_messages;
+CREATE POLICY "Clan members/mods can delete messages" ON public.clan_messages FOR DELETE USING (
+  auth.uid() = sender_id OR EXISTS (
+    SELECT 1 FROM public.clan_members WHERE clan_id = public.clan_messages.clan_id AND user_id = auth.uid() AND role IN ('leader', 'co_leader')
+  )
+);
+
+-- Clan Wars had SELECT-only RLS, so declaring/accepting a war always failed.
+DROP POLICY IF EXISTS "Clan officers can declare war" ON public.clan_wars;
+CREATE POLICY "Clan officers can declare war" ON public.clan_wars FOR INSERT WITH CHECK (
+  EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = challenger_clan_id AND user_id = auth.uid() AND role IN ('leader', 'co_leader'))
+);
+
+DROP POLICY IF EXISTS "Clan officers can update war status" ON public.clan_wars;
+CREATE POLICY "Clan officers can update war status" ON public.clan_wars FOR UPDATE USING (
+  EXISTS (
+    SELECT 1 FROM public.clan_members
+    WHERE user_id = auth.uid() AND role IN ('leader', 'co_leader')
+      AND clan_id IN (challenger_clan_id, defender_clan_id)
+  )
+);
+
+-- Clan awards, referenced by the clan detail page ("Show Awards").
+CREATE TABLE IF NOT EXISTS public.clan_awards (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clan_id     UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
+  title       TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  icon        TEXT DEFAULT 'trophy',
+  awarded_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_clan_awards_clan_id ON public.clan_awards(clan_id);
+
+ALTER TABLE public.clan_awards ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Clan awards viewable by everyone" ON public.clan_awards;
+CREATE POLICY "Clan awards viewable by everyone" ON public.clan_awards FOR SELECT USING (true);
+
+-- Search/lookups.
+CREATE INDEX IF NOT EXISTS idx_clans_name_lower ON public.clans (LOWER(name));
+CREATE INDEX IF NOT EXISTS idx_clans_country ON public.clans (country);
+CREATE INDEX IF NOT EXISTS idx_clan_members_clan_id ON public.clan_members (clan_id);
+
+-- Safe leave/transfer: if the leader leaves and members remain, leadership
+-- transfers to the longest-serving co-leader (or member); if the leaver was
+-- the last member, the clan (and its dependents, via ON DELETE CASCADE) is
+-- removed. This keeps "leader can never disappear" true across refreshes.
+CREATE OR REPLACE FUNCTION public.clan_leave(p_clan_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_role public.clan_role;
+  v_member_count INT;
+  v_successor UUID;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  SELECT role INTO v_role FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id;
+  IF v_role IS NULL THEN RAISE EXCEPTION 'You are not a member of this clan'; END IF;
+
+  SELECT COUNT(*) INTO v_member_count FROM public.clan_members WHERE clan_id = p_clan_id;
+
+  IF v_role = 'leader' AND v_member_count > 1 THEN
+    SELECT user_id INTO v_successor FROM public.clan_members
+      WHERE clan_id = p_clan_id AND user_id != v_user_id
+      ORDER BY (role = 'co_leader') DESC, joined_at ASC
+      LIMIT 1;
+    UPDATE public.clan_members SET role = 'leader' WHERE clan_id = p_clan_id AND user_id = v_successor;
+  END IF;
+
+  DELETE FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id;
+
+  IF v_member_count <= 1 THEN
+    DELETE FROM public.clans WHERE id = p_clan_id;
+  END IF;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_leave(UUID) TO authenticated;
+
+-- =====================================================================
+-- SECTION 27: CLAN SYSTEM V2 — EDIT & LEADERSHIP RPCs
+-- =====================================================================
+
+-- Leader edits clan details. NULL params keep the current value.
+CREATE OR REPLACE FUNCTION public.clan_update_details(
+  p_clan_id UUID,
+  p_name TEXT DEFAULT NULL,
+  p_description TEXT DEFAULT NULL,
+  p_country TEXT DEFAULT NULL,
+  p_language TEXT DEFAULT NULL,
+  p_privacy TEXT DEFAULT NULL,
+  p_logo_url TEXT DEFAULT NULL,
+  p_banner_url TEXT DEFAULT NULL
+) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_role public.clan_role;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  SELECT role INTO v_role FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id;
+  IF v_role IS NULL OR v_role NOT IN ('leader', 'co_leader') THEN
+    RAISE EXCEPTION 'Only the leader or a co-leader can edit clan details';
+  END IF;
+
+  IF p_name IS NOT NULL AND (LENGTH(p_name) < 3 OR LENGTH(p_name) > 32) THEN
+    RAISE EXCEPTION 'Clan name must be between 3 and 32 characters';
+  END IF;
+
+  UPDATE public.clans SET
+    name        = COALESCE(NULLIF(p_name, ''), name),
+    description = COALESCE(p_description, description),
+    country     = COALESCE(NULLIF(p_country, ''), country),
+    language    = COALESCE(NULLIF(p_language, ''), language),
+    privacy     = COALESCE(NULLIF(p_privacy, '')::public.clan_privacy, privacy),
+    logo_url    = COALESCE(NULLIF(p_logo_url, ''), logo_url),
+    banner_url  = COALESCE(NULLIF(p_banner_url, ''), banner_url)
+  WHERE id = p_clan_id;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_update_details(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated;
+
+-- Leader hands the crown to another member atomically.
+CREATE OR REPLACE FUNCTION public.clan_transfer_leadership(p_clan_id UUID, p_new_leader_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_role public.clan_role;
+  v_target_role public.clan_role;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  IF v_user_id = p_new_leader_id THEN RAISE EXCEPTION 'You are already the leader'; END IF;
+
+  SELECT role INTO v_role FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id;
+  IF v_role IS DISTINCT FROM 'leader' THEN RAISE EXCEPTION 'Only the leader can transfer leadership'; END IF;
+
+  SELECT role INTO v_target_role FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = p_new_leader_id;
+  IF v_target_role IS NULL THEN RAISE EXCEPTION 'Target user is not in this clan'; END IF;
+
+  UPDATE public.clan_members SET role = 'co_leader' WHERE clan_id = p_clan_id AND user_id = v_user_id;
+  UPDATE public.clan_members SET role = 'leader' WHERE clan_id = p_clan_id AND user_id = p_new_leader_id;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_transfer_leadership(UUID, UUID) TO authenticated;
+
+-- Leader disbands the clan entirely (cascades to members, chat, wars, awards).
+CREATE OR REPLACE FUNCTION public.clan_disband(p_clan_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_role public.clan_role;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  SELECT role INTO v_role FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id;
+  IF v_role IS DISTINCT FROM 'leader' THEN RAISE EXCEPTION 'Only the leader can disband the clan'; END IF;
+
+  DELETE FROM public.clans WHERE id = p_clan_id;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_disband(UUID) TO authenticated;
+
+
+
+
+
+
+
+-- =====================================================================
+-- MIGRATION 20260713000014: ABOUT / POLICIES / FEEDBACK CMS TABLES
+-- =====================================================================
+-- Fixes AUDIT_REPORT.md MEDIUM finding #8. src/lib/api/aboutClient.ts,
+-- src/lib/api/policyClient.ts, and src/lib/api/feedbackClient.ts each
+-- reference a table that does not exist in schema.sql or migrations
+-- (about_articles, policies + policy_versions, feedbacks). All three
+-- clients already degrade gracefully to localStorage when the table is
+-- missing, so this was non-fatal, but adding the real tables lets content
+-- persist server-side and sync across devices/admins as intended.
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- about_articles
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.about_articles (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title        TEXT NOT NULL,
+  slug         TEXT NOT NULL UNIQUE,
+  content      TEXT NOT NULL,
+  category     TEXT NOT NULL DEFAULT '',
+  tags         TEXT[] NOT NULL DEFAULT '{}',
+  author_id    UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  is_published BOOLEAN NOT NULL DEFAULT false,
+  sort_order   INT NOT NULL DEFAULT 0,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_about_articles_sort ON public.about_articles(sort_order, created_at DESC);
+
+GRANT SELECT ON public.about_articles TO anon, authenticated;
+GRANT ALL ON public.about_articles TO service_role;
+ALTER TABLE public.about_articles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Published articles are public, admins see all" ON public.about_articles;
+CREATE POLICY "Published articles are public, admins see all"
+  ON public.about_articles FOR SELECT
+  USING (is_published OR public.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "Admins manage articles" ON public.about_articles;
+CREATE POLICY "Admins manage articles"
+  ON public.about_articles FOR INSERT TO authenticated
+  WITH CHECK (public.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "Admins update articles" ON public.about_articles;
+CREATE POLICY "Admins update articles"
+  ON public.about_articles FOR UPDATE TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "Admins delete articles" ON public.about_articles;
+CREATE POLICY "Admins delete articles"
+  ON public.about_articles FOR DELETE TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+DROP TRIGGER IF EXISTS trg_about_articles_updated_at ON public.about_articles;
+CREATE TRIGGER trg_about_articles_updated_at
+  BEFORE UPDATE ON public.about_articles
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- ---------------------------------------------------------------------
+-- policies + policy_versions
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.policies (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  policy_type  TEXT NOT NULL UNIQUE,
+  title        TEXT NOT NULL,
+  content      TEXT NOT NULL,
+  author_id    UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  is_published BOOLEAN NOT NULL DEFAULT false,
+  version      INT NOT NULL DEFAULT 1,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+GRANT SELECT ON public.policies TO anon, authenticated;
+GRANT ALL ON public.policies TO service_role;
+ALTER TABLE public.policies ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Published policies are public, admins see all" ON public.policies;
+CREATE POLICY "Published policies are public, admins see all"
+  ON public.policies FOR SELECT
+  USING (is_published OR public.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "Admins manage policies" ON public.policies;
+CREATE POLICY "Admins manage policies"
+  ON public.policies FOR INSERT TO authenticated
+  WITH CHECK (public.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "Admins update policies" ON public.policies;
+CREATE POLICY "Admins update policies"
+  ON public.policies FOR UPDATE TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "Admins delete policies" ON public.policies;
+CREATE POLICY "Admins delete policies"
+  ON public.policies FOR DELETE TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+DROP TRIGGER IF EXISTS trg_policies_updated_at ON public.policies;
+CREATE TRIGGER trg_policies_updated_at
+  BEFORE UPDATE ON public.policies
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.policy_versions (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  policy_id  UUID NOT NULL REFERENCES public.policies(id) ON DELETE CASCADE,
+  version    INT NOT NULL,
+  title      TEXT NOT NULL,
+  content    TEXT NOT NULL,
+  author_id  UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_policy_versions_policy ON public.policy_versions(policy_id, version DESC);
+
+GRANT SELECT ON public.policy_versions TO authenticated;
+GRANT ALL ON public.policy_versions TO service_role;
+ALTER TABLE public.policy_versions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Admins view policy history" ON public.policy_versions;
+CREATE POLICY "Admins view policy history"
+  ON public.policy_versions FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "Admins insert policy history" ON public.policy_versions;
+CREATE POLICY "Admins insert policy history"
+  ON public.policy_versions FOR INSERT TO authenticated
+  WITH CHECK (public.has_role(auth.uid(), 'admin'));
+
+-- ---------------------------------------------------------------------
+-- feedbacks
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.feedbacks (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  rating     INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  message    TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_feedbacks_created_at ON public.feedbacks(created_at DESC);
+
+GRANT SELECT, INSERT ON public.feedbacks TO authenticated;
+GRANT ALL ON public.feedbacks TO service_role;
+ALTER TABLE public.feedbacks ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Admins view all feedback" ON public.feedbacks;
+CREATE POLICY "Admins view all feedback"
+  ON public.feedbacks FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "Users submit feedback" ON public.feedbacks;
+CREATE POLICY "Users submit feedback"
+  ON public.feedbacks FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+-- =====================================================================
+-- MIGRATION 20260713000013: COMMUNITY FOLLOW / MODERATION TABLES
+-- =====================================================================
+-- Fixes AUDIT_REPORT.md MEDIUM finding #5. src/lib/api/communityClient.ts and
+-- src/routes/community.bookmarks.tsx reference six tables that do not exist
+-- anywhere in schema.sql or migrations: community_blocks, community_bookmarks,
+-- community_follows, community_hidden_posts, community_mutes,
+-- community_reports. Core posting (community_posts/community_reactions/
+-- community_comments/community_saved_posts) already exists and is untouched.
+-- Note: community_bookmarks (with a `collection` label, used by the bookmarks
+-- page) is functionally close to the existing community_saved_posts but is a
+-- distinct, already-referenced table in the frontend — added as-is rather
+-- than silently repointing callers at community_saved_posts.
+--
+-- This migration only creates tables + RLS. The RPCs communityClient.ts calls
+-- against these tables (community_toggle_follow, community_toggle_bookmark,
+-- admin_resolve_report, etc.) beyond what's implemented here are a larger,
+-- separate gap — see the Fix Pass 2 note in AUDIT_REPORT.md.
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- community_follows
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.community_follows (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  follower_id  UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  following_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (follower_id, following_id),
+  CHECK (follower_id <> following_id)
+);
+CREATE INDEX IF NOT EXISTS idx_community_follows_follower ON public.community_follows(follower_id);
+CREATE INDEX IF NOT EXISTS idx_community_follows_following ON public.community_follows(following_id);
+
+GRANT SELECT, INSERT, DELETE ON public.community_follows TO authenticated;
+GRANT ALL ON public.community_follows TO service_role;
+ALTER TABLE public.community_follows ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can view follows" ON public.community_follows;
+CREATE POLICY "Anyone can view follows"
+  ON public.community_follows FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Users manage own follows" ON public.community_follows;
+CREATE POLICY "Users manage own follows"
+  ON public.community_follows FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = follower_id);
+
+DROP POLICY IF EXISTS "Users remove own follows" ON public.community_follows;
+CREATE POLICY "Users remove own follows"
+  ON public.community_follows FOR DELETE TO authenticated
+  USING (auth.uid() = follower_id);
+
+-- ---------------------------------------------------------------------
+-- community_bookmarks (labelled collections; distinct from community_saved_posts)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.community_bookmarks (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  post_id    UUID NOT NULL REFERENCES public.community_posts(id) ON DELETE CASCADE,
+  collection TEXT NOT NULL DEFAULT 'Favorites',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, post_id)
+);
+CREATE INDEX IF NOT EXISTS idx_community_bookmarks_user ON public.community_bookmarks(user_id, created_at DESC);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.community_bookmarks TO authenticated;
+GRANT ALL ON public.community_bookmarks TO service_role;
+ALTER TABLE public.community_bookmarks ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users manage own bookmarks" ON public.community_bookmarks;
+CREATE POLICY "Users manage own bookmarks"
+  ON public.community_bookmarks FOR ALL TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------
+-- community_hidden_posts ("hide this post for me")
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.community_hidden_posts (
+  user_id    UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  post_id    UUID NOT NULL REFERENCES public.community_posts(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, post_id)
+);
+
+GRANT SELECT, INSERT, DELETE ON public.community_hidden_posts TO authenticated;
+GRANT ALL ON public.community_hidden_posts TO service_role;
+ALTER TABLE public.community_hidden_posts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users manage own hidden posts" ON public.community_hidden_posts;
+CREATE POLICY "Users manage own hidden posts"
+  ON public.community_hidden_posts FOR ALL TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------
+-- community_mutes (mute another user's content without blocking)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.community_mutes (
+  user_id    UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  muted_id   UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, muted_id),
+  CHECK (user_id <> muted_id)
+);
+
+GRANT SELECT, INSERT, DELETE ON public.community_mutes TO authenticated;
+GRANT ALL ON public.community_mutes TO service_role;
+ALTER TABLE public.community_mutes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users manage own mutes" ON public.community_mutes;
+CREATE POLICY "Users manage own mutes"
+  ON public.community_mutes FOR ALL TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------
+-- community_blocks (block another user)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.community_blocks (
+  user_id    UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  blocked_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, blocked_id),
+  CHECK (user_id <> blocked_id)
+);
+
+GRANT SELECT, INSERT, DELETE ON public.community_blocks TO authenticated;
+GRANT ALL ON public.community_blocks TO service_role;
+ALTER TABLE public.community_blocks ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users manage own blocks" ON public.community_blocks;
+CREATE POLICY "Users manage own blocks"
+  ON public.community_blocks FOR ALL TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------
+-- community_reports (post/comment/user reports within the community feature,
+-- distinct from the platform-wide public.reports table)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.community_reports (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporter_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  target_type TEXT NOT NULL CHECK (target_type IN ('post', 'comment', 'user')),
+  target_id   UUID NOT NULL,
+  reason      TEXT NOT NULL,
+  details     TEXT,
+  status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved', 'dismissed')),
+  resolved_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  resolved_at TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (reporter_id, target_type, target_id)
+);
+CREATE INDEX IF NOT EXISTS idx_community_reports_status ON public.community_reports(status, created_at DESC);
+
+GRANT SELECT, INSERT ON public.community_reports TO authenticated;
+GRANT ALL ON public.community_reports TO service_role;
+ALTER TABLE public.community_reports ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users view own reports or admins view all" ON public.community_reports;
+CREATE POLICY "Users view own reports or admins view all"
+  ON public.community_reports FOR SELECT TO authenticated
+  USING (auth.uid() = reporter_id OR public.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "Users insert own reports" ON public.community_reports;
+CREATE POLICY "Users insert own reports"
+  ON public.community_reports FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = reporter_id);
+
+-- ---------------------------------------------------------------------
+-- RPC: admin_resolve_report(p_report_id, p_status) — pairs with
+-- community_reports, called from communityClient.ts resolveReport()
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.admin_resolve_report(
+  p_report_id UUID,
+  p_status    TEXT
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+  IF p_status NOT IN ('resolved', 'dismissed', 'open') THEN
+    RAISE EXCEPTION 'Invalid status';
+  END IF;
+
+  UPDATE public.community_reports SET
+    status      = p_status,
+    resolved_by = CASE WHEN p_status = 'open' THEN NULL ELSE auth.uid() END,
+    resolved_at = CASE WHEN p_status = 'open' THEN NULL ELSE now() END
+  WHERE id = p_report_id;
+
+  IF NOT FOUND THEN RAISE EXCEPTION 'Report not found'; END IF;
+END; $$;
+
+REVOKE EXECUTE ON FUNCTION public.admin_resolve_report(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_resolve_report(UUID, TEXT) TO authenticated, service_role;
+-- =====================================================================
+-- MIGRATION 20260713000012: PLATFORM REPORTS (bug / fair-play / abuse)
+-- =====================================================================
+-- Fixes AUDIT_REPORT.md MEDIUM finding #9. src/routes/report.tsx inserts
+-- directly into public.reports; src/routes/admin.reports.tsx selects from it
+-- and calls public.admin_resolve_platform_report(p_report_id, p_status).
+-- This is a distinct, simpler table from the community-specific
+-- public.community_reports created in the companion community migration —
+-- report.tsx covers user/post/comment/game/bug reports platform-wide, not
+-- just community posts.
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS public.reports (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporter_id   UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  type          TEXT NOT NULL CHECK (type IN ('player', 'issue')),
+  issue_type    TEXT NOT NULL, -- 'user' | 'post' | 'comment' | 'game' (free-form target category from the UI)
+  reported_user UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  reason        TEXT,
+  description   TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved', 'ignored')),
+  resolved_by   UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  resolved_at   TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_status ON public.reports(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reports_reporter ON public.reports(reporter_id);
+
+GRANT SELECT, INSERT ON public.reports TO authenticated;
+GRANT ALL ON public.reports TO service_role;
+ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users view own reports or admins view all" ON public.reports;
+CREATE POLICY "Users view own reports or admins view all"
+  ON public.reports FOR SELECT TO authenticated
+  USING (auth.uid() = reporter_id OR public.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "Users insert own reports" ON public.reports;
+CREATE POLICY "Users insert own reports"
+  ON public.reports FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = reporter_id);
+
+-- ---------------------------------------------------------------------
+-- RPC: admin_resolve_platform_report(p_report_id, p_status)
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.admin_resolve_platform_report(
+  p_report_id UUID,
+  p_status    TEXT
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+  IF p_status NOT IN ('resolved', 'ignored') THEN
+    RAISE EXCEPTION 'Invalid status';
+  END IF;
+
+  UPDATE public.reports SET
+    status      = p_status,
+    resolved_by = auth.uid(),
+    resolved_at = now()
+  WHERE id = p_report_id;
+
+  IF NOT FOUND THEN RAISE EXCEPTION 'Report not found'; END IF;
+END; $$;
+
+REVOKE EXECUTE ON FUNCTION public.admin_resolve_platform_report(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_resolve_platform_report(UUID, TEXT) TO authenticated, service_role;
+-- =====================================================================
+-- MIGRATION 20260713000011: USER_SETTINGS TABLE
+-- =====================================================================
+-- Fixes AUDIT_REPORT.md MEDIUM finding #6. src/lib/settings/settings-sync.ts
+-- upserts/reads public.user_settings — one typed column per key in
+-- src/lib/settings/schema.ts (SETTING_KEYS), no JSON blob, so this table's
+-- columns mirror GameSettings exactly. Column set intentionally matches
+-- schema.ts's DEFAULTS object so persistSettingsToDb()/loadSettingsFromDb()
+-- work unmodified.
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS public.user_settings (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+
+  -- Board
+  board_theme TEXT NOT NULL DEFAULT 'royal',
+  piece_theme TEXT NOT NULL DEFAULT 'classic',
+  show_coordinates BOOLEAN NOT NULL DEFAULT true,
+  board_animation BOOLEAN NOT NULL DEFAULT true,
+  auto_flip BOOLEAN NOT NULL DEFAULT false,
+  show_legal_moves BOOLEAN NOT NULL DEFAULT true,
+  show_last_move BOOLEAN NOT NULL DEFAULT true,
+  show_move_arrows BOOLEAN NOT NULL DEFAULT true,
+  show_move_highlights BOOLEAN NOT NULL DEFAULT true,
+  show_check_highlight BOOLEAN NOT NULL DEFAULT true,
+  show_threat_squares BOOLEAN NOT NULL DEFAULT false,
+  show_captured_pieces BOOLEAN NOT NULL DEFAULT true,
+  show_material_difference BOOLEAN NOT NULL DEFAULT true,
+  piece_drag_style TEXT NOT NULL DEFAULT 'smooth',
+  move_method TEXT NOT NULL DEFAULT 'both',
+  board_size TEXT NOT NULL DEFAULT 'medium',
+  board_zoom INT NOT NULL DEFAULT 100,
+  snap_to_square BOOLEAN NOT NULL DEFAULT true,
+
+  -- Gameplay
+  confirm_move BOOLEAN NOT NULL DEFAULT false,
+  confirm_resign BOOLEAN NOT NULL DEFAULT true,
+  confirm_draw_offer BOOLEAN NOT NULL DEFAULT true,
+  auto_queen BOOLEAN NOT NULL DEFAULT false,
+  premoves BOOLEAN NOT NULL DEFAULT true,
+  multiple_premoves BOOLEAN NOT NULL DEFAULT false,
+  enable_takebacks BOOLEAN NOT NULL DEFAULT false,
+  auto_focus_board BOOLEAN NOT NULL DEFAULT true,
+  auto_reconnect BOOLEAN NOT NULL DEFAULT true,
+
+  -- Clock
+  clock_sound BOOLEAN NOT NULL DEFAULT true,
+  low_time_warning BOOLEAN NOT NULL DEFAULT true,
+  countdown_beep BOOLEAN NOT NULL DEFAULT true,
+  clock_position TEXT NOT NULL DEFAULT 'side',
+  show_tenths BOOLEAN NOT NULL DEFAULT true,
+  time_pressure_effects BOOLEAN NOT NULL DEFAULT true,
+
+  -- Sound
+  sound_master BOOLEAN NOT NULL DEFAULT true,
+  move_sound BOOLEAN NOT NULL DEFAULT true,
+  capture_sound BOOLEAN NOT NULL DEFAULT true,
+  check_sound BOOLEAN NOT NULL DEFAULT true,
+  checkmate_sound BOOLEAN NOT NULL DEFAULT true,
+  draw_sound BOOLEAN NOT NULL DEFAULT true,
+  victory_sound BOOLEAN NOT NULL DEFAULT true,
+  defeat_sound BOOLEAN NOT NULL DEFAULT true,
+  notify_sound BOOLEAN NOT NULL DEFAULT true,
+  sound_volume INT NOT NULL DEFAULT 70,
+  move_sound_theme TEXT NOT NULL DEFAULT 'classic_wood',
+
+  -- Analysis
+  engine_depth INT NOT NULL DEFAULT 15,
+  show_best_move BOOLEAN NOT NULL DEFAULT true,
+  show_eval_bar BOOLEAN NOT NULL DEFAULT true,
+  show_engine_lines BOOLEAN NOT NULL DEFAULT true,
+  multi_pv INT NOT NULL DEFAULT 1,
+  auto_analysis BOOLEAN NOT NULL DEFAULT true,
+  show_opening_name BOOLEAN NOT NULL DEFAULT true,
+  show_accuracy BOOLEAN NOT NULL DEFAULT true,
+  show_mistakes BOOLEAN NOT NULL DEFAULT true,
+  show_blunders BOOLEAN NOT NULL DEFAULT true,
+  show_brilliant BOOLEAN NOT NULL DEFAULT true,
+
+  -- Multiplayer
+  allow_spectators BOOLEAN NOT NULL DEFAULT true,
+  show_spectator_count BOOLEAN NOT NULL DEFAULT true,
+  allow_chat BOOLEAN NOT NULL DEFAULT true,
+  friend_requests BOOLEAN NOT NULL DEFAULT true,
+  match_requests BOOLEAN NOT NULL DEFAULT true,
+  tournament_invites BOOLEAN NOT NULL DEFAULT true,
+  auto_accept_friend_challenges BOOLEAN NOT NULL DEFAULT false,
+  public_profile BOOLEAN NOT NULL DEFAULT true,
+
+  -- Notifications
+  notify_match_found BOOLEAN NOT NULL DEFAULT true,
+  notify_tournament_starting BOOLEAN NOT NULL DEFAULT true,
+  notify_friend_online BOOLEAN NOT NULL DEFAULT true,
+  notify_challenge_received BOOLEAN NOT NULL DEFAULT true,
+  notify_wallet BOOLEAN NOT NULL DEFAULT true,
+  notify_withdrawal BOOLEAN NOT NULL DEFAULT true,
+  notify_community BOOLEAN NOT NULL DEFAULT true,
+  notify_admin BOOLEAN NOT NULL DEFAULT true,
+
+  -- Accessibility
+  high_contrast BOOLEAN NOT NULL DEFAULT false,
+  large_pieces BOOLEAN NOT NULL DEFAULT false,
+  large_coordinates BOOLEAN NOT NULL DEFAULT false,
+  keyboard_navigation BOOLEAN NOT NULL DEFAULT true,
+  screen_reader BOOLEAN NOT NULL DEFAULT true,
+  reduced_motion BOOLEAN NOT NULL DEFAULT false,
+  color_blind_mode TEXT NOT NULL DEFAULT 'none',
+
+  -- Performance
+  fps_mode TEXT NOT NULL DEFAULT 'auto',
+  graphics_mode TEXT NOT NULL DEFAULT 'balanced',
+  asset_preloading BOOLEAN NOT NULL DEFAULT true,
+  realtime_optimization BOOLEAN NOT NULL DEFAULT true,
+
+  -- Mobile
+  vibration_feedback BOOLEAN NOT NULL DEFAULT true,
+  touch_move_confirmation BOOLEAN NOT NULL DEFAULT false,
+  mobile_board_scaling INT NOT NULL DEFAULT 100,
+  mobile_piece_scaling INT NOT NULL DEFAULT 100,
+  mobile_gestures BOOLEAN NOT NULL DEFAULT true,
+
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+GRANT SELECT, INSERT, UPDATE ON public.user_settings TO authenticated;
+GRANT ALL ON public.user_settings TO service_role;
+ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users select own settings" ON public.user_settings;
+CREATE POLICY "Users select own settings"
+  ON public.user_settings FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users insert own settings" ON public.user_settings;
+CREATE POLICY "Users insert own settings"
+  ON public.user_settings FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users update own settings" ON public.user_settings;
+CREATE POLICY "Users update own settings"
+  ON public.user_settings FOR UPDATE TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP TRIGGER IF EXISTS trg_user_settings_updated_at ON public.user_settings;
+CREATE TRIGGER trg_user_settings_updated_at
+  BEFORE UPDATE ON public.user_settings
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+-- =====================================================================
+-- MIGRATION 20260713000010: WITHDRAWAL / BANK-DETAILS FLOW
+-- =====================================================================
+-- Fixes AUDIT_REPORT.md HIGH finding #7. Frontend (src/hooks/useBankDetails.ts,
+-- src/hooks/useWithdrawal.ts, src/routes/wallet.tsx, wallet.bank.tsx,
+-- admin.withdrawals.tsx) expects:
+--   table  public.bank_details          (NOT the existing public.bank_accounts)
+--   rpc    public.save_bank_details(...)
+--   table  public.withdrawal_requests
+--   rpc    public.submit_withdrawal_request(p_amount)
+--   rpc    public.cancel_withdrawal_request(p_request_id)
+--   rpc    public.admin_approve_withdrawal(p_request_id)
+--   rpc    public.admin_reject_withdrawal(p_request_id, p_reason)
+--   rpc    public.admin_get_withdrawal_requests(p_status)
+-- None of these exist in schema.sql or prior migrations (public.bank_accounts /
+-- public.save_bank_account from SECTION 63 are a different, unused pair — left
+-- untouched). This migration adds the missing pieces additively.
+-- =====================================================================
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+
+-- ---------------------------------------------------------------------
+-- 1. bank_details table (one row per user; matches useBankDetails.ts shape)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.bank_details (
+  id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id                   UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  account_holder_name       TEXT NOT NULL,
+  account_number_encrypted  TEXT NOT NULL,
+  account_number_last4      TEXT NOT NULL,
+  ifsc_code                 TEXT NOT NULL,
+  bank_name                 TEXT NOT NULL,
+  branch_name               TEXT NOT NULL,
+  branch_address            TEXT NOT NULL,
+  account_type              TEXT NOT NULL CHECK (account_type IN ('savings', 'current')),
+  verification_status       TEXT NOT NULL DEFAULT 'verified' CHECK (verification_status IN ('verified', 'failed', 'pending')),
+  created_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at                TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+GRANT SELECT ON public.bank_details TO authenticated;
+GRANT ALL ON public.bank_details TO service_role;
+ALTER TABLE public.bank_details ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own bank details" ON public.bank_details;
+CREATE POLICY "Users can view their own bank details"
+  ON public.bank_details FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+
+DROP TRIGGER IF EXISTS trg_bank_details_updated_at ON public.bank_details;
+CREATE TRIGGER trg_bank_details_updated_at
+  BEFORE UPDATE ON public.bank_details
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- No direct INSERT/UPDATE from client — encryption happens in the RPC below.
+CREATE OR REPLACE FUNCTION public.save_bank_details(
+  p_account_holder_name TEXT,
+  p_account_number      TEXT,
+  p_ifsc_code           TEXT,
+  p_bank_name           TEXT,
+  p_branch_name         TEXT,
+  p_branch_address      TEXT,
+  p_account_type        TEXT
+) RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid       UUID := auth.uid();
+  v_secret    TEXT := 'chessox_secret_key_123!'; -- matches SECTION 63 convention; move to vault in prod
+  v_last4     TEXT;
+  v_encrypted TEXT;
+  v_id        UUID;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  IF length(p_account_number) < 4 THEN
+    RAISE EXCEPTION 'Account number too short';
+  END IF;
+
+  v_last4 := right(p_account_number, 4);
+  v_encrypted := pgp_sym_encrypt(p_account_number, v_secret);
+
+  INSERT INTO public.bank_details (
+    user_id, account_holder_name, account_number_encrypted, account_number_last4,
+    ifsc_code, bank_name, branch_name, branch_address, account_type, verification_status
+  ) VALUES (
+    v_uid, p_account_holder_name, v_encrypted, v_last4,
+    p_ifsc_code, p_bank_name, p_branch_name, p_branch_address, p_account_type, 'verified'
+  )
+  ON CONFLICT (user_id) DO UPDATE SET
+    account_holder_name      = EXCLUDED.account_holder_name,
+    account_number_encrypted = EXCLUDED.account_number_encrypted,
+    account_number_last4     = EXCLUDED.account_number_last4,
+    ifsc_code                = EXCLUDED.ifsc_code,
+    bank_name                = EXCLUDED.bank_name,
+    branch_name              = EXCLUDED.branch_name,
+    branch_address           = EXCLUDED.branch_address,
+    account_type             = EXCLUDED.account_type,
+    verification_status      = 'verified',
+    updated_at                = now()
+  RETURNING id INTO v_id;
+
+  RETURN v_id;
+END; $$;
+
+REVOKE EXECUTE ON FUNCTION public.save_bank_details(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.save_bank_details(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 2. withdrawal_requests table
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.withdrawal_requests (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  bank_details_id  UUID NOT NULL REFERENCES public.bank_details(id) ON DELETE RESTRICT,
+  amount           INT NOT NULL CHECK (amount > 0),
+  status           TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled', 'completed')),
+  reject_reason    TEXT,
+  admin_id         UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  wallet_tx_id     UUID REFERENCES public.wallet_transactions(id) ON DELETE SET NULL,
+  refund_tx_id     UUID REFERENCES public.wallet_transactions(id) ON DELETE SET NULL,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  processed_at     TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_withdrawal_requests_user ON public.withdrawal_requests(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_withdrawal_requests_status ON public.withdrawal_requests(status);
+
+GRANT SELECT ON public.withdrawal_requests TO authenticated;
+GRANT ALL ON public.withdrawal_requests TO service_role;
+ALTER TABLE public.withdrawal_requests ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users view own withdrawal requests" ON public.withdrawal_requests;
+CREATE POLICY "Users view own withdrawal requests"
+  ON public.withdrawal_requests FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+
+DROP TRIGGER IF EXISTS trg_withdrawal_requests_updated_at ON public.withdrawal_requests;
+CREATE TRIGGER trg_withdrawal_requests_updated_at
+  BEFORE UPDATE ON public.withdrawal_requests
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'withdrawal_requests') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.withdrawal_requests;
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 3. RPC: submit_withdrawal_request(p_amount) — escrows funds immediately
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.submit_withdrawal_request(p_amount INT)
+RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid     UUID := auth.uid();
+  v_wallet  RECORD;
+  v_bank    RECORD;
+  v_new_bal INT;
+  v_tx_id   UUID;
+  v_req_id  UUID;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  IF p_amount IS NULL OR p_amount <= 0 THEN RAISE EXCEPTION 'Invalid amount'; END IF;
+
+  SELECT * INTO v_bank FROM public.bank_details WHERE user_id = v_uid;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Add your bank details before requesting a withdrawal'; END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.withdrawal_requests WHERE user_id = v_uid AND status = 'pending'
+  ) THEN
+    RAISE EXCEPTION 'You already have a pending withdrawal request';
+  END IF;
+
+  SELECT * INTO v_wallet FROM public.wallets WHERE user_id = v_uid FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Wallet not found'; END IF;
+  IF v_wallet.balance < p_amount THEN RAISE EXCEPTION 'Insufficient wallet balance'; END IF;
+
+  v_new_bal := v_wallet.balance - p_amount;
+
+  UPDATE public.wallets SET
+    balance     = v_new_bal,
+    total_spent = total_spent + p_amount,
+    updated_at  = now()
+  WHERE user_id = v_uid;
+
+  INSERT INTO public.wallet_transactions
+    (user_id, type, amount, balance_after, description, reference_id)
+  VALUES
+    (v_uid, 'withdrawal_request', -p_amount, v_new_bal, 'Withdrawal request submitted', NULL)
+  RETURNING id INTO v_tx_id;
+
+  INSERT INTO public.withdrawal_requests (user_id, bank_details_id, amount, status, wallet_tx_id)
+  VALUES (v_uid, v_bank.id, p_amount, 'pending', v_tx_id)
+  RETURNING id INTO v_req_id;
+
+  UPDATE public.wallet_transactions SET reference_id = v_req_id::text WHERE id = v_tx_id;
+
+  RETURN v_req_id;
+END; $$;
+
+REVOKE EXECUTE ON FUNCTION public.submit_withdrawal_request(INT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.submit_withdrawal_request(INT) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 4. RPC: cancel_withdrawal_request(p_request_id) — user-initiated, refunds
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.cancel_withdrawal_request(UUID);
+CREATE OR REPLACE FUNCTION public.cancel_withdrawal_request(p_request_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid     UUID := auth.uid();
+  v_req     RECORD;
+  v_wallet  RECORD;
+  v_new_bal INT;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+
+  SELECT * INTO v_req FROM public.withdrawal_requests
+    WHERE id = p_request_id AND user_id = v_uid FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Withdrawal request not found'; END IF;
+  IF v_req.status <> 'pending' THEN RAISE EXCEPTION 'Only pending requests can be cancelled'; END IF;
+
+  SELECT * INTO v_wallet FROM public.wallets WHERE user_id = v_uid FOR UPDATE;
+  v_new_bal := v_wallet.balance + v_req.amount;
+
+  UPDATE public.wallets SET
+    balance      = v_new_bal,
+    total_earned = total_earned + v_req.amount,
+    updated_at   = now()
+  WHERE user_id = v_uid;
+
+  INSERT INTO public.wallet_transactions
+    (user_id, type, amount, balance_after, description, reference_id)
+  VALUES
+    (v_uid, 'withdrawal_cancelled', v_req.amount, v_new_bal, 'Withdrawal request cancelled', p_request_id::text);
+
+  UPDATE public.withdrawal_requests SET
+    status       = 'cancelled',
+    processed_at = now()
+  WHERE id = p_request_id;
+END; $$;
+
+REVOKE EXECUTE ON FUNCTION public.cancel_withdrawal_request(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cancel_withdrawal_request(UUID) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 5. RPC: admin_approve_withdrawal(p_request_id) — admin marks transferred
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.admin_approve_withdrawal(uuid);
+CREATE OR REPLACE FUNCTION public.admin_approve_withdrawal(p_request_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_req RECORD;
+BEGIN
+  IF v_uid IS NULL OR NOT public.has_role(v_uid, 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+
+  SELECT * INTO v_req FROM public.withdrawal_requests WHERE id = p_request_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Withdrawal request not found'; END IF;
+  IF v_req.status <> 'pending' THEN RAISE EXCEPTION 'Only pending requests can be approved'; END IF;
+
+  UPDATE public.withdrawal_requests SET
+    status       = 'completed',
+    admin_id     = v_uid,
+    processed_at = now()
+  WHERE id = p_request_id;
+END; $$;
+
+REVOKE EXECUTE ON FUNCTION public.admin_approve_withdrawal(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_approve_withdrawal(UUID) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 6. RPC: admin_reject_withdrawal(p_request_id, p_reason) — refunds user
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.admin_reject_withdrawal(uuid, text);
+CREATE OR REPLACE FUNCTION public.admin_reject_withdrawal(p_request_id UUID, p_reason TEXT DEFAULT NULL)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid     UUID := auth.uid();
+  v_req     RECORD;
+  v_wallet  RECORD;
+  v_new_bal INT;
+  v_tx_id   UUID;
+BEGIN
+  IF v_uid IS NULL OR NOT public.has_role(v_uid, 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+
+  SELECT * INTO v_req FROM public.withdrawal_requests WHERE id = p_request_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Withdrawal request not found'; END IF;
+  IF v_req.status <> 'pending' THEN RAISE EXCEPTION 'Only pending requests can be rejected'; END IF;
+
+  SELECT * INTO v_wallet FROM public.wallets WHERE user_id = v_req.user_id FOR UPDATE;
+  IF NOT FOUND THEN
+    INSERT INTO public.wallets (user_id) VALUES (v_req.user_id);
+    SELECT * INTO v_wallet FROM public.wallets WHERE user_id = v_req.user_id FOR UPDATE;
+  END IF;
+
+  v_new_bal := v_wallet.balance + v_req.amount;
+
+  UPDATE public.wallets SET
+    balance      = v_new_bal,
+    total_earned = total_earned + v_req.amount,
+    updated_at   = now()
+  WHERE user_id = v_req.user_id;
+
+  INSERT INTO public.wallet_transactions
+    (user_id, type, amount, balance_after, description, reference_id)
+  VALUES
+    (v_req.user_id, 'withdrawal_rejected', v_req.amount, v_new_bal,
+     COALESCE('Withdrawal rejected: ' || p_reason, 'Withdrawal rejected'), p_request_id::text)
+  RETURNING id INTO v_tx_id;
+
+  UPDATE public.withdrawal_requests SET
+    status        = 'rejected',
+    reject_reason = p_reason,
+    admin_id      = v_uid,
+    refund_tx_id  = v_tx_id,
+    processed_at  = now()
+  WHERE id = p_request_id;
+END; $$;
+
+REVOKE EXECUTE ON FUNCTION public.admin_reject_withdrawal(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_reject_withdrawal(UUID, TEXT) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 7. RPC: admin_get_withdrawal_requests(p_status) — joined admin view
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.admin_get_withdrawal_requests(p_status TEXT DEFAULT NULL)
+RETURNS TABLE (
+  id             UUID,
+  user_id        UUID,
+  username       TEXT,
+  display_name   TEXT,
+  amount         INT,
+  bank_name      TEXT,
+  account_last4  TEXT,
+  ifsc_code      TEXT,
+  status         TEXT,
+  reject_reason  TEXT,
+  admin_id       UUID,
+  created_at     TIMESTAMPTZ,
+  updated_at     TIMESTAMPTZ,
+  processed_at   TIMESTAMPTZ
+) LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    wr.id,
+    wr.user_id,
+    COALESCE(p.username, ''),
+    COALESCE(p.display_name, ''),
+    wr.amount,
+    bd.bank_name,
+    bd.account_number_last4,
+    bd.ifsc_code,
+    wr.status,
+    wr.reject_reason,
+    wr.admin_id,
+    wr.created_at,
+    wr.updated_at,
+    wr.processed_at
+  FROM public.withdrawal_requests wr
+  JOIN public.bank_details bd ON bd.id = wr.bank_details_id
+  LEFT JOIN public.profiles p ON p.id = wr.user_id
+  WHERE p_status IS NULL OR wr.status = p_status
+  ORDER BY wr.created_at DESC;
+END; $$;
+
+REVOKE EXECUTE ON FUNCTION public.admin_get_withdrawal_requests(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_get_withdrawal_requests(TEXT) TO authenticated, service_role;
+-- =====================================================================
+-- TOURNAMENT_MATCHES
+-- ---------------------------------------------------------------------
+-- Backs the bracket UI in src/routes/tournament.$id.tsx, which selects
+-- id,round,slot,player1_id,player2_id,game_id,winner_id,status filtered
+-- by tournament_id and ordered by round, and subscribes to postgres_changes
+-- on this table (filter tournament_id=eq.<id>) for live bracket updates.
+-- Prior audit (AUDIT_REPORT.md) found no definition for this table
+-- anywhere in schema.sql or migrations. Purely additive: no DROP.
+-- Follows the same conventions as tournaments/tournament_entries
+-- (schema.sql SECTION 15/16).
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS public.tournament_matches (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tournament_id  UUID NOT NULL REFERENCES public.tournaments(id) ON DELETE CASCADE,
+  round          INT NOT NULL,
+  slot           INT NOT NULL,
+  player1_id     UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  player2_id     UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  game_id        UUID REFERENCES public.games(id) ON DELETE SET NULL,
+  winner_id      UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  status         TEXT NOT NULL DEFAULT 'pending'
+                   CHECK (status IN ('pending', 'active', 'finished', 'bye')),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (tournament_id, round, slot)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tournament_matches_tournament
+  ON public.tournament_matches(tournament_id, round);
+CREATE INDEX IF NOT EXISTS idx_tournament_matches_game
+  ON public.tournament_matches(game_id);
+
+GRANT SELECT ON public.tournament_matches TO anon, authenticated;
+GRANT ALL ON public.tournament_matches TO service_role;
+
+ALTER TABLE public.tournament_matches ENABLE ROW LEVEL SECURITY;
+
+-- Public read, consistent with tournaments/tournament_entries being open
+-- to anon/authenticated (bracket is public info once a tournament goes live).
+DROP POLICY IF EXISTS "Tournament matches public read" ON public.tournament_matches;
+CREATE POLICY "Tournament matches public read"
+  ON public.tournament_matches FOR SELECT USING (true);
+
+-- Writes are restricted to admins (bracket generation/progression is a
+-- server-side/admin operation), same as "Admins update tournaments".
+DROP POLICY IF EXISTS "Admins insert tournament matches" ON public.tournament_matches;
+CREATE POLICY "Admins insert tournament matches"
+  ON public.tournament_matches FOR INSERT
+  WITH CHECK (public.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "Admins update tournament matches" ON public.tournament_matches;
+CREATE POLICY "Admins update tournament matches"
+  ON public.tournament_matches FOR UPDATE
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- updated_at maintenance trigger, following the same style used elsewhere
+-- in schema.sql for tables with an updated_at column.
+CREATE OR REPLACE FUNCTION public._tournament_matches_touch_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS trg_tournament_matches_touch_updated_at ON public.tournament_matches;
+CREATE TRIGGER trg_tournament_matches_touch_updated_at
+  BEFORE UPDATE ON public.tournament_matches
+  FOR EACH ROW EXECUTE FUNCTION public._tournament_matches_touch_updated_at();
+
+-- Realtime: the route subscribes to postgres_changes on this table
+-- (channel `tournament_detail:<id>`, filter tournament_id=eq.<id>).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'tournament_matches'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.tournament_matches;
+  END IF;
+END $$;
+-- =====================================================================
+-- CHAT SUBSYSTEM
+-- ---------------------------------------------------------------------
+-- Backs src/lib/api/chatClient.ts (Global Chat + Custom Rooms + Direct
+-- Messages) and src/routes/admin.chat.tsx. Prior audit (AUDIT_REPORT.md)
+-- found ~16+ RPCs plus a backing table referenced by the frontend with
+-- no SQL definition anywhere in schema.sql or migrations. This migration
+-- creates the full additive backend: chat_channels, chat_channel_members,
+-- chat_messages, chat_message_reactions, chat_reports tables, and every
+-- RPC the client/admin route calls, matching exact param names/order and
+-- return shapes. Follows the same conventions as public.game_chat
+-- (schema.sql ~line 224) and public.community_comments (~line 2848) for
+-- table/RLS style, and admin_credit_wallet/has_role for the admin gate.
+-- Purely additive: no DROP of anything pre-existing.
+-- =====================================================================
+
+-- ── 1. Core tables ────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS public.chat_channels (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type         TEXT NOT NULL CHECK (type IN ('global', 'room', 'dm')),
+  slug         TEXT UNIQUE,
+  name         TEXT,
+  description  TEXT DEFAULT '',
+  is_private   BOOLEAN NOT NULL DEFAULT false,
+  owner_id     UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  -- For DM channels: canonical pair (least(user), greatest(user)) so a
+  -- unique index can prevent duplicate DM channels between two users.
+  dm_user_a    UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  dm_user_b    UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_channels_dm_pair
+  ON public.chat_channels(dm_user_a, dm_user_b) WHERE type = 'dm';
+CREATE INDEX IF NOT EXISTS idx_chat_channels_type ON public.chat_channels(type);
+
+CREATE TABLE IF NOT EXISTS public.chat_channel_members (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  channel_id  UUID NOT NULL REFERENCES public.chat_channels(id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  role        TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'moderator', 'member')),
+  muted_until TIMESTAMPTZ,
+  is_banned   BOOLEAN NOT NULL DEFAULT false,
+  last_read_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  joined_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (channel_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_channel_members_channel ON public.chat_channel_members(channel_id);
+CREATE INDEX IF NOT EXISTS idx_chat_channel_members_user ON public.chat_channel_members(user_id);
+
+CREATE TABLE IF NOT EXISTS public.chat_messages (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  channel_id   UUID NOT NULL REFERENCES public.chat_channels(id) ON DELETE CASCADE,
+  user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  content      TEXT NOT NULL,
+  reply_to_id  UUID REFERENCES public.chat_messages(id) ON DELETE SET NULL,
+  is_deleted   BOOLEAN NOT NULL DEFAULT false,
+  is_pinned    BOOLEAN NOT NULL DEFAULT false,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_messages_channel_created
+  ON public.chat_messages(channel_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_pinned
+  ON public.chat_messages(channel_id) WHERE is_pinned = true;
+
+CREATE TABLE IF NOT EXISTS public.chat_message_reactions (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id UUID NOT NULL REFERENCES public.chat_messages(id) ON DELETE CASCADE,
+  user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  emoji      TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (message_id, user_id, emoji)
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_message_reactions_message
+  ON public.chat_message_reactions(message_id);
+
+CREATE TABLE IF NOT EXISTS public.chat_reports (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id  UUID NOT NULL REFERENCES public.chat_messages(id) ON DELETE CASCADE,
+  reporter_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  reason      TEXT NOT NULL CHECK (reason IN ('spam', 'abuse', 'harassment', 'fake_information', 'other')),
+  details     TEXT,
+  status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved', 'dismissed')),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_reports_status ON public.chat_reports(status);
+
+-- ── 2. RLS ────────────────────────────────────────────────────────────
+-- All reads/writes to these tables happen through SECURITY DEFINER RPCs
+-- below (mirrors the game_chat / community_comments pattern of a public
+-- SELECT policy plus RPC-gated writes). Direct table access from the
+-- client is only used by admin.chat.tsx for chat_reports (admin-only
+-- SELECT), everything else goes through chatClient.ts RPCs.
+
+ALTER TABLE public.chat_channels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.chat_channel_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.chat_message_reactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.chat_reports ENABLE ROW LEVEL SECURITY;
+
+-- Public rooms/global are readable by anyone; DMs/private rooms only by
+-- members. Used as a fallback if the frontend ever queries these tables
+-- directly; the RPCs below do their own visibility checks internally.
+DROP POLICY IF EXISTS "chat_channels_select" ON public.chat_channels;
+CREATE POLICY "chat_channels_select" ON public.chat_channels
+  FOR SELECT USING (
+    (type IN ('global', 'room') AND is_private = false)
+    OR EXISTS (
+      SELECT 1 FROM public.chat_channel_members m
+      WHERE m.channel_id = chat_channels.id AND m.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "chat_channel_members_select_own" ON public.chat_channel_members;
+CREATE POLICY "chat_channel_members_select_own" ON public.chat_channel_members
+  FOR SELECT USING (
+    user_id = auth.uid()
+    OR EXISTS (
+      SELECT 1 FROM public.chat_channel_members me
+      WHERE me.channel_id = chat_channel_members.channel_id AND me.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "chat_messages_select_members" ON public.chat_messages;
+CREATE POLICY "chat_messages_select_members" ON public.chat_messages
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.chat_channels c
+      WHERE c.id = chat_messages.channel_id
+        AND ((c.type IN ('global', 'room') AND c.is_private = false)
+          OR EXISTS (
+            SELECT 1 FROM public.chat_channel_members m
+            WHERE m.channel_id = c.id AND m.user_id = auth.uid()
+          ))
+    )
+  );
+
+DROP POLICY IF EXISTS "chat_message_reactions_select_members" ON public.chat_message_reactions;
+CREATE POLICY "chat_message_reactions_select_members" ON public.chat_message_reactions
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.chat_messages msg
+      JOIN public.chat_channels c ON c.id = msg.channel_id
+      WHERE msg.id = chat_message_reactions.message_id
+        AND ((c.type IN ('global', 'room') AND c.is_private = false)
+          OR EXISTS (
+            SELECT 1 FROM public.chat_channel_members m
+            WHERE m.channel_id = c.id AND m.user_id = auth.uid()
+          ))
+    )
+  );
+
+-- Reports: only admins and the reporter may read; only authenticated
+-- users may create (via RPC, which sets reporter_id = auth.uid()).
+DROP POLICY IF EXISTS "chat_reports_select_admin_or_own" ON public.chat_reports;
+CREATE POLICY "chat_reports_select_admin_or_own" ON public.chat_reports
+  FOR SELECT USING (
+    reporter_id = auth.uid() OR public.has_role(auth.uid(), 'admin')
+  );
+
+GRANT SELECT ON public.chat_channels, public.chat_channel_members, public.chat_messages,
+  public.chat_message_reactions, public.chat_reports TO authenticated;
+GRANT ALL ON public.chat_channels, public.chat_channel_members, public.chat_messages,
+  public.chat_message_reactions, public.chat_reports TO service_role;
+
+-- Realtime, so open channels can live-update (consistent with game_chat).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'chat_messages'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;
+  END IF;
+END $$;
+
+-- ── 3. Shared helpers ─────────────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public._chat_user_lite(p_user_id UUID)
+RETURNS JSON LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT CASE WHEN p_user_id IS NULL THEN NULL ELSE json_build_object(
+    'id', p.id, 'username', p.username, 'display_name', p.display_name, 'avatar_url', p.avatar_url
+  ) END
+  FROM public.profiles p WHERE p.id = p_user_id;
+$$;
+
+CREATE OR REPLACE FUNCTION public._chat_is_member(p_channel UUID, p_user UUID)
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.chat_channel_members
+    WHERE channel_id = p_channel AND user_id = p_user AND is_banned = false
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public._chat_role(p_channel UUID, p_user UUID)
+RETURNS TEXT LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT role FROM public.chat_channel_members
+  WHERE channel_id = p_channel AND user_id = p_user;
+$$;
+
+-- Ensures the single global channel exists; auto-joins the caller to it.
+CREATE OR REPLACE FUNCTION public._chat_ensure_global(p_user UUID)
+RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+BEGIN
+  SELECT id INTO v_id FROM public.chat_channels WHERE type = 'global' LIMIT 1;
+  IF v_id IS NULL THEN
+    INSERT INTO public.chat_channels (type, slug, name, description, is_private)
+    VALUES ('global', 'global', 'Global Chat', 'ChessOx community chat', false)
+    RETURNING id INTO v_id;
+  END IF;
+
+  IF p_user IS NOT NULL THEN
+    INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+    VALUES (v_id, p_user, 'member')
+    ON CONFLICT (channel_id, user_id) DO NOTHING;
+  END IF;
+
+  RETURN v_id;
+END; $$;
+
+-- Named composite type (NOT the same as a RETURNS TABLE(...) signature,
+-- which is local to a single function and cannot be reused as a type
+-- elsewhere) so both the row-builder helper and every public RPC below
+-- can share one shape: matches ChatChannel in chatClient.ts.
+DO $$ BEGIN
+  DROP TYPE IF EXISTS public.chat_channel_row CASCADE;
+  CREATE TYPE public.chat_channel_row AS (
+    id UUID, type TEXT, slug TEXT, name TEXT, description TEXT, is_private BOOLEAN,
+    owner_id UUID, member_count INT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ,
+    my_role TEXT, is_member BOOLEAN, owner JSON, other_user JSON,
+    last_message JSON, unread_count INT,
+    room_code TEXT, icon TEXT, max_members INT, online_count INT,
+    is_permanent BOOLEAN, coming_soon BOOLEAN, password_protected BOOLEAN
+  );
+END $$;
+
+-- Builds one ChatChannel row for channel c as seen by p_user.
+CREATE OR REPLACE FUNCTION public._chat_channel_row(p_channel_id UUID, p_user UUID)
+RETURNS SETOF public.chat_channel_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_other UUID;
+BEGIN
+  RETURN QUERY
+  SELECT
+    c.id, c.type, c.slug, c.name, c.description, c.is_private, c.owner_id,
+    (SELECT COUNT(*)::INT FROM public.chat_channel_members m WHERE m.channel_id = c.id),
+    c.created_at, c.updated_at,
+    (SELECT m.role FROM public.chat_channel_members m WHERE m.channel_id = c.id AND m.user_id = p_user),
+    EXISTS (SELECT 1 FROM public.chat_channel_members m WHERE m.channel_id = c.id AND m.user_id = p_user),
+    public._chat_user_lite(c.owner_id),
+    CASE WHEN c.type = 'dm' THEN
+      public._chat_user_lite(CASE WHEN c.dm_user_a = p_user THEN c.dm_user_b ELSE c.dm_user_a END)
+    ELSE NULL END,
+    (SELECT json_build_object('content', msg.content, 'created_at', msg.created_at, 'user_id', msg.user_id)
+       FROM public.chat_messages msg
+       WHERE msg.channel_id = c.id AND msg.is_deleted = false
+       ORDER BY msg.created_at DESC LIMIT 1),
+    (SELECT COUNT(*)::INT FROM public.chat_messages msg
+       JOIN public.chat_channel_members m ON m.channel_id = c.id AND m.user_id = p_user
+       WHERE msg.channel_id = c.id AND msg.is_deleted = false AND msg.created_at > m.last_read_at),
+    c.room_code, c.icon, c.max_members,
+    (SELECT COUNT(*)::INT FROM public.chat_channel_members m
+       WHERE m.channel_id = c.id AND m.last_read_at > now() - interval '5 minutes'),
+    c.is_permanent, c.coming_soon, (c.password_hash IS NOT NULL)
+  FROM public.chat_channels c
+  WHERE c.id = p_channel_id;
+END; $$;
+
+-- ── 4. Channel RPCs ───────────────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.chat_my_channels()
+RETURNS SETOF public.chat_channel_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_global UUID;
+BEGIN
+  IF auth.uid() IS NULL THEN RETURN; END IF;
+  v_global := public._chat_ensure_global(auth.uid());
+  RETURN QUERY
+  SELECT r.* FROM public.chat_channel_members m
+  CROSS JOIN LATERAL public._chat_channel_row(m.channel_id, auth.uid()) r
+  WHERE m.user_id = auth.uid()
+  ORDER BY (r.last_message->>'created_at') DESC NULLS LAST, r.created_at DESC;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_my_channels() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.chat_my_channels() TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_discover_rooms(p_search TEXT DEFAULT NULL, p_limit INT DEFAULT 30)
+RETURNS SETOF public.chat_channel_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY
+  SELECT r.* FROM public.chat_channels c
+  CROSS JOIN LATERAL public._chat_channel_row(c.id, auth.uid()) r
+  WHERE c.type = 'room' AND c.is_private = false
+    AND (p_search IS NULL OR p_search = '' OR c.name ILIKE '%' || p_search || '%')
+  ORDER BY r.member_count DESC, c.created_at DESC
+  LIMIT p_limit;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_discover_rooms(TEXT, INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.chat_discover_rooms(TEXT, INT) TO anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_get_channel(p_slug_or_id TEXT)
+RETURNS public.chat_channel_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+  v_row public.chat_channel_row;
+BEGIN
+  BEGIN
+    v_id := p_slug_or_id::UUID;
+  EXCEPTION WHEN OTHERS THEN
+    v_id := NULL;
+  END;
+
+  IF v_id IS NULL THEN
+    SELECT id INTO v_id FROM public.chat_channels WHERE slug = p_slug_or_id;
+  END IF;
+  
+  IF v_id IS NULL THEN RETURN NULL; END IF;
+
+  SELECT * INTO v_row FROM public._chat_channel_row(v_id, auth.uid());
+  RETURN v_row;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_get_channel(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.chat_get_channel(TEXT) TO anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_create_room(p_name TEXT, p_description TEXT, p_is_private BOOLEAN)
+RETURNS public.chat_channel_row
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+  v_slug TEXT;
+  v_row public.chat_channel_row;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+  IF p_name IS NULL OR trim(p_name) = '' THEN RAISE EXCEPTION 'Room name required'; END IF;
+
+  v_slug := lower(regexp_replace(trim(p_name), '[^a-zA-Z0-9]+', '-', 'g')) || '-' || substr(gen_random_uuid()::TEXT, 1, 6);
+
+  INSERT INTO public.chat_channels (type, slug, name, description, is_private, owner_id)
+  VALUES ('room', v_slug, p_name, COALESCE(p_description, ''), COALESCE(p_is_private, false), auth.uid())
+  RETURNING id INTO v_id;
+
+  INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+  VALUES (v_id, auth.uid(), 'owner');
+
+  SELECT * INTO v_row FROM public._chat_channel_row(v_id, auth.uid());
+  RETURN v_row;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_create_room(TEXT, TEXT, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_create_room(TEXT, TEXT, BOOLEAN) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_update_room(p_channel UUID, p_name TEXT, p_description TEXT)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF public._chat_role(p_channel, auth.uid()) NOT IN ('owner', 'moderator') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  UPDATE public.chat_channels
+  SET name = p_name, description = COALESCE(p_description, ''), updated_at = now()
+  WHERE id = p_channel AND type = 'room';
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_update_room(UUID, TEXT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_update_room(UUID, TEXT, TEXT) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_delete_room(p_channel UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF public._chat_role(p_channel, auth.uid()) != 'owner' AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  DELETE FROM public.chat_channels WHERE id = p_channel AND type = 'room';
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_delete_room(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_delete_room(UUID) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_join_room(p_channel UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.chat_channels WHERE id = p_channel AND type = 'room' AND is_private = false) THEN
+    RAISE EXCEPTION 'Room not found or private';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.chat_channel_members WHERE channel_id = p_channel AND user_id = auth.uid() AND is_banned = true) THEN
+    RAISE EXCEPTION 'You are banned from this room';
+  END IF;
+  INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+  VALUES (p_channel, auth.uid(), 'member')
+  ON CONFLICT (channel_id, user_id) DO NOTHING;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_join_room(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_join_room(UUID) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_leave_room(p_channel UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  DELETE FROM public.chat_channel_members WHERE channel_id = p_channel AND user_id = auth.uid();
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_leave_room(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_leave_room(UUID) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_invite_user(p_channel UUID, p_username TEXT)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_target UUID;
+BEGIN
+  IF public._chat_role(p_channel, auth.uid()) NOT IN ('owner', 'moderator') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  SELECT id INTO v_target FROM public.profiles WHERE username = p_username;
+  IF v_target IS NULL THEN RAISE EXCEPTION 'User not found'; END IF;
+
+  INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+  VALUES (p_channel, v_target, 'member')
+  ON CONFLICT (channel_id, user_id) DO UPDATE SET is_banned = false;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_invite_user(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_invite_user(UUID, TEXT) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_remove_member(p_channel UUID, p_user UUID, p_ban BOOLEAN DEFAULT false)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF public._chat_role(p_channel, auth.uid()) NOT IN ('owner', 'moderator') AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  IF p_ban THEN
+    UPDATE public.chat_channel_members SET is_banned = true WHERE channel_id = p_channel AND user_id = p_user;
+  ELSE
+    DELETE FROM public.chat_channel_members WHERE channel_id = p_channel AND user_id = p_user;
+  END IF;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_remove_member(UUID, UUID, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_remove_member(UUID, UUID, BOOLEAN) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_mute_member(p_channel UUID, p_user UUID, p_minutes INT)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF public._chat_role(p_channel, auth.uid()) NOT IN ('owner', 'moderator') AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  UPDATE public.chat_channel_members
+  SET muted_until = now() + make_interval(mins => GREATEST(p_minutes, 0))
+  WHERE channel_id = p_channel AND user_id = p_user;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_mute_member(UUID, UUID, INT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_mute_member(UUID, UUID, INT) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_set_moderator(p_channel UUID, p_user UUID, p_is_mod BOOLEAN)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF public._chat_role(p_channel, auth.uid()) != 'owner' AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  UPDATE public.chat_channel_members
+  SET role = CASE WHEN p_is_mod THEN 'moderator' ELSE 'member' END
+  WHERE channel_id = p_channel AND user_id = p_user AND role != 'owner';
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_set_moderator(UUID, UUID, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_set_moderator(UUID, UUID, BOOLEAN) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_get_or_create_dm(p_other UUID)
+RETURNS public.chat_channel_row
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+  v_a UUID;
+  v_b UUID;
+  v_row public.chat_channel_row;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+  IF p_other = auth.uid() THEN RAISE EXCEPTION 'Cannot DM yourself'; END IF;
+
+  v_a := LEAST(auth.uid(), p_other);
+  v_b := GREATEST(auth.uid(), p_other);
+
+  SELECT id INTO v_id FROM public.chat_channels WHERE type = 'dm' AND dm_user_a = v_a AND dm_user_b = v_b;
+
+  IF v_id IS NULL THEN
+    INSERT INTO public.chat_channels (type, is_private, dm_user_a, dm_user_b)
+    VALUES ('dm', true, v_a, v_b)
+    RETURNING id INTO v_id;
+
+    INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+    VALUES (v_id, auth.uid(), 'member'), (v_id, p_other, 'member')
+    ON CONFLICT (channel_id, user_id) DO NOTHING;
+  END IF;
+
+  SELECT * INTO v_row FROM public._chat_channel_row(v_id, auth.uid());
+  RETURN v_row;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_get_or_create_dm(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_get_or_create_dm(UUID) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_mark_read(p_channel UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  UPDATE public.chat_channel_members SET last_read_at = now()
+  WHERE channel_id = p_channel AND user_id = auth.uid();
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_mark_read(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_mark_read(UUID) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.chat_channel_members(UUID);
+CREATE OR REPLACE FUNCTION public.chat_channel_members(p_channel UUID)
+RETURNS TABLE (
+  id UUID, username TEXT, display_name TEXT, avatar_url TEXT,
+  premium_tier TEXT, role TEXT, muted_until TIMESTAMPTZ, joined_at TIMESTAMPTZ
+)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY
+  SELECT p.id, p.username, p.display_name, p.avatar_url,
+    p.premium_tier::TEXT, m.role, m.muted_until, m.joined_at
+  FROM public.chat_channel_members m
+  JOIN public.profiles p ON p.id = m.user_id
+  WHERE m.channel_id = p_channel AND m.is_banned = false
+  ORDER BY CASE m.role WHEN 'owner' THEN 0 WHEN 'moderator' THEN 1 ELSE 2 END, m.joined_at ASC;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_channel_members(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.chat_channel_members(UUID) TO anon, authenticated, service_role;
+
+-- ── 5. Message RPCs ───────────────────────────────────────────────────
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'chat_message_row') THEN
+    CREATE TYPE public.chat_message_row AS (
+      id UUID, channel_id UUID, user_id UUID, content TEXT, reply_to_id UUID,
+      is_deleted BOOLEAN, is_pinned BOOLEAN, created_at TIMESTAMPTZ,
+      author JSON, reply_to JSON, reactions JSON
+    );
+  END IF;
+END $$;
+
+CREATE OR REPLACE FUNCTION public._chat_message_row(p_message_id UUID)
+RETURNS SETOF public.chat_message_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    msg.id, msg.channel_id, msg.user_id, msg.content, msg.reply_to_id,
+    msg.is_deleted, msg.is_pinned, msg.created_at,
+    (SELECT json_build_object(
+       'id', p.id, 'username', p.username, 'display_name', p.display_name,
+       'avatar_url', p.avatar_url, 'premium_tier', p.premium_tier
+     ) FROM public.profiles p WHERE p.id = msg.user_id),
+    (SELECT json_build_object(
+       'id', rp.id, 'content', rp.content, 'user_id', rp.user_id,
+       'author_name', pr.display_name
+     ) FROM public.chat_messages rp
+     LEFT JOIN public.profiles pr ON pr.id = rp.user_id
+     WHERE rp.id = msg.reply_to_id),
+    COALESCE((
+      SELECT json_agg(json_build_object('emoji', t.emoji, 'count', t.cnt, 'mine', t.mine))
+      FROM (
+        SELECT r.emoji, COUNT(*) AS cnt, bool_or(r.user_id = auth.uid()) AS mine
+        FROM public.chat_message_reactions r
+        WHERE r.message_id = msg.id
+        GROUP BY r.emoji
+      ) t
+    ), '[]'::json)
+  FROM public.chat_messages msg
+  WHERE msg.id = p_message_id;
+END; $$;
+
+CREATE OR REPLACE FUNCTION public.chat_channel_feed(p_channel UUID, p_before TIMESTAMPTZ DEFAULT NULL, p_limit INT DEFAULT 40)
+RETURNS SETOF public.chat_message_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT public._chat_is_member(p_channel, auth.uid())
+     AND NOT EXISTS (SELECT 1 FROM public.chat_channels WHERE id = p_channel AND type IN ('global', 'room') AND is_private = false) THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
+  RETURN QUERY
+  SELECT r.* FROM public.chat_messages msg
+  CROSS JOIN LATERAL public._chat_message_row(msg.id) r
+  WHERE msg.channel_id = p_channel
+    AND (p_before IS NULL OR msg.created_at < p_before)
+  ORDER BY msg.created_at DESC
+  LIMIT p_limit;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_channel_feed(UUID, TIMESTAMPTZ, INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.chat_channel_feed(UUID, TIMESTAMPTZ, INT) TO anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_search_messages(p_channel UUID, p_query TEXT, p_limit INT DEFAULT 30)
+RETURNS SETOF public.chat_message_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT public._chat_is_member(p_channel, auth.uid())
+     AND NOT EXISTS (SELECT 1 FROM public.chat_channels WHERE id = p_channel AND type IN ('global', 'room') AND is_private = false) THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
+  RETURN QUERY
+  SELECT r.* FROM public.chat_messages msg
+  CROSS JOIN LATERAL public._chat_message_row(msg.id) r
+  WHERE msg.channel_id = p_channel AND msg.is_deleted = false
+    AND msg.content ILIKE '%' || p_query || '%'
+  ORDER BY msg.created_at DESC
+  LIMIT p_limit;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_search_messages(UUID, TEXT, INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.chat_search_messages(UUID, TEXT, INT) TO anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_pinned_messages(p_channel UUID)
+RETURNS SETOF public.chat_message_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY
+  SELECT r.* FROM public.chat_messages msg
+  CROSS JOIN LATERAL public._chat_message_row(msg.id) r
+  WHERE msg.channel_id = p_channel AND msg.is_pinned = true AND msg.is_deleted = false
+  ORDER BY msg.created_at DESC;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_pinned_messages(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.chat_pinned_messages(UUID) TO anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_send_message(p_channel UUID, p_content TEXT, p_reply_to UUID DEFAULT NULL)
+RETURNS public.chat_message_row
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+  v_muted TIMESTAMPTZ;
+  v_row public.chat_message_row;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+  IF p_content IS NULL OR trim(p_content) = '' THEN RAISE EXCEPTION 'Message cannot be empty'; END IF;
+  IF length(p_content) > 2000 THEN RAISE EXCEPTION 'Message too long'; END IF;
+
+  -- Auto-join global or public rooms; require existing membership for private rooms/dms.
+  IF EXISTS (SELECT 1 FROM public.chat_channels WHERE id = p_channel AND (type = 'global' OR (type = 'room' AND is_private = false))) THEN
+    INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+    VALUES (p_channel, auth.uid(), 'member')
+    ON CONFLICT (channel_id, user_id) DO NOTHING;
+
+    -- Inline check avoids snapshot caching issues of STABLE _chat_is_member
+    IF EXISTS (SELECT 1 FROM public.chat_channel_members WHERE channel_id = p_channel AND user_id = auth.uid() AND is_banned = true) THEN
+      RAISE EXCEPTION 'You are banned from this channel';
+    END IF;
+  ELSE
+    IF NOT public._chat_is_member(p_channel, auth.uid()) THEN
+      RAISE EXCEPTION 'Not a member of this channel';
+    END IF;
+  END IF;
+
+  SELECT muted_until INTO v_muted FROM public.chat_channel_members
+  WHERE channel_id = p_channel AND user_id = auth.uid();
+  IF v_muted IS NOT NULL AND v_muted > now() THEN
+    RAISE EXCEPTION 'You are muted in this channel until %', v_muted;
+  END IF;
+
+  INSERT INTO public.chat_messages (channel_id, user_id, content, reply_to_id)
+  VALUES (p_channel, auth.uid(), p_content, p_reply_to)
+  RETURNING id INTO v_id;
+
+  UPDATE public.chat_channels SET updated_at = now() WHERE id = p_channel;
+
+  SELECT * INTO v_row FROM public._chat_message_row(v_id);
+  RETURN v_row;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_send_message(UUID, TEXT, UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_send_message(UUID, TEXT, UUID) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_delete_message(p_message UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_channel UUID;
+  v_author UUID;
+BEGIN
+  SELECT channel_id, user_id INTO v_channel, v_author FROM public.chat_messages WHERE id = p_message;
+  IF v_channel IS NULL THEN RAISE EXCEPTION 'Message not found'; END IF;
+
+  IF v_author != auth.uid()
+     AND public._chat_role(v_channel, auth.uid()) NOT IN ('owner', 'moderator')
+     AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
+  UPDATE public.chat_messages SET is_deleted = true, content = '[deleted]' WHERE id = p_message;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_delete_message(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_delete_message(UUID) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_react(p_message UUID, p_emoji TEXT)
+RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_existed BOOLEAN;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM public.chat_message_reactions WHERE message_id = p_message AND user_id = auth.uid() AND emoji = p_emoji
+  ) INTO v_existed;
+
+  IF v_existed THEN
+    DELETE FROM public.chat_message_reactions WHERE message_id = p_message AND user_id = auth.uid() AND emoji = p_emoji;
+    RETURN false;
+  ELSE
+    INSERT INTO public.chat_message_reactions (message_id, user_id, emoji) VALUES (p_message, auth.uid(), p_emoji);
+    RETURN true;
+  END IF;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_react(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_react(UUID, TEXT) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_pin_message(p_message UUID, p_pinned BOOLEAN)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_channel UUID;
+BEGIN
+  SELECT channel_id INTO v_channel FROM public.chat_messages WHERE id = p_message;
+  IF v_channel IS NULL THEN RAISE EXCEPTION 'Message not found'; END IF;
+  IF public._chat_role(v_channel, auth.uid()) NOT IN ('owner', 'moderator') AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  UPDATE public.chat_messages SET is_pinned = p_pinned WHERE id = p_message;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_pin_message(UUID, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_pin_message(UUID, BOOLEAN) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.chat_report_message(p_message UUID, p_reason TEXT, p_details TEXT DEFAULT NULL)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.chat_messages WHERE id = p_message) THEN
+    RAISE EXCEPTION 'Message not found';
+  END IF;
+  INSERT INTO public.chat_reports (message_id, reporter_id, reason, details)
+  VALUES (p_message, auth.uid(), p_reason, p_details);
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_report_message(UUID, TEXT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_report_message(UUID, TEXT, TEXT) TO authenticated, service_role;
+
+-- ── 6. Admin RPCs ─────────────────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.admin_chat_stats()
+RETURNS JSON LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+  RETURN json_build_object(
+    'rooms', (SELECT COUNT(*) FROM public.chat_channels WHERE type = 'room'),
+    'dms', (SELECT COUNT(*) FROM public.chat_channels WHERE type = 'dm'),
+    'messages_24h', (SELECT COUNT(*) FROM public.chat_messages WHERE created_at > now() - interval '24 hours'),
+    'open_reports', (SELECT COUNT(*) FROM public.chat_reports WHERE status = 'open')
+  );
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.admin_chat_stats() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_chat_stats() TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_resolve_chat_report(p_report_id UUID, p_status TEXT)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+  IF p_status NOT IN ('resolved', 'dismissed', 'open') THEN
+    RAISE EXCEPTION 'Invalid status';
+  END IF;
+  UPDATE public.chat_reports
+  SET status = p_status, resolved_at = CASE WHEN p_status = 'open' THEN NULL ELSE now() END
+  WHERE id = p_report_id;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.admin_resolve_chat_report(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_resolve_chat_report(UUID, TEXT) TO authenticated, service_role;
+-- =====================================================================
+-- SEASONS BACKEND
+-- ---------------------------------------------------------------------
+-- Backs src/lib/api/seasonsClient.ts (routes /seasons and /admin/seasons).
+-- Prior audit (AUDIT_REPORT.md, "Fix Pass") found none of the RPCs the
+-- client calls exist anywhere in schema.sql or migrations. This migration
+-- creates the full additive backend: seasons table, per-season snapshot
+-- table (season_rankings), history table (season_history), and every RPC
+-- the client expects, matching its exact param names/order and return
+-- shapes. Follows the same SECURITY DEFINER + has_role('admin') pattern
+-- used by admin_credit_wallet/admin_debit_wallet (schema.sql ~line 1358)
+-- and the leaderboard_view pattern (schema.sql ~line 3302) for rewards/
+-- ranking math. Purely additive: no DROP, no ALTER that removes anything.
+-- =====================================================================
+
+-- ── 1. Core tables ────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS public.seasons (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  season_number INT NOT NULL UNIQUE,
+  name          TEXT,
+  start_date    TIMESTAMPTZ NOT NULL,
+  end_date      TIMESTAMPTZ NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'upcoming'
+                  CHECK (status IN ('upcoming', 'live', 'paused', 'ended')),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (end_date > start_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_seasons_status ON public.seasons(status);
+
+-- Per-season leaderboard snapshot, refreshed live while a season is
+-- 'live'/'paused' and frozen (ranks locked) once 'ended'.
+CREATE TABLE IF NOT EXISTS public.season_rankings (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  season_id        UUID NOT NULL REFERENCES public.seasons(id) ON DELETE CASCADE,
+  user_id          UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  rank             INT,
+  iq_level         INT NOT NULL DEFAULT 0,
+  rating_points    INT NOT NULL DEFAULT 0,
+  rewards          TEXT[] NOT NULL DEFAULT '{}',
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (season_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_season_rankings_season_rank
+  ON public.season_rankings(season_id, rank);
+CREATE INDEX IF NOT EXISTS idx_season_rankings_user
+  ON public.season_rankings(user_id);
+
+-- Final, immutable record written when a season ends (admin_end_season).
+-- Backs season_history_for_user.
+CREATE TABLE IF NOT EXISTS public.season_history (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  season_id      UUID NOT NULL REFERENCES public.seasons(id) ON DELETE CASCADE,
+  user_id        UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  final_rank     INT NOT NULL,
+  iq_level       INT NOT NULL DEFAULT 0,
+  rating_points  INT NOT NULL DEFAULT 0,
+  rewards        TEXT[] NOT NULL DEFAULT '{}',
+  ended_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (season_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_season_history_user ON public.season_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_season_history_season ON public.season_history(season_id);
+
+ALTER TABLE public.seasons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.season_rankings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.season_history ENABLE ROW LEVEL SECURITY;
+
+-- Everyone can read seasons/rankings/history (leaderboards are public,
+-- consistent with leaderboard_view/get_dynamic_leaderboard being open to
+-- anon/authenticated). All writes only ever happen via SECURITY DEFINER
+-- functions below, so no INSERT/UPDATE/DELETE policies are granted here.
+DROP POLICY IF EXISTS "seasons_select_all" ON public.seasons;
+CREATE POLICY "seasons_select_all" ON public.seasons
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "season_rankings_select_all" ON public.season_rankings;
+CREATE POLICY "season_rankings_select_all" ON public.season_rankings
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "season_history_select_all" ON public.season_history;
+CREATE POLICY "season_history_select_all" ON public.season_history
+  FOR SELECT USING (true);
+
+-- ── 2. Public read RPCs ───────────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.current_season()
+RETURNS public.seasons
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT * FROM public.seasons
+  WHERE status IN ('live', 'paused')
+  ORDER BY season_number DESC
+  LIMIT 1;
+$$;
+REVOKE EXECUTE ON FUNCTION public.current_season() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.current_season() TO anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.list_seasons()
+RETURNS SETOF public.seasons
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT * FROM public.seasons ORDER BY season_number DESC;
+$$;
+REVOKE EXECUTE ON FUNCTION public.list_seasons() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.list_seasons() TO anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.season_leaderboard(
+  p_season_id UUID,
+  p_country   TEXT DEFAULT NULL,
+  p_state     TEXT DEFAULT NULL,
+  p_district  TEXT DEFAULT NULL,
+  p_search    TEXT DEFAULT NULL,
+  p_limit     INT DEFAULT 25,
+  p_offset    INT DEFAULT 0
+)
+RETURNS TABLE (
+  rank                 INT,
+  user_id              UUID,
+  iq_level             INT,
+  rating_points        INT,
+  country              TEXT,
+  state                TEXT,
+  district             TEXT,
+  rewards              TEXT[],
+  username             TEXT,
+  display_name         TEXT,
+  avatar_url           TEXT,
+  premium_active       BOOLEAN,
+  premium_expires_at   TIMESTAMPTZ
+)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    sr.rank,
+    sr.user_id,
+    sr.iq_level,
+    sr.rating_points,
+    p.country,
+    p.state,
+    p.district,
+    sr.rewards,
+    p.username,
+    p.display_name,
+    p.avatar_url,
+    p.premium_active,
+    p.premium_expires_at
+  FROM public.season_rankings sr
+  JOIN public.profiles p ON p.id = sr.user_id
+  WHERE sr.season_id = p_season_id
+    AND (p_country IS NULL OR p.country = p_country)
+    AND (p_state IS NULL OR p.state = p_state)
+    AND (p_district IS NULL OR p.district = p_district)
+    AND (p_search IS NULL OR p_search = '' OR p.username ILIKE '%' || p_search || '%' OR p.display_name ILIKE '%' || p_search || '%')
+  ORDER BY sr.rank ASC NULLS LAST
+  LIMIT p_limit
+  OFFSET p_offset;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.season_leaderboard(UUID, TEXT, TEXT, TEXT, TEXT, INT, INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.season_leaderboard(UUID, TEXT, TEXT, TEXT, TEXT, INT, INT) TO anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.season_history_for_user(p_user_id UUID)
+RETURNS JSON
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_result JSON;
+  v_current_season_id UUID;
+  v_current_rank INT;
+BEGIN
+  SELECT id INTO v_current_season_id FROM public.seasons
+    WHERE status IN ('live', 'paused') ORDER BY season_number DESC LIMIT 1;
+
+  IF v_current_season_id IS NOT NULL THEN
+    SELECT rank INTO v_current_rank FROM public.season_rankings
+      WHERE season_id = v_current_season_id AND user_id = p_user_id;
+  END IF;
+
+  SELECT json_build_object(
+    'seasons', COALESCE((
+      SELECT json_agg(json_build_object(
+        'season_id', sh.season_id,
+        'season_number', s.season_number,
+        'season_name', s.name,
+        'final_rank', sh.final_rank,
+        'iq_level', sh.iq_level,
+        'rating_points', sh.rating_points,
+        'rewards', sh.rewards,
+        'ended_at', sh.ended_at
+      ) ORDER BY s.season_number DESC)
+      FROM public.season_history sh
+      JOIN public.seasons s ON s.id = sh.season_id
+      WHERE sh.user_id = p_user_id
+    ), '[]'::json),
+    'current_season_rank', v_current_rank,
+    'seasons_played', (SELECT COUNT(*) FROM public.season_history WHERE user_id = p_user_id),
+    'seasons_won', (SELECT COUNT(*) FROM public.season_history WHERE user_id = p_user_id AND final_rank = 1),
+    'top_10_finishes', (SELECT COUNT(*) FROM public.season_history WHERE user_id = p_user_id AND final_rank <= 10),
+    'top_100_finishes', (SELECT COUNT(*) FROM public.season_history WHERE user_id = p_user_id AND final_rank <= 100),
+    'best_rank_ever', (SELECT MIN(final_rank) FROM public.season_history WHERE user_id = p_user_id),
+    'best_iq_level', COALESCE((SELECT MAX(iq_level) FROM public.season_history WHERE user_id = p_user_id), 0),
+    'best_rating', COALESCE((SELECT MAX(rating_points) FROM public.season_history WHERE user_id = p_user_id), 0)
+  ) INTO v_result;
+
+  RETURN v_result;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.season_history_for_user(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.season_history_for_user(UUID) TO anon, authenticated, service_role;
+
+-- ── 3. Internal helper: recompute rankings for a season ──────────────
+-- Ranks all profiles by iq_level desc using the same "overall_rating"
+-- concept as leaderboard_view (highest active time-class rating).
+CREATE OR REPLACE FUNCTION public._season_recompute_rankings(p_season_id UUID)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  WITH ranked AS (
+    SELECT
+      p.id AS user_id,
+      p.iq_level,
+      GREATEST(
+        COALESCE(MAX(CASE WHEN r.time_class = 'rapid' THEN r.rating END), 0),
+        COALESCE(MAX(CASE WHEN r.time_class = 'blitz' THEN r.rating END), 0),
+        COALESCE(MAX(CASE WHEN r.time_class = 'bullet' THEN r.rating END), 0),
+        COALESCE(MAX(CASE WHEN r.time_class = 'classical' THEN r.rating END), 0)
+      )::INT AS rating_points,
+      ROW_NUMBER() OVER (ORDER BY p.iq_level DESC, p.id ASC) AS rnk
+    FROM public.profiles p
+    LEFT JOIN public.ratings r ON r.user_id = p.id
+    GROUP BY p.id, p.iq_level
+  )
+  INSERT INTO public.season_rankings (season_id, user_id, rank, iq_level, rating_points, updated_at)
+  SELECT p_season_id, ranked.user_id, ranked.rnk, ranked.iq_level, ranked.rating_points, now()
+  FROM ranked
+  ON CONFLICT (season_id, user_id) DO UPDATE SET
+    rank = EXCLUDED.rank,
+    iq_level = EXCLUDED.iq_level,
+    rating_points = EXCLUDED.rating_points,
+    updated_at = now();
+END; $$;
+REVOKE EXECUTE ON FUNCTION public._season_recompute_rankings(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._season_recompute_rankings(UUID) TO service_role;
+
+-- ── 4. Admin write RPCs ───────────────────────────────────────────────
+-- All follow the admin_credit_wallet pattern: allow service_role calls
+-- (auth.uid() IS NULL) and require has_role(auth.uid(), 'admin') for any
+-- authenticated caller.
+
+CREATE OR REPLACE FUNCTION public.admin_create_season(
+  p_name  TEXT,
+  p_start TIMESTAMPTZ,
+  p_end   TIMESTAMPTZ
+) RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_next_number INT;
+  v_id UUID;
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+  IF p_end <= p_start THEN RAISE EXCEPTION 'end must be after start'; END IF;
+
+  SELECT COALESCE(MAX(season_number), 0) + 1 INTO v_next_number FROM public.seasons;
+
+  INSERT INTO public.seasons (season_number, name, start_date, end_date, status)
+  VALUES (v_next_number, p_name, p_start, p_end, 'upcoming')
+  RETURNING id INTO v_id;
+
+  RETURN v_id;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.admin_create_season(TEXT, TIMESTAMPTZ, TIMESTAMPTZ) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_create_season(TEXT, TIMESTAMPTZ, TIMESTAMPTZ) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_edit_season(
+  p_season_id UUID,
+  p_name      TEXT,
+  p_start     TIMESTAMPTZ,
+  p_end       TIMESTAMPTZ
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+  IF p_end <= p_start THEN RAISE EXCEPTION 'end must be after start'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.seasons WHERE id = p_season_id) THEN
+    RAISE EXCEPTION 'Season not found';
+  END IF;
+
+  UPDATE public.seasons
+  SET name = p_name, start_date = p_start, end_date = p_end, updated_at = now()
+  WHERE id = p_season_id;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.admin_edit_season(UUID, TEXT, TIMESTAMPTZ, TIMESTAMPTZ) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_edit_season(UUID, TEXT, TIMESTAMPTZ, TIMESTAMPTZ) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_start_season(p_season_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_status TEXT;
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+
+  SELECT status INTO v_status FROM public.seasons WHERE id = p_season_id;
+  IF v_status IS NULL THEN RAISE EXCEPTION 'Season not found'; END IF;
+  IF v_status NOT IN ('upcoming', 'paused') THEN
+    RAISE EXCEPTION 'Season must be upcoming or paused to start';
+  END IF;
+
+  -- Only one season may be live at a time.
+  UPDATE public.seasons SET status = 'paused', updated_at = now()
+  WHERE status = 'live' AND id != p_season_id;
+
+  UPDATE public.seasons SET status = 'live', updated_at = now() WHERE id = p_season_id;
+
+  PERFORM public._season_recompute_rankings(p_season_id);
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.admin_start_season(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_start_season(UUID) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_pause_season(p_season_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.seasons WHERE id = p_season_id AND status = 'live') THEN
+    RAISE EXCEPTION 'Season is not live';
+  END IF;
+
+  UPDATE public.seasons SET status = 'paused', updated_at = now() WHERE id = p_season_id;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.admin_pause_season(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_pause_season(UUID) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_resume_season(p_season_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.seasons WHERE id = p_season_id AND status = 'paused') THEN
+    RAISE EXCEPTION 'Season is not paused';
+  END IF;
+
+  UPDATE public.seasons SET status = 'paused', updated_at = now()
+  WHERE status = 'live' AND id != p_season_id;
+
+  UPDATE public.seasons SET status = 'live', updated_at = now() WHERE id = p_season_id;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.admin_resume_season(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_resume_season(UUID) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_recalculate_season(p_season_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.seasons WHERE id = p_season_id) THEN
+    RAISE EXCEPTION 'Season not found';
+  END IF;
+
+  PERFORM public._season_recompute_rankings(p_season_id);
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.admin_recalculate_season(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_recalculate_season(UUID) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_end_season(
+  p_season_id       UUID,
+  p_auto_start_next BOOLEAN DEFAULT true
+)
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_status TEXT;
+  v_ranked_players INT;
+  v_next_season_id UUID;
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+
+  SELECT status INTO v_status FROM public.seasons WHERE id = p_season_id;
+  IF v_status IS NULL THEN RAISE EXCEPTION 'Season not found'; END IF;
+  IF v_status = 'ended' THEN RAISE EXCEPTION 'Season already ended'; END IF;
+
+  PERFORM public._season_recompute_rankings(p_season_id);
+
+  -- Award simple rank-based reward tags, then freeze into season_history.
+  UPDATE public.season_rankings
+  SET rewards = CASE
+    WHEN rank = 1 THEN ARRAY['champion_badge', 'top_1']
+    WHEN rank <= 3 THEN ARRAY['podium_badge', 'top_3']
+    WHEN rank <= 10 THEN ARRAY['top_10']
+    WHEN rank <= 100 THEN ARRAY['top_100']
+    ELSE '{}'::text[]
+  END
+  WHERE season_id = p_season_id;
+
+  INSERT INTO public.season_history (season_id, user_id, final_rank, iq_level, rating_points, rewards, ended_at)
+  SELECT season_id, user_id, rank, iq_level, rating_points, rewards, now()
+  FROM public.season_rankings
+  WHERE season_id = p_season_id AND rank IS NOT NULL
+  ON CONFLICT (season_id, user_id) DO UPDATE SET
+    final_rank = EXCLUDED.final_rank,
+    iq_level = EXCLUDED.iq_level,
+    rating_points = EXCLUDED.rating_points,
+    rewards = EXCLUDED.rewards,
+    ended_at = now();
+
+  GET DIAGNOSTICS v_ranked_players = ROW_COUNT;
+
+  UPDATE public.seasons SET status = 'ended', updated_at = now() WHERE id = p_season_id;
+
+  IF p_auto_start_next THEN
+    SELECT id INTO v_next_season_id FROM public.seasons
+    WHERE status = 'upcoming'
+    ORDER BY season_number ASC
+    LIMIT 1;
+
+    IF v_next_season_id IS NOT NULL THEN
+      PERFORM public.admin_start_season(v_next_season_id);
+    END IF;
+  END IF;
+
+  RETURN json_build_object(
+    'success', true,
+    'ranked_players', v_ranked_players,
+    'next_season_id', v_next_season_id
+  );
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.admin_end_season(UUID, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_end_season(UUID, BOOLEAN) TO authenticated, service_role;
+-- =====================================================================
+-- HOTFIX: leaderboard_view / get_dynamic_leaderboard referenced columns
+-- and a table that were never created (p.community_score, p.iq_level,
+-- public.community_achievements). This caused:
+--   ERROR: 42703: column p.community_score does not exist
+-- =====================================================================
+
+-- 1. Add the missing profile columns.
+--    iq_level mirrors the existing iq_rating column (kept in sync via
+--    trigger below) rather than duplicating rating logic elsewhere.
+
+-- Backfill iq_level from the existing iq_rating so current standings aren't reset.
+UPDATE public.profiles SET iq_level = iq_rating WHERE iq_level = 100 AND iq_rating <> 100;
+
+-- Keep iq_level in sync whenever iq_rating changes (apply_iq_change updates iq_rating directly).
+CREATE OR REPLACE FUNCTION public.sync_iq_level()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.iq_level = NEW.iq_rating;
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS trg_sync_iq_level ON public.profiles;
+CREATE TRIGGER trg_sync_iq_level
+  BEFORE INSERT OR UPDATE OF iq_rating ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.sync_iq_level();
+
+-- 2. community_achievements never existed; the community feature ships
+--    posts/reactions/comments but no achievements table. Create a minimal
+--    table so the leaderboard's achievements_count subquery resolves.
+CREATE TABLE IF NOT EXISTS public.community_achievements (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  code       TEXT NOT NULL,
+  title      TEXT NOT NULL,
+  awarded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, code)
+);
+CREATE INDEX IF NOT EXISTS idx_community_achievements_user ON public.community_achievements(user_id);
+GRANT SELECT ON public.community_achievements TO anon, authenticated;
+GRANT ALL ON public.community_achievements TO service_role;
+ALTER TABLE public.community_achievements ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Achievements public read" ON public.community_achievements;
+CREATE POLICY "Achievements public read"
+  ON public.community_achievements FOR SELECT USING (true);
+
+-- 3. Re-run leaderboard_view and get_dynamic_leaderboard now that their
+--    dependencies exist (bodies unchanged from schema.sql SECTION 19-20).
+CREATE OR REPLACE VIEW public.leaderboard_view AS
+WITH user_ratings AS (
+  SELECT
+    user_id,
+    MAX(CASE WHEN time_class = 'rapid' THEN rating END) as rapid_rating,
+    MAX(CASE WHEN time_class = 'blitz' THEN rating END) as blitz_rating,
+    MAX(CASE WHEN time_class = 'bullet' THEN rating END) as bullet_rating,
+    MAX(CASE WHEN time_class = 'classical' THEN rating END) as classical_rating,
+    SUM(wins) as wins,
+    SUM(losses) as losses,
+    SUM(draws) as draws
+  FROM public.ratings
+  GROUP BY user_id
+)
+SELECT
+    p.id,
+    p.username,
+    p.display_name,
+    p.avatar_url,
+    p.title,
+    p.country,
+    p.state,
+    p.district,
+    p.created_at,
+    p.is_online,
+    p.last_seen,
+    p.premium_active,
+    p.premium_expires_at,
+    p.community_score,
+    r.rapid_rating,
+    r.blitz_rating,
+    r.bullet_rating,
+    r.classical_rating,
+    GREATEST(
+        COALESCE(r.rapid_rating, 0),
+        COALESCE(r.blitz_rating, 0),
+        COALESCE(r.bullet_rating, 0),
+        COALESCE(r.classical_rating, 0)
+    )::integer as overall_rating,
+    COALESCE(r.wins, 0)::integer as wins,
+    COALESCE(r.losses, 0)::integer as losses,
+    COALESCE(r.draws, 0)::integer as draws,
+    (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0))::integer as total_matches,
+    CASE
+        WHEN (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0)) > 0
+        THEN (COALESCE(r.wins, 0)::numeric / (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0))::numeric) * 100
+        ELSE 0
+    END::numeric as win_rate,
+    p.iq_level,
+    (p.iq_level * 10 + p.community_score * 5 + COALESCE(r.wins, 0) * 15)::integer as xp,
+    (FLOOR(SQRT(p.iq_level * 10 + p.community_score * 5 + COALESCE(r.wins, 0) * 15) / 10) + 1)::integer as level,
+    (SELECT COUNT(*) FROM public.community_achievements ca WHERE ca.user_id = p.id)::integer as achievements_count
+FROM public.profiles p
+LEFT JOIN user_ratings r ON p.id = r.user_id;
+
+CREATE OR REPLACE FUNCTION public.get_dynamic_leaderboard(
+    p_search text DEFAULT '',
+    p_country text DEFAULT NULL,
+    p_state text DEFAULT NULL,
+    p_district text DEFAULT NULL,
+    p_sort_col text DEFAULT 'iq_desc',
+    p_limit integer DEFAULT 25,
+    p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+    id uuid,
+    username text,
+    display_name text,
+    avatar_url text,
+    title text,
+    country text,
+    state text,
+    district text,
+    created_at timestamp with time zone,
+    is_online boolean,
+    last_seen timestamp with time zone,
+    premium_active boolean,
+    premium_expires_at timestamp with time zone,
+    community_score integer,
+    rapid_rating integer,
+    blitz_rating integer,
+    bullet_rating integer,
+    classical_rating integer,
+    overall_rating integer,
+    wins integer,
+    losses integer,
+    draws integer,
+    total_matches integer,
+    win_rate numeric,
+    iq_level integer,
+    xp integer,
+    level integer,
+    achievements_count integer,
+    total_count bigint
+) AS $$
+BEGIN
+    RETURN QUERY
+    WITH filtered_players AS (
+        SELECT v.*
+        FROM public.leaderboard_view v
+        WHERE
+            (p_search = '' OR v.username ILIKE '%' || p_search || '%' OR v.display_name ILIKE '%' || p_search || '%')
+            AND (p_country IS NULL OR v.country = p_country)
+            AND (p_state IS NULL OR v.state = p_state)
+            AND (p_district IS NULL OR v.district = p_district)
+    ),
+    counted_players AS (
+        SELECT COUNT(*) as exact_count FROM filtered_players
+    )
+    SELECT
+        f.id,
+        f.username,
+        f.display_name,
+        f.avatar_url,
+        f.title,
+        f.country,
+        f.state,
+        f.district,
+        f.created_at,
+        f.is_online,
+        f.last_seen,
+        f.premium_active,
+        f.premium_expires_at,
+        f.community_score,
+        f.rapid_rating,
+        f.blitz_rating,
+        f.bullet_rating,
+        f.classical_rating,
+        f.overall_rating,
+        f.wins,
+        f.losses,
+        f.draws,
+        f.total_matches,
+        f.win_rate,
+        f.iq_level,
+        f.xp,
+        f.level,
+        f.achievements_count,
+        c.exact_count as total_count
+    FROM filtered_players f
+    CROSS JOIN counted_players c
+    ORDER BY
+        CASE WHEN p_sort_col = 'iq_desc' THEN f.iq_level END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'iq_asc' THEN f.iq_level END ASC NULLS LAST,
+        CASE WHEN p_sort_col = 'rating_desc' THEN f.overall_rating END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'newest' THEN f.created_at END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'oldest' THEN f.created_at END ASC NULLS LAST,
+        CASE WHEN p_sort_col = 'wins_desc' THEN f.wins END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'matches_desc' THEN f.total_matches END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'winrate_desc' THEN f.win_rate END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'active_desc' THEN f.last_seen END DESC NULLS LAST
+    LIMIT p_limit
+    OFFSET p_offset;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.get_dynamic_leaderboard(text, text, text, text, text, integer, integer) TO anon, authenticated, service_role;
+
+-- =====================================================================
+-- SECTION 74: TOURNAMENT ENGINE — LIVE TR PAGE (2026-07-14)
+-- ---------------------------------------------------------------------
+-- Everything the live tournament (TR) page needs that SECTIONS 15/16/36/
+-- 59/60 did not provide:
+--   • per-entry match stats (W/L/D, piece points, time used, status)
+--   • tournament_activity feed table (realtime)
+--   • the four RPCs the client already imports but that had no backend:
+--       refund_tournament_entry, cancel_tournament, handle_no_show,
+--       ensure_tournament_slots
+--   • the actual knockout engine: round generation, game creation,
+--     result capture (trigger on games), advancement, byes, draw
+--     tiebreaks, prize payout, notifications, activity logging
+--   • tournament_clock_sweep() pg_cron job that force-finishes
+--     tournament games whose clock is dead (covers no-shows)
+--   • get_tournament_state(): the page's single-round-trip state RPC
+-- All engine internals are SECURITY DEFINER with EXECUTE revoked from
+-- anon/authenticated; players interact only through the public RPCs.
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 74.1 Columns
+-- ---------------------------------------------------------------------
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS current_round    INT NOT NULL DEFAULT 0;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS total_rounds     INT NOT NULL DEFAULT 0;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS min_players      INT NOT NULL DEFAULT 2;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS platform_fee_pct INT NOT NULL DEFAULT 10;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS prize_4th        INT NOT NULL DEFAULT 0;
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS round_started_at TIMESTAMPTZ;
+
+ALTER TABLE public.tournament_entries ADD COLUMN IF NOT EXISTS wins                INT    NOT NULL DEFAULT 0;
+ALTER TABLE public.tournament_entries ADD COLUMN IF NOT EXISTS losses              INT    NOT NULL DEFAULT 0;
+ALTER TABLE public.tournament_entries ADD COLUMN IF NOT EXISTS draws               INT    NOT NULL DEFAULT 0;
+ALTER TABLE public.tournament_entries ADD COLUMN IF NOT EXISTS piece_points        INT    NOT NULL DEFAULT 0;
+ALTER TABLE public.tournament_entries ADD COLUMN IF NOT EXISTS time_used_ms        BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE public.tournament_entries ADD COLUMN IF NOT EXISTS status              TEXT   NOT NULL DEFAULT 'active';
+ALTER TABLE public.tournament_entries ADD COLUMN IF NOT EXISTS eliminated_in_round INT;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_tournament_entry_status') THEN
+    ALTER TABLE public.tournament_entries ADD CONSTRAINT chk_tournament_entry_status
+      CHECK (status IN ('active', 'eliminated', 'winner', 'runner_up', 'third', 'fourth'));
+  END IF;
+END $$;
+
+-- Direct INSERT/DELETE on tournament_entries let clients skip the paid
+-- join / refund RPCs (and the player_count bookkeeping). Close the hole:
+-- every entry write now goes through SECURITY DEFINER functions.
+DROP POLICY IF EXISTS "entries own insert" ON public.tournament_entries;
+DROP POLICY IF EXISTS "entries own delete" ON public.tournament_entries;
+REVOKE INSERT, DELETE ON public.tournament_entries FROM authenticated;
+
+-- ---------------------------------------------------------------------
+-- 74.2 Activity feed table (drives the TR page's live activity section)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.tournament_activity (
+  id            BIGSERIAL PRIMARY KEY,
+  tournament_id UUID NOT NULL REFERENCES public.tournaments(id) ON DELETE CASCADE,
+  kind          TEXT NOT NULL,
+  message       TEXT NOT NULL,
+  actor_id      UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  meta          JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_tournament_activity
+  ON public.tournament_activity(tournament_id, created_at DESC);
+GRANT SELECT ON public.tournament_activity TO anon, authenticated;
+GRANT ALL ON public.tournament_activity TO service_role;
+ALTER TABLE public.tournament_activity ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tournament activity public read" ON public.tournament_activity;
+CREATE POLICY "Tournament activity public read"
+  ON public.tournament_activity FOR SELECT USING (true);
+-- No INSERT policies on purpose: only SECURITY DEFINER engine functions
+-- and the service role write activity rows.
+
+-- Realtime: the TR page subscribes to postgres_changes on all four
+-- tournament tables (tournament_matches was added in an earlier section).
+DO $$
+DECLARE v_tbl TEXT;
+BEGIN
+  FOREACH v_tbl IN ARRAY ARRAY['tournaments', 'tournament_entries', 'tournament_activity', 'games'] LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = v_tbl
+    ) THEN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', v_tbl);
+    END IF;
+  END LOOP;
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 74.3 Internal helpers
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public._tournament_log(UUID, TEXT, TEXT, UUID, JSONB);
+CREATE OR REPLACE FUNCTION public._tournament_log(
+  p_tournament_id UUID,
+  p_kind          TEXT,
+  p_message       TEXT,
+  p_actor         UUID  DEFAULT NULL,
+  p_meta          JSONB DEFAULT '{}'::jsonb
+) RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  INSERT INTO public.tournament_activity (tournament_id, kind, message, actor_id, meta)
+  VALUES (p_tournament_id, p_kind, p_message, p_actor, COALESCE(p_meta, '{}'::jsonb));
+$$;
+REVOKE ALL ON FUNCTION public._tournament_log(UUID, TEXT, TEXT, UUID, JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._tournament_log(UUID, TEXT, TEXT, UUID, JSONB) TO service_role;
+
+-- Material still on the board for one side, from a FEN (P1 N3 B3 R5 Q9).
+DROP FUNCTION IF EXISTS public._fen_material(TEXT, TEXT);
+CREATE OR REPLACE FUNCTION public._fen_material(p_fen TEXT, p_color TEXT)
+RETURNS INT LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE
+  v_board TEXT := split_part(COALESCE(p_fen, ''), ' ', 1);
+  v_ch    TEXT;
+  v_total INT := 0;
+  i       INT;
+BEGIN
+  FOR i IN 1..length(v_board) LOOP
+    v_ch := substr(v_board, i, 1);
+    IF p_color = 'w' THEN
+      v_total := v_total + CASE v_ch
+        WHEN 'P' THEN 1 WHEN 'N' THEN 3 WHEN 'B' THEN 3 WHEN 'R' THEN 5 WHEN 'Q' THEN 9 ELSE 0 END;
+    ELSE
+      v_total := v_total + CASE v_ch
+        WHEN 'p' THEN 1 WHEN 'n' THEN 3 WHEN 'b' THEN 3 WHEN 'r' THEN 5 WHEN 'q' THEN 9 ELSE 0 END;
+    END IF;
+  END LOOP;
+  RETURN v_total;
+END; $$;
+
+-- '3+2' → 180s initial, 2s increment, blitz.
+DROP FUNCTION IF EXISTS public._tournament_time_params(TEXT);
+CREATE OR REPLACE FUNCTION public._tournament_time_params(
+  p_time_control      TEXT,
+  OUT o_initial_seconds   INT,
+  OUT o_increment_seconds INT,
+  OUT o_time_class        public.time_class
+) LANGUAGE plpgsql IMMUTABLE AS $$
+BEGIN
+  o_initial_seconds   := GREATEST(10, LEAST(86400, COALESCE(NULLIF(split_part(p_time_control, '+', 1), '')::INT, 5) * 60));
+  o_increment_seconds := GREATEST(0,  LEAST(180,   COALESCE(NULLIF(split_part(p_time_control, '+', 2), '')::INT, 0)));
+  o_time_class := CASE
+    WHEN o_initial_seconds < 180 THEN 'bullet'::public.time_class
+    WHEN o_initial_seconds < 600 THEN 'blitz'::public.time_class
+    ELSE 'rapid'::public.time_class
+  END;
+EXCEPTION WHEN OTHERS THEN
+  o_initial_seconds := 300; o_increment_seconds := 0; o_time_class := 'blitz'::public.time_class;
+END; $$;
+
+-- Creates the live game for one pairing. Colors are assigned randomly;
+-- the row mirrors what create_challenge + join_game would produce so the
+-- existing game page, move handler, and clocks work unchanged.
+DROP FUNCTION IF EXISTS public._tournament_create_game(public.tournaments, UUID, UUID);
+CREATE OR REPLACE FUNCTION public._tournament_create_game(
+  p_tournament public.tournaments,
+  p_player1    UUID,
+  p_player2    UUID
+) RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_white UUID;
+  v_black UUID;
+  v_ini   INT;
+  v_inc   INT;
+  v_tc    public.time_class;
+  v_game  UUID;
+BEGIN
+  SELECT o_initial_seconds, o_increment_seconds, o_time_class INTO v_ini, v_inc, v_tc
+  FROM public._tournament_time_params(p_tournament.time_control);
+
+  IF random() < 0.5 THEN v_white := p_player1; v_black := p_player2;
+  ELSE                   v_white := p_player2; v_black := p_player1;
+  END IF;
+
+  INSERT INTO public.games (
+    host_id, white_id, black_id, white_username, black_username,
+    white_rating, black_rating, status, result, time_class, time_control,
+    initial_seconds, increment_seconds, white_time_ms, black_time_ms,
+    is_rated, fen, turn, last_move_at
+  ) VALUES (
+    v_white, v_white, v_black,
+    (SELECT username FROM public.profiles WHERE id = v_white),
+    (SELECT username FROM public.profiles WHERE id = v_black),
+    public.current_rating(v_white, v_tc), public.current_rating(v_black, v_tc),
+    'active', 'ongoing', v_tc, p_tournament.time_control,
+    v_ini, v_inc, v_ini * 1000, v_ini * 1000,
+    true, 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', 'w', now()
+  ) RETURNING id INTO v_game;
+
+  RETURN v_game;
+END; $$;
+REVOKE ALL ON FUNCTION public._tournament_create_game(public.tournaments, UUID, UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._tournament_create_game(public.tournaments, UUID, UUID) TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 74.4 Round generation
+-- ---------------------------------------------------------------------
+-- Pairs the next round of the knockout bracket and spawns its games.
+-- Round 1 seeds all entrants in random order; later rounds take the
+-- winners of the previous round in slot order. An odd player out gets a
+-- bye (auto-advance). Caller must hold (or be able to take) the
+-- tournament row lock — every caller here locks it first.
+DROP FUNCTION IF EXISTS public._tournament_start_round(UUID);
+CREATE OR REPLACE FUNCTION public._tournament_start_round(p_tournament_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_t       public.tournaments%ROWTYPE;
+  v_round   INT;
+  v_players UUID[];
+  v_n       INT;
+  v_slot    INT := 0;
+  v_i       INT := 1;
+  v_p1      UUID;
+  v_p2      UUID;
+  v_game    UUID;
+BEGIN
+  SELECT * INTO v_t FROM public.tournaments WHERE id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN; END IF;
+
+  v_round := COALESCE(v_t.current_round, 0) + 1;
+
+  IF v_round = 1 THEN
+    SELECT array_agg(user_id ORDER BY random()) INTO v_players
+    FROM public.tournament_entries
+    WHERE tournament_id = p_tournament_id AND status = 'active';
+  ELSE
+    SELECT array_agg(winner_id ORDER BY slot) INTO v_players
+    FROM public.tournament_matches
+    WHERE tournament_id = p_tournament_id AND round = v_t.current_round AND winner_id IS NOT NULL;
+  END IF;
+
+  v_n := COALESCE(array_length(v_players, 1), 0);
+  IF v_n < 2 THEN RETURN; END IF;
+
+  WHILE v_i <= v_n LOOP
+    v_slot := v_slot + 1;
+    v_p1 := v_players[v_i];
+    v_p2 := CASE WHEN v_i + 1 <= v_n THEN v_players[v_i + 1] ELSE NULL END;
+
+    IF v_p2 IS NULL THEN
+      INSERT INTO public.tournament_matches
+        (tournament_id, round, slot, player1_id, player2_id, winner_id, status)
+      VALUES (p_tournament_id, v_round, v_slot, v_p1, NULL, v_p1, 'bye');
+      PERFORM public._tournament_log(
+        p_tournament_id, 'bye',
+        COALESCE((SELECT username FROM public.profiles WHERE id = v_p1), 'A player') || ' advances on a bye',
+        v_p1, jsonb_build_object('round', v_round));
+    ELSE
+      v_game := public._tournament_create_game(v_t, v_p1, v_p2);
+      INSERT INTO public.tournament_matches
+        (tournament_id, round, slot, player1_id, player2_id, game_id, status)
+      VALUES (p_tournament_id, v_round, v_slot, v_p1, v_p2, v_game, 'active');
+
+      INSERT INTO public.notifications (user_id, kind, title, body, link)
+      SELECT u, 'tournament_round',
+             'Round ' || v_round || ' — your match is live',
+             'Your ' || v_t.name || ' match has started. Good luck!',
+             '/game/' || v_game::text
+      FROM unnest(ARRAY[v_p1, v_p2]) AS u;
+    END IF;
+
+    v_i := v_i + 2;
+  END LOOP;
+
+  UPDATE public.tournaments SET
+    current_round    = v_round,
+    round_started_at = now(),
+    total_rounds     = CASE WHEN v_round = 1
+                            THEN GREATEST(1, CEIL(LOG(2, GREATEST(v_n, 2)::NUMERIC))::INT)
+                            ELSE total_rounds END
+  WHERE id = p_tournament_id;
+
+  PERFORM public._tournament_log(
+    p_tournament_id, 'round_started',
+    'Round ' || v_round || ' started — ' || v_slot || ' pairing' || CASE WHEN v_slot = 1 THEN '' ELSE 's' END,
+    NULL, jsonb_build_object('round', v_round, 'matches', v_slot));
+END; $$;
+REVOKE ALL ON FUNCTION public._tournament_start_round(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._tournament_start_round(UUID) TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 74.5 Prize payout + completion
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public._tournament_award_prize(public.tournaments, UUID, INT, TEXT);
+CREATE OR REPLACE FUNCTION public._tournament_award_prize(
+  p_tournament public.tournaments,
+  p_user       UUID,
+  p_amount     INT,
+  p_place      TEXT
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_ikey TEXT := 'prize_' || p_place || '_' || p_tournament.id::text;
+  v_bal  INT;
+BEGIN
+  IF p_user IS NULL OR COALESCE(p_amount, 0) <= 0 THEN RETURN; END IF;
+  IF EXISTS (SELECT 1 FROM public.wallet_transactions WHERE idempotency_key = v_ikey) THEN RETURN; END IF;
+
+  INSERT INTO public.wallets (user_id, balance, total_earned)
+  VALUES (p_user, 0, 0)
+  ON CONFLICT (user_id) DO NOTHING;
+
+  UPDATE public.wallets SET
+    balance      = balance + p_amount,
+    total_earned = total_earned + p_amount,
+    updated_at   = now()
+  WHERE user_id = p_user
+  RETURNING balance INTO v_bal;
+
+  INSERT INTO public.wallet_transactions
+    (user_id, type, amount, balance_after, description, reference_id, idempotency_key)
+  VALUES
+    (p_user, 'tournament_prize', p_amount, v_bal,
+     p_place || ' place prize: ' || p_tournament.name,
+     p_tournament.id::text, v_ikey);
+
+  INSERT INTO public.notifications (user_id, kind, title, body, link)
+  VALUES (p_user, 'tournament_prize',
+          'Prize won — ' || p_amount || ' coins!',
+          'You finished ' || p_place || ' in ' || p_tournament.name || '. ' || p_amount || ' coins were added to your wallet.',
+          '/tournament/' || p_tournament.id::text);
+
+  PERFORM public._tournament_log(
+    p_tournament.id, 'prize_distributed',
+    COALESCE((SELECT username FROM public.profiles WHERE id = p_user), 'A player')
+      || ' won ' || p_amount || ' coins (' || p_place || ' place)',
+    p_user, jsonb_build_object('place', p_place, 'amount', p_amount));
+END; $$;
+REVOKE ALL ON FUNCTION public._tournament_award_prize(public.tournaments, UUID, INT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._tournament_award_prize(public.tournaments, UUID, INT, TEXT) TO service_role;
+
+-- Called when the final has produced a winner: assigns places, pays
+-- prizes idempotently, stamps the tournament completed, and notifies.
+DROP FUNCTION IF EXISTS public._tournament_complete(UUID);
+CREATE OR REPLACE FUNCTION public._tournament_complete(p_tournament_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_t        public.tournaments%ROWTYPE;
+  v_final    public.tournament_matches%ROWTYPE;
+  v_champion UUID;
+  v_runner   UUID;
+  v_semis    UUID[];
+  v_third    UUID;
+  v_fourth   UUID;
+  v_name     TEXT;
+BEGIN
+  SELECT * INTO v_t FROM public.tournaments WHERE id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN; END IF;
+
+  SELECT * INTO v_final
+  FROM public.tournament_matches
+  WHERE tournament_id = p_tournament_id AND round = v_t.current_round
+  ORDER BY slot LIMIT 1;
+  IF NOT FOUND OR v_final.winner_id IS NULL THEN RETURN; END IF;
+
+  v_champion := v_final.winner_id;
+  v_runner   := CASE WHEN v_final.player1_id = v_champion THEN v_final.player2_id ELSE v_final.player1_id END;
+
+  -- Semifinal losers take 3rd/4th, better tournament score first.
+  SELECT COALESCE(array_agg(s.loser ORDER BY e.score DESC, e.piece_points DESC, e.time_used_ms ASC), '{}')
+  INTO v_semis
+  FROM (
+    SELECT CASE WHEN m.winner_id = m.player1_id THEN m.player2_id ELSE m.player1_id END AS loser
+    FROM public.tournament_matches m
+    WHERE m.tournament_id = p_tournament_id
+      AND m.round = v_t.current_round - 1
+      AND m.status = 'finished'
+  ) s
+  JOIN public.tournament_entries e ON e.tournament_id = p_tournament_id AND e.user_id = s.loser
+  WHERE s.loser IS NOT NULL;
+  v_third  := v_semis[1];
+  v_fourth := v_semis[2];
+
+  UPDATE public.tournament_entries SET rank = 1, status = 'winner'
+  WHERE tournament_id = p_tournament_id AND user_id = v_champion;
+  UPDATE public.tournament_entries SET rank = 2, status = 'runner_up'
+  WHERE tournament_id = p_tournament_id AND user_id = v_runner;
+  UPDATE public.tournament_entries SET rank = 3, status = 'third'
+  WHERE tournament_id = p_tournament_id AND user_id = v_third;
+  UPDATE public.tournament_entries SET rank = 4, status = 'fourth'
+  WHERE tournament_id = p_tournament_id AND user_id = v_fourth;
+
+  -- Everyone else: later elimination ranks higher, then score/material.
+  UPDATE public.tournament_entries e SET rank = ranked.rnk
+  FROM (
+    SELECT user_id,
+           4 + ROW_NUMBER() OVER (
+             ORDER BY eliminated_in_round DESC NULLS LAST, score DESC, piece_points DESC, joined_at ASC
+           ) AS rnk
+    FROM public.tournament_entries
+    WHERE tournament_id = p_tournament_id
+      AND user_id IS DISTINCT FROM v_champion
+      AND user_id IS DISTINCT FROM v_runner
+      AND user_id IS DISTINCT FROM v_third
+      AND user_id IS DISTINCT FROM v_fourth
+  ) ranked
+  WHERE e.tournament_id = p_tournament_id AND e.user_id = ranked.user_id;
+
+  PERFORM public._tournament_award_prize(v_t, v_champion, v_t.prize_1st, '1st');
+  PERFORM public._tournament_award_prize(v_t, v_runner,   v_t.prize_2nd, '2nd');
+  PERFORM public._tournament_award_prize(v_t, v_third,    v_t.prize_3rd, '3rd');
+  PERFORM public._tournament_award_prize(v_t, v_fourth,   v_t.prize_4th, '4th');
+
+  SELECT username INTO v_name FROM public.profiles WHERE id = v_champion;
+
+  UPDATE public.tournaments SET
+    status             = 'completed',
+    ends_at            = now(),
+    prizes_distributed = true,
+    winner_display     = COALESCE(v_name, winner_display)
+  WHERE id = p_tournament_id;
+
+  INSERT INTO public.notifications (user_id, kind, title, body, link)
+  SELECT user_id, 'tournament_finished',
+         'Tournament finished',
+         COALESCE(v_name, 'The champion') || ' won ' || v_t.name || '. Check the final standings.',
+         '/tournament/' || p_tournament_id::text
+  FROM public.tournament_entries
+  WHERE tournament_id = p_tournament_id;
+
+  PERFORM public._tournament_log(
+    p_tournament_id, 'tournament_finished',
+    COALESCE(v_name, 'The champion') || ' is the champion! 🏆',
+    v_champion, jsonb_build_object('winner', v_name));
+END; $$;
+REVOKE ALL ON FUNCTION public._tournament_complete(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._tournament_complete(UUID) TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 74.6 Result capture: games → bracket advancement
+-- ---------------------------------------------------------------------
+-- Fires once per game on the NULL → NOT NULL transition of ended_at
+-- (same convention as trg_game_finished_streak), regardless of HOW the
+-- game ended: checkmate/draw via makeMove, resign_game, claim_timeout,
+-- handle_no_show, or the clock sweep. Draws advance whoever kept more
+-- clock — knockout rounds always need exactly one winner.
+DROP TRIGGER IF EXISTS trg_tournament_game_finished ON public.games;
+DROP FUNCTION IF EXISTS public.handle_tournament_game_finished();
+CREATE OR REPLACE FUNCTION public.handle_tournament_game_finished()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_match      public.tournament_matches%ROWTYPE;
+  v_t          public.tournaments%ROWTYPE;
+  v_winner     UUID;
+  v_loser      UUID;
+  v_is_draw    BOOLEAN := false;
+  v_wname      TEXT;
+  v_lname      TEXT;
+  v_white_used BIGINT;
+  v_black_used BIGINT;
+  v_pending    INT;
+  v_in_round   INT;
+BEGIN
+  SELECT * INTO v_match FROM public.tournament_matches
+  WHERE game_id = NEW.id AND status = 'active'
+  LIMIT 1;
+  IF NOT FOUND THEN RETURN NEW; END IF;
+
+  -- Serialize all bracket processing per tournament.
+  SELECT * INTO v_t FROM public.tournaments WHERE id = v_match.tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN NEW; END IF;
+
+  IF NEW.result = 'white' THEN
+    v_winner := NEW.white_id;
+  ELSIF NEW.result = 'black' THEN
+    v_winner := NEW.black_id;
+  ELSE
+    v_is_draw := (NEW.result = 'draw');
+    v_winner := CASE WHEN COALESCE(NEW.white_time_ms, 0) >= COALESCE(NEW.black_time_ms, 0)
+                     THEN NEW.white_id ELSE NEW.black_id END;
+  END IF;
+  v_loser := CASE WHEN v_winner = NEW.white_id THEN NEW.black_id ELSE NEW.white_id END;
+
+  UPDATE public.tournament_matches SET winner_id = v_winner, status = 'finished'
+  WHERE id = v_match.id;
+
+  v_white_used := GREATEST(0, NEW.initial_seconds::BIGINT * 1000 - COALESCE(NEW.white_time_ms, 0));
+  v_black_used := GREATEST(0, NEW.initial_seconds::BIGINT * 1000 - COALESCE(NEW.black_time_ms, 0));
+
+  UPDATE public.tournament_entries SET
+    wins   = wins   + CASE WHEN NOT v_is_draw AND user_id = v_winner THEN 1 ELSE 0 END,
+    losses = losses + CASE WHEN NOT v_is_draw AND user_id = v_loser  THEN 1 ELSE 0 END,
+    draws  = draws  + CASE WHEN v_is_draw THEN 1 ELSE 0 END,
+    score  = score  + CASE WHEN v_is_draw THEN 0.5 WHEN user_id = v_winner THEN 1 ELSE 0 END,
+    piece_points = piece_points + CASE WHEN user_id = NEW.white_id
+                                       THEN public._fen_material(NEW.fen, 'w')
+                                       ELSE public._fen_material(NEW.fen, 'b') END,
+    time_used_ms = time_used_ms + CASE WHEN user_id = NEW.white_id THEN v_white_used ELSE v_black_used END,
+    status = CASE WHEN user_id = v_loser THEN 'eliminated' ELSE status END,
+    eliminated_in_round = CASE WHEN user_id = v_loser THEN v_match.round ELSE eliminated_in_round END
+  WHERE tournament_id = v_t.id AND user_id IN (NEW.white_id, NEW.black_id);
+
+  SELECT username INTO v_wname FROM public.profiles WHERE id = v_winner;
+  SELECT username INTO v_lname FROM public.profiles WHERE id = v_loser;
+
+  PERFORM public._tournament_log(
+    v_t.id, 'match_finished',
+    COALESCE(v_wname, 'Winner')
+      || CASE WHEN v_is_draw THEN ' advances on tiebreak vs ' ELSE ' defeats ' END
+      || COALESCE(v_lname, 'opponent')
+      || ' (' || COALESCE(NEW.end_reason, 'finished') || ')',
+    v_winner,
+    jsonb_build_object(
+      'round', v_match.round, 'winner', v_wname, 'loser', v_lname,
+      'reason', NEW.end_reason, 'moves', NEW.moves_count,
+      'draw', v_is_draw, 'game_id', NEW.id,
+      'winner_id', v_winner, 'loser_id', v_loser));
+
+  INSERT INTO public.notifications (user_id, kind, title, body, link) VALUES
+    (v_winner, 'tournament_result', 'You advanced!',
+     'You won your Round ' || v_match.round || ' match in ' || v_t.name || '.',
+     '/tournament/' || v_t.id::text),
+    (v_loser, 'tournament_result', 'Eliminated',
+     'You were knocked out in Round ' || v_match.round || ' of ' || v_t.name || '.',
+     '/tournament/' || v_t.id::text);
+
+  SELECT count(*) FILTER (WHERE status IN ('pending', 'active')), count(*)
+  INTO v_pending, v_in_round
+  FROM public.tournament_matches
+  WHERE tournament_id = v_t.id AND round = v_t.current_round;
+
+  IF v_pending = 0 THEN
+    PERFORM public._tournament_log(
+      v_t.id, 'round_finished', 'Round ' || v_t.current_round || ' complete',
+      NULL, jsonb_build_object('round', v_t.current_round));
+    IF v_in_round = 1 THEN
+      PERFORM public._tournament_complete(v_t.id);
+    ELSE
+      PERFORM public._tournament_start_round(v_t.id);
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS trg_tournament_game_finished ON public.games;
+CREATE TRIGGER trg_tournament_game_finished
+  AFTER UPDATE ON public.games
+  FOR EACH ROW
+  WHEN (OLD.ended_at IS NULL AND NEW.ended_at IS NOT NULL)
+  EXECUTE FUNCTION public.handle_tournament_game_finished();
+
+-- ---------------------------------------------------------------------
+-- 74.7 Locked → live now also builds Round 1
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.transition_locked_tournaments()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_tourn RECORD;
+BEGIN
+  FOR v_tourn IN
+    SELECT id FROM public.tournaments
+    WHERE status = 'locked' AND starts_at <= now()
+    FOR UPDATE SKIP LOCKED
+  LOOP
+    UPDATE public.tournaments SET status = 'live' WHERE id = v_tourn.id;
+
+    INSERT INTO public.notifications (user_id, kind, title, body, link)
+    SELECT user_id, 'tournament_live', 'Tournament Live',
+           'Your tournament is now live! Round 1 is starting.',
+           '/tournament/' || v_tourn.id::text
+    FROM public.tournament_entries
+    WHERE tournament_id = v_tourn.id;
+
+    PERFORM public._tournament_log(v_tourn.id, 'tournament_live', 'Tournament is live — Round 1 is starting');
+    PERFORM public._tournament_start_round(v_tourn.id);
+  END LOOP;
+END; $$;
+REVOKE ALL ON FUNCTION public.transition_locked_tournaments() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.transition_locked_tournaments() TO service_role, anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 74.8 Clock sweep: force-finish tournament games with dead clocks
+-- ---------------------------------------------------------------------
+-- The move handler only settles a flag when someone calls it; if a
+-- player walks away, this sweep ends the game (covers no-shows too:
+-- white never moving simply runs white's clock out). Ending the game
+-- fires trg_tournament_game_finished, which advances the bracket.
+DROP FUNCTION IF EXISTS public.tournament_clock_sweep();
+CREATE OR REPLACE FUNCTION public.tournament_clock_sweep()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_g      RECORD;
+  v_winner UUID;
+  v_result public.game_result;
+BEGIN
+  FOR v_g IN
+    SELECT g.*
+    FROM public.games g
+    JOIN public.tournament_matches tm ON tm.game_id = g.id AND tm.status = 'active'
+    WHERE g.status = 'active'
+      AND g.last_move_at IS NOT NULL
+      AND (
+        (g.turn = 'w' AND g.last_move_at + make_interval(secs => g.white_time_ms / 1000.0) < now()) OR
+        (g.turn = 'b' AND g.last_move_at + make_interval(secs => g.black_time_ms / 1000.0) < now())
+      )
+    FOR UPDATE OF g SKIP LOCKED
+  LOOP
+    IF v_g.turn = 'w' THEN v_result := 'black'; v_winner := v_g.black_id;
+    ELSE                   v_result := 'white'; v_winner := v_g.white_id;
+    END IF;
+
+    UPDATE public.games SET
+      status        = 'finished',
+      result        = v_result,
+      winner_id     = v_winner,
+      end_reason    = CASE WHEN v_g.moves_count = 0 THEN 'no_show' ELSE 'timeout' END,
+      ended_at      = now(),
+      white_time_ms = CASE WHEN v_g.turn = 'w' THEN 0 ELSE white_time_ms END,
+      black_time_ms = CASE WHEN v_g.turn = 'b' THEN 0 ELSE black_time_ms END
+    WHERE id = v_g.id AND status = 'active';
+
+    -- Rating only when an actual game happened (0-move no-shows stay unrated).
+    IF v_g.is_rated AND v_g.moves_count > 0 THEN
+      PERFORM public.apply_elo_change(v_g.id);
+    END IF;
+  END LOOP;
+END; $$;
+REVOKE ALL ON FUNCTION public.tournament_clock_sweep() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.tournament_clock_sweep() TO service_role;
+
+DO $$
+BEGIN
+  PERFORM cron.unschedule('tournament_clock_sweep');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  PERFORM cron.schedule('tournament_clock_sweep', '* * * * *', 'SELECT public.tournament_clock_sweep();');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron not available — schedule tournament_clock_sweep manually';
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 74.9 Player RPC: withdraw + refund (client: refundTournamentEntry)
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.refund_tournament_entry(UUID);
+CREATE OR REPLACE FUNCTION public.refund_tournament_entry(p_tournament_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid  UUID := auth.uid();
+  v_t    public.tournaments%ROWTYPE;
+  v_e    public.tournament_entries%ROWTYPE;
+  v_bal  INT;
+  v_ikey TEXT;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+
+  SELECT * INTO v_t FROM public.tournaments WHERE id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Tournament not found'; END IF;
+  IF v_t.status <> 'upcoming' THEN RAISE EXCEPTION 'Withdrawals are closed'; END IF;
+
+  SELECT * INTO v_e FROM public.tournament_entries
+  WHERE tournament_id = p_tournament_id AND user_id = v_uid FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Not registered'; END IF;
+
+  IF v_t.entry_fee_coins > 0 THEN
+    -- Scoped to the entry row so join → leave → join → leave still refunds.
+    v_ikey := 'tourn_refund_' || v_e.id::text;
+    IF NOT EXISTS (SELECT 1 FROM public.wallet_transactions WHERE idempotency_key = v_ikey) THEN
+      UPDATE public.wallets SET
+        balance     = balance + v_t.entry_fee_coins,
+        total_spent = GREATEST(0, total_spent - v_t.entry_fee_coins),
+        updated_at  = now()
+      WHERE user_id = v_uid
+      RETURNING balance INTO v_bal;
+      IF v_bal IS NULL THEN RAISE EXCEPTION 'Wallet not found'; END IF;
+
+      INSERT INTO public.wallet_transactions
+        (user_id, type, amount, balance_after, description, reference_id, idempotency_key)
+      VALUES
+        (v_uid, 'tournament_refund', v_t.entry_fee_coins, v_bal,
+         'Withdrew from: ' || v_t.name, p_tournament_id::text, v_ikey);
+    END IF;
+  END IF;
+
+  DELETE FROM public.tournament_entries WHERE id = v_e.id;
+  UPDATE public.tournaments SET player_count = GREATEST(0, player_count - 1)
+  WHERE id = p_tournament_id;
+
+  PERFORM public._tournament_log(
+    p_tournament_id, 'player_left',
+    COALESCE((SELECT username FROM public.profiles WHERE id = v_uid), 'A player') || ' withdrew',
+    v_uid, '{}'::jsonb);
+END; $$;
+REVOKE ALL ON FUNCTION public.refund_tournament_entry(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.refund_tournament_entry(UUID) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 74.10 Admin RPC: cancel + refund everyone (client: cancelTournament)
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.cancel_tournament(UUID);
+CREATE OR REPLACE FUNCTION public.cancel_tournament(p_tournament_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid  UUID := auth.uid();
+  v_t    public.tournaments%ROWTYPE;
+  v_e    RECORD;
+  v_bal  INT;
+  v_ikey TEXT;
+BEGIN
+  -- auth.uid() IS NULL only for service-role/scheduled calls.
+  IF v_uid IS NOT NULL AND NOT public.has_role(v_uid, 'admin') THEN
+    RAISE EXCEPTION 'Admins only';
+  END IF;
+
+  SELECT * INTO v_t FROM public.tournaments WHERE id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Tournament not found'; END IF;
+  IF v_t.status IN ('completed', 'cancelled') THEN RAISE EXCEPTION 'Tournament already ended'; END IF;
+
+  -- Mark cancelled and detach matches BEFORE force-finishing games so
+  -- trg_tournament_game_finished skips them (tournament is not live).
+  UPDATE public.tournaments SET status = 'cancelled', ends_at = now() WHERE id = p_tournament_id;
+  UPDATE public.tournament_matches SET status = 'finished'
+  WHERE tournament_id = p_tournament_id AND status IN ('pending', 'active');
+
+  UPDATE public.games g SET
+    status = 'finished', result = 'aborted', end_reason = 'tournament_cancelled', ended_at = now()
+  FROM public.tournament_matches tm
+  WHERE tm.tournament_id = p_tournament_id AND tm.game_id = g.id AND g.status = 'active';
+
+  FOR v_e IN
+    SELECT * FROM public.tournament_entries WHERE tournament_id = p_tournament_id
+  LOOP
+    IF v_t.entry_fee_coins > 0 THEN
+      v_ikey := 'tourn_cancel_' || v_e.user_id::text || '_' || p_tournament_id::text;
+      IF NOT EXISTS (SELECT 1 FROM public.wallet_transactions WHERE idempotency_key = v_ikey) THEN
+        UPDATE public.wallets SET
+          balance     = balance + v_t.entry_fee_coins,
+          total_spent = GREATEST(0, total_spent - v_t.entry_fee_coins),
+          updated_at  = now()
+        WHERE user_id = v_e.user_id
+        RETURNING balance INTO v_bal;
+        IF v_bal IS NOT NULL THEN
+          INSERT INTO public.wallet_transactions
+            (user_id, type, amount, balance_after, description, reference_id, idempotency_key)
+          VALUES
+            (v_e.user_id, 'tournament_refund', v_t.entry_fee_coins, v_bal,
+             'Tournament cancelled: ' || v_t.name, p_tournament_id::text, v_ikey);
+        END IF;
+      END IF;
+    END IF;
+
+    INSERT INTO public.notifications (user_id, kind, title, body, link)
+    VALUES (v_e.user_id, 'tournament_cancelled', 'Tournament cancelled',
+            v_t.name || ' was cancelled.' ||
+            CASE WHEN v_t.entry_fee_coins > 0 THEN ' Your entry fee was refunded.' ELSE '' END,
+            '/tournament/' || p_tournament_id::text);
+  END LOOP;
+
+  PERFORM public._tournament_log(p_tournament_id, 'tournament_cancelled',
+    'Tournament cancelled — all entry fees refunded', v_uid, '{}'::jsonb);
+END; $$;
+REVOKE ALL ON FUNCTION public.cancel_tournament(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cancel_tournament(UUID) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 74.11 Player RPC: claim a no-show win early (client: claimNoShow)
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.handle_no_show(UUID);
+CREATE OR REPLACE FUNCTION public.handle_no_show(p_match_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid       UUID := auth.uid();
+  v_m         public.tournament_matches%ROWTYPE;
+  v_g         public.games%ROWTYPE;
+  v_opp       UUID;
+  v_opp_moves INT;
+  v_result    public.game_result;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+
+  SELECT * INTO v_m FROM public.tournament_matches WHERE id = p_match_id FOR UPDATE;
+  IF NOT FOUND OR v_m.status <> 'active' OR v_m.game_id IS NULL THEN
+    RAISE EXCEPTION 'Match is not active';
+  END IF;
+  IF v_uid <> v_m.player1_id AND v_uid <> v_m.player2_id THEN
+    RAISE EXCEPTION 'Not your match';
+  END IF;
+
+  SELECT * INTO v_g FROM public.games WHERE id = v_m.game_id FOR UPDATE;
+  IF v_g.status <> 'active' THEN RAISE EXCEPTION 'Game already finished'; END IF;
+
+  v_opp := CASE WHEN v_g.white_id = v_uid THEN v_g.black_id ELSE v_g.white_id END;
+  -- White claiming against black must have opened the game first —
+  -- otherwise black never had a turn to miss.
+  IF v_g.white_id = v_uid AND v_g.moves_count = 0 THEN
+    RAISE EXCEPTION 'Make your first move first';
+  END IF;
+  SELECT count(*) INTO v_opp_moves FROM public.game_moves
+  WHERE game_id = v_g.id AND by_user = v_opp;
+  IF v_opp_moves > 0 THEN RAISE EXCEPTION 'Opponent has already moved'; END IF;
+  IF v_g.created_at + interval '90 seconds' > now() THEN
+    RAISE EXCEPTION 'Grace period not over yet';
+  END IF;
+
+  v_result := CASE WHEN v_g.white_id = v_uid THEN 'white'::public.game_result ELSE 'black'::public.game_result END;
+
+  UPDATE public.games SET
+    status = 'finished', result = v_result, winner_id = v_uid,
+    end_reason = 'no_show', ended_at = now()
+  WHERE id = v_g.id;
+  -- No rating change for a game the opponent never played.
+END; $$;
+REVOKE ALL ON FUNCTION public.handle_no_show(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.handle_no_show(UUID) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 74.12 RPC: ensure_tournament_slots (client: ensureTournamentSlots)
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.ensure_tournament_slots();
+CREATE OR REPLACE FUNCTION public.ensure_tournament_slots()
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_before INT;
+  v_after  INT;
+BEGIN
+  SELECT count(*) INTO v_before FROM public.tournaments WHERE status = 'upcoming';
+  PERFORM public.ensure_upcoming_tournaments();
+  SELECT count(*) INTO v_after FROM public.tournaments WHERE status = 'upcoming';
+  RETURN jsonb_build_object('checked', v_after, 'created', GREATEST(0, v_after - v_before));
+END; $$;
+REVOKE ALL ON FUNCTION public.ensure_tournament_slots() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.ensure_tournament_slots() TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 74.13 join_tournament_paid v3
+-- ---------------------------------------------------------------------
+-- Same contract as SECTION 60's version plus:
+--   • entry-attempt-scoped idempotency key, so join → withdraw → join
+--     no longer collides with the old fixed key (unique violation)
+--   • activity feed entries for player_joined / tournament_locked
+DROP FUNCTION IF EXISTS public.join_tournament_paid(UUID);
+CREATE OR REPLACE FUNCTION public.join_tournament_paid(p_tournament_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid        UUID := auth.uid();
+  v_tournament RECORD;
+  v_wallet     RECORD;
+  v_new_bal    INT;
+  v_tx_id      UUID;
+  v_ikey       TEXT;
+  v_attempt    INT;
+  v_name       TEXT;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+
+  SELECT * INTO v_tournament FROM public.tournaments WHERE id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Tournament not found'; END IF;
+  IF v_tournament.status <> 'upcoming' THEN RAISE EXCEPTION 'Registration is closed'; END IF;
+  IF v_tournament.player_count >= v_tournament.max_players THEN
+    RAISE EXCEPTION 'Tournament is full';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.tournament_entries
+    WHERE tournament_id = p_tournament_id AND user_id = v_uid
+  ) THEN
+    RAISE EXCEPTION 'Already registered';
+  END IF;
+
+  IF v_tournament.entry_fee_coins > 0 THEN
+    SELECT * INTO v_wallet FROM public.wallets WHERE user_id = v_uid FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Wallet not found'; END IF;
+
+    IF v_wallet.balance < v_tournament.entry_fee_coins THEN
+      RAISE EXCEPTION 'Insufficient wallet balance';
+    END IF;
+
+    -- Attempt-scoped key: the 'Already registered' guard above (under the
+    -- tournament row lock) is what prevents double-charging; the key just
+    -- has to be unique per successful join.
+    SELECT count(*) + 1 INTO v_attempt FROM public.wallet_transactions
+    WHERE user_id = v_uid AND type = 'tournament_entry' AND reference_id = p_tournament_id::text;
+    v_ikey := 'tourn_entry_' || v_uid::text || '_' || p_tournament_id::text || '_' || v_attempt;
+
+    v_new_bal := v_wallet.balance - v_tournament.entry_fee_coins;
+
+    UPDATE public.wallets SET
+      balance     = v_new_bal,
+      total_spent = total_spent + v_tournament.entry_fee_coins,
+      updated_at  = now()
+    WHERE user_id = v_uid;
+
+    INSERT INTO public.wallet_transactions
+      (user_id, type, amount, balance_after, description, reference_id, idempotency_key)
+    VALUES
+      (v_uid, 'tournament_entry', -v_tournament.entry_fee_coins, v_new_bal,
+       'Entry fee: ' || v_tournament.name,
+       p_tournament_id::text, v_ikey)
+    RETURNING id INTO v_tx_id;
+  END IF;
+
+  INSERT INTO public.tournament_entries (tournament_id, user_id, payment_tx_id)
+  VALUES (p_tournament_id, v_uid, v_tx_id);
+
+  SELECT username INTO v_name FROM public.profiles WHERE id = v_uid;
+  PERFORM public._tournament_log(
+    p_tournament_id, 'player_joined',
+    COALESCE(v_name, 'A player') || ' joined (' || (v_tournament.player_count + 1)
+      || '/' || v_tournament.max_players || ')',
+    v_uid, '{}'::jsonb);
+
+  IF (v_tournament.player_count + 1) >= v_tournament.max_players THEN
+    UPDATE public.tournaments
+    SET player_count = player_count + 1,
+        status = 'locked',
+        starts_at = now() + interval '2 minutes'
+    WHERE id = p_tournament_id;
+
+    INSERT INTO public.notifications (user_id, kind, title, body, link)
+    SELECT user_id, 'tournament_locked', 'Tournament Locked',
+           'Your tournament is full. Tournament starts in 2 minutes.',
+           '/tournament/' || p_tournament_id::text
+    FROM public.tournament_entries
+    WHERE tournament_id = p_tournament_id;
+
+    PERFORM public._tournament_log(
+      p_tournament_id, 'tournament_locked',
+      'All seats filled — tournament locked, Round 1 starts in 2 minutes', NULL, '{}'::jsonb);
+  ELSE
+    UPDATE public.tournaments SET player_count = player_count + 1 WHERE id = p_tournament_id;
+  END IF;
+END; $$;
+REVOKE ALL ON FUNCTION public.join_tournament_paid(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.join_tournament_paid(UUID) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 74.14 Auto-created tournaments are knockout, not swiss
+-- ---------------------------------------------------------------------
+-- Identical to SECTION 60's ensure_upcoming_tournaments except the format
+-- now says what the engine actually runs: single-elimination knockout.
+CREATE OR REPLACE FUNCTION public.ensure_upcoming_tournaments()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_timers TEXT[] := ARRAY['1+0', '3+0', '5+0'];
+  v_coins INT[] := ARRAY[5, 10, 20, 30, 50, 80, 100, 200, 500];
+  v_t TEXT;
+  v_c INT;
+  v_slug TEXT;
+  v_name TEXT;
+  v_prize_1st INT;
+  v_prize_2nd INT;
+  v_prize_3rd INT;
+  v_max_players INT := 16;
+  v_total_prize INT;
+BEGIN
+  FOREACH v_t IN ARRAY v_timers
+  LOOP
+    FOREACH v_c IN ARRAY v_coins
+    LOOP
+      IF NOT EXISTS (
+        SELECT 1 FROM public.tournaments
+        WHERE time_control = v_t AND entry_fee_coins = v_c AND status = 'upcoming'
+      ) THEN
+        v_slug := 'auto-' || replace(v_t, '+', '-') || '-' || v_c || '-' || substr(md5(random()::text), 1, 8);
+        v_name := split_part(v_t, '+', 1) || ' Min Arena (' || v_c || ' Coins)';
+
+        v_total_prize := v_max_players * v_c;
+        v_prize_1st := (v_total_prize * 0.40)::INT;
+        v_prize_2nd := (v_total_prize * 0.25)::INT;
+        v_prize_3rd := (v_total_prize * 0.15)::INT;
+
+        INSERT INTO public.tournaments (
+          slug, name, description, format, time_control,
+          starts_at, max_players, status, entry_fee_coins,
+          prize_1st, prize_2nd, prize_3rd, prize_pool
+        ) VALUES (
+          v_slug, v_name, 'Auto-generated ' || v_name, 'knockout', v_t,
+          NULL, v_max_players, 'upcoming', v_c,
+          v_prize_1st, v_prize_2nd, v_prize_3rd, v_total_prize::text || ' Coins'
+        ) ON CONFLICT DO NOTHING;
+      END IF;
+    END LOOP;
+  END LOOP;
+END; $$;
+REVOKE ALL ON FUNCTION public.ensure_upcoming_tournaments() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ensure_upcoming_tournaments() TO service_role;
+
+-- Replenishment trigger (SECTION 59) recreated here so a fresh upcoming
+-- tournament appears the instant one locks, even on databases where the
+-- original trigger was never applied or points at a stale function.
+CREATE OR REPLACE FUNCTION public.trg_auto_create_tournament()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF OLD.status = 'upcoming' AND NEW.status IN ('locked', 'live', 'completed', 'cancelled') THEN
+    PERFORM public.ensure_upcoming_tournaments();
+  END IF;
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS on_tournament_status_change ON public.tournaments;
+CREATE TRIGGER on_tournament_status_change
+  AFTER UPDATE OF status ON public.tournaments
+  FOR EACH ROW
+  WHEN (OLD.status = 'upcoming' AND NEW.status IN ('locked', 'live', 'completed', 'cancelled'))
+  EXECUTE FUNCTION public.trg_auto_create_tournament();
+
+-- ---------------------------------------------------------------------
+-- 74.15 get_tournament_state — the TR page's one-round-trip state RPC
+-- ---------------------------------------------------------------------
+-- Returns the entire page state in a single call: tournament row,
+-- entries joined with profiles, matches joined with game snapshots
+-- (enough for live boards, clocks and the recent-matches list), the
+-- activity feed, and the server clock for drift-free countdowns.
+-- All of this data is public-read under RLS anyway; SECURITY DEFINER
+-- just spares five round trips.
+DROP FUNCTION IF EXISTS public.get_tournament_state(UUID);
+CREATE OR REPLACE FUNCTION public.get_tournament_state(p_tournament_id UUID)
+RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid      UUID := auth.uid();
+  v_t        JSONB;
+  v_entries  JSONB;
+  v_matches  JSONB;
+  v_activity JSONB;
+BEGIN
+  SELECT to_jsonb(t) INTO v_t FROM public.tournaments t WHERE t.id = p_tournament_id;
+  IF v_t IS NULL THEN RETURN NULL; END IF;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY x.score DESC, x.piece_points DESC, x.joined_at ASC), '[]'::jsonb)
+  INTO v_entries
+  FROM (
+    SELECT e.id, e.user_id, e.score, e.rank, e.wins, e.losses, e.draws,
+           e.piece_points, e.time_used_ms, e.status, e.eliminated_in_round, e.joined_at,
+           p.username, p.avatar_url, p.country, p.iq_rating, p.is_online,
+           p.premium_active, p.premium_expires_at
+    FROM public.tournament_entries e
+    LEFT JOIN public.profiles p ON p.id = e.user_id
+    WHERE e.tournament_id = p_tournament_id
+  ) x;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(m) ORDER BY m.round, m.slot), '[]'::jsonb)
+  INTO v_matches
+  FROM (
+    SELECT tm.id, tm.round, tm.slot, tm.player1_id, tm.player2_id,
+           tm.game_id, tm.winner_id, tm.status,
+           p1.username AS player1_username, p2.username AS player2_username,
+           g.status AS game_status, g.result AS game_result, g.fen, g.turn,
+           g.moves_count, g.white_id, g.black_id,
+           g.white_username, g.black_username,
+           g.white_time_ms, g.black_time_ms, g.last_move_at, g.end_reason,
+           g.created_at AS game_created_at, g.ended_at AS game_ended_at
+    FROM public.tournament_matches tm
+    LEFT JOIN public.profiles p1 ON p1.id = tm.player1_id
+    LEFT JOIN public.profiles p2 ON p2.id = tm.player2_id
+    LEFT JOIN public.games g ON g.id = tm.game_id
+    WHERE tm.tournament_id = p_tournament_id
+  ) m;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY a.created_at DESC, a.id DESC), '[]'::jsonb)
+  INTO v_activity
+  FROM (
+    SELECT id, kind, message, actor_id, meta, created_at
+    FROM public.tournament_activity
+    WHERE tournament_id = p_tournament_id
+    ORDER BY created_at DESC, id DESC
+    LIMIT 40
+  ) a;
+
+  RETURN jsonb_build_object(
+    'server_now', now(),
+    'viewer_id',  v_uid,
+    'tournament', v_t,
+    'entries',    v_entries,
+    'matches',    v_matches,
+    'activity',   v_activity
+  );
+END; $$;
+GRANT EXECUTE ON FUNCTION public.get_tournament_state(UUID) TO anon, authenticated, service_role;
+
+
+
+CREATE OR REPLACE FUNCTION public.ensure_upcoming_tournaments()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_timers TEXT[] := ARRAY['1+0', '3+0', '5+0'];
+  v_coins INT[] := ARRAY[5, 10, 20, 30, 50, 80, 100, 200, 500];
+  v_t TEXT;
+  v_c INT;
+  v_slug TEXT;
+  v_name TEXT;
+  v_prize_1st INT;
+  v_prize_2nd INT;
+  v_prize_3rd INT;
+  v_max_players INT := 16;
+  v_total_prize INT;
+BEGIN
+  FOREACH v_t IN ARRAY v_timers
+  LOOP
+    FOREACH v_c IN ARRAY v_coins
+    LOOP
+      IF NOT EXISTS (
+        SELECT 1 FROM public.tournaments
+        WHERE time_control = v_t AND entry_fee_coins = v_c AND status = 'upcoming'
+      ) THEN
+        v_slug := 'auto-' || replace(v_t, '+', '-') || '-' || v_c || '-' || substr(md5(random()::text), 1, 8);
+        v_name := split_part(v_t, '+', 1) || ' Min Arena (' || v_c || ' Coins)';
+
+        v_total_prize := v_max_players * v_c;
+        v_prize_1st := (v_total_prize * 0.40)::INT;
+        v_prize_2nd := (v_total_prize * 0.25)::INT;
+        v_prize_3rd := (v_total_prize * 0.15)::INT;
+
+        INSERT INTO public.tournaments (
+          slug, name, description, format, time_control,
+          starts_at, max_players, status, entry_fee_coins,
+          prize_1st, prize_2nd, prize_3rd, prize_pool
+        ) VALUES (
+          v_slug, v_name, 'Auto-generated ' || v_name, 'knockout', v_t,
+          NULL, v_max_players, 'upcoming', v_c,
+          v_prize_1st, v_prize_2nd, v_prize_3rd, v_total_prize::text || ' Coins'
+        ) ON CONFLICT DO NOTHING;
+      END IF;
+    END LOOP;
+  END LOOP;
+END; $$;
+
+
+
+
+
+
+
+CREATE OR REPLACE FUNCTION public.tournament_1min_warning()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_tourn RECORD;
+BEGIN
+  -- Find tournaments that are locked and will start in roughly 1 minute
+  FOR v_tourn IN
+    SELECT id, name FROM public.tournaments
+    WHERE status = 'locked' 
+      AND starts_at > now() + interval '30 seconds'
+      AND starts_at <= now() + interval '90 seconds'
+  LOOP
+    -- Only send if we haven't sent the warning for this tournament yet
+    IF NOT EXISTS (
+      SELECT 1 FROM public.tournament_activity 
+      WHERE tournament_id = v_tourn.id AND kind = '1min_warning'
+    ) THEN
+      
+      INSERT INTO public.notifications (user_id, kind, title, body, link)
+      SELECT user_id, 'tournament_warning', 'Tournament Starts in 1 Minute!',
+             'Your match in ' || v_tourn.name || ' is about to start. Get ready.',
+             '/tournament/' || v_tourn.id::text
+      FROM public.tournament_entries
+      WHERE tournament_id = v_tourn.id;
+
+      PERFORM public._tournament_log(v_tourn.id, '1min_warning', 'Tournament starts in 1 minute', NULL, '{}'::jsonb);
+    END IF;
+  END LOOP;
+END; $$;
+REVOKE ALL ON FUNCTION public.tournament_1min_warning() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.tournament_1min_warning() TO service_role;
+
+DO $$
+BEGIN
+  PERFORM cron.unschedule('tournament_1min_warning');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  PERFORM cron.schedule('tournament_1min_warning', '* * * * *', 'SELECT public.tournament_1min_warning();');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron not available — schedule tournament_1min_warning manually';
+END $$;
+
+-- =====================================================================
+-- SECTION 75: TR ARENA — POINT SYSTEM, CAPTURES, ABORT, ADMIN (2026-07-15)
+-- ---------------------------------------------------------------------
+-- Layers the arena experience on top of the SECTION 74 knockout engine
+-- WITHOUT changing its structure (registration, locking, bracket,
+-- advancement, prizes and cancellation all keep working exactly as-is):
+--   • arena scoring: WIN +5 / LOSS −5 / DRAW +2 (replaces 1 / 0.5)
+--   • live piece-capture bonuses (P+2 N+8 B+5 R+5 Q+10), computed
+--     server-side from the authoritative FENs on every recorded move,
+--     credited instantly to tournament_entries.score / piece_points and
+--     logged per capture in tournament_captured_pieces (realtime)
+--   • fastest_win_ms tiebreak column; leaderboard order is now
+--     points → wins → fewest losses → fastest win
+--   • abort_game(): chess.com-style abort (≤1 move played, once per
+--     player per match; tournament matches get a fresh replacement game)
+--   • decline_draw(): explicitly clear an opponent's draw offer
+--   • client-safe grants for transition_locked_tournaments and
+--     tournament_clock_sweep so the UI can nudge them when pg_cron is
+--     unavailable (both are idempotent and validate everything inside)
+--   • admin_tr_overview / admin_tr_finance for the admin TR panel
+-- All scoring happens in SECURITY DEFINER triggers/functions — clients
+-- never write points.
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 75.1 Columns
+-- ---------------------------------------------------------------------
+-- The server move handler (game.functions.ts) already writes these on
+-- every move; declare them idempotently so the capture trigger and any
+-- fresh database have them.
+ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS fen_before   TEXT;
+ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS time_used_ms INT;
+ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS is_capture   BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS is_check     BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS is_promotion BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS is_castling  BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE public.tournament_entries ADD COLUMN IF NOT EXISTS fastest_win_ms BIGINT;
+
+-- ---------------------------------------------------------------------
+-- 75.2 Captured pieces ledger (drives the live bonus ticker)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.tournament_captured_pieces (
+  id            BIGSERIAL PRIMARY KEY,
+  tournament_id UUID NOT NULL REFERENCES public.tournaments(id) ON DELETE CASCADE,
+  match_id      UUID NOT NULL REFERENCES public.tournament_matches(id) ON DELETE CASCADE,
+  game_id       UUID NOT NULL REFERENCES public.games(id) ON DELETE CASCADE,
+  user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  victim_id     UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  piece         TEXT NOT NULL CHECK (piece IN ('p', 'n', 'b', 'r', 'q')),
+  bonus         INT NOT NULL,
+  ply           INT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_tr_captures_tournament
+  ON public.tournament_captured_pieces(tournament_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tr_captures_game
+  ON public.tournament_captured_pieces(game_id);
+GRANT SELECT ON public.tournament_captured_pieces TO anon, authenticated;
+GRANT ALL ON public.tournament_captured_pieces TO service_role;
+ALTER TABLE public.tournament_captured_pieces ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "TR captures public read" ON public.tournament_captured_pieces;
+CREATE POLICY "TR captures public read"
+  ON public.tournament_captured_pieces FOR SELECT USING (true);
+-- Writes only via the SECURITY DEFINER move trigger below.
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public'
+      AND tablename = 'tournament_captured_pieces'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.tournament_captured_pieces;
+  END IF;
+END $$;
+
+-- Abort bookkeeping: one abort per player per match, enforced by UNIQUE.
+CREATE TABLE IF NOT EXISTS public.tournament_match_aborts (
+  id         BIGSERIAL PRIMARY KEY,
+  match_id   UUID NOT NULL REFERENCES public.tournament_matches(id) ON DELETE CASCADE,
+  user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (match_id, user_id)
+);
+GRANT SELECT ON public.tournament_match_aborts TO anon, authenticated;
+GRANT ALL ON public.tournament_match_aborts TO service_role;
+ALTER TABLE public.tournament_match_aborts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "TR aborts public read" ON public.tournament_match_aborts;
+CREATE POLICY "TR aborts public read"
+  ON public.tournament_match_aborts FOR SELECT USING (true);
+
+-- ---------------------------------------------------------------------
+-- 75.3 Arena point rules
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public._tr_piece_bonus(TEXT);
+CREATE OR REPLACE FUNCTION public._tr_piece_bonus(p_piece TEXT)
+RETURNS INT LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE p_piece
+    WHEN 'p' THEN 2 WHEN 'n' THEN 8 WHEN 'b' THEN 5
+    WHEN 'r' THEN 5 WHEN 'q' THEN 10 ELSE 0 END;
+$$;
+
+-- Which victim-side piece disappeared between two FENs. Promotions only
+-- change the mover's own material, so diffing the victim colour is exact
+-- (covers en passant too). At most one piece can vanish per legal move.
+DROP FUNCTION IF EXISTS public._tr_captured_piece(TEXT, TEXT, TEXT);
+CREATE OR REPLACE FUNCTION public._tr_captured_piece(
+  p_before TEXT, p_after TEXT, p_victim_color TEXT
+) RETURNS TEXT LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE
+  v_b  TEXT := split_part(COALESCE(p_before, ''), ' ', 1);
+  v_a  TEXT := split_part(COALESCE(p_after, ''), ' ', 1);
+  v_t  TEXT;
+  v_ch TEXT;
+BEGIN
+  IF v_b = '' OR v_a = '' THEN RETURN NULL; END IF;
+  FOREACH v_t IN ARRAY ARRAY['q', 'r', 'b', 'n', 'p'] LOOP
+    v_ch := CASE WHEN p_victim_color = 'w' THEN upper(v_t) ELSE v_t END;
+    IF (length(v_b) - length(replace(v_b, v_ch, '')))
+     > (length(v_a) - length(replace(v_a, v_ch, ''))) THEN
+      RETURN v_t;
+    END IF;
+  END LOOP;
+  RETURN NULL;
+END; $$;
+
+-- ---------------------------------------------------------------------
+-- 75.4 Live capture bonus: fires on every recorded move
+-- ---------------------------------------------------------------------
+DROP TRIGGER IF EXISTS trg_tournament_move ON public.game_moves;
+DROP FUNCTION IF EXISTS public.handle_tournament_move();
+CREATE OR REPLACE FUNCTION public.handle_tournament_move()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_m            RECORD;
+  v_victim_color TEXT;
+  v_piece        TEXT;
+  v_bonus        INT;
+BEGIN
+  IF NEW.by_user IS NULL OR NEW.fen_before IS NULL OR NEW.fen_after IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT tm.tournament_id, tm.id AS match_id, g.white_id, g.black_id
+  INTO v_m
+  FROM public.tournament_matches tm
+  JOIN public.games g ON g.id = tm.game_id
+  WHERE tm.game_id = NEW.game_id AND tm.status = 'active'
+  LIMIT 1;
+  IF NOT FOUND THEN RETURN NEW; END IF;
+
+  v_victim_color := CASE WHEN NEW.by_user = v_m.white_id THEN 'b' ELSE 'w' END;
+  v_piece := public._tr_captured_piece(NEW.fen_before, NEW.fen_after, v_victim_color);
+  IF v_piece IS NULL THEN RETURN NEW; END IF;
+  v_bonus := public._tr_piece_bonus(v_piece);
+  IF v_bonus <= 0 THEN RETURN NEW; END IF;
+
+  UPDATE public.tournament_entries SET
+    score        = score + v_bonus,
+    piece_points = piece_points + v_bonus
+  WHERE tournament_id = v_m.tournament_id AND user_id = NEW.by_user;
+
+  INSERT INTO public.tournament_captured_pieces
+    (tournament_id, match_id, game_id, user_id, victim_id, piece, bonus, ply)
+  VALUES
+    (v_m.tournament_id, v_m.match_id, NEW.game_id, NEW.by_user,
+     CASE WHEN v_victim_color = 'w' THEN v_m.white_id ELSE v_m.black_id END,
+     v_piece, v_bonus, NEW.ply);
+
+  RETURN NEW;
+END; $$;
+
+CREATE TRIGGER trg_tournament_move
+  AFTER INSERT ON public.game_moves
+  FOR EACH ROW EXECUTE FUNCTION public.handle_tournament_move();
+
+-- ---------------------------------------------------------------------
+-- 75.5 Finish scoring v2: WIN +5 / LOSS −5 / DRAW +2, fastest-win tiebreak
+-- ---------------------------------------------------------------------
+-- Same structure as SECTION 74's version; only the scoring block and the
+-- tiebreak bookkeeping changed. piece_points is now fed exclusively by
+-- the capture trigger above (it used to add end-of-game material).
+CREATE OR REPLACE FUNCTION public.handle_tournament_game_finished()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_match       public.tournament_matches%ROWTYPE;
+  v_t           public.tournaments%ROWTYPE;
+  v_winner      UUID;
+  v_loser       UUID;
+  v_is_draw     BOOLEAN := false;
+  v_wname       TEXT;
+  v_lname       TEXT;
+  v_white_used  BIGINT;
+  v_black_used  BIGINT;
+  v_duration_ms BIGINT;
+  v_pending     INT;
+  v_in_round    INT;
+BEGIN
+  SELECT * INTO v_match FROM public.tournament_matches
+  WHERE game_id = NEW.id AND status = 'active'
+  LIMIT 1;
+  IF NOT FOUND THEN RETURN NEW; END IF;
+
+  -- Serialize all bracket processing per tournament.
+  SELECT * INTO v_t FROM public.tournaments WHERE id = v_match.tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN NEW; END IF;
+
+  IF NEW.result = 'white' THEN
+    v_winner := NEW.white_id;
+  ELSIF NEW.result = 'black' THEN
+    v_winner := NEW.black_id;
+  ELSE
+    v_is_draw := (NEW.result = 'draw');
+    v_winner := CASE WHEN COALESCE(NEW.white_time_ms, 0) >= COALESCE(NEW.black_time_ms, 0)
+                     THEN NEW.white_id ELSE NEW.black_id END;
+  END IF;
+  v_loser := CASE WHEN v_winner = NEW.white_id THEN NEW.black_id ELSE NEW.white_id END;
+
+  UPDATE public.tournament_matches SET winner_id = v_winner, status = 'finished'
+  WHERE id = v_match.id;
+
+  v_white_used  := GREATEST(0, NEW.initial_seconds::BIGINT * 1000 - COALESCE(NEW.white_time_ms, 0));
+  v_black_used  := GREATEST(0, NEW.initial_seconds::BIGINT * 1000 - COALESCE(NEW.black_time_ms, 0));
+  v_duration_ms := GREATEST(0,
+    (EXTRACT(EPOCH FROM (COALESCE(NEW.ended_at, now()) - NEW.created_at)) * 1000)::BIGINT);
+
+  -- Arena points: WIN +5, LOSS −5, DRAW both +2 (the clock-tiebreak
+  -- "winner" of a draw still advances the bracket but scores it as a draw).
+  UPDATE public.tournament_entries SET
+    wins   = wins   + CASE WHEN NOT v_is_draw AND user_id = v_winner THEN 1 ELSE 0 END,
+    losses = losses + CASE WHEN NOT v_is_draw AND user_id = v_loser  THEN 1 ELSE 0 END,
+    draws  = draws  + CASE WHEN v_is_draw THEN 1 ELSE 0 END,
+    score  = score  + CASE WHEN v_is_draw THEN 2
+                           WHEN user_id = v_winner THEN 5
+                           ELSE -5 END,
+    time_used_ms = time_used_ms + CASE WHEN user_id = NEW.white_id THEN v_white_used ELSE v_black_used END,
+    fastest_win_ms = CASE WHEN NOT v_is_draw AND user_id = v_winner
+                          THEN LEAST(COALESCE(fastest_win_ms, 9223372036854775807), v_duration_ms)
+                          ELSE fastest_win_ms END,
+    status = CASE WHEN user_id = v_loser THEN 'eliminated' ELSE status END,
+    eliminated_in_round = CASE WHEN user_id = v_loser THEN v_match.round ELSE eliminated_in_round END
+  WHERE tournament_id = v_t.id AND user_id IN (NEW.white_id, NEW.black_id);
+
+  SELECT username INTO v_wname FROM public.profiles WHERE id = v_winner;
+  SELECT username INTO v_lname FROM public.profiles WHERE id = v_loser;
+
+  PERFORM public._tournament_log(
+    v_t.id, 'match_finished',
+    COALESCE(v_wname, 'Winner')
+      || CASE WHEN v_is_draw THEN ' advances on tiebreak vs ' ELSE ' defeats ' END
+      || COALESCE(v_lname, 'opponent')
+      || ' (' || COALESCE(NEW.end_reason, 'finished') || ')',
+    v_winner,
+    jsonb_build_object(
+      'round', v_match.round, 'winner', v_wname, 'loser', v_lname,
+      'reason', NEW.end_reason, 'moves', NEW.moves_count,
+      'draw', v_is_draw, 'game_id', NEW.id,
+      'winner_id', v_winner, 'loser_id', v_loser));
+
+  INSERT INTO public.notifications (user_id, kind, title, body, link) VALUES
+    (v_winner, 'tournament_result', 'You advanced!',
+     'You won your Round ' || v_match.round || ' match in ' || v_t.name || '.',
+     '/tournament/' || v_t.id::text),
+    (v_loser, 'tournament_result', 'Eliminated',
+     'You were knocked out in Round ' || v_match.round || ' of ' || v_t.name || '.',
+     '/tournament/' || v_t.id::text);
+
+  SELECT count(*) FILTER (WHERE status IN ('pending', 'active')), count(*)
+  INTO v_pending, v_in_round
+  FROM public.tournament_matches
+  WHERE tournament_id = v_t.id AND round = v_t.current_round;
+
+  IF v_pending = 0 THEN
+    PERFORM public._tournament_log(
+      v_t.id, 'round_finished', 'Round ' || v_t.current_round || ' complete',
+      NULL, jsonb_build_object('round', v_t.current_round));
+    IF v_in_round = 1 THEN
+      PERFORM public._tournament_complete(v_t.id);
+    ELSE
+      PERFORM public._tournament_start_round(v_t.id);
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END; $$;
+
+-- ---------------------------------------------------------------------
+-- 75.6 Final placings use the arena tiebreaks
+-- ---------------------------------------------------------------------
+-- points → wins → fewest losses → fastest win, per the arena rules.
+CREATE OR REPLACE FUNCTION public._tournament_complete(p_tournament_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_t        public.tournaments%ROWTYPE;
+  v_final    public.tournament_matches%ROWTYPE;
+  v_champion UUID;
+  v_runner   UUID;
+  v_semis    UUID[];
+  v_third    UUID;
+  v_fourth   UUID;
+  v_name     TEXT;
+BEGIN
+  SELECT * INTO v_t FROM public.tournaments WHERE id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN; END IF;
+
+  SELECT * INTO v_final
+  FROM public.tournament_matches
+  WHERE tournament_id = p_tournament_id AND round = v_t.current_round
+  ORDER BY slot LIMIT 1;
+  IF NOT FOUND OR v_final.winner_id IS NULL THEN RETURN; END IF;
+
+  v_champion := v_final.winner_id;
+  v_runner   := CASE WHEN v_final.player1_id = v_champion THEN v_final.player2_id ELSE v_final.player1_id END;
+
+  SELECT COALESCE(array_agg(s.loser
+           ORDER BY e.score DESC, e.wins DESC, e.losses ASC,
+                    e.fastest_win_ms ASC NULLS LAST), '{}')
+  INTO v_semis
+  FROM (
+    SELECT CASE WHEN m.winner_id = m.player1_id THEN m.player2_id ELSE m.player1_id END AS loser
+    FROM public.tournament_matches m
+    WHERE m.tournament_id = p_tournament_id
+      AND m.round = v_t.current_round - 1
+      AND m.status = 'finished'
+  ) s
+  JOIN public.tournament_entries e ON e.tournament_id = p_tournament_id AND e.user_id = s.loser
+  WHERE s.loser IS NOT NULL;
+  v_third  := v_semis[1];
+  v_fourth := v_semis[2];
+
+  UPDATE public.tournament_entries SET rank = 1, status = 'winner'
+  WHERE tournament_id = p_tournament_id AND user_id = v_champion;
+  UPDATE public.tournament_entries SET rank = 2, status = 'runner_up'
+  WHERE tournament_id = p_tournament_id AND user_id = v_runner;
+  UPDATE public.tournament_entries SET rank = 3, status = 'third'
+  WHERE tournament_id = p_tournament_id AND user_id = v_third;
+  UPDATE public.tournament_entries SET rank = 4, status = 'fourth'
+  WHERE tournament_id = p_tournament_id AND user_id = v_fourth;
+
+  UPDATE public.tournament_entries e SET rank = ranked.rnk
+  FROM (
+    SELECT user_id,
+           4 + ROW_NUMBER() OVER (
+             ORDER BY score DESC, wins DESC, losses ASC,
+                      fastest_win_ms ASC NULLS LAST, joined_at ASC
+           ) AS rnk
+    FROM public.tournament_entries
+    WHERE tournament_id = p_tournament_id
+      AND user_id IS DISTINCT FROM v_champion
+      AND user_id IS DISTINCT FROM v_runner
+      AND user_id IS DISTINCT FROM v_third
+      AND user_id IS DISTINCT FROM v_fourth
+  ) ranked
+  WHERE e.tournament_id = p_tournament_id AND e.user_id = ranked.user_id;
+
+  PERFORM public._tournament_award_prize(v_t, v_champion, v_t.prize_1st, '1st');
+  PERFORM public._tournament_award_prize(v_t, v_runner,   v_t.prize_2nd, '2nd');
+  PERFORM public._tournament_award_prize(v_t, v_third,    v_t.prize_3rd, '3rd');
+  PERFORM public._tournament_award_prize(v_t, v_fourth,   v_t.prize_4th, '4th');
+
+  SELECT username INTO v_name FROM public.profiles WHERE id = v_champion;
+
+  UPDATE public.tournaments SET
+    status             = 'completed',
+    ends_at            = now(),
+    prizes_distributed = true,
+    winner_display     = COALESCE(v_name, winner_display)
+  WHERE id = p_tournament_id;
+
+  INSERT INTO public.notifications (user_id, kind, title, body, link)
+  SELECT user_id, 'tournament_finished',
+         'Tournament finished',
+         COALESCE(v_name, 'The champion') || ' won ' || v_t.name || '. Check the final standings.',
+         '/tournament/' || p_tournament_id::text
+  FROM public.tournament_entries
+  WHERE tournament_id = p_tournament_id;
+
+  PERFORM public._tournament_log(
+    p_tournament_id, 'tournament_finished',
+    COALESCE(v_name, 'The champion') || ' is the champion! 🏆',
+    v_champion, jsonb_build_object('winner', v_name));
+END; $$;
+
+-- ---------------------------------------------------------------------
+-- 75.7 abort_game — chess.com-style abort
+-- ---------------------------------------------------------------------
+-- Allowed while at most one move has been played. Tournament matches get
+-- a fresh replacement game for the same pairing (colors re-drawn); each
+-- player may abort a given match only once — after that, resign is the
+-- only way out. Casual games simply end as 'aborted' with no rating.
+DROP FUNCTION IF EXISTS public.abort_game(UUID);
+CREATE OR REPLACE FUNCTION public.abort_game(p_game_id UUID)
+RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid  UUID := auth.uid();
+  v_g    public.games%ROWTYPE;
+  v_m    public.tournament_matches%ROWTYPE;
+  v_t    public.tournaments%ROWTYPE;
+  v_new  UUID;
+  v_name TEXT;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+
+  SELECT * INTO v_g FROM public.games WHERE id = p_game_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Game not found'; END IF;
+  IF v_g.status <> 'active' THEN RAISE EXCEPTION 'Game is not active'; END IF;
+  IF v_uid <> v_g.white_id AND v_uid <> v_g.black_id THEN
+    RAISE EXCEPTION 'Not a player in this game';
+  END IF;
+  IF v_g.moves_count > 1 THEN
+    RAISE EXCEPTION 'Too late to abort — resign instead';
+  END IF;
+
+  SELECT * INTO v_m FROM public.tournament_matches
+  WHERE game_id = p_game_id AND status = 'active' FOR UPDATE;
+
+  IF FOUND THEN
+    SELECT * INTO v_t FROM public.tournaments WHERE id = v_m.tournament_id FOR UPDATE;
+    IF v_t.status <> 'live' THEN RAISE EXCEPTION 'Tournament is not live'; END IF;
+
+    BEGIN
+      INSERT INTO public.tournament_match_aborts (match_id, user_id) VALUES (v_m.id, v_uid);
+    EXCEPTION WHEN unique_violation THEN
+      RAISE EXCEPTION 'You already aborted this match once — resign instead';
+    END;
+
+    -- Fresh board for the same pairing, re-pointed BEFORE the old game is
+    -- ended so trg_tournament_game_finished no longer matches it.
+    v_new := public._tournament_create_game(v_t, v_m.player1_id, v_m.player2_id);
+    UPDATE public.tournament_matches SET game_id = v_new WHERE id = v_m.id;
+
+    UPDATE public.games SET
+      status = 'finished', result = 'aborted', end_reason = 'aborted', ended_at = now()
+    WHERE id = p_game_id;
+
+    SELECT username INTO v_name FROM public.profiles WHERE id = v_uid;
+    PERFORM public._tournament_log(
+      v_m.tournament_id, 'match_aborted',
+      COALESCE(v_name, 'A player') || ' aborted — a fresh board was set up',
+      v_uid, jsonb_build_object('round', v_m.round, 'game_id', v_new));
+
+    INSERT INTO public.notifications (user_id, kind, title, body, link)
+    SELECT u, 'tournament_round', 'Match restarted',
+           'The game was aborted; a fresh board is ready.',
+           '/game/' || v_new::text
+    FROM unnest(ARRAY[v_m.player1_id, v_m.player2_id]) AS u
+    WHERE u IS NOT NULL;
+
+    RETURN v_new;
+  ELSE
+    UPDATE public.games SET
+      status = 'finished', result = 'aborted', end_reason = 'aborted', ended_at = now()
+    WHERE id = p_game_id;
+    RETURN NULL;
+  END IF;
+END; $$;
+REVOKE ALL ON FUNCTION public.abort_game(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.abort_game(UUID) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 75.8 decline_draw — explicitly refuse an opponent's draw offer
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.decline_draw(UUID);
+CREATE OR REPLACE FUNCTION public.decline_draw(p_game_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_g   public.games%ROWTYPE;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  SELECT * INTO v_g FROM public.games WHERE id = p_game_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Game not found'; END IF;
+  IF v_uid <> v_g.white_id AND v_uid <> v_g.black_id THEN
+    RAISE EXCEPTION 'Not a player in this game';
+  END IF;
+  IF v_g.draw_offered_by IS NULL OR v_g.draw_offered_by = v_uid THEN
+    RAISE EXCEPTION 'No draw offer to decline';
+  END IF;
+  UPDATE public.games SET draw_offered_by = NULL WHERE id = p_game_id;
+END; $$;
+REVOKE ALL ON FUNCTION public.decline_draw(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.decline_draw(UUID) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 75.9 Client-safe grants for the cron fallbacks
+-- ---------------------------------------------------------------------
+-- Both functions are idempotent, validate all state transitions inside,
+-- and take SKIP LOCKED row locks — so letting a signed-in client nudge
+-- them is safe, and keeps tournaments moving when pg_cron is unavailable
+-- (the tournaments page already calls transition_locked_tournaments as a
+-- countdown-zero fallback).
+GRANT EXECUTE ON FUNCTION public.transition_locked_tournaments() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.tournament_clock_sweep() TO authenticated;
+
+-- ---------------------------------------------------------------------
+-- 75.10 get_tournament_state v2 — arena ordering + captures feed
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.get_tournament_state(UUID);
+CREATE OR REPLACE FUNCTION public.get_tournament_state(p_tournament_id UUID)
+RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid      UUID := auth.uid();
+  v_t        JSONB;
+  v_entries  JSONB;
+  v_matches  JSONB;
+  v_activity JSONB;
+  v_captures JSONB;
+BEGIN
+  SELECT to_jsonb(t) INTO v_t FROM public.tournaments t WHERE t.id = p_tournament_id;
+  IF v_t IS NULL THEN RETURN NULL; END IF;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(x)
+           ORDER BY x.score DESC, x.wins DESC, x.losses ASC,
+                    x.fastest_win_ms ASC NULLS LAST, x.joined_at ASC), '[]'::jsonb)
+  INTO v_entries
+  FROM (
+    SELECT e.id, e.user_id, e.score, e.rank, e.wins, e.losses, e.draws,
+           e.piece_points, e.time_used_ms, e.fastest_win_ms,
+           e.status, e.eliminated_in_round, e.joined_at,
+           p.username, p.full_name, p.avatar_url, p.country, p.iq_rating, p.is_online,
+           p.premium_active, p.premium_expires_at
+    FROM public.tournament_entries e
+    LEFT JOIN public.profiles p ON p.id = e.user_id
+    WHERE e.tournament_id = p_tournament_id
+  ) x;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(m) ORDER BY m.round, m.slot), '[]'::jsonb)
+  INTO v_matches
+  FROM (
+    SELECT tm.id, tm.round, tm.slot, tm.player1_id, tm.player2_id,
+           tm.game_id, tm.winner_id, tm.status,
+           p1.username AS player1_username, p2.username AS player2_username,
+           g.status AS game_status, g.result AS game_result, g.fen, g.turn,
+           g.moves_count, g.white_id, g.black_id,
+           g.white_username, g.black_username,
+           g.white_time_ms, g.black_time_ms, g.last_move_at, g.end_reason,
+           g.created_at AS game_created_at, g.ended_at AS game_ended_at
+    FROM public.tournament_matches tm
+    LEFT JOIN public.profiles p1 ON p1.id = tm.player1_id
+    LEFT JOIN public.profiles p2 ON p2.id = tm.player2_id
+    LEFT JOIN public.games g ON g.id = tm.game_id
+    WHERE tm.tournament_id = p_tournament_id
+  ) m;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY a.created_at DESC, a.id DESC), '[]'::jsonb)
+  INTO v_activity
+  FROM (
+    SELECT id, kind, message, actor_id, meta, created_at
+    FROM public.tournament_activity
+    WHERE tournament_id = p_tournament_id
+    ORDER BY created_at DESC, id DESC
+    LIMIT 40
+  ) a;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(c) ORDER BY c.created_at DESC, c.id DESC), '[]'::jsonb)
+  INTO v_captures
+  FROM (
+    SELECT cp.id, cp.match_id, cp.game_id, cp.user_id, cp.victim_id,
+           cp.piece, cp.bonus, cp.ply, cp.created_at,
+           pc.username AS capturer_username, pv.username AS victim_username
+    FROM public.tournament_captured_pieces cp
+    LEFT JOIN public.profiles pc ON pc.id = cp.user_id
+    LEFT JOIN public.profiles pv ON pv.id = cp.victim_id
+    WHERE cp.tournament_id = p_tournament_id
+    ORDER BY cp.created_at DESC, cp.id DESC
+    LIMIT 50
+  ) c;
+
+  RETURN jsonb_build_object(
+    'server_now', now(),
+    'viewer_id',  v_uid,
+    'tournament', v_t,
+    'entries',    v_entries,
+    'matches',    v_matches,
+    'activity',   v_activity,
+    'captures',   v_captures
+  );
+END; $$;
+GRANT EXECUTE ON FUNCTION public.get_tournament_state(UUID) TO anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 75.11 Admin TR panel RPCs
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.admin_tr_overview(TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT);
+CREATE OR REPLACE FUNCTION public.admin_tr_overview(
+  p_status TEXT        DEFAULT NULL,
+  p_search TEXT        DEFAULT NULL,
+  p_from   TIMESTAMPTZ DEFAULT NULL,
+  p_to     TIMESTAMPTZ DEFAULT NULL,
+  p_limit  INT         DEFAULT 60,
+  p_offset INT         DEFAULT 0
+) RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_out JSONB;
+BEGIN
+  IF v_uid IS NULL OR NOT public.has_role(v_uid, 'admin') THEN
+    RAISE EXCEPTION 'Admins only';
+  END IF;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.created_at DESC), '[]'::jsonb)
+  INTO v_out
+  FROM (
+    SELECT
+      t.id, t.name, t.slug, t.status, t.time_control, t.format,
+      t.entry_fee_coins, t.player_count, t.max_players,
+      t.prize_1st, t.prize_2nd, t.prize_3rd, t.prize_4th,
+      t.current_round, t.total_rounds, t.winner_display,
+      t.prizes_distributed, t.created_at, t.starts_at, t.ends_at,
+      COALESCE(fin.fees_collected, 0)  AS fees_collected,
+      COALESCE(fin.refunds_paid, 0)    AS refunds_paid,
+      COALESCE(fin.prizes_paid, 0)     AS prizes_paid,
+      COALESCE(ms.total_matches, 0)    AS total_matches,
+      COALESCE(ms.checkmates, 0)       AS checkmates,
+      COALESCE(ms.resigns, 0)          AS resigns,
+      COALESCE(ms.timeouts, 0)         AS timeouts,
+      COALESCE(ms.no_shows, 0)         AS no_shows,
+      COALESCE(ms.draws, 0)            AS draws,
+      COALESCE(ab.aborted, 0)          AS aborted,
+      COALESCE(cap.captures, 0)        AS captures,
+      COALESCE(cap.capture_points, 0)  AS capture_points
+    FROM public.tournaments t
+    LEFT JOIN LATERAL (
+      SELECT
+        COALESCE(-sum(amount) FILTER (WHERE type = 'tournament_entry'),  0) AS fees_collected,
+        COALESCE( sum(amount) FILTER (WHERE type = 'tournament_refund'), 0) AS refunds_paid,
+        COALESCE( sum(amount) FILTER (WHERE type = 'tournament_prize'),  0) AS prizes_paid
+      FROM public.wallet_transactions wt
+      WHERE wt.reference_id = t.id::text
+    ) fin ON true
+    LEFT JOIN LATERAL (
+      SELECT
+        count(*)                                              AS total_matches,
+        count(*) FILTER (WHERE g.end_reason = 'checkmate')    AS checkmates,
+        count(*) FILTER (WHERE g.end_reason = 'resign')       AS resigns,
+        count(*) FILTER (WHERE g.end_reason = 'timeout')      AS timeouts,
+        count(*) FILTER (WHERE g.end_reason = 'no_show')      AS no_shows,
+        count(*) FILTER (WHERE g.result = 'draw')             AS draws
+      FROM public.tournament_matches tm
+      LEFT JOIN public.games g ON g.id = tm.game_id
+      WHERE tm.tournament_id = t.id
+    ) ms ON true
+    LEFT JOIN LATERAL (
+      -- Abort events come from the ledger: an aborted game gets replaced
+      -- and un-referenced by its match, so the join above can't see it.
+      SELECT count(*) AS aborted
+      FROM public.tournament_match_aborts a
+      JOIN public.tournament_matches tm2 ON tm2.id = a.match_id
+      WHERE tm2.tournament_id = t.id
+    ) ab ON true
+    LEFT JOIN LATERAL (
+      SELECT count(*) AS captures, COALESCE(sum(bonus), 0) AS capture_points
+      FROM public.tournament_captured_pieces cp
+      WHERE cp.tournament_id = t.id
+    ) cap ON true
+    WHERE (p_status IS NULL OR t.status = p_status)
+      AND (p_search IS NULL OR p_search = ''
+           OR t.name ILIKE '%' || p_search || '%'
+           OR t.id::text ILIKE p_search || '%'
+           OR t.slug ILIKE '%' || p_search || '%')
+      AND (p_from IS NULL OR t.created_at >= p_from)
+      AND (p_to   IS NULL OR t.created_at <  p_to)
+    ORDER BY t.created_at DESC
+    LIMIT LEAST(GREATEST(p_limit, 1), 200) OFFSET GREATEST(p_offset, 0)
+  ) r;
+
+  RETURN v_out;
+END; $$;
+REVOKE ALL ON FUNCTION public.admin_tr_overview(TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_tr_overview(TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.admin_tr_finance(UUID);
+CREATE OR REPLACE FUNCTION public.admin_tr_finance(p_tournament_id UUID)
+RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_out JSONB;
+BEGIN
+  IF v_uid IS NULL OR NOT public.has_role(v_uid, 'admin') THEN
+    RAISE EXCEPTION 'Admins only';
+  END IF;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.created_at DESC), '[]'::jsonb)
+  INTO v_out
+  FROM (
+    SELECT wt.id, wt.user_id, p.username, wt.type, wt.amount,
+           wt.balance_after, wt.description, wt.created_at
+    FROM public.wallet_transactions wt
+    LEFT JOIN public.profiles p ON p.id = wt.user_id
+    WHERE wt.reference_id = p_tournament_id::text
+      AND wt.type IN ('tournament_entry', 'tournament_refund', 'tournament_prize')
+    ORDER BY wt.created_at DESC
+    LIMIT 500
+  ) r;
+
+  RETURN v_out;
+END; $$;
+REVOKE ALL ON FUNCTION public.admin_tr_finance(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_tr_finance(UUID) TO authenticated, service_role;
+
+
+
+
+
+
+
+
+
+
+-- =====================================================================
+-- SECTION 75: TR ARENA — POINT SYSTEM, CAPTURES, ABORT, ADMIN (2026-07-15)
+-- ---------------------------------------------------------------------
+-- Layers the arena experience on top of the SECTION 74 knockout engine
+-- WITHOUT changing its structure (registration, locking, bracket,
+-- advancement, prizes and cancellation all keep working exactly as-is):
+--   • arena scoring: WIN +5 / LOSS −5 / DRAW +2 (replaces 1 / 0.5)
+--   • live piece-capture bonuses (P+2 N+8 B+5 R+5 Q+10), computed
+--     server-side from the authoritative FENs on every recorded move,
+--     credited instantly to tournament_entries.score / piece_points and
+--     logged per capture in tournament_captured_pieces (realtime)
+--   • fastest_win_ms tiebreak column; leaderboard order is now
+--     points → wins → fewest losses → fastest win
+--   • abort_game(): chess.com-style abort (≤1 move played, once per
+--     player per match; tournament matches get a fresh replacement game)
+--   • decline_draw(): explicitly clear an opponent's draw offer
+--   • client-safe grants for transition_locked_tournaments and
+--     tournament_clock_sweep so the UI can nudge them when pg_cron is
+--     unavailable (both are idempotent and validate everything inside)
+--   • admin_tr_overview / admin_tr_finance for the admin TR panel
+-- All scoring happens in SECURITY DEFINER triggers/functions — clients
+-- never write points.
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 75.1 Columns
+-- ---------------------------------------------------------------------
+-- The server move handler (game.functions.ts) already writes these on
+-- every move; declare them idempotently so the capture trigger and any
+-- fresh database have them.
+ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS fen_before   TEXT;
+ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS time_used_ms INT;
+ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS is_capture   BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS is_check     BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS is_promotion BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS is_castling  BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE public.tournament_entries ADD COLUMN IF NOT EXISTS fastest_win_ms BIGINT;
+
+-- ---------------------------------------------------------------------
+-- 75.2 Captured pieces ledger (drives the live bonus ticker)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.tournament_captured_pieces (
+  id            BIGSERIAL PRIMARY KEY,
+  tournament_id UUID NOT NULL REFERENCES public.tournaments(id) ON DELETE CASCADE,
+  match_id      UUID NOT NULL REFERENCES public.tournament_matches(id) ON DELETE CASCADE,
+  game_id       UUID NOT NULL REFERENCES public.games(id) ON DELETE CASCADE,
+  user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  victim_id     UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  piece         TEXT NOT NULL CHECK (piece IN ('p', 'n', 'b', 'r', 'q')),
+  bonus         INT NOT NULL,
+  ply           INT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_tr_captures_tournament
+  ON public.tournament_captured_pieces(tournament_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tr_captures_game
+  ON public.tournament_captured_pieces(game_id);
+GRANT SELECT ON public.tournament_captured_pieces TO anon, authenticated;
+GRANT ALL ON public.tournament_captured_pieces TO service_role;
+ALTER TABLE public.tournament_captured_pieces ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "TR captures public read" ON public.tournament_captured_pieces;
+CREATE POLICY "TR captures public read"
+  ON public.tournament_captured_pieces FOR SELECT USING (true);
+-- Writes only via the SECURITY DEFINER move trigger below.
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public'
+      AND tablename = 'tournament_captured_pieces'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.tournament_captured_pieces;
+  END IF;
+END $$;
+
+-- Abort bookkeeping: one abort per player per match, enforced by UNIQUE.
+CREATE TABLE IF NOT EXISTS public.tournament_match_aborts (
+  id         BIGSERIAL PRIMARY KEY,
+  match_id   UUID NOT NULL REFERENCES public.tournament_matches(id) ON DELETE CASCADE,
+  user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (match_id, user_id)
+);
+GRANT SELECT ON public.tournament_match_aborts TO anon, authenticated;
+GRANT ALL ON public.tournament_match_aborts TO service_role;
+ALTER TABLE public.tournament_match_aborts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "TR aborts public read" ON public.tournament_match_aborts;
+CREATE POLICY "TR aborts public read"
+  ON public.tournament_match_aborts FOR SELECT USING (true);
+
+-- ---------------------------------------------------------------------
+-- 75.3 Arena point rules
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public._tr_piece_bonus(TEXT);
+CREATE OR REPLACE FUNCTION public._tr_piece_bonus(p_piece TEXT)
+RETURNS INT LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE p_piece
+    WHEN 'p' THEN 2 WHEN 'n' THEN 8 WHEN 'b' THEN 5
+    WHEN 'r' THEN 5 WHEN 'q' THEN 10 ELSE 0 END;
+$$;
+
+-- Which victim-side piece disappeared between two FENs. Promotions only
+-- change the mover's own material, so diffing the victim colour is exact
+-- (covers en passant too). At most one piece can vanish per legal move.
+DROP FUNCTION IF EXISTS public._tr_captured_piece(TEXT, TEXT, TEXT);
+CREATE OR REPLACE FUNCTION public._tr_captured_piece(
+  p_before TEXT, p_after TEXT, p_victim_color TEXT
+) RETURNS TEXT LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE
+  v_b  TEXT := split_part(COALESCE(p_before, ''), ' ', 1);
+  v_a  TEXT := split_part(COALESCE(p_after, ''), ' ', 1);
+  v_t  TEXT;
+  v_ch TEXT;
+BEGIN
+  IF v_b = '' OR v_a = '' THEN RETURN NULL; END IF;
+  FOREACH v_t IN ARRAY ARRAY['q', 'r', 'b', 'n', 'p'] LOOP
+    v_ch := CASE WHEN p_victim_color = 'w' THEN upper(v_t) ELSE v_t END;
+    IF (length(v_b) - length(replace(v_b, v_ch, '')))
+     > (length(v_a) - length(replace(v_a, v_ch, ''))) THEN
+      RETURN v_t;
+    END IF;
+  END LOOP;
+  RETURN NULL;
+END; $$;
+
+-- ---------------------------------------------------------------------
+-- 75.4 Live capture bonus: fires on every recorded move
+-- ---------------------------------------------------------------------
+DROP TRIGGER IF EXISTS trg_tournament_move ON public.game_moves;
+DROP FUNCTION IF EXISTS public.handle_tournament_move();
+CREATE OR REPLACE FUNCTION public.handle_tournament_move()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_m            RECORD;
+  v_victim_color TEXT;
+  v_piece        TEXT;
+  v_bonus        INT;
+BEGIN
+  IF NEW.by_user IS NULL OR NEW.fen_before IS NULL OR NEW.fen_after IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT tm.tournament_id, tm.id AS match_id, g.white_id, g.black_id
+  INTO v_m
+  FROM public.tournament_matches tm
+  JOIN public.games g ON g.id = tm.game_id
+  WHERE tm.game_id = NEW.game_id AND tm.status = 'active'
+  LIMIT 1;
+  IF NOT FOUND THEN RETURN NEW; END IF;
+
+  v_victim_color := CASE WHEN NEW.by_user = v_m.white_id THEN 'b' ELSE 'w' END;
+  v_piece := public._tr_captured_piece(NEW.fen_before, NEW.fen_after, v_victim_color);
+  IF v_piece IS NULL THEN RETURN NEW; END IF;
+  v_bonus := public._tr_piece_bonus(v_piece);
+  IF v_bonus <= 0 THEN RETURN NEW; END IF;
+
+  UPDATE public.tournament_entries SET
+    score        = score + v_bonus,
+    piece_points = piece_points + v_bonus
+  WHERE tournament_id = v_m.tournament_id AND user_id = NEW.by_user;
+
+  INSERT INTO public.tournament_captured_pieces
+    (tournament_id, match_id, game_id, user_id, victim_id, piece, bonus, ply)
+  VALUES
+    (v_m.tournament_id, v_m.match_id, NEW.game_id, NEW.by_user,
+     CASE WHEN v_victim_color = 'w' THEN v_m.white_id ELSE v_m.black_id END,
+     v_piece, v_bonus, NEW.ply);
+
+  RETURN NEW;
+END; $$;
+
+CREATE TRIGGER trg_tournament_move
+  AFTER INSERT ON public.game_moves
+  FOR EACH ROW EXECUTE FUNCTION public.handle_tournament_move();
+
+-- ---------------------------------------------------------------------
+-- 75.5 Finish scoring v2: WIN +5 / LOSS −5 / DRAW +2, fastest-win tiebreak
+-- ---------------------------------------------------------------------
+-- Same structure as SECTION 74's version; only the scoring block and the
+-- tiebreak bookkeeping changed. piece_points is now fed exclusively by
+-- the capture trigger above (it used to add end-of-game material).
+CREATE OR REPLACE FUNCTION public.handle_tournament_game_finished()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_match       public.tournament_matches%ROWTYPE;
+  v_t           public.tournaments%ROWTYPE;
+  v_winner      UUID;
+  v_loser       UUID;
+  v_is_draw     BOOLEAN := false;
+  v_wname       TEXT;
+  v_lname       TEXT;
+  v_white_used  BIGINT;
+  v_black_used  BIGINT;
+  v_duration_ms BIGINT;
+  v_pending     INT;
+  v_in_round    INT;
+BEGIN
+  SELECT * INTO v_match FROM public.tournament_matches
+  WHERE game_id = NEW.id AND status = 'active'
+  LIMIT 1;
+  IF NOT FOUND THEN RETURN NEW; END IF;
+
+  -- Serialize all bracket processing per tournament.
+  SELECT * INTO v_t FROM public.tournaments WHERE id = v_match.tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN NEW; END IF;
+
+  IF NEW.result = 'white' THEN
+    v_winner := NEW.white_id;
+  ELSIF NEW.result = 'black' THEN
+    v_winner := NEW.black_id;
+  ELSE
+    v_is_draw := (NEW.result = 'draw');
+    v_winner := CASE WHEN COALESCE(NEW.white_time_ms, 0) >= COALESCE(NEW.black_time_ms, 0)
+                     THEN NEW.white_id ELSE NEW.black_id END;
+  END IF;
+  v_loser := CASE WHEN v_winner = NEW.white_id THEN NEW.black_id ELSE NEW.white_id END;
+
+  UPDATE public.tournament_matches SET winner_id = v_winner, status = 'finished'
+  WHERE id = v_match.id;
+
+  v_white_used  := GREATEST(0, NEW.initial_seconds::BIGINT * 1000 - COALESCE(NEW.white_time_ms, 0));
+  v_black_used  := GREATEST(0, NEW.initial_seconds::BIGINT * 1000 - COALESCE(NEW.black_time_ms, 0));
+  v_duration_ms := GREATEST(0,
+    (EXTRACT(EPOCH FROM (COALESCE(NEW.ended_at, now()) - NEW.created_at)) * 1000)::BIGINT);
+
+  -- Arena points: WIN +5, LOSS −5, DRAW both +2 (the clock-tiebreak
+  -- "winner" of a draw still advances the bracket but scores it as a draw).
+  UPDATE public.tournament_entries SET
+    wins   = wins   + CASE WHEN NOT v_is_draw AND user_id = v_winner THEN 1 ELSE 0 END,
+    losses = losses + CASE WHEN NOT v_is_draw AND user_id = v_loser  THEN 1 ELSE 0 END,
+    draws  = draws  + CASE WHEN v_is_draw THEN 1 ELSE 0 END,
+    score  = score  + CASE WHEN v_is_draw THEN 2
+                           WHEN user_id = v_winner THEN 5
+                           ELSE -5 END,
+    time_used_ms = time_used_ms + CASE WHEN user_id = NEW.white_id THEN v_white_used ELSE v_black_used END,
+    fastest_win_ms = CASE WHEN NOT v_is_draw AND user_id = v_winner
+                          THEN LEAST(COALESCE(fastest_win_ms, 9223372036854775807), v_duration_ms)
+                          ELSE fastest_win_ms END,
+    status = CASE WHEN user_id = v_loser THEN 'eliminated' ELSE status END,
+    eliminated_in_round = CASE WHEN user_id = v_loser THEN v_match.round ELSE eliminated_in_round END
+  WHERE tournament_id = v_t.id AND user_id IN (NEW.white_id, NEW.black_id);
+
+  SELECT username INTO v_wname FROM public.profiles WHERE id = v_winner;
+  SELECT username INTO v_lname FROM public.profiles WHERE id = v_loser;
+
+  PERFORM public._tournament_log(
+    v_t.id, 'match_finished',
+    COALESCE(v_wname, 'Winner')
+      || CASE WHEN v_is_draw THEN ' advances on tiebreak vs ' ELSE ' defeats ' END
+      || COALESCE(v_lname, 'opponent')
+      || ' (' || COALESCE(NEW.end_reason, 'finished') || ')',
+    v_winner,
+    jsonb_build_object(
+      'round', v_match.round, 'winner', v_wname, 'loser', v_lname,
+      'reason', NEW.end_reason, 'moves', NEW.moves_count,
+      'draw', v_is_draw, 'game_id', NEW.id,
+      'winner_id', v_winner, 'loser_id', v_loser));
+
+  INSERT INTO public.notifications (user_id, kind, title, body, link) VALUES
+    (v_winner, 'tournament_result', 'You advanced!',
+     'You won your Round ' || v_match.round || ' match in ' || v_t.name || '.',
+     '/tournament/' || v_t.id::text),
+    (v_loser, 'tournament_result', 'Eliminated',
+     'You were knocked out in Round ' || v_match.round || ' of ' || v_t.name || '.',
+     '/tournament/' || v_t.id::text);
+
+  SELECT count(*) FILTER (WHERE status IN ('pending', 'active')), count(*)
+  INTO v_pending, v_in_round
+  FROM public.tournament_matches
+  WHERE tournament_id = v_t.id AND round = v_t.current_round;
+
+  IF v_pending = 0 THEN
+    PERFORM public._tournament_log(
+      v_t.id, 'round_finished', 'Round ' || v_t.current_round || ' complete',
+      NULL, jsonb_build_object('round', v_t.current_round));
+    IF v_in_round = 1 THEN
+      PERFORM public._tournament_complete(v_t.id);
+    ELSE
+      PERFORM public._tournament_start_round(v_t.id);
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END; $$;
+
+-- ---------------------------------------------------------------------
+-- 75.6 Final placings use the arena tiebreaks
+-- ---------------------------------------------------------------------
+-- points → wins → fewest losses → fastest win, per the arena rules.
+CREATE OR REPLACE FUNCTION public._tournament_complete(p_tournament_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_t        public.tournaments%ROWTYPE;
+  v_final    public.tournament_matches%ROWTYPE;
+  v_champion UUID;
+  v_runner   UUID;
+  v_semis    UUID[];
+  v_third    UUID;
+  v_fourth   UUID;
+  v_name     TEXT;
+BEGIN
+  SELECT * INTO v_t FROM public.tournaments WHERE id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN; END IF;
+
+  SELECT * INTO v_final
+  FROM public.tournament_matches
+  WHERE tournament_id = p_tournament_id AND round = v_t.current_round
+  ORDER BY slot LIMIT 1;
+  IF NOT FOUND OR v_final.winner_id IS NULL THEN RETURN; END IF;
+
+  v_champion := v_final.winner_id;
+  v_runner   := CASE WHEN v_final.player1_id = v_champion THEN v_final.player2_id ELSE v_final.player1_id END;
+
+  SELECT COALESCE(array_agg(s.loser
+           ORDER BY e.score DESC, e.wins DESC, e.losses ASC,
+                    e.fastest_win_ms ASC NULLS LAST), '{}')
+  INTO v_semis
+  FROM (
+    SELECT CASE WHEN m.winner_id = m.player1_id THEN m.player2_id ELSE m.player1_id END AS loser
+    FROM public.tournament_matches m
+    WHERE m.tournament_id = p_tournament_id
+      AND m.round = v_t.current_round - 1
+      AND m.status = 'finished'
+  ) s
+  JOIN public.tournament_entries e ON e.tournament_id = p_tournament_id AND e.user_id = s.loser
+  WHERE s.loser IS NOT NULL;
+  v_third  := v_semis[1];
+  v_fourth := v_semis[2];
+
+  UPDATE public.tournament_entries SET rank = 1, status = 'winner'
+  WHERE tournament_id = p_tournament_id AND user_id = v_champion;
+  UPDATE public.tournament_entries SET rank = 2, status = 'runner_up'
+  WHERE tournament_id = p_tournament_id AND user_id = v_runner;
+  UPDATE public.tournament_entries SET rank = 3, status = 'third'
+  WHERE tournament_id = p_tournament_id AND user_id = v_third;
+  UPDATE public.tournament_entries SET rank = 4, status = 'fourth'
+  WHERE tournament_id = p_tournament_id AND user_id = v_fourth;
+
+  UPDATE public.tournament_entries e SET rank = ranked.rnk
+  FROM (
+    SELECT user_id,
+           4 + ROW_NUMBER() OVER (
+             ORDER BY score DESC, wins DESC, losses ASC,
+                      fastest_win_ms ASC NULLS LAST, joined_at ASC
+           ) AS rnk
+    FROM public.tournament_entries
+    WHERE tournament_id = p_tournament_id
+      AND user_id IS DISTINCT FROM v_champion
+      AND user_id IS DISTINCT FROM v_runner
+      AND user_id IS DISTINCT FROM v_third
+      AND user_id IS DISTINCT FROM v_fourth
+  ) ranked
+  WHERE e.tournament_id = p_tournament_id AND e.user_id = ranked.user_id;
+
+  PERFORM public._tournament_award_prize(v_t, v_champion, v_t.prize_1st, '1st');
+  PERFORM public._tournament_award_prize(v_t, v_runner,   v_t.prize_2nd, '2nd');
+  PERFORM public._tournament_award_prize(v_t, v_third,    v_t.prize_3rd, '3rd');
+  PERFORM public._tournament_award_prize(v_t, v_fourth,   v_t.prize_4th, '4th');
+
+  SELECT username INTO v_name FROM public.profiles WHERE id = v_champion;
+
+  UPDATE public.tournaments SET
+    status             = 'completed',
+    ends_at            = now(),
+    prizes_distributed = true,
+    winner_display     = COALESCE(v_name, winner_display)
+  WHERE id = p_tournament_id;
+
+  INSERT INTO public.notifications (user_id, kind, title, body, link)
+  SELECT user_id, 'tournament_finished',
+         'Tournament finished',
+         COALESCE(v_name, 'The champion') || ' won ' || v_t.name || '. Check the final standings.',
+         '/tournament/' || p_tournament_id::text
+  FROM public.tournament_entries
+  WHERE tournament_id = p_tournament_id;
+
+  PERFORM public._tournament_log(
+    p_tournament_id, 'tournament_finished',
+    COALESCE(v_name, 'The champion') || ' is the champion! 🏆',
+    v_champion, jsonb_build_object('winner', v_name));
+END; $$;
+
+-- ---------------------------------------------------------------------
+-- 75.7 abort_game — chess.com-style abort
+-- ---------------------------------------------------------------------
+-- Allowed while at most one move has been played. Tournament matches get
+-- a fresh replacement game for the same pairing (colors re-drawn); each
+-- player may abort a given match only once — after that, resign is the
+-- only way out. Casual games simply end as 'aborted' with no rating.
+DROP FUNCTION IF EXISTS public.abort_game(UUID);
+CREATE OR REPLACE FUNCTION public.abort_game(p_game_id UUID)
+RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid  UUID := auth.uid();
+  v_g    public.games%ROWTYPE;
+  v_m    public.tournament_matches%ROWTYPE;
+  v_t    public.tournaments%ROWTYPE;
+  v_new  UUID;
+  v_name TEXT;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+
+  SELECT * INTO v_g FROM public.games WHERE id = p_game_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Game not found'; END IF;
+  IF v_g.status <> 'active' THEN RAISE EXCEPTION 'Game is not active'; END IF;
+  IF v_uid <> v_g.white_id AND v_uid <> v_g.black_id THEN
+    RAISE EXCEPTION 'Not a player in this game';
+  END IF;
+  IF v_g.moves_count > 1 THEN
+    RAISE EXCEPTION 'Too late to abort — resign instead';
+  END IF;
+
+  SELECT * INTO v_m FROM public.tournament_matches
+  WHERE game_id = p_game_id AND status = 'active' FOR UPDATE;
+
+  IF FOUND THEN
+    SELECT * INTO v_t FROM public.tournaments WHERE id = v_m.tournament_id FOR UPDATE;
+    IF v_t.status <> 'live' THEN RAISE EXCEPTION 'Tournament is not live'; END IF;
+
+    BEGIN
+      INSERT INTO public.tournament_match_aborts (match_id, user_id) VALUES (v_m.id, v_uid);
+    EXCEPTION WHEN unique_violation THEN
+      RAISE EXCEPTION 'You already aborted this match once — resign instead';
+    END;
+
+    -- Fresh board for the same pairing, re-pointed BEFORE the old game is
+    -- ended so trg_tournament_game_finished no longer matches it.
+    v_new := public._tournament_create_game(v_t, v_m.player1_id, v_m.player2_id);
+    UPDATE public.tournament_matches SET game_id = v_new WHERE id = v_m.id;
+
+    UPDATE public.games SET
+      status = 'finished', result = 'aborted', end_reason = 'aborted', ended_at = now()
+    WHERE id = p_game_id;
+
+    SELECT username INTO v_name FROM public.profiles WHERE id = v_uid;
+    PERFORM public._tournament_log(
+      v_m.tournament_id, 'match_aborted',
+      COALESCE(v_name, 'A player') || ' aborted — a fresh board was set up',
+      v_uid, jsonb_build_object('round', v_m.round, 'game_id', v_new));
+
+    INSERT INTO public.notifications (user_id, kind, title, body, link)
+    SELECT u, 'tournament_round', 'Match restarted',
+           'The game was aborted; a fresh board is ready.',
+           '/game/' || v_new::text
+    FROM unnest(ARRAY[v_m.player1_id, v_m.player2_id]) AS u
+    WHERE u IS NOT NULL;
+
+    RETURN v_new;
+  ELSE
+    UPDATE public.games SET
+      status = 'finished', result = 'aborted', end_reason = 'aborted', ended_at = now()
+    WHERE id = p_game_id;
+    RETURN NULL;
+  END IF;
+END; $$;
+REVOKE ALL ON FUNCTION public.abort_game(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.abort_game(UUID) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 75.8 decline_draw — explicitly refuse an opponent's draw offer
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.decline_draw(UUID);
+CREATE OR REPLACE FUNCTION public.decline_draw(p_game_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_g   public.games%ROWTYPE;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  SELECT * INTO v_g FROM public.games WHERE id = p_game_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Game not found'; END IF;
+  IF v_uid <> v_g.white_id AND v_uid <> v_g.black_id THEN
+    RAISE EXCEPTION 'Not a player in this game';
+  END IF;
+  IF v_g.draw_offered_by IS NULL OR v_g.draw_offered_by = v_uid THEN
+    RAISE EXCEPTION 'No draw offer to decline';
+  END IF;
+  UPDATE public.games SET draw_offered_by = NULL WHERE id = p_game_id;
+END; $$;
+REVOKE ALL ON FUNCTION public.decline_draw(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.decline_draw(UUID) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 75.9 Client-safe grants for the cron fallbacks
+-- ---------------------------------------------------------------------
+-- Both functions are idempotent, validate all state transitions inside,
+-- and take SKIP LOCKED row locks — so letting a signed-in client nudge
+-- them is safe, and keeps tournaments moving when pg_cron is unavailable
+-- (the tournaments page already calls transition_locked_tournaments as a
+-- countdown-zero fallback).
+GRANT EXECUTE ON FUNCTION public.transition_locked_tournaments() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.tournament_clock_sweep() TO authenticated;
+
+-- ---------------------------------------------------------------------
+-- 75.10 get_tournament_state v2 — arena ordering + captures feed
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.get_tournament_state(UUID);
+CREATE OR REPLACE FUNCTION public.get_tournament_state(p_tournament_id UUID)
+RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid      UUID := auth.uid();
+  v_t        JSONB;
+  v_entries  JSONB;
+  v_matches  JSONB;
+  v_activity JSONB;
+  v_captures JSONB;
+BEGIN
+  SELECT to_jsonb(t) INTO v_t FROM public.tournaments t WHERE t.id = p_tournament_id;
+  IF v_t IS NULL THEN RETURN NULL; END IF;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(x)
+           ORDER BY x.score DESC, x.wins DESC, x.losses ASC,
+                    x.fastest_win_ms ASC NULLS LAST, x.joined_at ASC), '[]'::jsonb)
+  INTO v_entries
+  FROM (
+    SELECT e.id, e.user_id, e.score, e.rank, e.wins, e.losses, e.draws,
+           e.piece_points, e.time_used_ms, e.fastest_win_ms,
+           e.status, e.eliminated_in_round, e.joined_at,
+           p.username, p.full_name, p.avatar_url, p.country, p.iq_rating, p.is_online,
+           p.premium_active, p.premium_expires_at
+    FROM public.tournament_entries e
+    LEFT JOIN public.profiles p ON p.id = e.user_id
+    WHERE e.tournament_id = p_tournament_id
+  ) x;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(m) ORDER BY m.round, m.slot), '[]'::jsonb)
+  INTO v_matches
+  FROM (
+    SELECT tm.id, tm.round, tm.slot, tm.player1_id, tm.player2_id,
+           tm.game_id, tm.winner_id, tm.status,
+           p1.username AS player1_username, p2.username AS player2_username,
+           g.status AS game_status, g.result AS game_result, g.fen, g.turn,
+           g.moves_count, g.white_id, g.black_id,
+           g.white_username, g.black_username,
+           g.white_time_ms, g.black_time_ms, g.last_move_at, g.end_reason,
+           g.created_at AS game_created_at, g.ended_at AS game_ended_at
+    FROM public.tournament_matches tm
+    LEFT JOIN public.profiles p1 ON p1.id = tm.player1_id
+    LEFT JOIN public.profiles p2 ON p2.id = tm.player2_id
+    LEFT JOIN public.games g ON g.id = tm.game_id
+    WHERE tm.tournament_id = p_tournament_id
+  ) m;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY a.created_at DESC, a.id DESC), '[]'::jsonb)
+  INTO v_activity
+  FROM (
+    SELECT id, kind, message, actor_id, meta, created_at
+    FROM public.tournament_activity
+    WHERE tournament_id = p_tournament_id
+    ORDER BY created_at DESC, id DESC
+    LIMIT 40
+  ) a;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(c) ORDER BY c.created_at DESC, c.id DESC), '[]'::jsonb)
+  INTO v_captures
+  FROM (
+    SELECT cp.id, cp.match_id, cp.game_id, cp.user_id, cp.victim_id,
+           cp.piece, cp.bonus, cp.ply, cp.created_at,
+           pc.username AS capturer_username, pv.username AS victim_username
+    FROM public.tournament_captured_pieces cp
+    LEFT JOIN public.profiles pc ON pc.id = cp.user_id
+    LEFT JOIN public.profiles pv ON pv.id = cp.victim_id
+    WHERE cp.tournament_id = p_tournament_id
+    ORDER BY cp.created_at DESC, cp.id DESC
+    LIMIT 50
+  ) c;
+
+  RETURN jsonb_build_object(
+    'server_now', now(),
+    'viewer_id',  v_uid,
+    'tournament', v_t,
+    'entries',    v_entries,
+    'matches',    v_matches,
+    'activity',   v_activity,
+    'captures',   v_captures
+  );
+END; $$;
+GRANT EXECUTE ON FUNCTION public.get_tournament_state(UUID) TO anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 75.11 Admin TR panel RPCs
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.admin_tr_overview(TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT);
+CREATE OR REPLACE FUNCTION public.admin_tr_overview(
+  p_status TEXT        DEFAULT NULL,
+  p_search TEXT        DEFAULT NULL,
+  p_from   TIMESTAMPTZ DEFAULT NULL,
+  p_to     TIMESTAMPTZ DEFAULT NULL,
+  p_limit  INT         DEFAULT 60,
+  p_offset INT         DEFAULT 0
+) RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_out JSONB;
+BEGIN
+  IF v_uid IS NULL OR NOT public.has_role(v_uid, 'admin') THEN
+    RAISE EXCEPTION 'Admins only';
+  END IF;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.created_at DESC), '[]'::jsonb)
+  INTO v_out
+  FROM (
+    SELECT
+      t.id, t.name, t.slug, t.status, t.time_control, t.format,
+      t.entry_fee_coins, t.player_count, t.max_players,
+      t.prize_1st, t.prize_2nd, t.prize_3rd, t.prize_4th,
+      t.current_round, t.total_rounds, t.winner_display,
+      t.prizes_distributed, t.created_at, t.starts_at, t.ends_at,
+      COALESCE(fin.fees_collected, 0)  AS fees_collected,
+      COALESCE(fin.refunds_paid, 0)    AS refunds_paid,
+      COALESCE(fin.prizes_paid, 0)     AS prizes_paid,
+      COALESCE(ms.total_matches, 0)    AS total_matches,
+      COALESCE(ms.checkmates, 0)       AS checkmates,
+      COALESCE(ms.resigns, 0)          AS resigns,
+      COALESCE(ms.timeouts, 0)         AS timeouts,
+      COALESCE(ms.no_shows, 0)         AS no_shows,
+      COALESCE(ms.draws, 0)            AS draws,
+      COALESCE(ab.aborted, 0)          AS aborted,
+      COALESCE(cap.captures, 0)        AS captures,
+      COALESCE(cap.capture_points, 0)  AS capture_points
+    FROM public.tournaments t
+    LEFT JOIN LATERAL (
+      SELECT
+        COALESCE(-sum(amount) FILTER (WHERE type = 'tournament_entry'),  0) AS fees_collected,
+        COALESCE( sum(amount) FILTER (WHERE type = 'tournament_refund'), 0) AS refunds_paid,
+        COALESCE( sum(amount) FILTER (WHERE type = 'tournament_prize'),  0) AS prizes_paid
+      FROM public.wallet_transactions wt
+      WHERE wt.reference_id = t.id::text
+    ) fin ON true
+    LEFT JOIN LATERAL (
+      SELECT
+        count(*)                                              AS total_matches,
+        count(*) FILTER (WHERE g.end_reason = 'checkmate')    AS checkmates,
+        count(*) FILTER (WHERE g.end_reason = 'resign')       AS resigns,
+        count(*) FILTER (WHERE g.end_reason = 'timeout')      AS timeouts,
+        count(*) FILTER (WHERE g.end_reason = 'no_show')      AS no_shows,
+        count(*) FILTER (WHERE g.result = 'draw')             AS draws
+      FROM public.tournament_matches tm
+      LEFT JOIN public.games g ON g.id = tm.game_id
+      WHERE tm.tournament_id = t.id
+    ) ms ON true
+    LEFT JOIN LATERAL (
+      -- Abort events come from the ledger: an aborted game gets replaced
+      -- and un-referenced by its match, so the join above can't see it.
+      SELECT count(*) AS aborted
+      FROM public.tournament_match_aborts a
+      JOIN public.tournament_matches tm2 ON tm2.id = a.match_id
+      WHERE tm2.tournament_id = t.id
+    ) ab ON true
+    LEFT JOIN LATERAL (
+      SELECT count(*) AS captures, COALESCE(sum(bonus), 0) AS capture_points
+      FROM public.tournament_captured_pieces cp
+      WHERE cp.tournament_id = t.id
+    ) cap ON true
+    WHERE (p_status IS NULL OR t.status = p_status)
+      AND (p_search IS NULL OR p_search = ''
+           OR t.name ILIKE '%' || p_search || '%'
+           OR t.id::text ILIKE p_search || '%'
+           OR t.slug ILIKE '%' || p_search || '%')
+      AND (p_from IS NULL OR t.created_at >= p_from)
+      AND (p_to   IS NULL OR t.created_at <  p_to)
+    ORDER BY t.created_at DESC
+    LIMIT LEAST(GREATEST(p_limit, 1), 200) OFFSET GREATEST(p_offset, 0)
+  ) r;
+
+  RETURN v_out;
+END; $$;
+REVOKE ALL ON FUNCTION public.admin_tr_overview(TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_tr_overview(TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.admin_tr_finance(UUID);
+CREATE OR REPLACE FUNCTION public.admin_tr_finance(p_tournament_id UUID)
+RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_out JSONB;
+BEGIN
+  IF v_uid IS NULL OR NOT public.has_role(v_uid, 'admin') THEN
+    RAISE EXCEPTION 'Admins only';
+  END IF;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.created_at DESC), '[]'::jsonb)
+  INTO v_out
+  FROM (
+    SELECT wt.id, wt.user_id, p.username, wt.type, wt.amount,
+           wt.balance_after, wt.description, wt.created_at
+    FROM public.wallet_transactions wt
+    LEFT JOIN public.profiles p ON p.id = wt.user_id
+    WHERE wt.reference_id = p_tournament_id::text
+      AND wt.type IN ('tournament_entry', 'tournament_refund', 'tournament_prize')
+    ORDER BY wt.created_at DESC
+    LIMIT 500
+  ) r;
+
+  RETURN v_out;
+END; $$;
+REVOKE ALL ON FUNCTION public.admin_tr_finance(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_tr_finance(UUID) TO authenticated, service_role;
+-- 3. Re-run leaderboard_view and get_dynamic_leaderboard now that their
+--    dependencies exist (bodies unchanged from schema.sql SECTION 19-20).
+CREATE OR REPLACE VIEW public.leaderboard_view AS
+WITH user_ratings AS (
+  SELECT
+    user_id,
+    MAX(CASE WHEN time_class = 'rapid' THEN rating END) as rapid_rating,
+    MAX(CASE WHEN time_class = 'blitz' THEN rating END) as blitz_rating,
+    MAX(CASE WHEN time_class = 'bullet' THEN rating END) as bullet_rating,
+    MAX(CASE WHEN time_class = 'classical' THEN rating END) as classical_rating,
+    SUM(wins) as wins,
+    SUM(losses) as losses,
+    SUM(draws) as draws
+  FROM public.ratings
+  GROUP BY user_id
+)
+SELECT
+    p.id,
+    p.username,
+    COALESCE(p.display_name, p.full_name) as display_name,
+    p.avatar_url,
+    p.title,
+    p.country,
+    p.state,
+    p.district,
+    p.created_at,
+    p.is_online,
+    p.last_seen,
+    p.premium_active,
+    p.premium_expires_at,
+    p.community_score,
+    r.rapid_rating,
+    r.blitz_rating,
+    r.bullet_rating,
+    r.classical_rating,
+    GREATEST(
+        COALESCE(r.rapid_rating, 0),
+        COALESCE(r.blitz_rating, 0),
+        COALESCE(r.bullet_rating, 0),
+        COALESCE(r.classical_rating, 0)
+    )::integer as overall_rating,
+    COALESCE(r.wins, 0)::integer as wins,
+    COALESCE(r.losses, 0)::integer as losses,
+    COALESCE(r.draws, 0)::integer as draws,
+    (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0))::integer as total_matches,
+    CASE
+        WHEN (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0)) > 0
+        THEN (COALESCE(r.wins, 0)::numeric / (COALESCE(r.wins, 0) + COALESCE(r.losses, 0) + COALESCE(r.draws, 0))::numeric) * 100
+        ELSE 0
+    END::numeric as win_rate,
+    p.iq_level,
+    (p.iq_level * 10 + p.community_score * 5 + COALESCE(r.wins, 0) * 15)::integer as xp,
+    (FLOOR(SQRT(p.iq_level * 10 + p.community_score * 5 + COALESCE(r.wins, 0) * 15) / 10) + 1)::integer as level,
+    (SELECT COUNT(*) FROM public.community_achievements ca WHERE ca.user_id = p.id)::integer as achievements_count
+FROM public.profiles p
+LEFT JOIN user_ratings r ON p.id = r.user_id;
+
+CREATE OR REPLACE FUNCTION public.get_dynamic_leaderboard(
+    p_search text DEFAULT '',
+    p_country text DEFAULT NULL,
+    p_state text DEFAULT NULL,
+    p_district text DEFAULT NULL,
+    p_sort_col text DEFAULT 'iq_desc',
+    p_limit integer DEFAULT 25,
+    p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+    id uuid,
+    username text,
+    display_name text,
+    avatar_url text,
+    title text,
+    country text,
+    state text,
+    district text,
+    created_at timestamp with time zone,
+    is_online boolean,
+    last_seen timestamp with time zone,
+    premium_active boolean,
+    premium_expires_at timestamp with time zone,
+    community_score integer,
+    rapid_rating integer,
+    blitz_rating integer,
+    bullet_rating integer,
+    classical_rating integer,
+    overall_rating integer,
+    wins integer,
+    losses integer,
+    draws integer,
+    total_matches integer,
+    win_rate numeric,
+    iq_level integer,
+    xp integer,
+    level integer,
+    achievements_count integer,
+    total_count bigint
+) AS $$
+BEGIN
+    RETURN QUERY
+    WITH filtered_players AS (
+        SELECT v.*
+        FROM public.leaderboard_view v
+        WHERE
+            (p_search = '' OR v.username ILIKE '%' || p_search || '%' OR v.display_name ILIKE '%' || p_search || '%')
+            AND (p_country IS NULL OR v.country = p_country)
+            AND (p_state IS NULL OR v.state = p_state)
+            AND (p_district IS NULL OR v.district = p_district)
+    ),
+    counted_players AS (
+        SELECT COUNT(*) as exact_count FROM filtered_players
+    )
+    SELECT
+        f.id,
+        f.username,
+        f.display_name,
+        f.avatar_url,
+        f.title,
+        f.country,
+        f.state,
+        f.district,
+        f.created_at,
+        f.is_online,
+        f.last_seen,
+        f.premium_active,
+        f.premium_expires_at,
+        f.community_score,
+        f.rapid_rating,
+        f.blitz_rating,
+        f.bullet_rating,
+        f.classical_rating,
+        f.overall_rating,
+        f.wins,
+        f.losses,
+        f.draws,
+        f.total_matches,
+        f.win_rate,
+        f.iq_level,
+        f.xp,
+        f.level,
+        f.achievements_count,
+        c.exact_count as total_count
+    FROM filtered_players f
+    CROSS JOIN counted_players c
+    ORDER BY
+        CASE WHEN p_sort_col = 'iq_desc' THEN f.iq_level END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'iq_asc' THEN f.iq_level END ASC NULLS LAST,
+        CASE WHEN p_sort_col = 'rating_desc' THEN f.overall_rating END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'newest' THEN f.created_at END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'oldest' THEN f.created_at END ASC NULLS LAST,
+        CASE WHEN p_sort_col = 'wins_desc' THEN f.wins END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'matches_desc' THEN f.total_matches END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'winrate_desc' THEN f.win_rate END DESC NULLS LAST,
+        CASE WHEN p_sort_col = 'active_desc' THEN f.last_seen END DESC NULLS LAST
+    LIMIT p_limit
+    OFFSET p_offset;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.get_dynamic_leaderboard(text, text, text, text, text, integer, integer) TO anon, authenticated, service_role;
+
+
+
+DROP FUNCTION IF EXISTS public.get_dynamic_leaderboard(text, text, text, text, text, text, boolean, integer, integer);
+
+
+-- =====================================================================
+-- SECTION 28: CLAN SYSTEM V3 — PRODUCTION REBUILD
+-- ---------------------------------------------------------------------
+-- Ground-up hardening of the clan backend (frontend rebuilt in the same
+-- pass). Fixes found in audit of Sections 25–27 + live DB:
+--   • profiles(...) embeds failed: clan tables FK'd auth.users while
+--     PostgREST needs a direct FK to profiles (community/friends pattern)
+--   • member cap was 20, hardcoded in clan_approve_join, and NOT checked
+--     at all for public joins (cap bypass); now 50, row-locked, everywhere
+--   • clan names were not unique; tag format was unenforced server-side
+--   • reject/join-request + chat delete + declare war were raw table
+--     writes from the client; all privileged mutations are now RPCs
+--   • no activity log, no notifications, no read status, no soft delete
+-- Everything below is idempotent and matches migration
+-- clan_system_v3_production_rebuild applied to the live DB.
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 28.1  STRUCTURE — clans
+-- ---------------------------------------------------------------------
+ALTER TABLE public.clans DROP CONSTRAINT IF EXISTS clans_max_members_check;
+ALTER TABLE public.clans ALTER COLUMN max_members SET DEFAULT 50;
+UPDATE public.clans SET max_members = 50 WHERE max_members <> 50;
+ALTER TABLE public.clans ADD CONSTRAINT clans_max_members_check CHECK (max_members BETWEEN 1 AND 50);
+
+ALTER TABLE public.clans ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
+ALTER TABLE public.clans ADD COLUMN IF NOT EXISTS member_count INT NOT NULL DEFAULT 0;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'clans_name_len') THEN
+    ALTER TABLE public.clans ADD CONSTRAINT clans_name_len CHECK (char_length(name) BETWEEN 3 AND 20);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'clans_tag_format') THEN
+    ALTER TABLE public.clans ADD CONSTRAINT clans_tag_format CHECK (tag ~ '^[A-Z0-9]{3,5}$');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'clans_description_len') THEN
+    ALTER TABLE public.clans ADD CONSTRAINT clans_description_len CHECK (char_length(COALESCE(description, '')) <= 500);
+  END IF;
+END $$;
+
+-- Unique clan names, case-insensitive (slug/tag were already unique).
+DROP INDEX IF EXISTS idx_clans_name_lower;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_clans_name_lower ON public.clans (LOWER(name));
+CREATE INDEX IF NOT EXISTS idx_clans_rank ON public.clans (clan_score DESC, war_wins DESC, clan_rating DESC);
+
+-- ---------------------------------------------------------------------
+-- 28.2  STRUCTURE — members / requests / messages (FKs repointed to
+-- profiles so PostgREST profile embeds resolve, like community/friends)
+-- ---------------------------------------------------------------------
+ALTER TABLE public.clan_members DROP CONSTRAINT IF EXISTS clan_members_user_id_fkey;
+ALTER TABLE public.clan_members
+  ADD CONSTRAINT clan_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+ALTER TABLE public.clan_members ADD COLUMN IF NOT EXISTS war_points INT NOT NULL DEFAULT 0;
+ALTER TABLE public.clan_members ADD COLUMN IF NOT EXISTS last_read_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+ALTER TABLE public.clan_join_requests DROP CONSTRAINT IF EXISTS clan_join_requests_user_id_fkey;
+ALTER TABLE public.clan_join_requests
+  ADD CONSTRAINT clan_join_requests_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+ALTER TABLE public.clan_join_requests ADD COLUMN IF NOT EXISTS message TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.clan_join_requests ADD COLUMN IF NOT EXISTS resolved_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
+ALTER TABLE public.clan_join_requests ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_clan_join_requests_pending_clan ON public.clan_join_requests (clan_id) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_clan_join_requests_pending_user ON public.clan_join_requests (user_id) WHERE status = 'pending';
+
+ALTER TABLE public.clan_invites DROP CONSTRAINT IF EXISTS clan_invites_inviter_id_fkey;
+ALTER TABLE public.clan_invites DROP CONSTRAINT IF EXISTS clan_invites_invitee_id_fkey;
+ALTER TABLE public.clan_invites
+  ADD CONSTRAINT clan_invites_inviter_id_fkey FOREIGN KEY (inviter_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+ALTER TABLE public.clan_invites
+  ADD CONSTRAINT clan_invites_invitee_id_fkey FOREIGN KEY (invitee_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+
+ALTER TABLE public.clan_messages DROP CONSTRAINT IF EXISTS clan_messages_sender_id_fkey;
+ALTER TABLE public.clan_messages
+  ADD CONSTRAINT clan_messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+ALTER TABLE public.clan_messages ADD COLUMN IF NOT EXISTS reply_to UUID REFERENCES public.clan_messages(id) ON DELETE SET NULL;
+ALTER TABLE public.clan_messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE public.clan_messages ADD COLUMN IF NOT EXISTS deleted_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'clan_messages_content_len') THEN
+    ALTER TABLE public.clan_messages ADD CONSTRAINT clan_messages_content_len CHECK (char_length(content) BETWEEN 1 AND 2000);
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS idx_clan_messages_clan_time ON public.clan_messages (clan_id, created_at DESC);
+
+-- ---------------------------------------------------------------------
+-- 28.3  NEW TABLES — activity trail + deletion log
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.clan_activity (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clan_id    UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
+  actor_id   UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  target_id  UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  type       TEXT NOT NULL CHECK (type IN (
+    'created','joined','left','kicked','promoted','demoted','edited',
+    'transferred','request_approved','request_rejected',
+    'war_declared','war_started','war_declined','war_finished'
+  )),
+  meta       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_clan_activity_clan_time ON public.clan_activity (clan_id, created_at DESC);
+
+GRANT SELECT ON public.clan_activity TO authenticated;
+GRANT ALL ON public.clan_activity TO service_role;
+ALTER TABLE public.clan_activity ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Clan activity viewable by members" ON public.clan_activity;
+CREATE POLICY "Clan activity viewable by members" ON public.clan_activity FOR SELECT USING (
+  public.is_admin() OR EXISTS (
+    SELECT 1 FROM public.clan_members WHERE clan_id = public.clan_activity.clan_id AND user_id = auth.uid()
+  )
+);
+
+-- Survives clan deletion so admins can audit disbands ("Deleted Clans").
+CREATE TABLE IF NOT EXISTS public.clan_deletion_log (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clan_id      UUID NOT NULL,
+  name         TEXT NOT NULL,
+  tag          TEXT NOT NULL,
+  member_count INT NOT NULL DEFAULT 0,
+  deleted_by   UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  reason       TEXT NOT NULL DEFAULT '',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+GRANT SELECT ON public.clan_deletion_log TO authenticated;
+GRANT ALL ON public.clan_deletion_log TO service_role;
+ALTER TABLE public.clan_deletion_log ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admins view clan deletion log" ON public.clan_deletion_log;
+CREATE POLICY "Admins view clan deletion log" ON public.clan_deletion_log FOR SELECT USING (public.is_admin());
+
+-- ---------------------------------------------------------------------
+-- 28.4  TRIGGERS — live member_count + message integrity
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public._clan_sync_member_count()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE public.clans SET member_count = member_count + 1 WHERE id = NEW.clan_id;
+    RETURN NEW;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE public.clans SET member_count = GREATEST(member_count - 1, 0) WHERE id = OLD.clan_id;
+    RETURN OLD;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_clan_member_count ON public.clan_members;
+CREATE TRIGGER trg_clan_member_count
+  AFTER INSERT OR DELETE ON public.clan_members
+  FOR EACH ROW EXECUTE FUNCTION public._clan_sync_member_count();
+
+UPDATE public.clans c
+SET member_count = (SELECT COUNT(*) FROM public.clan_members m WHERE m.clan_id = c.id);
+
+-- Replies must stay inside the same clan.
+CREATE OR REPLACE FUNCTION public._clan_message_guard()
+RETURNS TRIGGER LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF NEW.reply_to IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM public.clan_messages m WHERE m.id = NEW.reply_to AND m.clan_id = NEW.clan_id
+  ) THEN
+    RAISE EXCEPTION 'Reply target not found in this clan';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_clan_message_guard ON public.clan_messages;
+CREATE TRIGGER trg_clan_message_guard
+  BEFORE INSERT ON public.clan_messages
+  FOR EACH ROW EXECUTE FUNCTION public._clan_message_guard();
+
+-- ---------------------------------------------------------------------
+-- 28.5  LEADERBOARD VIEW — counter column + global rank
+-- ---------------------------------------------------------------------
+DROP VIEW IF EXISTS public.clan_leaderboard;
+CREATE VIEW public.clan_leaderboard AS
+SELECT
+  c.id, c.slug, c.name, c.tag, c.description, c.logo_url, c.banner_url,
+  c.country, c.language, c.privacy, c.max_members, c.member_count,
+  c.clan_rating, c.clan_score, c.war_wins, c.war_losses, c.war_draws,
+  c.total_wars, c.clan_level, c.clan_xp, c.created_at,
+  RANK() OVER (ORDER BY c.clan_score DESC, c.war_wins DESC, c.clan_rating DESC, c.created_at ASC) AS global_rank
+FROM public.clans c;
+GRANT SELECT ON public.clan_leaderboard TO authenticated, anon;
+
+-- ---------------------------------------------------------------------
+-- 28.6  RLS — reads stay open where public, privileged writes RPC-only
+-- ---------------------------------------------------------------------
+-- Join requests: admins can audit; approve/reject now go through RPCs so
+-- the direct UPDATE path is closed.
+DROP POLICY IF EXISTS "Officers manage join requests" ON public.clan_join_requests;
+DROP POLICY IF EXISTS "View own join requests" ON public.clan_join_requests;
+CREATE POLICY "View own join requests" ON public.clan_join_requests FOR SELECT USING (
+  auth.uid() = user_id OR public.is_admin() OR EXISTS (
+    SELECT 1 FROM public.clan_members
+    WHERE clan_id = public.clan_join_requests.clan_id AND user_id = auth.uid() AND role IN ('leader', 'co_leader')
+  )
+);
+
+-- Messages: members read their clan's chat (admins can audit, incl. the
+-- soft-deleted rows); sending stays a direct INSERT (RLS-gated, fast
+-- path) but only as 'text' — system events are minted by RPCs alone.
+-- Hard DELETE and direct UPDATE are closed; deletion is clan_delete_message.
+DROP POLICY IF EXISTS "Clan members can chat" ON public.clan_messages;
+CREATE POLICY "Clan members can chat" ON public.clan_messages FOR SELECT USING (
+  public.is_admin() OR EXISTS (
+    SELECT 1 FROM public.clan_members WHERE clan_id = public.clan_messages.clan_id AND user_id = auth.uid()
+  )
+);
+DROP POLICY IF EXISTS "Clan members can send messages" ON public.clan_messages;
+CREATE POLICY "Clan members can send messages" ON public.clan_messages FOR INSERT WITH CHECK (
+  auth.uid() = sender_id
+  AND content_type = 'text'
+  AND deleted_at IS NULL
+  AND EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = public.clan_messages.clan_id AND user_id = auth.uid())
+);
+DROP POLICY IF EXISTS "Clan members/mods can delete messages" ON public.clan_messages;
+
+-- Wars: declaring/responding are leader-only RPCs now.
+DROP POLICY IF EXISTS "Clan officers can declare war" ON public.clan_wars;
+DROP POLICY IF EXISTS "Clan officers can update war status" ON public.clan_wars;
+
+-- Realtime for the activity feed.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'clan_activity'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.clan_activity;
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 28.7  INTERNAL HELPERS (not client-callable)
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public._clan_notify(p_user_id UUID, p_kind TEXT, p_title TEXT, p_body TEXT, p_link TEXT)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  INSERT INTO public.notifications (user_id, type, kind, title, message, body, link)
+  VALUES (p_user_id, p_kind, p_kind, p_title, COALESCE(p_body, ''), p_body, p_link);
+EXCEPTION WHEN OTHERS THEN
+  NULL; -- a notification failure must never roll back the action itself
+END;
+$$;
+REVOKE ALL ON FUNCTION public._clan_notify(UUID, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public._clan_notify_officers(p_clan_id UUID, p_kind TEXT, p_title TEXT, p_body TEXT, p_link TEXT, p_exclude UUID DEFAULT NULL)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_officer UUID;
+BEGIN
+  FOR v_officer IN
+    SELECT user_id FROM public.clan_members
+    WHERE clan_id = p_clan_id AND role IN ('leader', 'co_leader')
+      AND (p_exclude IS NULL OR user_id <> p_exclude)
+  LOOP
+    PERFORM public._clan_notify(v_officer, p_kind, p_title, p_body, p_link);
+  END LOOP;
+END;
+$$;
+REVOKE ALL ON FUNCTION public._clan_notify_officers(UUID, TEXT, TEXT, TEXT, TEXT, UUID) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public._clan_log(p_clan_id UUID, p_actor UUID, p_target UUID, p_type TEXT, p_meta JSONB DEFAULT '{}'::jsonb)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  INSERT INTO public.clan_activity (clan_id, actor_id, target_id, type, meta)
+  VALUES (p_clan_id, p_actor, p_target, p_type, COALESCE(p_meta, '{}'::jsonb));
+END;
+$$;
+REVOKE ALL ON FUNCTION public._clan_log(UUID, UUID, UUID, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public._clan_system_message(p_clan_id UUID, p_actor UUID, p_text TEXT)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  INSERT INTO public.clan_messages (clan_id, sender_id, content, content_type)
+  VALUES (p_clan_id, p_actor, p_text, 'system');
+EXCEPTION WHEN OTHERS THEN
+  NULL; -- system chat lines are best-effort
+END;
+$$;
+REVOKE ALL ON FUNCTION public._clan_system_message(UUID, UUID, TEXT) FROM PUBLIC, anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 28.8  RPCs — lifecycle (create / join / requests)
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.clan_create(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
+CREATE OR REPLACE FUNCTION public.clan_create(
+  p_name TEXT,
+  p_tag TEXT,
+  p_description TEXT,
+  p_country TEXT,
+  p_language TEXT,
+  p_privacy TEXT,
+  p_logo_url TEXT,
+  p_banner_url TEXT
+) RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_name TEXT := trim(p_name);
+  v_tag TEXT := UPPER(trim(p_tag));
+  v_slug TEXT;
+  v_clan_id UUID;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  IF v_name IS NULL OR char_length(v_name) < 3 OR char_length(v_name) > 20 THEN
+    RAISE EXCEPTION 'Clan name must be between 3 and 20 characters';
+  END IF;
+  IF v_tag IS NULL OR v_tag !~ '^[A-Z0-9]{3,5}$' THEN
+    RAISE EXCEPTION 'Clan tag must be 3-5 letters or numbers';
+  END IF;
+  IF char_length(COALESCE(p_description, '')) > 500 THEN
+    RAISE EXCEPTION 'Description must be 500 characters or fewer';
+  END IF;
+  IF p_privacy NOT IN ('public', 'private', 'invite_only') THEN
+    RAISE EXCEPTION 'Invalid privacy setting';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.clan_members WHERE user_id = v_user_id) THEN
+    RAISE EXCEPTION 'You are already in a clan';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.clans WHERE LOWER(name) = LOWER(v_name)) THEN
+    RAISE EXCEPTION 'Clan name is already taken';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.clans WHERE tag = v_tag) THEN
+    RAISE EXCEPTION 'Clan tag is already taken';
+  END IF;
+
+  v_slug := trim(both '-' from LOWER(REGEXP_REPLACE(v_name, '[^a-zA-Z0-9]+', '-', 'g')));
+  IF v_slug = '' THEN v_slug := 'clan'; END IF;
+  v_slug := v_slug || '-' || substr(md5(gen_random_uuid()::text), 1, 6);
+
+  INSERT INTO public.clans (slug, name, tag, description, country, language, privacy, logo_url, banner_url, created_by)
+  VALUES (
+    v_slug, v_name, v_tag, COALESCE(p_description, ''),
+    COALESCE(NULLIF(trim(p_country), ''), 'International'),
+    COALESCE(NULLIF(trim(p_language), ''), 'English'),
+    p_privacy::public.clan_privacy, NULLIF(p_logo_url, ''), NULLIF(p_banner_url, ''), v_user_id
+  ) RETURNING id INTO v_clan_id;
+
+  INSERT INTO public.clan_members (clan_id, user_id, role) VALUES (v_clan_id, v_user_id, 'leader');
+
+  -- Creator is in a clan now; withdraw their pending requests everywhere.
+  DELETE FROM public.clan_join_requests WHERE user_id = v_user_id AND status = 'pending';
+
+  PERFORM public._clan_log(v_clan_id, v_user_id, NULL, 'created', jsonb_build_object('name', v_name, 'tag', v_tag));
+  PERFORM public._clan_system_message(v_clan_id, v_user_id, 'Clan founded. Welcome!');
+
+  RETURN v_clan_id;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_create(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated;
+
+DROP FUNCTION IF EXISTS public.clan_request_join(UUID);
+CREATE OR REPLACE FUNCTION public.clan_request_join(p_clan_id UUID)
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_clan public.clans;
+  v_username TEXT;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  IF EXISTS (SELECT 1 FROM public.clan_members WHERE user_id = v_user_id) THEN
+    RAISE EXCEPTION 'You are already in a clan';
+  END IF;
+
+  -- Row lock serializes concurrent joins against the member cap.
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Clan not found'; END IF;
+
+  IF v_clan.member_count >= v_clan.max_members THEN
+    RAISE EXCEPTION 'Clan is full';
+  END IF;
+  IF v_clan.privacy = 'invite_only' THEN
+    RAISE EXCEPTION 'This clan is invite only';
+  END IF;
+
+  IF v_clan.privacy = 'public' THEN
+    INSERT INTO public.clan_members (clan_id, user_id, role) VALUES (p_clan_id, v_user_id, 'member');
+    DELETE FROM public.clan_join_requests WHERE user_id = v_user_id AND status = 'pending';
+    PERFORM public._clan_log(p_clan_id, v_user_id, v_user_id, 'joined');
+    SELECT username INTO v_username FROM public.profiles WHERE id = v_user_id;
+    PERFORM public._clan_system_message(p_clan_id, v_user_id, COALESCE(v_username, 'A player') || ' joined the clan');
+    RETURN 'joined';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.clan_join_requests
+    WHERE clan_id = p_clan_id AND user_id = v_user_id AND status = 'pending'
+  ) THEN
+    RAISE EXCEPTION 'Your join request is already pending';
+  END IF;
+
+  INSERT INTO public.clan_join_requests (clan_id, user_id, status)
+  VALUES (p_clan_id, v_user_id, 'pending')
+  ON CONFLICT (clan_id, user_id)
+  DO UPDATE SET status = 'pending', created_at = now(), resolved_by = NULL, resolved_at = NULL;
+
+  SELECT username INTO v_username FROM public.profiles WHERE id = v_user_id;
+  PERFORM public._clan_notify_officers(
+    p_clan_id, 'clan_request', 'New join request',
+    COALESCE(v_username, 'A player') || ' wants to join ' || v_clan.name,
+    '/clan/' || v_clan.slug
+  );
+  RETURN 'requested';
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_request_join(UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.clan_cancel_join_request(p_clan_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  DELETE FROM public.clan_join_requests
+  WHERE clan_id = p_clan_id AND user_id = v_user_id AND status = 'pending';
+  IF NOT FOUND THEN RAISE EXCEPTION 'No pending request to cancel'; END IF;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_cancel_join_request(UUID) TO authenticated;
+
+DROP FUNCTION IF EXISTS public.clan_approve_join(UUID);
+CREATE OR REPLACE FUNCTION public.clan_approve_join(p_request_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_req public.clan_join_requests;
+  v_clan public.clans;
+  v_username TEXT;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  SELECT * INTO v_req FROM public.clan_join_requests WHERE id = p_request_id AND status = 'pending' FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Request not found or already handled'; END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.clan_members
+    WHERE clan_id = v_req.clan_id AND user_id = v_user_id AND role IN ('leader', 'co_leader')
+  ) THEN
+    RAISE EXCEPTION 'Only the leader or a co-leader can approve requests';
+  END IF;
+
+  SELECT * INTO v_clan FROM public.clans WHERE id = v_req.clan_id FOR UPDATE;
+  IF v_clan.member_count >= v_clan.max_members THEN
+    RAISE EXCEPTION 'Clan is full';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.clan_members WHERE user_id = v_req.user_id) THEN
+    UPDATE public.clan_join_requests
+    SET status = 'rejected', resolved_by = v_user_id, resolved_at = now()
+    WHERE id = p_request_id;
+    RAISE EXCEPTION 'This player already joined another clan';
+  END IF;
+
+  UPDATE public.clan_join_requests
+  SET status = 'accepted', resolved_by = v_user_id, resolved_at = now()
+  WHERE id = p_request_id;
+
+  INSERT INTO public.clan_members (clan_id, user_id, role) VALUES (v_req.clan_id, v_req.user_id, 'member');
+
+  -- One clan per player: withdraw their other pending requests.
+  DELETE FROM public.clan_join_requests
+  WHERE user_id = v_req.user_id AND status = 'pending' AND id <> p_request_id;
+
+  PERFORM public._clan_log(v_req.clan_id, v_user_id, v_req.user_id, 'request_approved');
+  PERFORM public._clan_log(v_req.clan_id, v_req.user_id, v_req.user_id, 'joined');
+  SELECT username INTO v_username FROM public.profiles WHERE id = v_req.user_id;
+  PERFORM public._clan_system_message(v_req.clan_id, v_req.user_id, COALESCE(v_username, 'A player') || ' joined the clan');
+  PERFORM public._clan_notify(
+    v_req.user_id, 'clan_accepted', 'Join request accepted',
+    'Welcome to ' || v_clan.name || ' [' || v_clan.tag || ']',
+    '/clan/' || v_clan.slug
+  );
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_approve_join(UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.clan_reject_join(p_request_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_req public.clan_join_requests;
+  v_clan_name TEXT;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  SELECT * INTO v_req FROM public.clan_join_requests WHERE id = p_request_id AND status = 'pending' FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Request not found or already handled'; END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.clan_members
+    WHERE clan_id = v_req.clan_id AND user_id = v_user_id AND role IN ('leader', 'co_leader')
+  ) THEN
+    RAISE EXCEPTION 'Only the leader or a co-leader can reject requests';
+  END IF;
+
+  UPDATE public.clan_join_requests
+  SET status = 'rejected', resolved_by = v_user_id, resolved_at = now()
+  WHERE id = p_request_id;
+
+  SELECT name INTO v_clan_name FROM public.clans WHERE id = v_req.clan_id;
+  PERFORM public._clan_log(v_req.clan_id, v_user_id, v_req.user_id, 'request_rejected');
+  PERFORM public._clan_notify(
+    v_req.user_id, 'clan_rejected', 'Join request declined',
+    'Your request to join ' || COALESCE(v_clan_name, 'the clan') || ' was declined', '/clans'
+  );
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_reject_join(UUID) TO authenticated;
+
+-- ---------------------------------------------------------------------
+-- 28.9  RPCs — membership management
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.clan_promote_member(UUID, UUID);
+CREATE OR REPLACE FUNCTION public.clan_promote_member(p_clan_id UUID, p_user_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_caller_id UUID := auth.uid();
+  v_clan public.clans;
+  v_username TEXT;
+BEGIN
+  IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_caller_id AND role = 'leader') THEN
+    RAISE EXCEPTION 'Only the leader can promote members';
+  END IF;
+
+  UPDATE public.clan_members SET role = 'co_leader'
+  WHERE clan_id = p_clan_id AND user_id = p_user_id AND role = 'member';
+  IF NOT FOUND THEN RAISE EXCEPTION 'Player not found or already a co-leader'; END IF;
+
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id;
+  SELECT username INTO v_username FROM public.profiles WHERE id = p_user_id;
+  PERFORM public._clan_log(p_clan_id, v_caller_id, p_user_id, 'promoted');
+  PERFORM public._clan_system_message(p_clan_id, p_user_id, COALESCE(v_username, 'A player') || ' was promoted to Co-Leader');
+  PERFORM public._clan_notify(p_user_id, 'clan_promotion', 'You were promoted',
+    'You are now a Co-Leader of ' || v_clan.name, '/clan/' || v_clan.slug);
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_promote_member(UUID, UUID) TO authenticated;
+
+DROP FUNCTION IF EXISTS public.clan_demote_member(UUID, UUID);
+CREATE OR REPLACE FUNCTION public.clan_demote_member(p_clan_id UUID, p_user_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_caller_id UUID := auth.uid();
+  v_clan public.clans;
+  v_username TEXT;
+BEGIN
+  IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_caller_id AND role = 'leader') THEN
+    RAISE EXCEPTION 'Only the leader can demote co-leaders';
+  END IF;
+
+  UPDATE public.clan_members SET role = 'member'
+  WHERE clan_id = p_clan_id AND user_id = p_user_id AND role = 'co_leader';
+  IF NOT FOUND THEN RAISE EXCEPTION 'Player not found or not a co-leader'; END IF;
+
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id;
+  SELECT username INTO v_username FROM public.profiles WHERE id = p_user_id;
+  PERFORM public._clan_log(p_clan_id, v_caller_id, p_user_id, 'demoted');
+  PERFORM public._clan_system_message(p_clan_id, p_user_id, COALESCE(v_username, 'A player') || ' was demoted to Member');
+  PERFORM public._clan_notify(p_user_id, 'clan_demotion', 'Role changed',
+    'You are now a Member of ' || v_clan.name, '/clan/' || v_clan.slug);
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_demote_member(UUID, UUID) TO authenticated;
+
+DROP FUNCTION IF EXISTS public.clan_kick_member(UUID, UUID);
+CREATE OR REPLACE FUNCTION public.clan_kick_member(p_clan_id UUID, p_user_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_caller_id UUID := auth.uid();
+  v_caller_role public.clan_role;
+  v_target_role public.clan_role;
+  v_clan public.clans;
+  v_username TEXT;
+BEGIN
+  IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  IF v_caller_id = p_user_id THEN RAISE EXCEPTION 'Use Leave Clan instead of kicking yourself'; END IF;
+
+  SELECT role INTO v_caller_role FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_caller_id;
+  IF v_caller_role IS NULL OR v_caller_role = 'member' THEN RAISE EXCEPTION 'Not authorized to kick'; END IF;
+
+  SELECT role INTO v_target_role FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = p_user_id;
+  IF v_target_role IS NULL THEN RAISE EXCEPTION 'Player is not in this clan'; END IF;
+  IF v_target_role = 'leader' THEN RAISE EXCEPTION 'The leader cannot be kicked'; END IF;
+  IF v_target_role = 'co_leader' AND v_caller_role <> 'leader' THEN
+    RAISE EXCEPTION 'Only the leader can kick a co-leader';
+  END IF;
+
+  DELETE FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = p_user_id;
+
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id;
+  SELECT username INTO v_username FROM public.profiles WHERE id = p_user_id;
+  PERFORM public._clan_log(p_clan_id, v_caller_id, p_user_id, 'kicked');
+  PERFORM public._clan_system_message(p_clan_id, v_caller_id, COALESCE(v_username, 'A player') || ' was removed from the clan');
+  PERFORM public._clan_notify(p_user_id, 'clan_kick', 'Removed from clan',
+    'You were removed from ' || v_clan.name, '/clans');
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_kick_member(UUID, UUID) TO authenticated;
+
+-- Spec: the leader must transfer leadership before leaving. Leaving as
+-- the last member deletes (and logs) the clan.
+DROP FUNCTION IF EXISTS public.clan_leave(UUID);
+CREATE OR REPLACE FUNCTION public.clan_leave(p_clan_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_role public.clan_role;
+  v_clan public.clans;
+  v_username TEXT;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  SELECT role INTO v_role FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id;
+  IF v_role IS NULL THEN RAISE EXCEPTION 'You are not a member of this clan'; END IF;
+
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id FOR UPDATE;
+
+  IF v_role = 'leader' AND v_clan.member_count > 1 THEN
+    RAISE EXCEPTION 'Transfer leadership before leaving the clan';
+  END IF;
+
+  DELETE FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id;
+
+  IF v_clan.member_count <= 1 THEN
+    INSERT INTO public.clan_deletion_log (clan_id, name, tag, member_count, deleted_by, reason)
+    VALUES (v_clan.id, v_clan.name, v_clan.tag, 0, v_user_id, 'Last member left');
+    DELETE FROM public.clans WHERE id = p_clan_id;
+  ELSE
+    SELECT username INTO v_username FROM public.profiles WHERE id = v_user_id;
+    PERFORM public._clan_log(p_clan_id, v_user_id, v_user_id, 'left');
+    PERFORM public._clan_system_message(p_clan_id, v_user_id, COALESCE(v_username, 'A player') || ' left the clan');
+  END IF;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_leave(UUID) TO authenticated;
+
+DROP FUNCTION IF EXISTS public.clan_transfer_leadership(UUID, UUID);
+CREATE OR REPLACE FUNCTION public.clan_transfer_leadership(p_clan_id UUID, p_new_leader_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_clan public.clans;
+  v_username TEXT;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  IF v_user_id = p_new_leader_id THEN RAISE EXCEPTION 'You are already the leader'; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id AND role = 'leader') THEN
+    RAISE EXCEPTION 'Only the leader can transfer leadership';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = p_new_leader_id) THEN
+    RAISE EXCEPTION 'Target player is not in this clan';
+  END IF;
+
+  UPDATE public.clan_members SET role = 'co_leader' WHERE clan_id = p_clan_id AND user_id = v_user_id;
+  UPDATE public.clan_members SET role = 'leader' WHERE clan_id = p_clan_id AND user_id = p_new_leader_id;
+
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id;
+  SELECT username INTO v_username FROM public.profiles WHERE id = p_new_leader_id;
+  PERFORM public._clan_log(p_clan_id, v_user_id, p_new_leader_id, 'transferred');
+  PERFORM public._clan_system_message(p_clan_id, p_new_leader_id, COALESCE(v_username, 'A player') || ' is the new clan Leader');
+  PERFORM public._clan_notify(p_new_leader_id, 'clan_transfer', 'You are the new Leader',
+    'Leadership of ' || v_clan.name || ' was transferred to you', '/clan/' || v_clan.slug);
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_transfer_leadership(UUID, UUID) TO authenticated;
+
+-- ---------------------------------------------------------------------
+-- 28.10  RPCs — clan settings / disband (leader only, per spec)
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.clan_update_details(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
+CREATE OR REPLACE FUNCTION public.clan_update_details(
+  p_clan_id UUID,
+  p_name TEXT DEFAULT NULL,
+  p_description TEXT DEFAULT NULL,
+  p_country TEXT DEFAULT NULL,
+  p_language TEXT DEFAULT NULL,
+  p_privacy TEXT DEFAULT NULL,
+  p_logo_url TEXT DEFAULT NULL,
+  p_banner_url TEXT DEFAULT NULL
+) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_name TEXT := NULLIF(trim(COALESCE(p_name, '')), '');
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id AND role = 'leader') THEN
+    RAISE EXCEPTION 'Only the leader can edit clan details';
+  END IF;
+
+  IF v_name IS NOT NULL THEN
+    IF char_length(v_name) < 3 OR char_length(v_name) > 20 THEN
+      RAISE EXCEPTION 'Clan name must be between 3 and 20 characters';
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.clans WHERE LOWER(name) = LOWER(v_name) AND id <> p_clan_id) THEN
+      RAISE EXCEPTION 'Clan name is already taken';
+    END IF;
+  END IF;
+  IF p_description IS NOT NULL AND char_length(p_description) > 500 THEN
+    RAISE EXCEPTION 'Description must be 500 characters or fewer';
+  END IF;
+  IF p_privacy IS NOT NULL AND p_privacy NOT IN ('public', 'private', 'invite_only') THEN
+    RAISE EXCEPTION 'Invalid privacy setting';
+  END IF;
+
+  UPDATE public.clans SET
+    name        = COALESCE(v_name, name),
+    description = COALESCE(p_description, description),
+    country     = COALESCE(NULLIF(trim(p_country), ''), country),
+    language    = COALESCE(NULLIF(trim(p_language), ''), language),
+    privacy     = COALESCE(NULLIF(p_privacy, '')::public.clan_privacy, privacy),
+    logo_url    = COALESCE(NULLIF(p_logo_url, ''), logo_url),
+    banner_url  = COALESCE(NULLIF(p_banner_url, ''), banner_url)
+  WHERE id = p_clan_id;
+
+  PERFORM public._clan_log(p_clan_id, v_user_id, NULL, 'edited');
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_update_details(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated;
+
+DROP FUNCTION IF EXISTS public.clan_disband(UUID);
+CREATE OR REPLACE FUNCTION public.clan_disband(p_clan_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_clan public.clans;
+  v_member UUID;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id AND role = 'leader') THEN
+    RAISE EXCEPTION 'Only the leader can disband the clan';
+  END IF;
+
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id FOR UPDATE;
+
+  FOR v_member IN SELECT user_id FROM public.clan_members WHERE clan_id = p_clan_id AND user_id <> v_user_id LOOP
+    PERFORM public._clan_notify(v_member, 'clan_disband', 'Clan disbanded',
+      v_clan.name || ' [' || v_clan.tag || '] was disbanded by its leader', '/clans');
+  END LOOP;
+
+  INSERT INTO public.clan_deletion_log (clan_id, name, tag, member_count, deleted_by, reason)
+  VALUES (v_clan.id, v_clan.name, v_clan.tag, v_clan.member_count, v_user_id, 'Disbanded by leader');
+
+  DELETE FROM public.clans WHERE id = p_clan_id;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_disband(UUID) TO authenticated;
+
+-- ---------------------------------------------------------------------
+-- 28.11  RPCs — chat (soft delete + read status)
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.clan_delete_message(p_message_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_msg public.clan_messages;
+  v_can BOOLEAN;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  SELECT * INTO v_msg FROM public.clan_messages WHERE id = p_message_id AND deleted_at IS NULL;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Message not found'; END IF;
+
+  v_can := v_msg.sender_id = v_user_id
+    OR public.is_admin()
+    OR EXISTS (
+      SELECT 1 FROM public.clan_members
+      WHERE clan_id = v_msg.clan_id AND user_id = v_user_id AND role IN ('leader', 'co_leader')
+    );
+  IF NOT v_can THEN RAISE EXCEPTION 'You can only delete your own messages'; END IF;
+
+  UPDATE public.clan_messages SET deleted_at = now(), deleted_by = v_user_id WHERE id = p_message_id;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_delete_message(UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.clan_mark_read(p_clan_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  UPDATE public.clan_members SET last_read_at = now()
+  WHERE clan_id = p_clan_id AND user_id = auth.uid();
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_mark_read(UUID) TO authenticated;
+
+-- ---------------------------------------------------------------------
+-- 28.12  RPCs — wars (declare: leader only; respond: defender leader)
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.clan_declare_war(p_defender_clan_id UUID)
+RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_my_clan_id UUID;
+  v_war_id UUID;
+  v_my_clan public.clans;
+  v_defender public.clans;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  SELECT clan_id INTO v_my_clan_id FROM public.clan_members WHERE user_id = v_user_id AND role = 'leader';
+  IF v_my_clan_id IS NULL THEN RAISE EXCEPTION 'Only the clan leader can start wars'; END IF;
+  IF v_my_clan_id = p_defender_clan_id THEN RAISE EXCEPTION 'You cannot declare war on your own clan'; END IF;
+
+  SELECT * INTO v_defender FROM public.clans WHERE id = p_defender_clan_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Clan not found'; END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.clan_wars
+    WHERE status IN ('pending', 'accepted', 'active')
+      AND ((challenger_clan_id = v_my_clan_id AND defender_clan_id = p_defender_clan_id)
+        OR (challenger_clan_id = p_defender_clan_id AND defender_clan_id = v_my_clan_id))
+  ) THEN
+    RAISE EXCEPTION 'A war with this clan is already in progress';
+  END IF;
+
+  INSERT INTO public.clan_wars (challenger_clan_id, defender_clan_id, status)
+  VALUES (v_my_clan_id, p_defender_clan_id, 'pending')
+  RETURNING id INTO v_war_id;
+
+  SELECT * INTO v_my_clan FROM public.clans WHERE id = v_my_clan_id;
+  PERFORM public._clan_log(v_my_clan_id, v_user_id, NULL, 'war_declared', jsonb_build_object('opponent', v_defender.name));
+  PERFORM public._clan_notify_officers(
+    p_defender_clan_id, 'clan_war', 'War declaration',
+    v_my_clan.name || ' [' || v_my_clan.tag || '] declared war on your clan',
+    '/clan/' || v_defender.slug
+  );
+  RETURN v_war_id;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_declare_war(UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.clan_respond_war(p_war_id UUID, p_accept BOOLEAN)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_war public.clan_wars;
+  v_challenger public.clans;
+  v_defender public.clans;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  SELECT * INTO v_war FROM public.clan_wars WHERE id = p_war_id AND status = 'pending' FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'War not found or already answered'; END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.clan_members
+    WHERE clan_id = v_war.defender_clan_id AND user_id = v_user_id AND role = 'leader'
+  ) THEN
+    RAISE EXCEPTION 'Only the defending clan leader can respond';
+  END IF;
+
+  SELECT * INTO v_challenger FROM public.clans WHERE id = v_war.challenger_clan_id;
+  SELECT * INTO v_defender FROM public.clans WHERE id = v_war.defender_clan_id;
+
+  IF p_accept THEN
+    UPDATE public.clan_wars SET status = 'active', starts_at = now() WHERE id = p_war_id;
+    PERFORM public._clan_log(v_war.challenger_clan_id, v_user_id, NULL, 'war_started', jsonb_build_object('opponent', v_defender.name));
+    PERFORM public._clan_log(v_war.defender_clan_id, v_user_id, NULL, 'war_started', jsonb_build_object('opponent', v_challenger.name));
+    PERFORM public._clan_notify_officers(v_war.challenger_clan_id, 'clan_war', 'War accepted',
+      v_defender.name || ' accepted your war declaration', '/clan/' || v_challenger.slug);
+  ELSE
+    DELETE FROM public.clan_wars WHERE id = p_war_id;
+    PERFORM public._clan_log(v_war.defender_clan_id, v_user_id, NULL, 'war_declined', jsonb_build_object('opponent', v_challenger.name));
+    PERFORM public._clan_notify_officers(v_war.challenger_clan_id, 'clan_war', 'War declined',
+      v_defender.name || ' declined your war declaration', '/clan/' || v_challenger.slug);
+  END IF;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_respond_war(UUID, BOOLEAN) TO authenticated;
+
+-- ---------------------------------------------------------------------
+-- 28.13  RPC — admin clan removal (audited)
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.admin_delete_clan(p_clan_id UUID, p_reason TEXT DEFAULT '')
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_clan public.clans;
+  v_member UUID;
+BEGIN
+  IF v_user_id IS NULL OR NOT public.is_admin() THEN RAISE EXCEPTION 'Admin access required'; END IF;
+
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Clan not found'; END IF;
+
+  FOR v_member IN SELECT user_id FROM public.clan_members WHERE clan_id = p_clan_id LOOP
+    PERFORM public._clan_notify(v_member, 'clan_disband', 'Clan removed',
+      v_clan.name || ' [' || v_clan.tag || '] was removed by moderation'
+      || CASE WHEN COALESCE(p_reason, '') <> '' THEN ': ' || p_reason ELSE '' END, '/clans');
+  END LOOP;
+
+  INSERT INTO public.clan_deletion_log (clan_id, name, tag, member_count, deleted_by, reason)
+  VALUES (v_clan.id, v_clan.name, v_clan.tag, v_clan.member_count, v_user_id,
+    'Removed by admin' || CASE WHEN COALESCE(p_reason, '') <> '' THEN ': ' || p_reason ELSE '' END);
+
+  DELETE FROM public.clans WHERE id = p_clan_id;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.admin_delete_clan(UUID, TEXT) TO authenticated;
+
+
+-- =====================================================================
+-- SECTION 29: CLAN SYSTEM V3 — HARDENING PASS
+-- ---------------------------------------------------------------------
+-- 1) Postgres grants EXECUTE on new functions to PUBLIC by default, so
+--    every clan RPC created in Section 28 was silently callable by the
+--    unauthenticated `anon` role via PostgREST (flagged by the security
+--    advisor). Each RPC already checks auth.uid() IS NULL and rejects,
+--    but that's not defense in depth — explicitly revoke PUBLIC/anon.
+-- 2) Drop four orphaned functions from an abandoned earlier clan-war
+--    design (increment_clan_wars, update_clan_war_scores,
+--    start_clan_war_matches, update_clan_member_count). They reference
+--    columns/tables that do not exist on the current schema
+--    (clans.war_points, clans.total_members, clan_wars.score_a/score_b/
+--    lineup_a/lineup_b, clan_war_matches) — calling any of them errors
+--    at runtime. Confirmed unreferenced by any client code.
+-- 3) _clan_sync_member_count is a trigger-only helper; it doesn't need
+--    direct RPC exposure at all.
+-- =====================================================================
+
+DROP FUNCTION IF EXISTS public.increment_clan_wars(UUID, BOOLEAN);
+DROP FUNCTION IF EXISTS public.update_clan_war_scores(UUID, INT, INT);
+DROP TRIGGER IF EXISTS trg_start_clan_war_matches ON public.clan_wars;
+DROP FUNCTION IF EXISTS public.start_clan_war_matches();
+DROP FUNCTION IF EXISTS public.update_clan_member_count(UUID, INT);
+
+REVOKE ALL ON FUNCTION public._clan_sync_member_count() FROM PUBLIC, anon, authenticated;
+
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname IN (
+        'clan_create','clan_request_join','clan_cancel_join_request','clan_approve_join',
+        'clan_reject_join','clan_promote_member','clan_demote_member','clan_kick_member',
+        'clan_leave','clan_transfer_leadership','clan_update_details','clan_disband',
+        'clan_delete_message','clan_mark_read','clan_declare_war','clan_respond_war',
+        'admin_delete_clan'
+      )
+  LOOP
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon;', r.sig);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated;', r.sig);
+  END LOOP;
+END $$;
+
+
+
+
+
+-- =====================================================================
+-- SECTION 28: CLAN SYSTEM V3 — PRODUCTION REBUILD
+-- ---------------------------------------------------------------------
+-- Ground-up hardening of the clan backend (frontend rebuilt in the same
+-- pass). Fixes found in audit of Sections 25–27 + live DB:
+--   • profiles(...) embeds failed: clan tables FK'd auth.users while
+--     PostgREST needs a direct FK to profiles (community/friends pattern)
+--   • member cap was 20, hardcoded in clan_approve_join, and NOT checked
+--     at all for public joins (cap bypass); now 50, row-locked, everywhere
+--   • clan names were not unique; tag format was unenforced server-side
+--   • reject/join-request + chat delete + declare war were raw table
+--     writes from the client; all privileged mutations are now RPCs
+--   • no activity log, no notifications, no read status, no soft delete
+-- Everything below is idempotent and matches migration
+-- clan_system_v3_production_rebuild applied to the live DB.
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 28.1  STRUCTURE — clans
+-- ---------------------------------------------------------------------
+ALTER TABLE public.clans DROP CONSTRAINT IF EXISTS clans_max_members_check;
+ALTER TABLE public.clans ALTER COLUMN max_members SET DEFAULT 50;
+UPDATE public.clans SET max_members = 50 WHERE max_members <> 50;
+ALTER TABLE public.clans ADD CONSTRAINT clans_max_members_check CHECK (max_members BETWEEN 1 AND 50);
+
+ALTER TABLE public.clans ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
+ALTER TABLE public.clans ADD COLUMN IF NOT EXISTS member_count INT NOT NULL DEFAULT 0;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'clans_name_len') THEN
+    ALTER TABLE public.clans ADD CONSTRAINT clans_name_len CHECK (char_length(name) BETWEEN 3 AND 20);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'clans_tag_format') THEN
+    ALTER TABLE public.clans ADD CONSTRAINT clans_tag_format CHECK (tag ~ '^[A-Z0-9]{3,5}$');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'clans_description_len') THEN
+    ALTER TABLE public.clans ADD CONSTRAINT clans_description_len CHECK (char_length(COALESCE(description, '')) <= 500);
+  END IF;
+END $$;
+
+-- Unique clan names, case-insensitive (slug/tag were already unique).
+DROP INDEX IF EXISTS idx_clans_name_lower;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_clans_name_lower ON public.clans (LOWER(name));
+CREATE INDEX IF NOT EXISTS idx_clans_rank ON public.clans (clan_score DESC, war_wins DESC, clan_rating DESC);
+
+-- ---------------------------------------------------------------------
+-- 28.2  STRUCTURE — members / requests / messages (FKs repointed to
+-- profiles so PostgREST profile embeds resolve, like community/friends)
+-- ---------------------------------------------------------------------
+ALTER TABLE public.clan_members DROP CONSTRAINT IF EXISTS clan_members_user_id_fkey;
+ALTER TABLE public.clan_members
+  ADD CONSTRAINT clan_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+ALTER TABLE public.clan_members ADD COLUMN IF NOT EXISTS war_points INT NOT NULL DEFAULT 0;
+ALTER TABLE public.clan_members ADD COLUMN IF NOT EXISTS last_read_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+ALTER TABLE public.clan_join_requests DROP CONSTRAINT IF EXISTS clan_join_requests_user_id_fkey;
+ALTER TABLE public.clan_join_requests
+  ADD CONSTRAINT clan_join_requests_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+ALTER TABLE public.clan_join_requests ADD COLUMN IF NOT EXISTS message TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.clan_join_requests ADD COLUMN IF NOT EXISTS resolved_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
+ALTER TABLE public.clan_join_requests ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_clan_join_requests_pending_clan ON public.clan_join_requests (clan_id) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_clan_join_requests_pending_user ON public.clan_join_requests (user_id) WHERE status = 'pending';
+
+ALTER TABLE public.clan_invites DROP CONSTRAINT IF EXISTS clan_invites_inviter_id_fkey;
+ALTER TABLE public.clan_invites DROP CONSTRAINT IF EXISTS clan_invites_invitee_id_fkey;
+ALTER TABLE public.clan_invites
+  ADD CONSTRAINT clan_invites_inviter_id_fkey FOREIGN KEY (inviter_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+ALTER TABLE public.clan_invites
+  ADD CONSTRAINT clan_invites_invitee_id_fkey FOREIGN KEY (invitee_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+
+ALTER TABLE public.clan_messages DROP CONSTRAINT IF EXISTS clan_messages_sender_id_fkey;
+ALTER TABLE public.clan_messages
+  ADD CONSTRAINT clan_messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+ALTER TABLE public.clan_messages ADD COLUMN IF NOT EXISTS reply_to UUID REFERENCES public.clan_messages(id) ON DELETE SET NULL;
+ALTER TABLE public.clan_messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE public.clan_messages ADD COLUMN IF NOT EXISTS deleted_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'clan_messages_content_len') THEN
+    ALTER TABLE public.clan_messages ADD CONSTRAINT clan_messages_content_len CHECK (char_length(content) BETWEEN 1 AND 2000);
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS idx_clan_messages_clan_time ON public.clan_messages (clan_id, created_at DESC);
+
+-- ---------------------------------------------------------------------
+-- 28.3  NEW TABLES — activity trail + deletion log
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.clan_activity (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clan_id    UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
+  actor_id   UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  target_id  UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  type       TEXT NOT NULL CHECK (type IN (
+    'created','joined','left','kicked','promoted','demoted','edited',
+    'transferred','request_approved','request_rejected',
+    'war_declared','war_started','war_declined','war_finished'
+  )),
+  meta       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_clan_activity_clan_time ON public.clan_activity (clan_id, created_at DESC);
+
+GRANT SELECT ON public.clan_activity TO authenticated;
+GRANT ALL ON public.clan_activity TO service_role;
+ALTER TABLE public.clan_activity ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Clan activity viewable by members" ON public.clan_activity;
+CREATE POLICY "Clan activity viewable by members" ON public.clan_activity FOR SELECT USING (
+  public.is_admin() OR EXISTS (
+    SELECT 1 FROM public.clan_members WHERE clan_id = public.clan_activity.clan_id AND user_id = auth.uid()
+  )
+);
+
+-- Survives clan deletion so admins can audit disbands ("Deleted Clans").
+CREATE TABLE IF NOT EXISTS public.clan_deletion_log (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clan_id      UUID NOT NULL,
+  name         TEXT NOT NULL,
+  tag          TEXT NOT NULL,
+  member_count INT NOT NULL DEFAULT 0,
+  deleted_by   UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  reason       TEXT NOT NULL DEFAULT '',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+GRANT SELECT ON public.clan_deletion_log TO authenticated;
+GRANT ALL ON public.clan_deletion_log TO service_role;
+ALTER TABLE public.clan_deletion_log ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admins view clan deletion log" ON public.clan_deletion_log;
+CREATE POLICY "Admins view clan deletion log" ON public.clan_deletion_log FOR SELECT USING (public.is_admin());
+
+-- ---------------------------------------------------------------------
+-- 28.4  TRIGGERS — live member_count + message integrity
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public._clan_sync_member_count()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE public.clans SET member_count = member_count + 1 WHERE id = NEW.clan_id;
+    RETURN NEW;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE public.clans SET member_count = GREATEST(member_count - 1, 0) WHERE id = OLD.clan_id;
+    RETURN OLD;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_clan_member_count ON public.clan_members;
+CREATE TRIGGER trg_clan_member_count
+  AFTER INSERT OR DELETE ON public.clan_members
+  FOR EACH ROW EXECUTE FUNCTION public._clan_sync_member_count();
+
+UPDATE public.clans c
+SET member_count = (SELECT COUNT(*) FROM public.clan_members m WHERE m.clan_id = c.id);
+
+-- Replies must stay inside the same clan.
+CREATE OR REPLACE FUNCTION public._clan_message_guard()
+RETURNS TRIGGER LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF NEW.reply_to IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM public.clan_messages m WHERE m.id = NEW.reply_to AND m.clan_id = NEW.clan_id
+  ) THEN
+    RAISE EXCEPTION 'Reply target not found in this clan';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_clan_message_guard ON public.clan_messages;
+CREATE TRIGGER trg_clan_message_guard
+  BEFORE INSERT ON public.clan_messages
+  FOR EACH ROW EXECUTE FUNCTION public._clan_message_guard();
+
+-- ---------------------------------------------------------------------
+-- 28.5  LEADERBOARD VIEW — counter column + global rank
+-- ---------------------------------------------------------------------
+DROP VIEW IF EXISTS public.clan_leaderboard;
+CREATE VIEW public.clan_leaderboard AS
+SELECT
+  c.id, c.slug, c.name, c.tag, c.description, c.logo_url, c.banner_url,
+  c.country, c.language, c.privacy, c.max_members, c.member_count,
+  c.clan_rating, c.clan_score, c.war_wins, c.war_losses, c.war_draws,
+  c.total_wars, c.clan_level, c.clan_xp, c.created_at,
+  RANK() OVER (ORDER BY c.clan_score DESC, c.war_wins DESC, c.clan_rating DESC, c.created_at ASC) AS global_rank
+FROM public.clans c;
+GRANT SELECT ON public.clan_leaderboard TO authenticated, anon;
+
+-- ---------------------------------------------------------------------
+-- 28.6  RLS — reads stay open where public, privileged writes RPC-only
+-- ---------------------------------------------------------------------
+-- Join requests: admins can audit; approve/reject now go through RPCs so
+-- the direct UPDATE path is closed.
+DROP POLICY IF EXISTS "Officers manage join requests" ON public.clan_join_requests;
+DROP POLICY IF EXISTS "View own join requests" ON public.clan_join_requests;
+CREATE POLICY "View own join requests" ON public.clan_join_requests FOR SELECT USING (
+  auth.uid() = user_id OR public.is_admin() OR EXISTS (
+    SELECT 1 FROM public.clan_members
+    WHERE clan_id = public.clan_join_requests.clan_id AND user_id = auth.uid() AND role IN ('leader', 'co_leader')
+  )
+);
+
+-- Messages: members read their clan's chat (admins can audit, incl. the
+-- soft-deleted rows); sending stays a direct INSERT (RLS-gated, fast
+-- path) but only as 'text' — system events are minted by RPCs alone.
+-- Hard DELETE and direct UPDATE are closed; deletion is clan_delete_message.
+DROP POLICY IF EXISTS "Clan members can chat" ON public.clan_messages;
+CREATE POLICY "Clan members can chat" ON public.clan_messages FOR SELECT USING (
+  public.is_admin() OR EXISTS (
+    SELECT 1 FROM public.clan_members WHERE clan_id = public.clan_messages.clan_id AND user_id = auth.uid()
+  )
+);
+DROP POLICY IF EXISTS "Clan members can send messages" ON public.clan_messages;
+CREATE POLICY "Clan members can send messages" ON public.clan_messages FOR INSERT WITH CHECK (
+  auth.uid() = sender_id
+  AND content_type = 'text'
+  AND deleted_at IS NULL
+  AND EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = public.clan_messages.clan_id AND user_id = auth.uid())
+);
+DROP POLICY IF EXISTS "Clan members/mods can delete messages" ON public.clan_messages;
+
+-- Wars: declaring/responding are leader-only RPCs now.
+DROP POLICY IF EXISTS "Clan officers can declare war" ON public.clan_wars;
+DROP POLICY IF EXISTS "Clan officers can update war status" ON public.clan_wars;
+
+-- Realtime for the activity feed.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'clan_activity'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.clan_activity;
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 28.7  INTERNAL HELPERS (not client-callable)
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public._clan_notify(p_user_id UUID, p_kind TEXT, p_title TEXT, p_body TEXT, p_link TEXT)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  INSERT INTO public.notifications (user_id, kind, title, body, link)
+  VALUES (p_user_id, p_kind, p_title, p_body, p_link);
+EXCEPTION WHEN OTHERS THEN
+  NULL; -- a notification failure must never roll back the action itself
+END;
+$$;
+REVOKE ALL ON FUNCTION public._clan_notify(UUID, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public._clan_notify_officers(p_clan_id UUID, p_kind TEXT, p_title TEXT, p_body TEXT, p_link TEXT, p_exclude UUID DEFAULT NULL)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_officer UUID;
+BEGIN
+  FOR v_officer IN
+    SELECT user_id FROM public.clan_members
+    WHERE clan_id = p_clan_id AND role IN ('leader', 'co_leader')
+      AND (p_exclude IS NULL OR user_id <> p_exclude)
+  LOOP
+    PERFORM public._clan_notify(v_officer, p_kind, p_title, p_body, p_link);
+  END LOOP;
+END;
+$$;
+REVOKE ALL ON FUNCTION public._clan_notify_officers(UUID, TEXT, TEXT, TEXT, TEXT, UUID) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public._clan_log(p_clan_id UUID, p_actor UUID, p_target UUID, p_type TEXT, p_meta JSONB DEFAULT '{}'::jsonb)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  INSERT INTO public.clan_activity (clan_id, actor_id, target_id, type, meta)
+  VALUES (p_clan_id, p_actor, p_target, p_type, COALESCE(p_meta, '{}'::jsonb));
+END;
+$$;
+REVOKE ALL ON FUNCTION public._clan_log(UUID, UUID, UUID, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public._clan_system_message(p_clan_id UUID, p_actor UUID, p_text TEXT)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  INSERT INTO public.clan_messages (clan_id, sender_id, content, content_type)
+  VALUES (p_clan_id, p_actor, p_text, 'system');
+EXCEPTION WHEN OTHERS THEN
+  NULL; -- system chat lines are best-effort
+END;
+$$;
+REVOKE ALL ON FUNCTION public._clan_system_message(UUID, UUID, TEXT) FROM PUBLIC, anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 28.8  RPCs — lifecycle (create / join / requests)
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.clan_create(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
+CREATE OR REPLACE FUNCTION public.clan_create(
+  p_name TEXT,
+  p_tag TEXT,
+  p_description TEXT,
+  p_country TEXT,
+  p_language TEXT,
+  p_privacy TEXT,
+  p_logo_url TEXT,
+  p_banner_url TEXT
+) RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_name TEXT := trim(p_name);
+  v_tag TEXT := UPPER(trim(p_tag));
+  v_slug TEXT;
+  v_clan_id UUID;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  IF v_name IS NULL OR char_length(v_name) < 3 OR char_length(v_name) > 20 THEN
+    RAISE EXCEPTION 'Clan name must be between 3 and 20 characters';
+  END IF;
+  IF v_tag IS NULL OR v_tag !~ '^[A-Z0-9]{3,5}$' THEN
+    RAISE EXCEPTION 'Clan tag must be 3-5 letters or numbers';
+  END IF;
+  IF char_length(COALESCE(p_description, '')) > 500 THEN
+    RAISE EXCEPTION 'Description must be 500 characters or fewer';
+  END IF;
+  IF p_privacy NOT IN ('public', 'private', 'invite_only') THEN
+    RAISE EXCEPTION 'Invalid privacy setting';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.clan_members WHERE user_id = v_user_id) THEN
+    RAISE EXCEPTION 'You are already in a clan';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.clans WHERE LOWER(name) = LOWER(v_name)) THEN
+    RAISE EXCEPTION 'Clan name is already taken';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.clans WHERE tag = v_tag) THEN
+    RAISE EXCEPTION 'Clan tag is already taken';
+  END IF;
+
+  v_slug := trim(both '-' from LOWER(REGEXP_REPLACE(v_name, '[^a-zA-Z0-9]+', '-', 'g')));
+  IF v_slug = '' THEN v_slug := 'clan'; END IF;
+  v_slug := v_slug || '-' || substr(md5(gen_random_uuid()::text), 1, 6);
+
+  INSERT INTO public.clans (slug, name, tag, description, country, language, privacy, logo_url, banner_url, created_by)
+  VALUES (
+    v_slug, v_name, v_tag, COALESCE(p_description, ''),
+    COALESCE(NULLIF(trim(p_country), ''), 'International'),
+    COALESCE(NULLIF(trim(p_language), ''), 'English'),
+    p_privacy::public.clan_privacy, NULLIF(p_logo_url, ''), NULLIF(p_banner_url, ''), v_user_id
+  ) RETURNING id INTO v_clan_id;
+
+  INSERT INTO public.clan_members (clan_id, user_id, role) VALUES (v_clan_id, v_user_id, 'leader');
+
+  -- Creator is in a clan now; withdraw their pending requests everywhere.
+  DELETE FROM public.clan_join_requests WHERE user_id = v_user_id AND status = 'pending';
+
+  PERFORM public._clan_log(v_clan_id, v_user_id, NULL, 'created', jsonb_build_object('name', v_name, 'tag', v_tag));
+  PERFORM public._clan_system_message(v_clan_id, v_user_id, 'Clan founded. Welcome!');
+
+  RETURN v_clan_id;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_create(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated;
+
+DROP FUNCTION IF EXISTS public.clan_request_join(UUID);
+CREATE OR REPLACE FUNCTION public.clan_request_join(p_clan_id UUID)
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_clan public.clans;
+  v_username TEXT;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  IF EXISTS (SELECT 1 FROM public.clan_members WHERE user_id = v_user_id) THEN
+    RAISE EXCEPTION 'You are already in a clan';
+  END IF;
+
+  -- Row lock serializes concurrent joins against the member cap.
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Clan not found'; END IF;
+
+  IF v_clan.member_count >= v_clan.max_members THEN
+    RAISE EXCEPTION 'Clan is full';
+  END IF;
+  IF v_clan.privacy = 'invite_only' THEN
+    RAISE EXCEPTION 'This clan is invite only';
+  END IF;
+
+  IF v_clan.privacy = 'public' THEN
+    INSERT INTO public.clan_members (clan_id, user_id, role) VALUES (p_clan_id, v_user_id, 'member');
+    DELETE FROM public.clan_join_requests WHERE user_id = v_user_id AND status = 'pending';
+    PERFORM public._clan_log(p_clan_id, v_user_id, v_user_id, 'joined');
+    SELECT username INTO v_username FROM public.profiles WHERE id = v_user_id;
+    PERFORM public._clan_system_message(p_clan_id, v_user_id, COALESCE(v_username, 'A player') || ' joined the clan');
+    RETURN 'joined';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.clan_join_requests
+    WHERE clan_id = p_clan_id AND user_id = v_user_id AND status = 'pending'
+  ) THEN
+    RAISE EXCEPTION 'Your join request is already pending';
+  END IF;
+
+  INSERT INTO public.clan_join_requests (clan_id, user_id, status)
+  VALUES (p_clan_id, v_user_id, 'pending')
+  ON CONFLICT (clan_id, user_id)
+  DO UPDATE SET status = 'pending', created_at = now(), resolved_by = NULL, resolved_at = NULL;
+
+  SELECT username INTO v_username FROM public.profiles WHERE id = v_user_id;
+  PERFORM public._clan_notify_officers(
+    p_clan_id, 'clan_request', 'New join request',
+    COALESCE(v_username, 'A player') || ' wants to join ' || v_clan.name,
+    '/clan/' || v_clan.slug
+  );
+  RETURN 'requested';
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_request_join(UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.clan_cancel_join_request(p_clan_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  DELETE FROM public.clan_join_requests
+  WHERE clan_id = p_clan_id AND user_id = v_user_id AND status = 'pending';
+  IF NOT FOUND THEN RAISE EXCEPTION 'No pending request to cancel'; END IF;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_cancel_join_request(UUID) TO authenticated;
+
+DROP FUNCTION IF EXISTS public.clan_approve_join(UUID);
+CREATE OR REPLACE FUNCTION public.clan_approve_join(p_request_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_req public.clan_join_requests;
+  v_clan public.clans;
+  v_username TEXT;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  SELECT * INTO v_req FROM public.clan_join_requests WHERE id = p_request_id AND status = 'pending' FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Request not found or already handled'; END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.clan_members
+    WHERE clan_id = v_req.clan_id AND user_id = v_user_id AND role IN ('leader', 'co_leader')
+  ) THEN
+    RAISE EXCEPTION 'Only the leader or a co-leader can approve requests';
+  END IF;
+
+  SELECT * INTO v_clan FROM public.clans WHERE id = v_req.clan_id FOR UPDATE;
+  IF v_clan.member_count >= v_clan.max_members THEN
+    RAISE EXCEPTION 'Clan is full';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.clan_members WHERE user_id = v_req.user_id) THEN
+    UPDATE public.clan_join_requests
+    SET status = 'rejected', resolved_by = v_user_id, resolved_at = now()
+    WHERE id = p_request_id;
+    RAISE EXCEPTION 'This player already joined another clan';
+  END IF;
+
+  UPDATE public.clan_join_requests
+  SET status = 'accepted', resolved_by = v_user_id, resolved_at = now()
+  WHERE id = p_request_id;
+
+  INSERT INTO public.clan_members (clan_id, user_id, role) VALUES (v_req.clan_id, v_req.user_id, 'member');
+
+  -- One clan per player: withdraw their other pending requests.
+  DELETE FROM public.clan_join_requests
+  WHERE user_id = v_req.user_id AND status = 'pending' AND id <> p_request_id;
+
+  PERFORM public._clan_log(v_req.clan_id, v_user_id, v_req.user_id, 'request_approved');
+  PERFORM public._clan_log(v_req.clan_id, v_req.user_id, v_req.user_id, 'joined');
+  SELECT username INTO v_username FROM public.profiles WHERE id = v_req.user_id;
+  PERFORM public._clan_system_message(v_req.clan_id, v_req.user_id, COALESCE(v_username, 'A player') || ' joined the clan');
+  PERFORM public._clan_notify(
+    v_req.user_id, 'clan_accepted', 'Join request accepted',
+    'Welcome to ' || v_clan.name || ' [' || v_clan.tag || ']',
+    '/clan/' || v_clan.slug
+  );
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_approve_join(UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.clan_reject_join(p_request_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_req public.clan_join_requests;
+  v_clan_name TEXT;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  SELECT * INTO v_req FROM public.clan_join_requests WHERE id = p_request_id AND status = 'pending' FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Request not found or already handled'; END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.clan_members
+    WHERE clan_id = v_req.clan_id AND user_id = v_user_id AND role IN ('leader', 'co_leader')
+  ) THEN
+    RAISE EXCEPTION 'Only the leader or a co-leader can reject requests';
+  END IF;
+
+  UPDATE public.clan_join_requests
+  SET status = 'rejected', resolved_by = v_user_id, resolved_at = now()
+  WHERE id = p_request_id;
+
+  SELECT name INTO v_clan_name FROM public.clans WHERE id = v_req.clan_id;
+  PERFORM public._clan_log(v_req.clan_id, v_user_id, v_req.user_id, 'request_rejected');
+  PERFORM public._clan_notify(
+    v_req.user_id, 'clan_rejected', 'Join request declined',
+    'Your request to join ' || COALESCE(v_clan_name, 'the clan') || ' was declined', '/clans'
+  );
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_reject_join(UUID) TO authenticated;
+
+-- ---------------------------------------------------------------------
+-- 28.9  RPCs — membership management
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.clan_promote_member(UUID, UUID);
+CREATE OR REPLACE FUNCTION public.clan_promote_member(p_clan_id UUID, p_user_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_caller_id UUID := auth.uid();
+  v_clan public.clans;
+  v_username TEXT;
+BEGIN
+  IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_caller_id AND role = 'leader') THEN
+    RAISE EXCEPTION 'Only the leader can promote members';
+  END IF;
+
+  UPDATE public.clan_members SET role = 'co_leader'
+  WHERE clan_id = p_clan_id AND user_id = p_user_id AND role = 'member';
+  IF NOT FOUND THEN RAISE EXCEPTION 'Player not found or already a co-leader'; END IF;
+
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id;
+  SELECT username INTO v_username FROM public.profiles WHERE id = p_user_id;
+  PERFORM public._clan_log(p_clan_id, v_caller_id, p_user_id, 'promoted');
+  PERFORM public._clan_system_message(p_clan_id, p_user_id, COALESCE(v_username, 'A player') || ' was promoted to Co-Leader');
+  PERFORM public._clan_notify(p_user_id, 'clan_promotion', 'You were promoted',
+    'You are now a Co-Leader of ' || v_clan.name, '/clan/' || v_clan.slug);
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_promote_member(UUID, UUID) TO authenticated;
+
+DROP FUNCTION IF EXISTS public.clan_demote_member(UUID, UUID);
+CREATE OR REPLACE FUNCTION public.clan_demote_member(p_clan_id UUID, p_user_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_caller_id UUID := auth.uid();
+  v_clan public.clans;
+  v_username TEXT;
+BEGIN
+  IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_caller_id AND role = 'leader') THEN
+    RAISE EXCEPTION 'Only the leader can demote co-leaders';
+  END IF;
+
+  UPDATE public.clan_members SET role = 'member'
+  WHERE clan_id = p_clan_id AND user_id = p_user_id AND role = 'co_leader';
+  IF NOT FOUND THEN RAISE EXCEPTION 'Player not found or not a co-leader'; END IF;
+
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id;
+  SELECT username INTO v_username FROM public.profiles WHERE id = p_user_id;
+  PERFORM public._clan_log(p_clan_id, v_caller_id, p_user_id, 'demoted');
+  PERFORM public._clan_system_message(p_clan_id, p_user_id, COALESCE(v_username, 'A player') || ' was demoted to Member');
+  PERFORM public._clan_notify(p_user_id, 'clan_demotion', 'Role changed',
+    'You are now a Member of ' || v_clan.name, '/clan/' || v_clan.slug);
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_demote_member(UUID, UUID) TO authenticated;
+
+DROP FUNCTION IF EXISTS public.clan_kick_member(UUID, UUID);
+CREATE OR REPLACE FUNCTION public.clan_kick_member(p_clan_id UUID, p_user_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_caller_id UUID := auth.uid();
+  v_caller_role public.clan_role;
+  v_target_role public.clan_role;
+  v_clan public.clans;
+  v_username TEXT;
+BEGIN
+  IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  IF v_caller_id = p_user_id THEN RAISE EXCEPTION 'Use Leave Clan instead of kicking yourself'; END IF;
+
+  SELECT role INTO v_caller_role FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_caller_id;
+  IF v_caller_role IS NULL OR v_caller_role = 'member' THEN RAISE EXCEPTION 'Not authorized to kick'; END IF;
+
+  SELECT role INTO v_target_role FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = p_user_id;
+  IF v_target_role IS NULL THEN RAISE EXCEPTION 'Player is not in this clan'; END IF;
+  IF v_target_role = 'leader' THEN RAISE EXCEPTION 'The leader cannot be kicked'; END IF;
+  IF v_target_role = 'co_leader' AND v_caller_role <> 'leader' THEN
+    RAISE EXCEPTION 'Only the leader can kick a co-leader';
+  END IF;
+
+  DELETE FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = p_user_id;
+
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id;
+  SELECT username INTO v_username FROM public.profiles WHERE id = p_user_id;
+  PERFORM public._clan_log(p_clan_id, v_caller_id, p_user_id, 'kicked');
+  PERFORM public._clan_system_message(p_clan_id, v_caller_id, COALESCE(v_username, 'A player') || ' was removed from the clan');
+  PERFORM public._clan_notify(p_user_id, 'clan_kick', 'Removed from clan',
+    'You were removed from ' || v_clan.name, '/clans');
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_kick_member(UUID, UUID) TO authenticated;
+
+-- Spec: the leader must transfer leadership before leaving. Leaving as
+-- the last member deletes (and logs) the clan.
+DROP FUNCTION IF EXISTS public.clan_leave(UUID);
+CREATE OR REPLACE FUNCTION public.clan_leave(p_clan_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_role public.clan_role;
+  v_clan public.clans;
+  v_username TEXT;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  SELECT role INTO v_role FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id;
+  IF v_role IS NULL THEN RAISE EXCEPTION 'You are not a member of this clan'; END IF;
+
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id FOR UPDATE;
+
+  IF v_role = 'leader' AND v_clan.member_count > 1 THEN
+    RAISE EXCEPTION 'Transfer leadership before leaving the clan';
+  END IF;
+
+  DELETE FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id;
+
+  IF v_clan.member_count <= 1 THEN
+    INSERT INTO public.clan_deletion_log (clan_id, name, tag, member_count, deleted_by, reason)
+    VALUES (v_clan.id, v_clan.name, v_clan.tag, 0, v_user_id, 'Last member left');
+    DELETE FROM public.clans WHERE id = p_clan_id;
+  ELSE
+    SELECT username INTO v_username FROM public.profiles WHERE id = v_user_id;
+    PERFORM public._clan_log(p_clan_id, v_user_id, v_user_id, 'left');
+    PERFORM public._clan_system_message(p_clan_id, v_user_id, COALESCE(v_username, 'A player') || ' left the clan');
+  END IF;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_leave(UUID) TO authenticated;
+
+DROP FUNCTION IF EXISTS public.clan_transfer_leadership(UUID, UUID);
+CREATE OR REPLACE FUNCTION public.clan_transfer_leadership(p_clan_id UUID, p_new_leader_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_clan public.clans;
+  v_username TEXT;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  IF v_user_id = p_new_leader_id THEN RAISE EXCEPTION 'You are already the leader'; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id AND role = 'leader') THEN
+    RAISE EXCEPTION 'Only the leader can transfer leadership';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = p_new_leader_id) THEN
+    RAISE EXCEPTION 'Target player is not in this clan';
+  END IF;
+
+  UPDATE public.clan_members SET role = 'co_leader' WHERE clan_id = p_clan_id AND user_id = v_user_id;
+  UPDATE public.clan_members SET role = 'leader' WHERE clan_id = p_clan_id AND user_id = p_new_leader_id;
+
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id;
+  SELECT username INTO v_username FROM public.profiles WHERE id = p_new_leader_id;
+  PERFORM public._clan_log(p_clan_id, v_user_id, p_new_leader_id, 'transferred');
+  PERFORM public._clan_system_message(p_clan_id, p_new_leader_id, COALESCE(v_username, 'A player') || ' is the new clan Leader');
+  PERFORM public._clan_notify(p_new_leader_id, 'clan_transfer', 'You are the new Leader',
+    'Leadership of ' || v_clan.name || ' was transferred to you', '/clan/' || v_clan.slug);
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_transfer_leadership(UUID, UUID) TO authenticated;
+
+-- ---------------------------------------------------------------------
+-- 28.10  RPCs — clan settings / disband (leader only, per spec)
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.clan_update_details(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
+CREATE OR REPLACE FUNCTION public.clan_update_details(
+  p_clan_id UUID,
+  p_name TEXT DEFAULT NULL,
+  p_description TEXT DEFAULT NULL,
+  p_country TEXT DEFAULT NULL,
+  p_language TEXT DEFAULT NULL,
+  p_privacy TEXT DEFAULT NULL,
+  p_logo_url TEXT DEFAULT NULL,
+  p_banner_url TEXT DEFAULT NULL
+) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_name TEXT := NULLIF(trim(COALESCE(p_name, '')), '');
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id AND role = 'leader') THEN
+    RAISE EXCEPTION 'Only the leader can edit clan details';
+  END IF;
+
+  IF v_name IS NOT NULL THEN
+    IF char_length(v_name) < 3 OR char_length(v_name) > 20 THEN
+      RAISE EXCEPTION 'Clan name must be between 3 and 20 characters';
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.clans WHERE LOWER(name) = LOWER(v_name) AND id <> p_clan_id) THEN
+      RAISE EXCEPTION 'Clan name is already taken';
+    END IF;
+  END IF;
+  IF p_description IS NOT NULL AND char_length(p_description) > 500 THEN
+    RAISE EXCEPTION 'Description must be 500 characters or fewer';
+  END IF;
+  IF p_privacy IS NOT NULL AND p_privacy NOT IN ('public', 'private', 'invite_only') THEN
+    RAISE EXCEPTION 'Invalid privacy setting';
+  END IF;
+
+  UPDATE public.clans SET
+    name        = COALESCE(v_name, name),
+    description = COALESCE(p_description, description),
+    country     = COALESCE(NULLIF(trim(p_country), ''), country),
+    language    = COALESCE(NULLIF(trim(p_language), ''), language),
+    privacy     = COALESCE(NULLIF(p_privacy, '')::public.clan_privacy, privacy),
+    logo_url    = COALESCE(NULLIF(p_logo_url, ''), logo_url),
+    banner_url  = COALESCE(NULLIF(p_banner_url, ''), banner_url)
+  WHERE id = p_clan_id;
+
+  PERFORM public._clan_log(p_clan_id, v_user_id, NULL, 'edited');
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_update_details(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated;
+
+DROP FUNCTION IF EXISTS public.clan_disband(UUID);
+CREATE OR REPLACE FUNCTION public.clan_disband(p_clan_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_clan public.clans;
+  v_member UUID;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id AND role = 'leader') THEN
+    RAISE EXCEPTION 'Only the leader can disband the clan';
+  END IF;
+
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id FOR UPDATE;
+
+  FOR v_member IN SELECT user_id FROM public.clan_members WHERE clan_id = p_clan_id AND user_id <> v_user_id LOOP
+    PERFORM public._clan_notify(v_member, 'clan_disband', 'Clan disbanded',
+      v_clan.name || ' [' || v_clan.tag || '] was disbanded by its leader', '/clans');
+  END LOOP;
+
+  INSERT INTO public.clan_deletion_log (clan_id, name, tag, member_count, deleted_by, reason)
+  VALUES (v_clan.id, v_clan.name, v_clan.tag, v_clan.member_count, v_user_id, 'Disbanded by leader');
+
+  DELETE FROM public.clans WHERE id = p_clan_id;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_disband(UUID) TO authenticated;
+
+-- ---------------------------------------------------------------------
+-- 28.11  RPCs — chat (soft delete + read status)
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.clan_delete_message(p_message_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_msg public.clan_messages;
+  v_can BOOLEAN;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  SELECT * INTO v_msg FROM public.clan_messages WHERE id = p_message_id AND deleted_at IS NULL;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Message not found'; END IF;
+
+  v_can := v_msg.sender_id = v_user_id
+    OR public.is_admin()
+    OR EXISTS (
+      SELECT 1 FROM public.clan_members
+      WHERE clan_id = v_msg.clan_id AND user_id = v_user_id AND role IN ('leader', 'co_leader')
+    );
+  IF NOT v_can THEN RAISE EXCEPTION 'You can only delete your own messages'; END IF;
+
+  UPDATE public.clan_messages SET deleted_at = now(), deleted_by = v_user_id WHERE id = p_message_id;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_delete_message(UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.clan_mark_read(p_clan_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  UPDATE public.clan_members SET last_read_at = now()
+  WHERE clan_id = p_clan_id AND user_id = auth.uid();
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_mark_read(UUID) TO authenticated;
+
+-- ---------------------------------------------------------------------
+-- 28.12  RPCs — wars (declare: leader only; respond: defender leader)
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.clan_declare_war(p_defender_clan_id UUID)
+RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_my_clan_id UUID;
+  v_war_id UUID;
+  v_my_clan public.clans;
+  v_defender public.clans;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  SELECT clan_id INTO v_my_clan_id FROM public.clan_members WHERE user_id = v_user_id AND role = 'leader';
+  IF v_my_clan_id IS NULL THEN RAISE EXCEPTION 'Only the clan leader can start wars'; END IF;
+  IF v_my_clan_id = p_defender_clan_id THEN RAISE EXCEPTION 'You cannot declare war on your own clan'; END IF;
+
+  SELECT * INTO v_defender FROM public.clans WHERE id = p_defender_clan_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Clan not found'; END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.clan_wars
+    WHERE status IN ('pending', 'accepted', 'active')
+      AND ((challenger_clan_id = v_my_clan_id AND defender_clan_id = p_defender_clan_id)
+        OR (challenger_clan_id = p_defender_clan_id AND defender_clan_id = v_my_clan_id))
+  ) THEN
+    RAISE EXCEPTION 'A war with this clan is already in progress';
+  END IF;
+
+  INSERT INTO public.clan_wars (challenger_clan_id, defender_clan_id, status)
+  VALUES (v_my_clan_id, p_defender_clan_id, 'pending')
+  RETURNING id INTO v_war_id;
+
+  SELECT * INTO v_my_clan FROM public.clans WHERE id = v_my_clan_id;
+  PERFORM public._clan_log(v_my_clan_id, v_user_id, NULL, 'war_declared', jsonb_build_object('opponent', v_defender.name));
+  PERFORM public._clan_notify_officers(
+    p_defender_clan_id, 'clan_war', 'War declaration',
+    v_my_clan.name || ' [' || v_my_clan.tag || '] declared war on your clan',
+    '/clan/' || v_defender.slug
+  );
+  RETURN v_war_id;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_declare_war(UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.clan_respond_war(p_war_id UUID, p_accept BOOLEAN)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_war public.clan_wars;
+  v_challenger public.clans;
+  v_defender public.clans;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  SELECT * INTO v_war FROM public.clan_wars WHERE id = p_war_id AND status = 'pending' FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'War not found or already answered'; END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.clan_members
+    WHERE clan_id = v_war.defender_clan_id AND user_id = v_user_id AND role = 'leader'
+  ) THEN
+    RAISE EXCEPTION 'Only the defending clan leader can respond';
+  END IF;
+
+  SELECT * INTO v_challenger FROM public.clans WHERE id = v_war.challenger_clan_id;
+  SELECT * INTO v_defender FROM public.clans WHERE id = v_war.defender_clan_id;
+
+  IF p_accept THEN
+    UPDATE public.clan_wars SET status = 'active', starts_at = now() WHERE id = p_war_id;
+    PERFORM public._clan_log(v_war.challenger_clan_id, v_user_id, NULL, 'war_started', jsonb_build_object('opponent', v_defender.name));
+    PERFORM public._clan_log(v_war.defender_clan_id, v_user_id, NULL, 'war_started', jsonb_build_object('opponent', v_challenger.name));
+    PERFORM public._clan_notify_officers(v_war.challenger_clan_id, 'clan_war', 'War accepted',
+      v_defender.name || ' accepted your war declaration', '/clan/' || v_challenger.slug);
+  ELSE
+    DELETE FROM public.clan_wars WHERE id = p_war_id;
+    PERFORM public._clan_log(v_war.defender_clan_id, v_user_id, NULL, 'war_declined', jsonb_build_object('opponent', v_challenger.name));
+    PERFORM public._clan_notify_officers(v_war.challenger_clan_id, 'clan_war', 'War declined',
+      v_defender.name || ' declined your war declaration', '/clan/' || v_challenger.slug);
+  END IF;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.clan_respond_war(UUID, BOOLEAN) TO authenticated;
+
+-- ---------------------------------------------------------------------
+-- 28.13  RPC — admin clan removal (audited)
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.admin_delete_clan(p_clan_id UUID, p_reason TEXT DEFAULT '')
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_clan public.clans;
+  v_member UUID;
+BEGIN
+  IF v_user_id IS NULL OR NOT public.is_admin() THEN RAISE EXCEPTION 'Admin access required'; END IF;
+
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Clan not found'; END IF;
+
+  FOR v_member IN SELECT user_id FROM public.clan_members WHERE clan_id = p_clan_id LOOP
+    PERFORM public._clan_notify(v_member, 'clan_disband', 'Clan removed',
+      v_clan.name || ' [' || v_clan.tag || '] was removed by moderation'
+      || CASE WHEN COALESCE(p_reason, '') <> '' THEN ': ' || p_reason ELSE '' END, '/clans');
+  END LOOP;
+
+  INSERT INTO public.clan_deletion_log (clan_id, name, tag, member_count, deleted_by, reason)
+  VALUES (v_clan.id, v_clan.name, v_clan.tag, v_clan.member_count, v_user_id,
+    'Removed by admin' || CASE WHEN COALESCE(p_reason, '') <> '' THEN ': ' || p_reason ELSE '' END);
+
+  DELETE FROM public.clans WHERE id = p_clan_id;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.admin_delete_clan(UUID, TEXT) TO authenticated;
+-- =====================================================================
+-- SECTION 29: CLAN SYSTEM V3 — HARDENING PASS
+-- ---------------------------------------------------------------------
+-- 1) Postgres grants EXECUTE on new functions to PUBLIC by default, so
+--    every clan RPC created in Section 28 was silently callable by the
+--    unauthenticated `anon` role via PostgREST (flagged by the security
+--    advisor). Each RPC already checks auth.uid() IS NULL and rejects,
+--    but that's not defense in depth — explicitly revoke PUBLIC/anon.
+-- 2) Drop four orphaned functions from an abandoned earlier clan-war
+--    design (increment_clan_wars, update_clan_war_scores,
+--    start_clan_war_matches, update_clan_member_count). They reference
+--    columns/tables that do not exist on the current schema
+--    (clans.war_points, clans.total_members, clan_wars.score_a/score_b/
+--    lineup_a/lineup_b, clan_war_matches) — calling any of them errors
+--    at runtime. Confirmed unreferenced by any client code.
+-- 3) _clan_sync_member_count is a trigger-only helper; it doesn't need
+--    direct RPC exposure at all.
+-- =====================================================================
+
+DROP FUNCTION IF EXISTS public.increment_clan_wars(UUID, BOOLEAN);
+DROP FUNCTION IF EXISTS public.update_clan_war_scores(UUID, INT, INT);
+DROP TRIGGER IF EXISTS trg_start_clan_war_matches ON public.clan_wars;
+DROP FUNCTION IF EXISTS public.start_clan_war_matches();
+DROP FUNCTION IF EXISTS public.update_clan_member_count(UUID, INT);
+
+REVOKE ALL ON FUNCTION public._clan_sync_member_count() FROM PUBLIC, anon, authenticated;
+
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname IN (
+        'clan_create','clan_request_join','clan_cancel_join_request','clan_approve_join',
+        'clan_reject_join','clan_promote_member','clan_demote_member','clan_kick_member',
+        'clan_leave','clan_transfer_leadership','clan_update_details','clan_disband',
+        'clan_delete_message','clan_mark_read','clan_declare_war','clan_respond_war',
+        'admin_delete_clan'
+      )
+  LOOP
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon;', r.sig);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated;', r.sig);
+  END LOOP;
+END $$;
+-- =====================================================================
+-- SECTION 30: CLAN INVITE LINKS
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS public.clan_invite_links (
+  token UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clan_id UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
+  created_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  is_used BOOLEAN NOT NULL DEFAULT false,
+  used_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.clan_invite_links ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE ON public.clan_invite_links TO authenticated;
+GRANT ALL ON public.clan_invite_links TO service_role;
+
+DROP POLICY IF EXISTS "View invite links for own clan" ON public.clan_invite_links;
+CREATE POLICY "View invite links for own clan" ON public.clan_invite_links 
+FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM public.clan_members 
+    WHERE clan_id = public.clan_invite_links.clan_id 
+    AND user_id = auth.uid() 
+    AND role IN ('leader', 'co_leader')
+  )
+);
+
+CREATE OR REPLACE FUNCTION public.generate_clan_invite_link(p_clan_id UUID)
+RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_clan public.clans;
+  v_role public.clan_role;
+  v_token UUID;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Clan not found'; END IF;
+  
+  IF v_clan.privacy != 'invite_only' THEN 
+    RAISE EXCEPTION 'Clan is not invite-only'; 
+  END IF;
+  
+  SELECT role INTO v_role FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id;
+  IF v_role NOT IN ('leader', 'co_leader') THEN 
+    RAISE EXCEPTION 'Only leaders and co-leaders can generate invite links'; 
+  END IF;
+  
+  INSERT INTO public.clan_invite_links (clan_id, created_by) 
+  VALUES (p_clan_id, v_user_id) 
+  RETURNING token INTO v_token;
+  
+  RETURN v_token;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.generate_clan_invite_link(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.generate_clan_invite_link(UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.redeem_clan_invite_link(p_token UUID)
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_link public.clan_invite_links;
+  v_clan public.clans;
+  v_existing_clan UUID;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  
+  -- Check if user is already in a clan
+  SELECT clan_id INTO v_existing_clan FROM public.clan_members WHERE user_id = v_user_id;
+  IF v_existing_clan IS NOT NULL THEN RAISE EXCEPTION 'You are already in a clan'; END IF;
+  
+  SELECT * INTO v_link FROM public.clan_invite_links WHERE token = p_token FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Invalid invite link'; END IF;
+  
+  IF v_link.is_used THEN RAISE EXCEPTION 'This invite link has expired'; END IF;
+  
+  SELECT * INTO v_clan FROM public.clans WHERE id = v_link.clan_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Clan not found'; END IF;
+  
+  IF (SELECT COUNT(*) FROM public.clan_members WHERE clan_id = v_clan.id) >= v_clan.max_members THEN
+    RAISE EXCEPTION 'Clan is full';
+  END IF;
+  
+  -- Mark as used
+  UPDATE public.clan_invite_links SET is_used = true, used_by = v_user_id WHERE token = p_token;
+  
+  -- Join the clan
+  INSERT INTO public.clan_members (clan_id, user_id, role) VALUES (v_clan.id, v_user_id, 'member');
+  
+  -- Log activity
+  PERFORM public._clan_log(v_clan.id, v_user_id, NULL, 'joined', '{}'::jsonb);
+  PERFORM public._clan_sync_member_count(v_clan.id);
+  
+  -- Remove any pending requests
+  DELETE FROM public.clan_join_requests WHERE user_id = v_user_id;
+  
+  RETURN v_clan.slug;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.redeem_clan_invite_link(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.redeem_clan_invite_link(UUID) TO authenticated;
+
+
+
+-- =====================================================================
+-- SECTION 30: CLAN INVITE LINKS
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS public.clan_invite_links (
+  token UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clan_id UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
+  created_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  is_used BOOLEAN NOT NULL DEFAULT false,
+  used_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.clan_invite_links ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE ON public.clan_invite_links TO authenticated;
+GRANT ALL ON public.clan_invite_links TO service_role;
+
+DROP POLICY IF EXISTS "View invite links for own clan" ON public.clan_invite_links;
+CREATE POLICY "View invite links for own clan" ON public.clan_invite_links 
+FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM public.clan_members 
+    WHERE clan_id = public.clan_invite_links.clan_id 
+    AND user_id = auth.uid() 
+    AND role IN ('leader', 'co_leader')
+  )
+);
+
+CREATE OR REPLACE FUNCTION public.generate_clan_invite_link(p_clan_id UUID)
+RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_clan public.clans;
+  v_role public.clan_role;
+  v_token UUID;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  
+  SELECT * INTO v_clan FROM public.clans WHERE id = p_clan_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Clan not found'; END IF;
+  
+  IF v_clan.privacy != 'invite_only' THEN 
+    RAISE EXCEPTION 'Clan is not invite-only'; 
+  END IF;
+  
+  SELECT role INTO v_role FROM public.clan_members WHERE clan_id = p_clan_id AND user_id = v_user_id;
+  IF v_role NOT IN ('leader', 'co_leader') THEN 
+    RAISE EXCEPTION 'Only leaders and co-leaders can generate invite links'; 
+  END IF;
+  
+  INSERT INTO public.clan_invite_links (clan_id, created_by) 
+  VALUES (p_clan_id, v_user_id) 
+  RETURNING token INTO v_token;
+  
+  RETURN v_token;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.generate_clan_invite_link(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.generate_clan_invite_link(UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.redeem_clan_invite_link(p_token UUID)
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_link public.clan_invite_links;
+  v_clan public.clans;
+  v_existing_clan UUID;
+BEGIN
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  
+  -- Check if user is already in a clan
+  SELECT clan_id INTO v_existing_clan FROM public.clan_members WHERE user_id = v_user_id;
+  IF v_existing_clan IS NOT NULL THEN RAISE EXCEPTION 'You are already in a clan'; END IF;
+  
+  SELECT * INTO v_link FROM public.clan_invite_links WHERE token = p_token FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Invalid invite link'; END IF;
+  
+  IF v_link.is_used THEN RAISE EXCEPTION 'This invite link has expired'; END IF;
+  
+  SELECT * INTO v_clan FROM public.clans WHERE id = v_link.clan_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Clan not found'; END IF;
+  
+  IF (SELECT COUNT(*) FROM public.clan_members WHERE clan_id = v_clan.id) >= v_clan.max_members THEN
+    RAISE EXCEPTION 'Clan is full';
+  END IF;
+  
+  -- Mark as used
+  UPDATE public.clan_invite_links SET is_used = true, used_by = v_user_id WHERE token = p_token;
+  
+  -- Join the clan
+  INSERT INTO public.clan_members (clan_id, user_id, role) VALUES (v_clan.id, v_user_id, 'member');
+  
+  -- Log activity
+  PERFORM public._clan_log(v_clan.id, v_user_id, NULL, 'joined', '{}'::jsonb);
+  
+  -- Remove any pending requests
+  DELETE FROM public.clan_join_requests WHERE user_id = v_user_id;
+  
+  RETURN v_clan.slug;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.redeem_clan_invite_link(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.redeem_clan_invite_link(UUID) TO authenticated;
+
+
+-- FIX FOR WORLD CHAT AUTO-JOIN
+
+-- 1. Ensure World Chat has the correct type ('global') and is public.
+-- This ensures the auto-join logic correctly identifies it.
+UPDATE public.chat_channels 
+SET type = 'global', is_private = false, is_permanent = true 
+WHERE slug = 'global';
+
+-- 2. Force update the chat_send_message function to ensure the correct auto-join logic is applied.
+DROP FUNCTION IF EXISTS public.chat_send_message(UUID, TEXT, UUID);
+DROP FUNCTION IF EXISTS public.chat_send_message(UUID, TEXT);
+
+CREATE OR REPLACE FUNCTION public.chat_send_message(p_channel UUID, p_content TEXT, p_reply_to UUID DEFAULT NULL)
+RETURNS public.chat_message_row
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+  v_muted TIMESTAMPTZ;
+  v_row public.chat_message_row;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+  IF p_content IS NULL OR trim(p_content) = '' THEN RAISE EXCEPTION 'Message cannot be empty'; END IF;
+  IF length(p_content) > 2000 THEN RAISE EXCEPTION 'Message too long'; END IF;
+
+  -- Auto-join global or public rooms; require existing membership for private rooms/dms.
+  IF EXISTS (SELECT 1 FROM public.chat_channels WHERE id = p_channel AND (type = 'global' OR (type = 'room' AND is_private = false))) THEN
+    INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+    VALUES (p_channel, auth.uid(), 'member')
+    ON CONFLICT (channel_id, user_id) DO NOTHING;
+
+    -- Inline check avoids snapshot caching issues of STABLE _chat_is_member
+    IF EXISTS (SELECT 1 FROM public.chat_channel_members WHERE channel_id = p_channel AND user_id = auth.uid() AND is_banned = true) THEN
+      RAISE EXCEPTION 'You are banned from this channel';
+    END IF;
+  ELSE
+    IF NOT public._chat_is_member(p_channel, auth.uid()) THEN
+      RAISE EXCEPTION 'Not a member of this channel';
+    END IF;
+  END IF;
+
+  SELECT muted_until INTO v_muted FROM public.chat_channel_members
+  WHERE channel_id = p_channel AND user_id = auth.uid();
+  IF v_muted IS NOT NULL AND v_muted > now() THEN
+    RAISE EXCEPTION 'You are muted in this channel until %', v_muted;
+  END IF;
+
+  INSERT INTO public.chat_messages (channel_id, user_id, content, reply_to_id)
+  VALUES (p_channel, auth.uid(), p_content, p_reply_to)
+  RETURNING id INTO v_id;
+
+  UPDATE public.chat_channels SET updated_at = now() WHERE id = p_channel;
+
+  SELECT * INTO v_row FROM public._chat_message_row(v_id);
+  RETURN v_row;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_send_message(UUID, TEXT, UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_send_message(UUID, TEXT, UUID) TO authenticated, service_role;

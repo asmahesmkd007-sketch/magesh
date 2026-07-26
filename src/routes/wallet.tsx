@@ -15,7 +15,6 @@ import {
   Wallet as WalletIcon,
   Lock,
   Landmark,
-  Building2,
   CheckCircle2,
   XCircle,
   AlertCircle,
@@ -718,7 +717,7 @@ function WalletPage() {
   const { user, loading: authLoading } = useAuth();
   const { wallet, loading: walletLoading, refetch: refetchWallet } = useWallet(user?.id);
   const { transactions, loading: txLoading } = useWalletTransactions(user?.id, 100);
-  const { bankAccount, loading: bankLoading, saveBankDetails } = useBankDetails(user?.id);
+  const { bankAccount, loading: bankLoading } = useBankDetails(user?.id);
   const {
     requests: withdrawalRequests,
     loading: wdLoading,

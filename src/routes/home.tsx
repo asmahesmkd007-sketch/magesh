@@ -14,7 +14,6 @@ import {
   Brain,
   Flame,
   TrendingUp,
-  Trophy,
   Loader2,
   Monitor,
   History,

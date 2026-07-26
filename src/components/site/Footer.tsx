@@ -1,5 +1,4 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { ChessOxIcon } from "@/components/site/ChessOxLogo";
 
 // Social media icon components — inline SVGs for zero extra dependencies
 function IconFacebook({ className }: { className?: string }) {

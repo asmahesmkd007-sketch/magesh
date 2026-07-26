@@ -207,7 +207,6 @@ function RoomCard({ room, isPrivate }: { room: ChatChannel; isPrivate: boolean }
 }
 
 function RoomToolbar({
-  mode,
   onCreate,
   onJoin,
 }: {

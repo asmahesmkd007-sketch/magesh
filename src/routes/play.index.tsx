@@ -3,7 +3,6 @@ import { useState } from "react";
 import {
   Swords,
   Cpu,
-  Users,
   History,
   Volume2,
   VolumeX,

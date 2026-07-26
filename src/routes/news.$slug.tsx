@@ -28,15 +28,6 @@ type Article = {
 const SELECT =
   "id,title,slug,category,read_time_min,cover_gradient,cover_image,body,excerpt,published_at,author_name";
 
-/** "world-chess-championship" → "World Chess Championship" (fallback only). */
-function titleFromSlug(slug: string): string {
-  return slug
-    .split("-")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
 /** Trim a description to a clean sentence boundary within `max` characters. */
 function clamp(text: string, max = 158): string {
   const flat = text.replace(/\s+/g, " ").trim();
@@ -119,7 +110,6 @@ export const Route = createFileRoute("/news/$slug")({
 });
 
 function ArticlePage() {
-  const { slug } = Route.useParams();
   const { article } = Route.useLoaderData();
 
   if (!article) {

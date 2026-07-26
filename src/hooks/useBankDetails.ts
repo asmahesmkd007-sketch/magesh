@@ -66,7 +66,7 @@ export function useBankDetails(userId?: string) {
     accountType: "savings" | "current";
   }) => {
     try {
-      const { data, error } = await supabase.rpc("save_bank_details", {
+      const { error } = await supabase.rpc("save_bank_details", {
         p_account_holder_name: params.accountHolderName,
         p_account_number: params.accountNumber,
         p_ifsc_code: params.ifscCode,

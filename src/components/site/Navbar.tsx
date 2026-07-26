@@ -1,7 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Bell, ChevronDown, LogOut, Menu, Search, X, Coins, ShieldCheck } from "lucide-react";
-import { ChessOxIcon } from "@/components/site/ChessOxLogo";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import { useAuth, useProfile, signOut } from "@/hooks/useAuth";

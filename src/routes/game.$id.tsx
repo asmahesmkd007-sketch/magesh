@@ -83,7 +83,6 @@ function LiveGame() {
   const [targets, setTargets] = useState<string[]>([]);
   const [promotion, setPromotion] = useState<{ from: string; to: string } | null>(null);
   const [flipped, setFlipped] = useState(false);
-  const [tick, setTick] = useState(0);
   const [joining, setJoining] = useState(false);
   const [whiteProfile, setWhiteProfile] = useState<{
     premium_active?: boolean;

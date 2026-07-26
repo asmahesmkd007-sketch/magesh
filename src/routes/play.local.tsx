@@ -6,7 +6,7 @@ import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Prim
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
 import { CapturedPieces } from "@/components/site/CapturedPieces";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
-import { GameEndModal, type GameEndResult } from "@/components/site/GameEndModal";
+import { GameEndModal } from "@/components/site/GameEndModal";
 import { useGameSettings } from "@/hooks/useGameSettings";
 import { playGameSound, soundForChessMove } from "@/lib/audio/sounds";
 import { buzz } from "@/lib/haptics";

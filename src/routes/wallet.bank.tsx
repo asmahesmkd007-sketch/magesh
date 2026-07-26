@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   Building2,
   CheckCircle2,
@@ -11,16 +11,9 @@ import {
   Lock,
   ArrowLeft,
 } from "lucide-react";
-import {
-  PageShell,
-  Card,
-  GoldButton,
-  SectionTitle,
-  GhostButton,
-} from "@/components/site/Primitives";
+import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Primitives";
 import { useAuth } from "@/hooks/useAuth";
 import { useBankDetails } from "@/hooks/useBankDetails";
-import { toast } from "sonner";
 import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/wallet/bank")({

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Primitives";
+import { PageShell, Card, GoldButton } from "@/components/site/Primitives";
 import { ArrowLeft, Hash, Users, LogIn, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { createRoom, joinRoom, joinRoomQueue, type ColorMode } from "@/lib/api/roomClient";

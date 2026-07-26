@@ -46,7 +46,6 @@ function ReplayControls({
   ply,
   max,
   setPly,
-  flipped,
   onFlip,
 }: {
   ply: number;

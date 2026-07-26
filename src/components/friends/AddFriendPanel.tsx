@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Search, UserPlus, Loader2, History, Sparkles, X } from "lucide-react";
-import { Card, GoldButton, GhostButton } from "@/components/site/Primitives";
+import { Card, GoldButton } from "@/components/site/Primitives";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
 import { supabase } from "@/integrations/supabase/client";

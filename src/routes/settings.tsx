@@ -585,7 +585,6 @@ function Settings() {
 type IfscDetails = { BANK: string; BRANCH: string; ADDRESS: string };
 
 function BankAccountTab({
-  userId,
   bankAccount,
   bankLoading,
   saveBankDetails,
@@ -1368,20 +1367,6 @@ function SocialField({
         />
       </div>
     </div>
-  );
-}
-
-function Toggle({ defaultOn = false }: { defaultOn?: boolean }) {
-  const [on, setOn] = useState(defaultOn);
-  return (
-    <button
-      onClick={() => setOn(!on)}
-      className={`relative h-6 w-11 rounded-full transition-colors ${on ? "gradient-gold" : "bg-white/10"}`}
-    >
-      <span
-        className={`absolute top-0.5 h-5 w-5 rounded-full bg-background transition-all ${on ? "left-[22px]" : "left-0.5"}`}
-      />
-    </button>
   );
 }
 

@@ -299,7 +299,7 @@ export function useChatActions() {
   const updateRoom = useMutation({
     mutationFn: (args: { channelId: string; name: string; description: string }) =>
       api.updateRoom(args.channelId, args.name, args.description),
-    onSuccess: (_d, { channelId }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chat_channel"] });
       queryClient.invalidateQueries({ queryKey: ["chat_my_channels"] });
       toast.success("Room updated");

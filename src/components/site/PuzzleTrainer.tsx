@@ -305,8 +305,6 @@ export function PuzzleTrainer() {
     playNext();
   };
 
-  const pct = Math.min(100, Math.round(((stats?.completed_today || 0) / DAILY_GOAL) * 100));
-
   if (locked) {
     return (
       <div className="grid gap-6 lg:grid-cols-12">

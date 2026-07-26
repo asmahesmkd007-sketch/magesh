@@ -3,16 +3,7 @@
 // delete/report) that stays minimal per the "keep it clean" spec.
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import {
-  Copy,
-  Flag,
-  MoreHorizontal,
-  Pin,
-  PinOff,
-  Reply,
-  SmilePlus,
-  Trash2,
-} from "lucide-react";
+import { Copy, Flag, MoreHorizontal, Pin, PinOff, Reply, SmilePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
@@ -72,7 +63,11 @@ export function MessageBubble({
   return (
     <div className="group flex gap-2.5 rounded-xl px-2 py-1.5 hover:bg-white/[0.03]">
       <Link to="/u/$username" params={{ username: message.author.username }} className="shrink-0">
-        <UserAvatar avatarUrl={message.author.avatar_url} displayName={message.author.full_name} size="sm" />
+        <UserAvatar
+          avatarUrl={message.author.avatar_url}
+          displayName={message.author.full_name}
+          size="sm"
+        />
       </Link>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
@@ -102,7 +97,9 @@ export function MessageBubble({
                 type="button"
                 onClick={() => actions.react.mutate({ messageId: message.id, emoji: r.emoji })}
                 className={`flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs ${
-                  r.mine ? "border-gold/50 bg-gold/10 text-gold" : "border-white/10 text-muted-foreground hover:border-white/20"
+                  r.mine
+                    ? "border-gold/50 bg-gold/10 text-gold"
+                    : "border-white/10 text-muted-foreground hover:border-white/20"
                 }`}
               >
                 <span>{r.emoji}</span>
@@ -172,11 +169,19 @@ export function MessageBubble({
                   type="button"
                   className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-xs text-muted-foreground hover:bg-white/[0.05] hover:text-foreground"
                   onClick={() => {
-                    actions.pin.mutate({ messageId: message.id, pinned: !message.is_pinned, channelId: message.channel_id });
+                    actions.pin.mutate({
+                      messageId: message.id,
+                      pinned: !message.is_pinned,
+                      channelId: message.channel_id,
+                    });
                     setMenuOpen(false);
                   }}
                 >
-                  {message.is_pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                  {message.is_pinned ? (
+                    <PinOff className="h-3.5 w-3.5" />
+                  ) : (
+                    <Pin className="h-3.5 w-3.5" />
+                  )}
                   {message.is_pinned ? "Unpin" : "Pin"}
                 </button>
               )}

@@ -64,7 +64,7 @@ export function useDailyPuzzle() {
     setError(null);
     try {
       const { data, error: rpcError } = await rpcClient.rpc("get_daily_puzzle");
-      
+
       let res: any;
       if (rpcError) {
         if (rpcError.message.includes("No more puzzles")) {
@@ -74,7 +74,7 @@ export function useDailyPuzzle() {
             remaining_today: 0,
             stats: null,
             puzzle: null,
-            progress: null
+            progress: null,
           };
         } else {
           throw rpcError;
@@ -132,11 +132,11 @@ export function useDailyPuzzle() {
       });
 
       if (updateError) throw updateError;
-      
+
       const res = data as any;
       setProgress(res.progress);
       setStats(res.stats);
-      
+
       // If solved, failed, or skipped, we might be locked now
       if (["SOLVED", "FAILED", "SKIPPED"].includes(payload.status)) {
         if (res.stats.completed_today >= 3) {

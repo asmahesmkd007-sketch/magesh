@@ -6,9 +6,28 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { PageShell, Card, GoldButton } from "@/components/site/Primitives";
 import { listPolicies, POLICY_META, POLICY_TYPES, type Policy } from "@/lib/api/policyClient";
+import { seo, breadcrumbLd, collectionPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/policies")({
-  head: () => ({ meta: [{ title: "Policies — ChessOx" }] }),
+  head: () =>
+    seo({
+      title: "Platform Policies — ChessOx",
+      description:
+        "Every published ChessOx policy in one place: privacy, terms and conditions, refunds, withdrawals, community conduct, fair play and anti-cheating, and grievance redressal.",
+      path: "/policies",
+      jsonLd: [
+        collectionPageLd({
+          name: "Platform Policies — ChessOx",
+          description:
+            "An index of the published ChessOx policies covering privacy, terms, payments, community conduct and fair play.",
+          path: "/policies",
+        }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Policies", path: "/policies" },
+        ]),
+      ],
+    }),
   component: PoliciesPage,
 });
 
@@ -29,7 +48,8 @@ function PoliciesPage() {
     <PageShell title="Platform Policies">
       <div className="mx-auto max-w-3xl">
         <div className="mb-8 text-center">
-          <h1 className="font-display text-4xl mb-3 text-gradient-gold">Policies &amp; Terms</h1>
+          {/* h2 — PageShell renders this page's h1 ("Platform Policies"). */}
+          <h2 className="font-display text-4xl mb-3 text-gradient-gold">Policies &amp; Terms</h2>
           <p className="text-muted-foreground leading-relaxed">
             Review our terms of service, privacy policy, and fair play guidelines. We are committed
             to transparency and a safe environment for all players.

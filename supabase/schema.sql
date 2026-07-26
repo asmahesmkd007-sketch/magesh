@@ -641,10 +641,13 @@ GRANT EXECUTE ON FUNCTION public.current_rating(UUID, public.time_class) TO auth
 
 -- =====================================================================
 -- SECTION 23: APPLY ELO CHANGE (v2)
+-- ---------------------------------------------------------------------
+-- The REVOKE/GRANT for this function live with its actual CREATE OR
+-- REPLACE FUNCTION definition further down (SECTION 23b, ~line 3469),
+-- since a GRANT/REVOKE on a function that doesn't exist yet is a hard
+-- error on a fresh database (unlike function bodies, which are late-bound
+-- and don't validate table/function references until first execution).
 -- =====================================================================
-
-REVOKE EXECUTE ON FUNCTION public.apply_elo_change(UUID) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.apply_elo_change(UUID) TO authenticated, service_role;
 
 -- =====================================================================
 -- SECTION 24: RPC — CREATE CHALLENGE
@@ -3539,12 +3542,13 @@ BEGIN
      v_b.rating, v_new_b, v_new_b - v_b.rating);
 
   UPDATE public.games SET elo_applied = true WHERE id = p_game_id;
-  
+
   -- NEW: Automatically trigger IQ updates
   PERFORM public.apply_iq_change(p_game_id);
 END; $$;
-
-
+-- SECTION 23b: matching grant for the SECTION 23 header above — see note there.
+REVOKE EXECUTE ON FUNCTION public.apply_elo_change(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.apply_elo_change(UUID) TO authenticated, service_role;
 
 
 
@@ -4775,17 +4779,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_channels_permanent ON public.chat_channels(i
 -- permanent below — not duplicated here.)
 INSERT INTO public.chat_channels (type, slug, name, description, is_private, is_permanent, icon, sort_order)
 VALUES
-  ('room', 'general-en', 'General Chat (English)', 'General chat in English', false, true, '🇮🇳', 2),
-  ('room', 'general-ta', 'General Chat (Tamil)', 'General chat in Tamil', false, true, '🇮🇳', 3),
-  ('room', 'general-ml', 'General Chat (Malayalam)', 'General chat in Malayalam', false, true, '🇮🇳', 4),
-  ('room', 'general-te', 'General Chat (Telugu)', 'General chat in Telugu', false, true, '🇮🇳', 5),
-  ('room', 'general-kn', 'General Chat (Kannada)', 'General chat in Kannada', false, true, '🇮🇳', 6),
-  ('room', 'general-hi', 'General Chat (Hindi)', 'General chat in Hindi', false, true, '🇮🇳', 7),
-  ('room', 'general-mr', 'General Chat (Marathi)', 'General chat in Marathi', false, true, '🇮🇳', 8),
-  ('room', 'general-gu', 'General Chat (Gujarati)', 'General chat in Gujarati', false, true, '🇮🇳', 9),
-  ('room', 'general-bn', 'General Chat (Bengali)', 'General chat in Bengali', false, true, '🇮🇳', 10),
-  ('room', 'general-or', 'General Chat (Odia)', 'General chat in Odia', false, true, '🇮🇳', 11),
-  ('room', 'general-ur', 'General Chat (Urdu)', 'General chat in Urdu', false, true, '🇮🇳', 12),
+
   ('room', 'new-player-chat', 'New Player Chat', 'Say hello — a welcoming room for new ChessOx players', false, true, '🆕', 13),
   ('room', 'location-chat', 'Location Chat', 'Chat with players near you — coming soon', false, true, '📍', 14)
 ON CONFLICT (slug) DO NOTHING;
@@ -4802,7 +4796,7 @@ BEGIN
   SELECT id INTO v_id FROM public.chat_channels WHERE type = 'global' AND slug = 'global' LIMIT 1;
   IF v_id IS NULL THEN
     INSERT INTO public.chat_channels (type, slug, name, description, is_private, is_permanent, icon, sort_order)
-    VALUES ('global', 'global', 'World Chat', 'Every ChessOx player, one room', false, true, '🌍', 1)
+    VALUES ('global', 'global', 'Global Chat', 'Every ChessOx player, one room', false, true, '🌍', 1)
     RETURNING id INTO v_id;
   ELSE
     UPDATE public.chat_channels
@@ -8512,6 +8506,13 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.list_seasons() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.list_seasons() TO anon, authenticated, service_role;
 
+-- Guarded: this is the first of three season_leaderboard definitions in
+-- this file, and later ones (SECTION 77.9) change the RETURNS TABLE shape
+-- (adds prev_rank/season_iq/tier/etc., rank becomes BIGINT). CREATE OR
+-- REPLACE cannot change a function's return shape, so on a database that
+-- already has a later version installed, this first definition needs its
+-- own DROP to avoid 42P13. Harmless no-op on a truly empty database.
+DROP FUNCTION IF EXISTS public.season_leaderboard(UUID, TEXT, TEXT, TEXT, TEXT, INT, INT);
 CREATE OR REPLACE FUNCTION public.season_leaderboard(
   p_season_id UUID,
   p_country   TEXT DEFAULT NULL,
@@ -13665,7 +13666,7 @@ GRANT EXECUTE ON FUNCTION public.admin_delete_clan(UUID, TEXT) TO authenticated;
 --    unauthenticated `anon` role via PostgREST (flagged by the security
 --    advisor). Each RPC already checks auth.uid() IS NULL and rejects,
 --    but that's not defense in depth — explicitly revoke PUBLIC/anon.
--- 2) Drop four orphaned functions from an abandoned earlier clan-war
+-- 2) Drop fourcheck a orphaned functions from an abandoned earlier clan-war
 --    design (increment_clan_wars, update_clan_war_scores,
 --    start_clan_war_matches, update_clan_member_count). They reference
 --    columns/tables that do not exist on the current schema
@@ -13973,3 +13974,3802 @@ BEGIN
 END; $$;
 REVOKE EXECUTE ON FUNCTION public.chat_send_message(UUID, TEXT, UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.chat_send_message(UUID, TEXT, UUID) TO authenticated, service_role;
+
+
+-- =====================================================================
+-- SECTION 76: KNOCKOUT V3 — RANDOM RE-PAIRING, PLATFORM REVENUE,
+--             FIRST-MOVE CLOCK RULE (2026-07-19)
+-- ---------------------------------------------------------------------
+-- Pure-knockout upgrades layered on SECTIONS 74/75. Registration,
+-- locking, arena scoring, captures, aborts and cancellation are all
+-- untouched — only the pieces below change:
+--   • _tournament_start_round v3: EVERY round re-shuffles the remaining
+--     players randomly (no fixed bracket, no slot-order advancement)
+--   • tournament_platform_revenue ledger + booking inside
+--     _tournament_complete: the platform's cut (gross entry fees minus
+--     prizes actually paid) is recorded exactly once per tournament,
+--     logged to the activity feed, and readable by admins only
+--   • prize auto-derivation: a paid tournament whose prize columns were
+--     never configured splits its gross pool 40% / 25% / 15% (champion /
+--     runner-up / third) at completion; the ~20% remainder becomes the
+--     platform's cut
+--   • tournament_clock_sweep v2: 0-move tournament boards settle as
+--     no-shows after a 2-minute grace. The TS move handler now gives
+--     White's first move for free (clocks start when White opens), so
+--     the sweep can no longer rely on White's clock running before move 1
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 76.1 _tournament_start_round v3 — pure random pairing every round
+-- ---------------------------------------------------------------------
+-- Same contract and locking as v1 (74.4): caller holds the tournament
+-- row lock; byes auto-advance the odd player out; games/notifications/
+-- activity are produced identically. The ONLY change: rounds after the
+-- first shuffle the previous round's winners with ORDER BY random()
+-- instead of advancing them in bracket-slot order.
+CREATE OR REPLACE FUNCTION public._tournament_start_round(p_tournament_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_t       public.tournaments%ROWTYPE;
+  v_round   INT;
+  v_players UUID[];
+  v_n       INT;
+  v_slot    INT := 0;
+  v_i       INT := 1;
+  v_p1      UUID;
+  v_p2      UUID;
+  v_game    UUID;
+BEGIN
+  SELECT * INTO v_t FROM public.tournaments WHERE id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN; END IF;
+
+  v_round := COALESCE(v_t.current_round, 0) + 1;
+
+  IF v_round = 1 THEN
+    SELECT array_agg(user_id ORDER BY random()) INTO v_players
+    FROM public.tournament_entries
+    WHERE tournament_id = p_tournament_id AND status = 'active';
+  ELSE
+    -- Fresh random pairings every round: shuffle the survivors instead
+    -- of walking the previous round's slots.
+    SELECT array_agg(winner_id ORDER BY random()) INTO v_players
+    FROM public.tournament_matches
+    WHERE tournament_id = p_tournament_id
+      AND round = v_t.current_round
+      AND winner_id IS NOT NULL;
+  END IF;
+
+  v_n := COALESCE(array_length(v_players, 1), 0);
+  IF v_n < 2 THEN RETURN; END IF;
+
+  WHILE v_i <= v_n LOOP
+    v_slot := v_slot + 1;
+    v_p1 := v_players[v_i];
+    v_p2 := CASE WHEN v_i + 1 <= v_n THEN v_players[v_i + 1] ELSE NULL END;
+
+    IF v_p2 IS NULL THEN
+      INSERT INTO public.tournament_matches
+        (tournament_id, round, slot, player1_id, player2_id, winner_id, status)
+      VALUES (p_tournament_id, v_round, v_slot, v_p1, NULL, v_p1, 'bye');
+      PERFORM public._tournament_log(
+        p_tournament_id, 'bye',
+        COALESCE((SELECT username FROM public.profiles WHERE id = v_p1), 'A player') || ' advances on a bye',
+        v_p1, jsonb_build_object('round', v_round));
+    ELSE
+      v_game := public._tournament_create_game(v_t, v_p1, v_p2);
+      INSERT INTO public.tournament_matches
+        (tournament_id, round, slot, player1_id, player2_id, game_id, status)
+      VALUES (p_tournament_id, v_round, v_slot, v_p1, v_p2, v_game, 'active');
+
+      INSERT INTO public.notifications (user_id, kind, title, body, link)
+      SELECT u, 'tournament_round',
+             'Round ' || v_round || ' — your match is live',
+             'Your ' || v_t.name || ' match has started. Good luck!',
+             '/game/' || v_game::text
+      FROM unnest(ARRAY[v_p1, v_p2]) AS u;
+    END IF;
+
+    v_i := v_i + 2;
+  END LOOP;
+
+  UPDATE public.tournaments SET
+    current_round    = v_round,
+    round_started_at = now(),
+    total_rounds     = CASE WHEN v_round = 1
+                            THEN GREATEST(1, CEIL(LOG(2, GREATEST(v_n, 2)::NUMERIC))::INT)
+                            ELSE total_rounds END
+  WHERE id = p_tournament_id;
+
+  PERFORM public._tournament_log(
+    p_tournament_id, 'round_started',
+    'Round ' || v_round || ' started — ' || v_slot || ' pairing' || CASE WHEN v_slot = 1 THEN '' ELSE 's' END,
+    NULL, jsonb_build_object('round', v_round, 'matches', v_slot));
+END; $$;
+REVOKE ALL ON FUNCTION public._tournament_start_round(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._tournament_start_round(UUID) TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 76.2 Platform revenue ledger
+-- ---------------------------------------------------------------------
+-- One row per completed paid tournament. UNIQUE(tournament_id) is the
+-- duplicate-payout guard; _tournament_complete additionally only runs
+-- while the tournament is still 'live'.
+CREATE TABLE IF NOT EXISTS public.tournament_platform_revenue (
+  id            BIGSERIAL PRIMARY KEY,
+  tournament_id UUID NOT NULL UNIQUE REFERENCES public.tournaments(id) ON DELETE CASCADE,
+  gross_pool    INT NOT NULL,
+  prizes_paid   INT NOT NULL,
+  amount        INT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+GRANT SELECT ON public.tournament_platform_revenue TO authenticated;
+GRANT ALL ON public.tournament_platform_revenue TO service_role;
+ALTER TABLE public.tournament_platform_revenue ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Platform revenue admin read" ON public.tournament_platform_revenue;
+CREATE POLICY "Platform revenue admin read"
+  ON public.tournament_platform_revenue FOR SELECT
+  USING (public.has_role(auth.uid(), 'admin'));
+-- No INSERT/UPDATE policies on purpose: only the SECURITY DEFINER
+-- completion path and the service role write revenue rows.
+
+-- ---------------------------------------------------------------------
+-- 76.3 _tournament_complete v3 — prizes + platform revenue booking
+-- ---------------------------------------------------------------------
+-- SECTION 75's arena-tiebreak version plus:
+--   • gross pool measured from the wallet ledger (entries minus refunds),
+--     so withdrawn players never inflate the pot
+--   • prize amounts derived as 40/25/15% of gross when the tournament was
+--     created without any configured prizes
+--   • the remainder (gross − prizes actually paid) booked to
+--     tournament_platform_revenue exactly once, with an activity entry
+CREATE OR REPLACE FUNCTION public._tournament_complete(p_tournament_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_t           public.tournaments%ROWTYPE;
+  v_final       public.tournament_matches%ROWTYPE;
+  v_champion    UUID;
+  v_runner      UUID;
+  v_semis       UUID[];
+  v_third       UUID;
+  v_fourth      UUID;
+  v_name        TEXT;
+  v_gross       INT := 0;
+  v_prizes_paid INT := 0;
+  v_platform    INT := 0;
+BEGIN
+  SELECT * INTO v_t FROM public.tournaments WHERE id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN; END IF;
+
+  SELECT * INTO v_final
+  FROM public.tournament_matches
+  WHERE tournament_id = p_tournament_id AND round = v_t.current_round
+  ORDER BY slot LIMIT 1;
+  IF NOT FOUND OR v_final.winner_id IS NULL THEN RETURN; END IF;
+
+  v_champion := v_final.winner_id;
+  v_runner   := CASE WHEN v_final.player1_id = v_champion THEN v_final.player2_id ELSE v_final.player1_id END;
+
+  -- Semifinal losers take 3rd/4th on the arena tiebreaks.
+  SELECT COALESCE(array_agg(s.loser
+           ORDER BY e.score DESC, e.wins DESC, e.losses ASC,
+                    e.fastest_win_ms ASC NULLS LAST), '{}')
+  INTO v_semis
+  FROM (
+    SELECT CASE WHEN m.winner_id = m.player1_id THEN m.player2_id ELSE m.player1_id END AS loser
+    FROM public.tournament_matches m
+    WHERE m.tournament_id = p_tournament_id
+      AND m.round = v_t.current_round - 1
+      AND m.status = 'finished'
+  ) s
+  JOIN public.tournament_entries e ON e.tournament_id = p_tournament_id AND e.user_id = s.loser
+  WHERE s.loser IS NOT NULL;
+  v_third  := v_semis[1];
+  v_fourth := v_semis[2];
+
+  UPDATE public.tournament_entries SET rank = 1, status = 'winner'
+  WHERE tournament_id = p_tournament_id AND user_id = v_champion;
+  UPDATE public.tournament_entries SET rank = 2, status = 'runner_up'
+  WHERE tournament_id = p_tournament_id AND user_id = v_runner;
+  UPDATE public.tournament_entries SET rank = 3, status = 'third'
+  WHERE tournament_id = p_tournament_id AND user_id = v_third;
+  UPDATE public.tournament_entries SET rank = 4, status = 'fourth'
+  WHERE tournament_id = p_tournament_id AND user_id = v_fourth;
+
+  UPDATE public.tournament_entries e SET rank = ranked.rnk
+  FROM (
+    SELECT user_id,
+           4 + ROW_NUMBER() OVER (
+             ORDER BY score DESC, wins DESC, losses ASC,
+                      fastest_win_ms ASC NULLS LAST, joined_at ASC
+           ) AS rnk
+    FROM public.tournament_entries
+    WHERE tournament_id = p_tournament_id
+      AND user_id IS DISTINCT FROM v_champion
+      AND user_id IS DISTINCT FROM v_runner
+      AND user_id IS DISTINCT FROM v_third
+      AND user_id IS DISTINCT FROM v_fourth
+  ) ranked
+  WHERE e.tournament_id = p_tournament_id AND e.user_id = ranked.user_id;
+
+  -- Gross pool from the ledger: entry fees are negative amounts, refunds
+  -- positive — net collected is the sum of both, sign-flipped.
+  SELECT COALESCE(-SUM(amount), 0) INTO v_gross
+  FROM public.wallet_transactions
+  WHERE reference_id = p_tournament_id::text
+    AND type IN ('tournament_entry', 'tournament_refund');
+  v_gross := GREATEST(0, v_gross);
+
+  -- Paid tournament with no prize configuration → 40/25/15 of gross.
+  IF v_gross > 0
+     AND (COALESCE(v_t.prize_1st, 0) + COALESCE(v_t.prize_2nd, 0)
+          + COALESCE(v_t.prize_3rd, 0) + COALESCE(v_t.prize_4th, 0)) = 0 THEN
+    v_t.prize_1st := floor(v_gross * 0.40)::INT;
+    v_t.prize_2nd := floor(v_gross * 0.25)::INT;
+    v_t.prize_3rd := floor(v_gross * 0.15)::INT;
+    UPDATE public.tournaments SET
+      prize_1st = v_t.prize_1st,
+      prize_2nd = v_t.prize_2nd,
+      prize_3rd = v_t.prize_3rd
+    WHERE id = p_tournament_id;
+  END IF;
+
+  PERFORM public._tournament_award_prize(v_t, v_champion, v_t.prize_1st, '1st');
+  PERFORM public._tournament_award_prize(v_t, v_runner,   v_t.prize_2nd, '2nd');
+  PERFORM public._tournament_award_prize(v_t, v_third,    v_t.prize_3rd, '3rd');
+  PERFORM public._tournament_award_prize(v_t, v_fourth,   v_t.prize_4th, '4th');
+
+  -- Book the platform's cut once. _tournament_award_prize is idempotent,
+  -- so summing the ledger counts each prize exactly once.
+  IF v_gross > 0 THEN
+    SELECT COALESCE(SUM(amount), 0) INTO v_prizes_paid
+    FROM public.wallet_transactions
+    WHERE reference_id = p_tournament_id::text AND type = 'tournament_prize';
+    v_platform := GREATEST(0, v_gross - v_prizes_paid);
+
+    INSERT INTO public.tournament_platform_revenue
+      (tournament_id, gross_pool, prizes_paid, amount)
+    VALUES (p_tournament_id, v_gross, v_prizes_paid, v_platform)
+    ON CONFLICT (tournament_id) DO NOTHING;
+
+    IF FOUND THEN
+      PERFORM public._tournament_log(
+        p_tournament_id, 'platform_fee',
+        'Platform fee collected: ' || v_platform || ' coins ('
+          || CASE WHEN v_gross > 0 THEN round(v_platform * 100.0 / v_gross)::INT ELSE 0 END
+          || '% of ' || v_gross || ')',
+        NULL,
+        jsonb_build_object('gross', v_gross, 'prizes', v_prizes_paid, 'platform', v_platform));
+    END IF;
+  END IF;
+
+  SELECT username INTO v_name FROM public.profiles WHERE id = v_champion;
+
+  UPDATE public.tournaments SET
+    status             = 'completed',
+    ends_at            = now(),
+    prizes_distributed = true,
+    winner_display     = COALESCE(v_name, winner_display)
+  WHERE id = p_tournament_id;
+
+  INSERT INTO public.notifications (user_id, kind, title, body, link)
+  SELECT user_id, 'tournament_finished',
+         'Tournament finished',
+         COALESCE(v_name, 'The champion') || ' won ' || v_t.name || '. Check the final standings.',
+         '/tournament/' || p_tournament_id::text
+  FROM public.tournament_entries
+  WHERE tournament_id = p_tournament_id;
+
+  PERFORM public._tournament_log(
+    p_tournament_id, 'tournament_finished',
+    COALESCE(v_name, 'The champion') || ' is the champion! 🏆',
+    v_champion, jsonb_build_object('winner', v_name));
+END; $$;
+REVOKE ALL ON FUNCTION public._tournament_complete(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._tournament_complete(UUID) TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 76.4 tournament_clock_sweep v2 — fast no-show settlement
+-- ---------------------------------------------------------------------
+-- The TS move handler now gives White's first move for free, so White's
+-- clock never runs before move 1 and a flag can no longer settle a
+-- 0-move board. Instead: any tournament game still on 0 moves 2 minutes
+-- after creation is a no-show — Black wins (mirrors handle_no_show's
+-- 90-second claim, just automated). Games with moves keep the original
+-- dead-clock rule, which fires trg_tournament_game_finished and advances
+-- the bracket either way.
+CREATE OR REPLACE FUNCTION public.tournament_clock_sweep()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_g      RECORD;
+  v_winner UUID;
+  v_result public.game_result;
+  v_reason TEXT;
+BEGIN
+  FOR v_g IN
+    SELECT g.*
+    FROM public.games g
+    JOIN public.tournament_matches tm ON tm.game_id = g.id AND tm.status = 'active'
+    WHERE g.status = 'active'
+      AND (
+        (g.moves_count = 0 AND g.created_at + interval '2 minutes' < now())
+        OR (
+          g.moves_count > 0
+          AND g.last_move_at IS NOT NULL
+          AND (
+            (g.turn = 'w' AND g.last_move_at + make_interval(secs => g.white_time_ms / 1000.0) < now()) OR
+            (g.turn = 'b' AND g.last_move_at + make_interval(secs => g.black_time_ms / 1000.0) < now())
+          )
+        )
+      )
+    FOR UPDATE OF g SKIP LOCKED
+  LOOP
+    IF v_g.moves_count = 0 THEN
+      -- White never opened the board: Black advances.
+      v_result := 'black'; v_winner := v_g.black_id; v_reason := 'no_show';
+    ELSIF v_g.turn = 'w' THEN
+      v_result := 'black'; v_winner := v_g.black_id; v_reason := 'timeout';
+    ELSE
+      v_result := 'white'; v_winner := v_g.white_id; v_reason := 'timeout';
+    END IF;
+
+    UPDATE public.games SET
+      status        = 'finished',
+      result        = v_result,
+      winner_id     = v_winner,
+      end_reason    = v_reason,
+      ended_at      = now(),
+      white_time_ms = CASE WHEN v_result = 'black' THEN 0 ELSE white_time_ms END,
+      black_time_ms = CASE WHEN v_result = 'white' THEN 0 ELSE black_time_ms END
+    WHERE id = v_g.id AND status = 'active';
+
+    -- Rating only when an actual game happened (0-move no-shows stay unrated).
+    IF v_g.is_rated AND v_g.moves_count > 0 THEN
+      PERFORM public.apply_elo_change(v_g.id);
+    END IF;
+  END LOOP;
+END; $$;
+REVOKE ALL ON FUNCTION public.tournament_clock_sweep() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.tournament_clock_sweep() TO service_role, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 76.5 admin_tr_overview v2 — platform revenue column
+-- ---------------------------------------------------------------------
+-- Identical to SECTION 75's version plus platform_revenue joined from
+-- the SECTION 76 ledger, so /admin/tr shows the house cut per tournament.
+CREATE OR REPLACE FUNCTION public.admin_tr_overview(
+  p_status TEXT        DEFAULT NULL,
+  p_search TEXT        DEFAULT NULL,
+  p_from   TIMESTAMPTZ DEFAULT NULL,
+  p_to     TIMESTAMPTZ DEFAULT NULL,
+  p_limit  INT         DEFAULT 60,
+  p_offset INT         DEFAULT 0
+) RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_out JSONB;
+BEGIN
+  IF v_uid IS NULL OR NOT public.has_role(v_uid, 'admin') THEN
+    RAISE EXCEPTION 'Admins only';
+  END IF;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.created_at DESC), '[]'::jsonb)
+  INTO v_out
+  FROM (
+    SELECT
+      t.id, t.name, t.slug, t.status, t.time_control, t.format,
+      t.entry_fee_coins, t.player_count, t.max_players,
+      t.prize_1st, t.prize_2nd, t.prize_3rd, t.prize_4th,
+      t.current_round, t.total_rounds, t.winner_display,
+      t.prizes_distributed, t.created_at, t.starts_at, t.ends_at,
+      COALESCE(fin.fees_collected, 0)  AS fees_collected,
+      COALESCE(fin.refunds_paid, 0)    AS refunds_paid,
+      COALESCE(fin.prizes_paid, 0)     AS prizes_paid,
+      COALESCE(pr.amount, 0)           AS platform_revenue,
+      COALESCE(ms.total_matches, 0)    AS total_matches,
+      COALESCE(ms.checkmates, 0)       AS checkmates,
+      COALESCE(ms.resigns, 0)          AS resigns,
+      COALESCE(ms.timeouts, 0)         AS timeouts,
+      COALESCE(ms.no_shows, 0)         AS no_shows,
+      COALESCE(ms.draws, 0)            AS draws,
+      COALESCE(ab.aborted, 0)          AS aborted,
+      COALESCE(cap.captures, 0)        AS captures,
+      COALESCE(cap.capture_points, 0)  AS capture_points
+    FROM public.tournaments t
+    LEFT JOIN public.tournament_platform_revenue pr ON pr.tournament_id = t.id
+    LEFT JOIN LATERAL (
+      SELECT
+        COALESCE(-sum(amount) FILTER (WHERE type = 'tournament_entry'),  0) AS fees_collected,
+        COALESCE( sum(amount) FILTER (WHERE type = 'tournament_refund'), 0) AS refunds_paid,
+        COALESCE( sum(amount) FILTER (WHERE type = 'tournament_prize'),  0) AS prizes_paid
+      FROM public.wallet_transactions wt
+      WHERE wt.reference_id = t.id::text
+    ) fin ON true
+    LEFT JOIN LATERAL (
+      SELECT
+        count(*)                                              AS total_matches,
+        count(*) FILTER (WHERE g.end_reason = 'checkmate')    AS checkmates,
+        count(*) FILTER (WHERE g.end_reason = 'resign')       AS resigns,
+        count(*) FILTER (WHERE g.end_reason = 'timeout')      AS timeouts,
+        count(*) FILTER (WHERE g.end_reason = 'no_show')      AS no_shows,
+        count(*) FILTER (WHERE g.result = 'draw')             AS draws
+      FROM public.tournament_matches tm
+      LEFT JOIN public.games g ON g.id = tm.game_id
+      WHERE tm.tournament_id = t.id
+    ) ms ON true
+    LEFT JOIN LATERAL (
+      -- Abort events come from the ledger: an aborted game gets replaced
+      -- and un-referenced by its match, so the join above can't see it.
+      SELECT count(*) AS aborted
+      FROM public.tournament_match_aborts a
+      JOIN public.tournament_matches tm2 ON tm2.id = a.match_id
+      WHERE tm2.tournament_id = t.id
+    ) ab ON true
+    LEFT JOIN LATERAL (
+      SELECT count(*) AS captures, COALESCE(sum(bonus), 0) AS capture_points
+      FROM public.tournament_captured_pieces cp
+      WHERE cp.tournament_id = t.id
+    ) cap ON true
+    WHERE (p_status IS NULL OR t.status = p_status)
+      AND (p_search IS NULL OR p_search = ''
+           OR t.name ILIKE '%' || p_search || '%'
+           OR t.id::text ILIKE p_search || '%'
+           OR t.slug ILIKE '%' || p_search || '%')
+      AND (p_from IS NULL OR t.created_at >= p_from)
+      AND (p_to   IS NULL OR t.created_at <  p_to)
+    ORDER BY t.created_at DESC
+    LIMIT LEAST(GREATEST(p_limit, 1), 200) OFFSET GREATEST(p_offset, 0)
+  ) r;
+
+  RETURN v_out;
+END; $$;
+REVOKE ALL ON FUNCTION public.admin_tr_overview(TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_tr_overview(TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 76.6 Round-by-round progression: the 10-second intermission
+-- ---------------------------------------------------------------------
+-- The next round must NOT start the instant the last board finishes.
+-- Instead the finish trigger stamps tournaments.next_round_at 10 seconds
+-- out and stops; advance_pending_rounds() (76.7) does the actual pairing
+-- once that moment passes. Clients render the stamp as the full-screen
+-- "Round N Complete" countdown overlay. The final round is exempt — the
+-- tournament completes (prizes, placings, archive) immediately.
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS next_round_at TIMESTAMPTZ;
+
+CREATE OR REPLACE FUNCTION public.handle_tournament_game_finished()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_match       public.tournament_matches%ROWTYPE;
+  v_t           public.tournaments%ROWTYPE;
+  v_winner      UUID;
+  v_loser       UUID;
+  v_is_draw     BOOLEAN := false;
+  v_wname       TEXT;
+  v_lname       TEXT;
+  v_white_used  BIGINT;
+  v_black_used  BIGINT;
+  v_duration_ms BIGINT;
+  v_pending     INT;
+  v_in_round    INT;
+  v_next_at     TIMESTAMPTZ;
+BEGIN
+  SELECT * INTO v_match FROM public.tournament_matches
+  WHERE game_id = NEW.id AND status = 'active'
+  LIMIT 1;
+  IF NOT FOUND THEN RETURN NEW; END IF;
+
+  -- Serialize all bracket processing per tournament.
+  SELECT * INTO v_t FROM public.tournaments WHERE id = v_match.tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN NEW; END IF;
+
+  IF NEW.result = 'white' THEN
+    v_winner := NEW.white_id;
+  ELSIF NEW.result = 'black' THEN
+    v_winner := NEW.black_id;
+  ELSE
+    v_is_draw := (NEW.result = 'draw');
+    v_winner := CASE WHEN COALESCE(NEW.white_time_ms, 0) >= COALESCE(NEW.black_time_ms, 0)
+                     THEN NEW.white_id ELSE NEW.black_id END;
+  END IF;
+  v_loser := CASE WHEN v_winner = NEW.white_id THEN NEW.black_id ELSE NEW.white_id END;
+
+  UPDATE public.tournament_matches SET winner_id = v_winner, status = 'finished'
+  WHERE id = v_match.id;
+
+  v_white_used  := GREATEST(0, NEW.initial_seconds::BIGINT * 1000 - COALESCE(NEW.white_time_ms, 0));
+  v_black_used  := GREATEST(0, NEW.initial_seconds::BIGINT * 1000 - COALESCE(NEW.black_time_ms, 0));
+  v_duration_ms := GREATEST(0,
+    (EXTRACT(EPOCH FROM (COALESCE(NEW.ended_at, now()) - NEW.created_at)) * 1000)::BIGINT);
+
+  -- Arena points: WIN +5, LOSS −5, DRAW both +2 (the clock-tiebreak
+  -- "winner" of a draw still advances the bracket but scores it as a draw).
+  UPDATE public.tournament_entries SET
+    wins   = wins   + CASE WHEN NOT v_is_draw AND user_id = v_winner THEN 1 ELSE 0 END,
+    losses = losses + CASE WHEN NOT v_is_draw AND user_id = v_loser  THEN 1 ELSE 0 END,
+    draws  = draws  + CASE WHEN v_is_draw THEN 1 ELSE 0 END,
+    score  = score  + CASE WHEN v_is_draw THEN 2
+                           WHEN user_id = v_winner THEN 5
+                           ELSE -5 END,
+    time_used_ms = time_used_ms + CASE WHEN user_id = NEW.white_id THEN v_white_used ELSE v_black_used END,
+    fastest_win_ms = CASE WHEN NOT v_is_draw AND user_id = v_winner
+                          THEN LEAST(COALESCE(fastest_win_ms, 9223372036854775807), v_duration_ms)
+                          ELSE fastest_win_ms END,
+    status = CASE WHEN user_id = v_loser THEN 'eliminated' ELSE status END,
+    eliminated_in_round = CASE WHEN user_id = v_loser THEN v_match.round ELSE eliminated_in_round END
+  WHERE tournament_id = v_t.id AND user_id IN (NEW.white_id, NEW.black_id);
+
+  SELECT username INTO v_wname FROM public.profiles WHERE id = v_winner;
+  SELECT username INTO v_lname FROM public.profiles WHERE id = v_loser;
+
+  PERFORM public._tournament_log(
+    v_t.id, 'match_finished',
+    COALESCE(v_wname, 'Winner')
+      || CASE WHEN v_is_draw THEN ' advances on tiebreak vs ' ELSE ' defeats ' END
+      || COALESCE(v_lname, 'opponent')
+      || ' (' || COALESCE(NEW.end_reason, 'finished') || ')',
+    v_winner,
+    jsonb_build_object(
+      'round', v_match.round, 'winner', v_wname, 'loser', v_lname,
+      'reason', NEW.end_reason, 'moves', NEW.moves_count,
+      'draw', v_is_draw, 'game_id', NEW.id,
+      'winner_id', v_winner, 'loser_id', v_loser));
+
+  INSERT INTO public.notifications (user_id, kind, title, body, link) VALUES
+    (v_winner, 'tournament_result', 'You advanced!',
+     'You won your Round ' || v_match.round || ' match in ' || v_t.name || '.',
+     '/tournament/' || v_t.id::text),
+    (v_loser, 'tournament_result', 'Eliminated',
+     'You were knocked out in Round ' || v_match.round || ' of ' || v_t.name || '.',
+     '/tournament/' || v_t.id::text);
+
+  SELECT count(*) FILTER (WHERE status IN ('pending', 'active')), count(*)
+  INTO v_pending, v_in_round
+  FROM public.tournament_matches
+  WHERE tournament_id = v_t.id AND round = v_t.current_round;
+
+  IF v_pending = 0 THEN
+    IF v_in_round = 1 THEN
+      -- The final: no intermission, crown the champion right away.
+      PERFORM public._tournament_log(
+        v_t.id, 'round_finished', 'Round ' || v_t.current_round || ' complete',
+        NULL, jsonb_build_object('round', v_t.current_round, 'final', true));
+      PERFORM public._tournament_complete(v_t.id);
+    ELSE
+      -- Round-by-round rule: stamp the intermission instead of pairing now.
+      -- Every board in this round is done; the whole field waits out the
+      -- same 10 seconds and advances together via advance_pending_rounds().
+      v_next_at := now() + interval '10 seconds';
+      UPDATE public.tournaments SET next_round_at = v_next_at WHERE id = v_t.id;
+      PERFORM public._tournament_log(
+        v_t.id, 'round_finished',
+        'Round ' || v_t.current_round || ' complete — next round starts in 10 seconds',
+        NULL, jsonb_build_object('round', v_t.current_round, 'next_round_at', v_next_at));
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END; $$;
+
+-- ---------------------------------------------------------------------
+-- 76.7 advance_pending_rounds — fires the pairing once the 10s are up
+-- ---------------------------------------------------------------------
+-- Idempotent and race-safe: SKIP LOCKED + the next_round_at <= now()
+-- guard mean that when every arena client calls this at countdown zero,
+-- exactly one caller pairs the round and the rest no-op. Cron backstops
+-- it for tournaments nobody is watching.
+CREATE OR REPLACE FUNCTION public.advance_pending_rounds()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_tourn RECORD;
+BEGIN
+  FOR v_tourn IN
+    SELECT id FROM public.tournaments
+    WHERE status = 'live' AND next_round_at IS NOT NULL AND next_round_at <= now()
+    FOR UPDATE SKIP LOCKED
+  LOOP
+    UPDATE public.tournaments SET next_round_at = NULL WHERE id = v_tourn.id;
+    PERFORM public._tournament_start_round(v_tourn.id);
+  END LOOP;
+END; $$;
+REVOKE ALL ON FUNCTION public.advance_pending_rounds() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.advance_pending_rounds() TO authenticated, service_role;
+
+DO $$
+BEGIN
+  PERFORM cron.unschedule('advance_pending_rounds');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  PERFORM cron.schedule('advance_pending_rounds', '* * * * *', 'SELECT public.advance_pending_rounds();');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron not available — schedule advance_pending_rounds manually';
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 76.8 _tournament_start_round v4 — clears the intermission stamp
+-- ---------------------------------------------------------------------
+-- Identical to 76.1 (random re-pairing every round) plus next_round_at
+-- is reset in the same UPDATE, so a round can never start while the
+-- overlay stamp is still live.
+CREATE OR REPLACE FUNCTION public._tournament_start_round(p_tournament_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_t       public.tournaments%ROWTYPE;
+  v_round   INT;
+  v_players UUID[];
+  v_n       INT;
+  v_slot    INT := 0;
+  v_i       INT := 1;
+  v_p1      UUID;
+  v_p2      UUID;
+  v_game    UUID;
+BEGIN
+  SELECT * INTO v_t FROM public.tournaments WHERE id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN; END IF;
+
+  v_round := COALESCE(v_t.current_round, 0) + 1;
+
+  IF v_round = 1 THEN
+    SELECT array_agg(user_id ORDER BY random()) INTO v_players
+    FROM public.tournament_entries
+    WHERE tournament_id = p_tournament_id AND status = 'active';
+  ELSE
+    -- Fresh random pairings every round: shuffle the survivors instead
+    -- of walking the previous round's slots.
+    SELECT array_agg(winner_id ORDER BY random()) INTO v_players
+    FROM public.tournament_matches
+    WHERE tournament_id = p_tournament_id
+      AND round = v_t.current_round
+      AND winner_id IS NOT NULL;
+  END IF;
+
+  v_n := COALESCE(array_length(v_players, 1), 0);
+  IF v_n < 2 THEN RETURN; END IF;
+
+  WHILE v_i <= v_n LOOP
+    v_slot := v_slot + 1;
+    v_p1 := v_players[v_i];
+    v_p2 := CASE WHEN v_i + 1 <= v_n THEN v_players[v_i + 1] ELSE NULL END;
+
+    IF v_p2 IS NULL THEN
+      INSERT INTO public.tournament_matches
+        (tournament_id, round, slot, player1_id, player2_id, winner_id, status)
+      VALUES (p_tournament_id, v_round, v_slot, v_p1, NULL, v_p1, 'bye');
+      PERFORM public._tournament_log(
+        p_tournament_id, 'bye',
+        COALESCE((SELECT username FROM public.profiles WHERE id = v_p1), 'A player') || ' advances on a bye',
+        v_p1, jsonb_build_object('round', v_round));
+    ELSE
+      v_game := public._tournament_create_game(v_t, v_p1, v_p2);
+      INSERT INTO public.tournament_matches
+        (tournament_id, round, slot, player1_id, player2_id, game_id, status)
+      VALUES (p_tournament_id, v_round, v_slot, v_p1, v_p2, v_game, 'active');
+
+      INSERT INTO public.notifications (user_id, kind, title, body, link)
+      SELECT u, 'tournament_round',
+             'Round ' || v_round || ' — your match is live',
+             'Your ' || v_t.name || ' match has started. Good luck!',
+             '/game/' || v_game::text
+      FROM unnest(ARRAY[v_p1, v_p2]) AS u;
+    END IF;
+
+    v_i := v_i + 2;
+  END LOOP;
+
+  UPDATE public.tournaments SET
+    current_round    = v_round,
+    round_started_at = now(),
+    next_round_at    = NULL,
+    total_rounds     = CASE WHEN v_round = 1
+                            THEN GREATEST(1, CEIL(LOG(2, GREATEST(v_n, 2)::NUMERIC))::INT)
+                            ELSE total_rounds END
+  WHERE id = p_tournament_id;
+
+  PERFORM public._tournament_log(
+    p_tournament_id, 'round_started',
+    'Round ' || v_round || ' started — ' || v_slot || ' pairing' || CASE WHEN v_slot = 1 THEN '' ELSE 's' END,
+    NULL, jsonb_build_object('round', v_round, 'matches', v_slot));
+END; $$;
+REVOKE ALL ON FUNCTION public._tournament_start_round(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._tournament_start_round(UUID) TO service_role;
+
+
+
+
+
+
+
+
+
+-- =====================================================================
+-- SECTION 76: KNOCKOUT V3 — RANDOM RE-PAIRING, PLATFORM REVENUE,
+--             FIRST-MOVE CLOCK RULE (2026-07-19)
+-- ---------------------------------------------------------------------
+-- Pure-knockout upgrades layered on SECTIONS 74/75. Registration,
+-- locking, arena scoring, captures, aborts and cancellation are all
+-- untouched — only the pieces below change:
+--   • _tournament_start_round v3: EVERY round re-shuffles the remaining
+--     players randomly (no fixed bracket, no slot-order advancement)
+--   • tournament_platform_revenue ledger + booking inside
+--     _tournament_complete: the platform's cut (gross entry fees minus
+--     prizes actually paid) is recorded exactly once per tournament,
+--     logged to the activity feed, and readable by admins only
+--   • prize auto-derivation: a paid tournament whose prize columns were
+--     never configured splits its gross pool 40% / 25% / 15% (champion /
+--     runner-up / third) at completion; the ~20% remainder becomes the
+--     platform's cut
+--   • tournament_clock_sweep v2: 0-move tournament boards settle as
+--     no-shows after a 2-minute grace. The TS move handler now gives
+--     White's first move for free (clocks start when White opens), so
+--     the sweep can no longer rely on White's clock running before move 1
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 76.1 _tournament_start_round v3 — pure random pairing every round
+-- ---------------------------------------------------------------------
+-- Same contract and locking as v1 (74.4): caller holds the tournament
+-- row lock; byes auto-advance the odd player out; games/notifications/
+-- activity are produced identically. The ONLY change: rounds after the
+-- first shuffle the previous round's winners with ORDER BY random()
+-- instead of advancing them in bracket-slot order.
+CREATE OR REPLACE FUNCTION public._tournament_start_round(p_tournament_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_t       public.tournaments%ROWTYPE;
+  v_round   INT;
+  v_players UUID[];
+  v_n       INT;
+  v_slot    INT := 0;
+  v_i       INT := 1;
+  v_p1      UUID;
+  v_p2      UUID;
+  v_game    UUID;
+BEGIN
+  SELECT * INTO v_t FROM public.tournaments WHERE id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN; END IF;
+
+  v_round := COALESCE(v_t.current_round, 0) + 1;
+
+  IF v_round = 1 THEN
+    SELECT array_agg(user_id ORDER BY random()) INTO v_players
+    FROM public.tournament_entries
+    WHERE tournament_id = p_tournament_id AND status = 'active';
+  ELSE
+    -- Fresh random pairings every round: shuffle the survivors instead
+    -- of walking the previous round's slots.
+    SELECT array_agg(winner_id ORDER BY random()) INTO v_players
+    FROM public.tournament_matches
+    WHERE tournament_id = p_tournament_id
+      AND round = v_t.current_round
+      AND winner_id IS NOT NULL;
+  END IF;
+
+  v_n := COALESCE(array_length(v_players, 1), 0);
+  IF v_n < 2 THEN RETURN; END IF;
+
+  WHILE v_i <= v_n LOOP
+    v_slot := v_slot + 1;
+    v_p1 := v_players[v_i];
+    v_p2 := CASE WHEN v_i + 1 <= v_n THEN v_players[v_i + 1] ELSE NULL END;
+
+    IF v_p2 IS NULL THEN
+      INSERT INTO public.tournament_matches
+        (tournament_id, round, slot, player1_id, player2_id, winner_id, status)
+      VALUES (p_tournament_id, v_round, v_slot, v_p1, NULL, v_p1, 'bye');
+      PERFORM public._tournament_log(
+        p_tournament_id, 'bye',
+        COALESCE((SELECT username FROM public.profiles WHERE id = v_p1), 'A player') || ' advances on a bye',
+        v_p1, jsonb_build_object('round', v_round));
+    ELSE
+      v_game := public._tournament_create_game(v_t, v_p1, v_p2);
+      INSERT INTO public.tournament_matches
+        (tournament_id, round, slot, player1_id, player2_id, game_id, status)
+      VALUES (p_tournament_id, v_round, v_slot, v_p1, v_p2, v_game, 'active');
+
+      INSERT INTO public.notifications (user_id, kind, title, body, link)
+      SELECT u, 'tournament_round',
+             'Round ' || v_round || ' — your match is live',
+             'Your ' || v_t.name || ' match has started. Good luck!',
+             '/game/' || v_game::text
+      FROM unnest(ARRAY[v_p1, v_p2]) AS u;
+    END IF;
+
+    v_i := v_i + 2;
+  END LOOP;
+
+  UPDATE public.tournaments SET
+    current_round    = v_round,
+    round_started_at = now(),
+    total_rounds     = CASE WHEN v_round = 1
+                            THEN GREATEST(1, CEIL(LOG(2, GREATEST(v_n, 2)::NUMERIC))::INT)
+                            ELSE total_rounds END
+  WHERE id = p_tournament_id;
+
+  PERFORM public._tournament_log(
+    p_tournament_id, 'round_started',
+    'Round ' || v_round || ' started — ' || v_slot || ' pairing' || CASE WHEN v_slot = 1 THEN '' ELSE 's' END,
+    NULL, jsonb_build_object('round', v_round, 'matches', v_slot));
+END; $$;
+REVOKE ALL ON FUNCTION public._tournament_start_round(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._tournament_start_round(UUID) TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 76.2 Platform revenue ledger
+-- ---------------------------------------------------------------------
+-- One row per completed paid tournament. UNIQUE(tournament_id) is the
+-- duplicate-payout guard; _tournament_complete additionally only runs
+-- while the tournament is still 'live'.
+CREATE TABLE IF NOT EXISTS public.tournament_platform_revenue (
+  id            BIGSERIAL PRIMARY KEY,
+  tournament_id UUID NOT NULL UNIQUE REFERENCES public.tournaments(id) ON DELETE CASCADE,
+  gross_pool    INT NOT NULL,
+  prizes_paid   INT NOT NULL,
+  amount        INT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+GRANT SELECT ON public.tournament_platform_revenue TO authenticated;
+GRANT ALL ON public.tournament_platform_revenue TO service_role;
+ALTER TABLE public.tournament_platform_revenue ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Platform revenue admin read" ON public.tournament_platform_revenue;
+CREATE POLICY "Platform revenue admin read"
+  ON public.tournament_platform_revenue FOR SELECT
+  USING (public.has_role(auth.uid(), 'admin'));
+-- No INSERT/UPDATE policies on purpose: only the SECURITY DEFINER
+-- completion path and the service role write revenue rows.
+
+-- ---------------------------------------------------------------------
+-- 76.3 _tournament_complete v3 — prizes + platform revenue booking
+-- ---------------------------------------------------------------------
+-- SECTION 75's arena-tiebreak version plus:
+--   • gross pool measured from the wallet ledger (entries minus refunds),
+--     so withdrawn players never inflate the pot
+--   • prize amounts derived as 40/25/15% of gross when the tournament was
+--     created without any configured prizes
+--   • the remainder (gross − prizes actually paid) booked to
+--     tournament_platform_revenue exactly once, with an activity entry
+CREATE OR REPLACE FUNCTION public._tournament_complete(p_tournament_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_t           public.tournaments%ROWTYPE;
+  v_final       public.tournament_matches%ROWTYPE;
+  v_champion    UUID;
+  v_runner      UUID;
+  v_semis       UUID[];
+  v_third       UUID;
+  v_fourth      UUID;
+  v_name        TEXT;
+  v_gross       INT := 0;
+  v_prizes_paid INT := 0;
+  v_platform    INT := 0;
+BEGIN
+  SELECT * INTO v_t FROM public.tournaments WHERE id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN; END IF;
+
+  SELECT * INTO v_final
+  FROM public.tournament_matches
+  WHERE tournament_id = p_tournament_id AND round = v_t.current_round
+  ORDER BY slot LIMIT 1;
+  IF NOT FOUND OR v_final.winner_id IS NULL THEN RETURN; END IF;
+
+  v_champion := v_final.winner_id;
+  v_runner   := CASE WHEN v_final.player1_id = v_champion THEN v_final.player2_id ELSE v_final.player1_id END;
+
+  -- Semifinal losers take 3rd/4th on the arena tiebreaks.
+  SELECT COALESCE(array_agg(s.loser
+           ORDER BY e.score DESC, e.wins DESC, e.losses ASC,
+                    e.fastest_win_ms ASC NULLS LAST), '{}')
+  INTO v_semis
+  FROM (
+    SELECT CASE WHEN m.winner_id = m.player1_id THEN m.player2_id ELSE m.player1_id END AS loser
+    FROM public.tournament_matches m
+    WHERE m.tournament_id = p_tournament_id
+      AND m.round = v_t.current_round - 1
+      AND m.status = 'finished'
+  ) s
+  JOIN public.tournament_entries e ON e.tournament_id = p_tournament_id AND e.user_id = s.loser
+  WHERE s.loser IS NOT NULL;
+  v_third  := v_semis[1];
+  v_fourth := v_semis[2];
+
+  UPDATE public.tournament_entries SET rank = 1, status = 'winner'
+  WHERE tournament_id = p_tournament_id AND user_id = v_champion;
+  UPDATE public.tournament_entries SET rank = 2, status = 'runner_up'
+  WHERE tournament_id = p_tournament_id AND user_id = v_runner;
+  UPDATE public.tournament_entries SET rank = 3, status = 'third'
+  WHERE tournament_id = p_tournament_id AND user_id = v_third;
+  UPDATE public.tournament_entries SET rank = 4, status = 'fourth'
+  WHERE tournament_id = p_tournament_id AND user_id = v_fourth;
+
+  UPDATE public.tournament_entries e SET rank = ranked.rnk
+  FROM (
+    SELECT user_id,
+           4 + ROW_NUMBER() OVER (
+             ORDER BY score DESC, wins DESC, losses ASC,
+                      fastest_win_ms ASC NULLS LAST, joined_at ASC
+           ) AS rnk
+    FROM public.tournament_entries
+    WHERE tournament_id = p_tournament_id
+      AND user_id IS DISTINCT FROM v_champion
+      AND user_id IS DISTINCT FROM v_runner
+      AND user_id IS DISTINCT FROM v_third
+      AND user_id IS DISTINCT FROM v_fourth
+  ) ranked
+  WHERE e.tournament_id = p_tournament_id AND e.user_id = ranked.user_id;
+
+  -- Gross pool from the ledger: entry fees are negative amounts, refunds
+  -- positive — net collected is the sum of both, sign-flipped.
+  SELECT COALESCE(-SUM(amount), 0) INTO v_gross
+  FROM public.wallet_transactions
+  WHERE reference_id = p_tournament_id::text
+    AND type IN ('tournament_entry', 'tournament_refund');
+  v_gross := GREATEST(0, v_gross);
+
+  -- Paid tournament with no prize configuration → 40/25/15 of gross.
+  IF v_gross > 0
+     AND (COALESCE(v_t.prize_1st, 0) + COALESCE(v_t.prize_2nd, 0)
+          + COALESCE(v_t.prize_3rd, 0) + COALESCE(v_t.prize_4th, 0)) = 0 THEN
+    v_t.prize_1st := floor(v_gross * 0.40)::INT;
+    v_t.prize_2nd := floor(v_gross * 0.25)::INT;
+    v_t.prize_3rd := floor(v_gross * 0.15)::INT;
+    UPDATE public.tournaments SET
+      prize_1st = v_t.prize_1st,
+      prize_2nd = v_t.prize_2nd,
+      prize_3rd = v_t.prize_3rd
+    WHERE id = p_tournament_id;
+  END IF;
+
+  PERFORM public._tournament_award_prize(v_t, v_champion, v_t.prize_1st, '1st');
+  PERFORM public._tournament_award_prize(v_t, v_runner,   v_t.prize_2nd, '2nd');
+  PERFORM public._tournament_award_prize(v_t, v_third,    v_t.prize_3rd, '3rd');
+  PERFORM public._tournament_award_prize(v_t, v_fourth,   v_t.prize_4th, '4th');
+
+  -- Book the platform's cut once. _tournament_award_prize is idempotent,
+  -- so summing the ledger counts each prize exactly once.
+  IF v_gross > 0 THEN
+    SELECT COALESCE(SUM(amount), 0) INTO v_prizes_paid
+    FROM public.wallet_transactions
+    WHERE reference_id = p_tournament_id::text AND type = 'tournament_prize';
+    v_platform := GREATEST(0, v_gross - v_prizes_paid);
+
+    INSERT INTO public.tournament_platform_revenue
+      (tournament_id, gross_pool, prizes_paid, amount)
+    VALUES (p_tournament_id, v_gross, v_prizes_paid, v_platform)
+    ON CONFLICT (tournament_id) DO NOTHING;
+
+    IF FOUND THEN
+      PERFORM public._tournament_log(
+        p_tournament_id, 'platform_fee',
+        'Platform fee collected: ' || v_platform || ' coins ('
+          || CASE WHEN v_gross > 0 THEN round(v_platform * 100.0 / v_gross)::INT ELSE 0 END
+          || '% of ' || v_gross || ')',
+        NULL,
+        jsonb_build_object('gross', v_gross, 'prizes', v_prizes_paid, 'platform', v_platform));
+    END IF;
+  END IF;
+
+  SELECT username INTO v_name FROM public.profiles WHERE id = v_champion;
+
+  UPDATE public.tournaments SET
+    status             = 'completed',
+    ends_at            = now(),
+    prizes_distributed = true,
+    winner_display     = COALESCE(v_name, winner_display)
+  WHERE id = p_tournament_id;
+
+  INSERT INTO public.notifications (user_id, kind, title, body, link)
+  SELECT user_id, 'tournament_finished',
+         'Tournament finished',
+         COALESCE(v_name, 'The champion') || ' won ' || v_t.name || '. Check the final standings.',
+         '/tournament/' || p_tournament_id::text
+  FROM public.tournament_entries
+  WHERE tournament_id = p_tournament_id;
+
+  PERFORM public._tournament_log(
+    p_tournament_id, 'tournament_finished',
+    COALESCE(v_name, 'The champion') || ' is the champion! 🏆',
+    v_champion, jsonb_build_object('winner', v_name));
+END; $$;
+REVOKE ALL ON FUNCTION public._tournament_complete(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._tournament_complete(UUID) TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 76.4 tournament_clock_sweep v2 — fast no-show settlement
+-- ---------------------------------------------------------------------
+-- The TS move handler now gives White's first move for free, so White's
+-- clock never runs before move 1 and a flag can no longer settle a
+-- 0-move board. Instead: any tournament game still on 0 moves 2 minutes
+-- after creation is a no-show — Black wins (mirrors handle_no_show's
+-- 90-second claim, just automated). Games with moves keep the original
+-- dead-clock rule, which fires trg_tournament_game_finished and advances
+-- the bracket either way.
+CREATE OR REPLACE FUNCTION public.tournament_clock_sweep()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_g      RECORD;
+  v_winner UUID;
+  v_result public.game_result;
+  v_reason TEXT;
+BEGIN
+  FOR v_g IN
+    SELECT g.*
+    FROM public.games g
+    JOIN public.tournament_matches tm ON tm.game_id = g.id AND tm.status = 'active'
+    WHERE g.status = 'active'
+      AND (
+        (g.moves_count = 0 AND g.created_at + interval '2 minutes' < now())
+        OR (
+          g.moves_count > 0
+          AND g.last_move_at IS NOT NULL
+          AND (
+            (g.turn = 'w' AND g.last_move_at + make_interval(secs => g.white_time_ms / 1000.0) < now()) OR
+            (g.turn = 'b' AND g.last_move_at + make_interval(secs => g.black_time_ms / 1000.0) < now())
+          )
+        )
+      )
+    FOR UPDATE OF g SKIP LOCKED
+  LOOP
+    IF v_g.moves_count = 0 THEN
+      -- White never opened the board: Black advances.
+      v_result := 'black'; v_winner := v_g.black_id; v_reason := 'no_show';
+    ELSIF v_g.turn = 'w' THEN
+      v_result := 'black'; v_winner := v_g.black_id; v_reason := 'timeout';
+    ELSE
+      v_result := 'white'; v_winner := v_g.white_id; v_reason := 'timeout';
+    END IF;
+
+    UPDATE public.games SET
+      status        = 'finished',
+      result        = v_result,
+      winner_id     = v_winner,
+      end_reason    = v_reason,
+      ended_at      = now(),
+      white_time_ms = CASE WHEN v_result = 'black' THEN 0 ELSE white_time_ms END,
+      black_time_ms = CASE WHEN v_result = 'white' THEN 0 ELSE black_time_ms END
+    WHERE id = v_g.id AND status = 'active';
+
+    -- Rating only when an actual game happened (0-move no-shows stay unrated).
+    IF v_g.is_rated AND v_g.moves_count > 0 THEN
+      PERFORM public.apply_elo_change(v_g.id);
+    END IF;
+  END LOOP;
+END; $$;
+REVOKE ALL ON FUNCTION public.tournament_clock_sweep() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.tournament_clock_sweep() TO service_role, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 76.5 admin_tr_overview v2 — platform revenue column
+-- ---------------------------------------------------------------------
+-- Identical to SECTION 75's version plus platform_revenue joined from
+-- the SECTION 76 ledger, so /admin/tr shows the house cut per tournament.
+CREATE OR REPLACE FUNCTION public.admin_tr_overview(
+  p_status TEXT        DEFAULT NULL,
+  p_search TEXT        DEFAULT NULL,
+  p_from   TIMESTAMPTZ DEFAULT NULL,
+  p_to     TIMESTAMPTZ DEFAULT NULL,
+  p_limit  INT         DEFAULT 60,
+  p_offset INT         DEFAULT 0
+) RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_out JSONB;
+BEGIN
+  IF v_uid IS NULL OR NOT public.has_role(v_uid, 'admin') THEN
+    RAISE EXCEPTION 'Admins only';
+  END IF;
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.created_at DESC), '[]'::jsonb)
+  INTO v_out
+  FROM (
+    SELECT
+      t.id, t.name, t.slug, t.status, t.time_control, t.format,
+      t.entry_fee_coins, t.player_count, t.max_players,
+      t.prize_1st, t.prize_2nd, t.prize_3rd, t.prize_4th,
+      t.current_round, t.total_rounds, t.winner_display,
+      t.prizes_distributed, t.created_at, t.starts_at, t.ends_at,
+      COALESCE(fin.fees_collected, 0)  AS fees_collected,
+      COALESCE(fin.refunds_paid, 0)    AS refunds_paid,
+      COALESCE(fin.prizes_paid, 0)     AS prizes_paid,
+      COALESCE(pr.amount, 0)           AS platform_revenue,
+      COALESCE(ms.total_matches, 0)    AS total_matches,
+      COALESCE(ms.checkmates, 0)       AS checkmates,
+      COALESCE(ms.resigns, 0)          AS resigns,
+      COALESCE(ms.timeouts, 0)         AS timeouts,
+      COALESCE(ms.no_shows, 0)         AS no_shows,
+      COALESCE(ms.draws, 0)            AS draws,
+      COALESCE(ab.aborted, 0)          AS aborted,
+      COALESCE(cap.captures, 0)        AS captures,
+      COALESCE(cap.capture_points, 0)  AS capture_points
+    FROM public.tournaments t
+    LEFT JOIN public.tournament_platform_revenue pr ON pr.tournament_id = t.id
+    LEFT JOIN LATERAL (
+      SELECT
+        COALESCE(-sum(amount) FILTER (WHERE type = 'tournament_entry'),  0) AS fees_collected,
+        COALESCE( sum(amount) FILTER (WHERE type = 'tournament_refund'), 0) AS refunds_paid,
+        COALESCE( sum(amount) FILTER (WHERE type = 'tournament_prize'),  0) AS prizes_paid
+      FROM public.wallet_transactions wt
+      WHERE wt.reference_id = t.id::text
+    ) fin ON true
+    LEFT JOIN LATERAL (
+      SELECT
+        count(*)                                              AS total_matches,
+        count(*) FILTER (WHERE g.end_reason = 'checkmate')    AS checkmates,
+        count(*) FILTER (WHERE g.end_reason = 'resign')       AS resigns,
+        count(*) FILTER (WHERE g.end_reason = 'timeout')      AS timeouts,
+        count(*) FILTER (WHERE g.end_reason = 'no_show')      AS no_shows,
+        count(*) FILTER (WHERE g.result = 'draw')             AS draws
+      FROM public.tournament_matches tm
+      LEFT JOIN public.games g ON g.id = tm.game_id
+      WHERE tm.tournament_id = t.id
+    ) ms ON true
+    LEFT JOIN LATERAL (
+      -- Abort events come from the ledger: an aborted game gets replaced
+      -- and un-referenced by its match, so the join above can't see it.
+      SELECT count(*) AS aborted
+      FROM public.tournament_match_aborts a
+      JOIN public.tournament_matches tm2 ON tm2.id = a.match_id
+      WHERE tm2.tournament_id = t.id
+    ) ab ON true
+    LEFT JOIN LATERAL (
+      SELECT count(*) AS captures, COALESCE(sum(bonus), 0) AS capture_points
+      FROM public.tournament_captured_pieces cp
+      WHERE cp.tournament_id = t.id
+    ) cap ON true
+    WHERE (p_status IS NULL OR t.status = p_status)
+      AND (p_search IS NULL OR p_search = ''
+           OR t.name ILIKE '%' || p_search || '%'
+           OR t.id::text ILIKE p_search || '%'
+           OR t.slug ILIKE '%' || p_search || '%')
+      AND (p_from IS NULL OR t.created_at >= p_from)
+      AND (p_to   IS NULL OR t.created_at <  p_to)
+    ORDER BY t.created_at DESC
+    LIMIT LEAST(GREATEST(p_limit, 1), 200) OFFSET GREATEST(p_offset, 0)
+  ) r;
+
+  RETURN v_out;
+END; $$;
+REVOKE ALL ON FUNCTION public.admin_tr_overview(TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_tr_overview(TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 76.6 Round-by-round progression: the 10-second intermission
+-- ---------------------------------------------------------------------
+-- The next round must NOT start the instant the last board finishes.
+-- Instead the finish trigger stamps tournaments.next_round_at 10 seconds
+-- out and stops; advance_pending_rounds() (76.7) does the actual pairing
+-- once that moment passes. Clients render the stamp as the full-screen
+-- "Round N Complete" countdown overlay. The final round is exempt — the
+-- tournament completes (prizes, placings, archive) immediately.
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS next_round_at TIMESTAMPTZ;
+
+CREATE OR REPLACE FUNCTION public.handle_tournament_game_finished()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_match       public.tournament_matches%ROWTYPE;
+  v_t           public.tournaments%ROWTYPE;
+  v_winner      UUID;
+  v_loser       UUID;
+  v_is_draw     BOOLEAN := false;
+  v_wname       TEXT;
+  v_lname       TEXT;
+  v_white_used  BIGINT;
+  v_black_used  BIGINT;
+  v_duration_ms BIGINT;
+  v_pending     INT;
+  v_in_round    INT;
+  v_next_at     TIMESTAMPTZ;
+BEGIN
+  SELECT * INTO v_match FROM public.tournament_matches
+  WHERE game_id = NEW.id AND status = 'active'
+  LIMIT 1;
+  IF NOT FOUND THEN RETURN NEW; END IF;
+
+  -- Serialize all bracket processing per tournament.
+  SELECT * INTO v_t FROM public.tournaments WHERE id = v_match.tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN NEW; END IF;
+
+  IF NEW.result = 'white' THEN
+    v_winner := NEW.white_id;
+  ELSIF NEW.result = 'black' THEN
+    v_winner := NEW.black_id;
+  ELSE
+    v_is_draw := (NEW.result = 'draw');
+    v_winner := CASE WHEN COALESCE(NEW.white_time_ms, 0) >= COALESCE(NEW.black_time_ms, 0)
+                     THEN NEW.white_id ELSE NEW.black_id END;
+  END IF;
+  v_loser := CASE WHEN v_winner = NEW.white_id THEN NEW.black_id ELSE NEW.white_id END;
+
+  UPDATE public.tournament_matches SET winner_id = v_winner, status = 'finished'
+  WHERE id = v_match.id;
+
+  v_white_used  := GREATEST(0, NEW.initial_seconds::BIGINT * 1000 - COALESCE(NEW.white_time_ms, 0));
+  v_black_used  := GREATEST(0, NEW.initial_seconds::BIGINT * 1000 - COALESCE(NEW.black_time_ms, 0));
+  v_duration_ms := GREATEST(0,
+    (EXTRACT(EPOCH FROM (COALESCE(NEW.ended_at, now()) - NEW.created_at)) * 1000)::BIGINT);
+
+  -- Arena points: WIN +5, LOSS −5, DRAW both +2 (the clock-tiebreak
+  -- "winner" of a draw still advances the bracket but scores it as a draw).
+  UPDATE public.tournament_entries SET
+    wins   = wins   + CASE WHEN NOT v_is_draw AND user_id = v_winner THEN 1 ELSE 0 END,
+    losses = losses + CASE WHEN NOT v_is_draw AND user_id = v_loser  THEN 1 ELSE 0 END,
+    draws  = draws  + CASE WHEN v_is_draw THEN 1 ELSE 0 END,
+    score  = score  + CASE WHEN v_is_draw THEN 2
+                           WHEN user_id = v_winner THEN 5
+                           ELSE -5 END,
+    time_used_ms = time_used_ms + CASE WHEN user_id = NEW.white_id THEN v_white_used ELSE v_black_used END,
+    fastest_win_ms = CASE WHEN NOT v_is_draw AND user_id = v_winner
+                          THEN LEAST(COALESCE(fastest_win_ms, 9223372036854775807), v_duration_ms)
+                          ELSE fastest_win_ms END,
+    status = CASE WHEN user_id = v_loser THEN 'eliminated' ELSE status END,
+    eliminated_in_round = CASE WHEN user_id = v_loser THEN v_match.round ELSE eliminated_in_round END
+  WHERE tournament_id = v_t.id AND user_id IN (NEW.white_id, NEW.black_id);
+
+  SELECT username INTO v_wname FROM public.profiles WHERE id = v_winner;
+  SELECT username INTO v_lname FROM public.profiles WHERE id = v_loser;
+
+  PERFORM public._tournament_log(
+    v_t.id, 'match_finished',
+    COALESCE(v_wname, 'Winner')
+      || CASE WHEN v_is_draw THEN ' advances on tiebreak vs ' ELSE ' defeats ' END
+      || COALESCE(v_lname, 'opponent')
+      || ' (' || COALESCE(NEW.end_reason, 'finished') || ')',
+    v_winner,
+    jsonb_build_object(
+      'round', v_match.round, 'winner', v_wname, 'loser', v_lname,
+      'reason', NEW.end_reason, 'moves', NEW.moves_count,
+      'draw', v_is_draw, 'game_id', NEW.id,
+      'winner_id', v_winner, 'loser_id', v_loser));
+
+  INSERT INTO public.notifications (user_id, kind, title, body, link) VALUES
+    (v_winner, 'tournament_result', 'You advanced!',
+     'You won your Round ' || v_match.round || ' match in ' || v_t.name || '.',
+     '/tournament/' || v_t.id::text),
+    (v_loser, 'tournament_result', 'Eliminated',
+     'You were knocked out in Round ' || v_match.round || ' of ' || v_t.name || '.',
+     '/tournament/' || v_t.id::text);
+
+  SELECT count(*) FILTER (WHERE status IN ('pending', 'active')), count(*)
+  INTO v_pending, v_in_round
+  FROM public.tournament_matches
+  WHERE tournament_id = v_t.id AND round = v_t.current_round;
+
+  IF v_pending = 0 THEN
+    IF v_in_round = 1 THEN
+      -- The final: no intermission, crown the champion right away.
+      PERFORM public._tournament_log(
+        v_t.id, 'round_finished', 'Round ' || v_t.current_round || ' complete',
+        NULL, jsonb_build_object('round', v_t.current_round, 'final', true));
+      PERFORM public._tournament_complete(v_t.id);
+    ELSE
+      -- Round-by-round rule: stamp the intermission instead of pairing now.
+      -- Every board in this round is done; the whole field waits out the
+      -- same 10 seconds and advances together via advance_pending_rounds().
+      v_next_at := now() + interval '10 seconds';
+      UPDATE public.tournaments SET next_round_at = v_next_at WHERE id = v_t.id;
+      PERFORM public._tournament_log(
+        v_t.id, 'round_finished',
+        'Round ' || v_t.current_round || ' complete — next round starts in 10 seconds',
+        NULL, jsonb_build_object('round', v_t.current_round, 'next_round_at', v_next_at));
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END; $$;
+
+-- ---------------------------------------------------------------------
+-- 76.7 advance_pending_rounds — fires the pairing once the 10s are up
+-- ---------------------------------------------------------------------
+-- Idempotent and race-safe: SKIP LOCKED + the next_round_at <= now()
+-- guard mean that when every arena client calls this at countdown zero,
+-- exactly one caller pairs the round and the rest no-op. Cron backstops
+-- it for tournaments nobody is watching.
+CREATE OR REPLACE FUNCTION public.advance_pending_rounds()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_tourn RECORD;
+BEGIN
+  FOR v_tourn IN
+    SELECT id FROM public.tournaments
+    WHERE status = 'live' AND next_round_at IS NOT NULL AND next_round_at <= now()
+    FOR UPDATE SKIP LOCKED
+  LOOP
+    UPDATE public.tournaments SET next_round_at = NULL WHERE id = v_tourn.id;
+    PERFORM public._tournament_start_round(v_tourn.id);
+  END LOOP;
+END; $$;
+REVOKE ALL ON FUNCTION public.advance_pending_rounds() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.advance_pending_rounds() TO authenticated, service_role;
+
+DO $$
+BEGIN
+  PERFORM cron.unschedule('advance_pending_rounds');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  PERFORM cron.schedule('advance_pending_rounds', '* * * * *', 'SELECT public.advance_pending_rounds();');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron not available — schedule advance_pending_rounds manually';
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 76.8 _tournament_start_round v4 — clears the intermission stamp
+-- ---------------------------------------------------------------------
+-- Identical to 76.1 (random re-pairing every round) plus next_round_at
+-- is reset in the same UPDATE, so a round can never start while the
+-- overlay stamp is still live.
+CREATE OR REPLACE FUNCTION public._tournament_start_round(p_tournament_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_t       public.tournaments%ROWTYPE;
+  v_round   INT;
+  v_players UUID[];
+  v_n       INT;
+  v_slot    INT := 0;
+  v_i       INT := 1;
+  v_p1      UUID;
+  v_p2      UUID;
+  v_game    UUID;
+BEGIN
+  SELECT * INTO v_t FROM public.tournaments WHERE id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN; END IF;
+
+  v_round := COALESCE(v_t.current_round, 0) + 1;
+
+  IF v_round = 1 THEN
+    SELECT array_agg(user_id ORDER BY random()) INTO v_players
+    FROM public.tournament_entries
+    WHERE tournament_id = p_tournament_id AND status = 'active';
+  ELSE
+    -- Fresh random pairings every round: shuffle the survivors instead
+    -- of walking the previous round's slots.
+    SELECT array_agg(winner_id ORDER BY random()) INTO v_players
+    FROM public.tournament_matches
+    WHERE tournament_id = p_tournament_id
+      AND round = v_t.current_round
+      AND winner_id IS NOT NULL;
+  END IF;
+
+  v_n := COALESCE(array_length(v_players, 1), 0);
+  IF v_n < 2 THEN RETURN; END IF;
+
+  WHILE v_i <= v_n LOOP
+    v_slot := v_slot + 1;
+    v_p1 := v_players[v_i];
+    v_p2 := CASE WHEN v_i + 1 <= v_n THEN v_players[v_i + 1] ELSE NULL END;
+
+    IF v_p2 IS NULL THEN
+      INSERT INTO public.tournament_matches
+        (tournament_id, round, slot, player1_id, player2_id, winner_id, status)
+      VALUES (p_tournament_id, v_round, v_slot, v_p1, NULL, v_p1, 'bye');
+      PERFORM public._tournament_log(
+        p_tournament_id, 'bye',
+        COALESCE((SELECT username FROM public.profiles WHERE id = v_p1), 'A player') || ' advances on a bye',
+        v_p1, jsonb_build_object('round', v_round));
+    ELSE
+      v_game := public._tournament_create_game(v_t, v_p1, v_p2);
+      INSERT INTO public.tournament_matches
+        (tournament_id, round, slot, player1_id, player2_id, game_id, status)
+      VALUES (p_tournament_id, v_round, v_slot, v_p1, v_p2, v_game, 'active');
+
+      INSERT INTO public.notifications (user_id, kind, title, body, link)
+      SELECT u, 'tournament_round',
+             'Round ' || v_round || ' — your match is live',
+             'Your ' || v_t.name || ' match has started. Good luck!',
+             '/game/' || v_game::text
+      FROM unnest(ARRAY[v_p1, v_p2]) AS u;
+    END IF;
+
+    v_i := v_i + 2;
+  END LOOP;
+
+  UPDATE public.tournaments SET
+    current_round    = v_round,
+    round_started_at = now(),
+    next_round_at    = NULL,
+    total_rounds     = CASE WHEN v_round = 1
+                            THEN GREATEST(1, CEIL(LOG(2, GREATEST(v_n, 2)::NUMERIC))::INT)
+                            ELSE total_rounds END
+  WHERE id = p_tournament_id;
+
+  PERFORM public._tournament_log(
+    p_tournament_id, 'round_started',
+    'Round ' || v_round || ' started — ' || v_slot || ' pairing' || CASE WHEN v_slot = 1 THEN '' ELSE 's' END,
+    NULL, jsonb_build_object('round', v_round, 'matches', v_slot));
+END; $$;
+REVOKE ALL ON FUNCTION public._tournament_start_round(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._tournament_start_round(UUID) TO service_role;
+
+-- =====================================================================
+-- SECTION 77: SEASON IQ ENGINE — PUBG-STYLE MONTHLY SEASONS (2026-07-20)
+-- ---------------------------------------------------------------------
+-- Upgrades the SEASONS BACKEND (tables seasons / season_rankings /
+-- season_history + admin lifecycle RPCs) from "mirror of lifetime IQ"
+-- to a true seasonal ranking system:
+--   • season_iq: per-season points that START AT 0 every season and are
+--     earned from in-season activity only (games, upsets, checkmates,
+--     win streaks, daily activity, puzzles, accuracy, tournaments) via
+--     an idempotent ledger (season_iq_events)
+--   • 8-tier ladder (Beginner → Chessox Legend) via season_tier()
+--   • season_leaderboard v2: live window-ranked, trend (prev_rank),
+--     win rate, games, tier — global/country/state/district scopes
+--   • monthly automation: season_rollover() ends an expired season,
+--     freezes history, awards badges + special achievements, updates
+--     permanent career records, and starts the next 1-month season
+--     (also bootstraps Season 1 on an empty table)
+--   • permanent career: profiles.career_highest_iq(+season),
+--     career_best_rank(+season), season_badges jsonb — never reset
+--   • career_summaries(uuid[]): batch career info for search results
+-- Historical season_history rows are never deleted or rewritten after
+-- a season ends; only the live season's rankings ever change.
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 77.1 Columns + ledger table
+-- ---------------------------------------------------------------------
+ALTER TABLE public.season_rankings
+  ADD COLUMN IF NOT EXISTS season_iq        INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS prev_rank        INT,
+  ADD COLUMN IF NOT EXISTS games_played     INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS wins             INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS losses           INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS draws            INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS puzzles_solved   INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS cur_win_streak   INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS best_win_streak  INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS daily_bonus_date DATE;
+
+ALTER TABLE public.season_history
+  ADD COLUMN IF NOT EXISTS season_iq       INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS games_played    INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS wins            INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS losses          INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS draws           INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS best_win_streak INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS tier            TEXT;
+
+-- Permanent career records — written only when a season is finalized,
+-- and only ever improved, never reset.
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS career_highest_iq        INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS career_highest_iq_season INT,
+  ADD COLUMN IF NOT EXISTS career_best_rank         INT,
+  ADD COLUMN IF NOT EXISTS career_best_rank_season  INT,
+  ADD COLUMN IF NOT EXISTS season_badges            JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+-- Every point ever earned, one row per award. The UNIQUE key is the
+-- anti-double-award guard (e.g. a game can pay its winner exactly once).
+CREATE TABLE IF NOT EXISTS public.season_iq_events (
+  id         BIGSERIAL PRIMARY KEY,
+  season_id  UUID NOT NULL REFERENCES public.seasons(id) ON DELETE CASCADE,
+  user_id    UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL,
+  ref        TEXT NOT NULL,
+  points     INT  NOT NULL,
+  meta       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (season_id, user_id, kind, ref)
+);
+CREATE INDEX IF NOT EXISTS idx_season_iq_events_user
+  ON public.season_iq_events(season_id, user_id, created_at DESC);
+GRANT SELECT ON public.season_iq_events TO authenticated;
+GRANT ALL ON public.season_iq_events TO service_role;
+ALTER TABLE public.season_iq_events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Season IQ events own read" ON public.season_iq_events;
+CREATE POLICY "Season IQ events own read"
+  ON public.season_iq_events FOR SELECT USING (auth.uid() = user_id);
+-- Writes only via the SECURITY DEFINER award function below.
+
+-- ---------------------------------------------------------------------
+-- 77.2 Tier ladder
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.season_tier(p_iq INT)
+RETURNS TEXT LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE
+    WHEN p_iq >= 8000 THEN 'Chessox Legend'
+    WHEN p_iq >= 5500 THEN 'Elite'
+    WHEN p_iq >= 3500 THEN 'Grandmaster'
+    WHEN p_iq >= 2000 THEN 'Master'
+    WHEN p_iq >= 1000 THEN 'Expert'
+    WHEN p_iq >=  500 THEN 'Skilled'
+    WHEN p_iq >=  200 THEN 'Learner'
+    ELSE 'Beginner'
+  END;
+$$;
+GRANT EXECUTE ON FUNCTION public.season_tier(INT) TO anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 77.3 The award primitive
+-- ---------------------------------------------------------------------
+-- Books points into the CURRENT LIVE season only. Idempotent per
+-- (kind, ref): replaying the same event is a silent no-op, so triggers
+-- can fire safely under retries. No live season → no-op (off-season
+-- play simply earns nothing).
+CREATE OR REPLACE FUNCTION public._season_award_iq(
+  p_user   UUID,
+  p_kind   TEXT,
+  p_points INT,
+  p_ref    TEXT,
+  p_meta   JSONB DEFAULT '{}'::jsonb
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_season UUID;
+BEGIN
+  IF p_user IS NULL OR COALESCE(p_points, 0) = 0 THEN RETURN; END IF;
+
+  SELECT id INTO v_season FROM public.seasons
+  WHERE status = 'live' ORDER BY season_number DESC LIMIT 1;
+  IF v_season IS NULL THEN RETURN; END IF;
+
+  INSERT INTO public.season_rankings (season_id, user_id)
+  VALUES (v_season, p_user)
+  ON CONFLICT (season_id, user_id) DO NOTHING;
+
+  INSERT INTO public.season_iq_events (season_id, user_id, kind, ref, points, meta)
+  VALUES (v_season, p_user, p_kind, COALESCE(p_ref, 'x'), p_points, COALESCE(p_meta, '{}'::jsonb))
+  ON CONFLICT (season_id, user_id, kind, ref) DO NOTHING;
+  IF NOT FOUND THEN RETURN; END IF;  -- already awarded
+
+  UPDATE public.season_rankings SET
+    season_iq  = GREATEST(0, season_iq + p_points),
+    iq_level   = GREATEST(0, season_iq + p_points),  -- legacy mirror
+    updated_at = now()
+  WHERE season_id = v_season AND user_id = p_user;
+END; $$;
+REVOKE ALL ON FUNCTION public._season_award_iq(UUID, TEXT, INT, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._season_award_iq(UUID, TEXT, INT, TEXT, JSONB) TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 77.4 Earning: finished games
+-- ---------------------------------------------------------------------
+-- Skill-weighted, not volume-weighted: a win pays 20, beating a
+-- stronger player pays up to +40 more, checkmates +5, and every win
+-- during a 3+ streak +5. Losses pay 2 (participation), draws 5. The
+-- first game of the (UTC) day adds a +10 daily-activity bonus. Aborts /
+-- no-shows / sub-2-move games earn nothing — no idle farming.
+CREATE OR REPLACE FUNCTION public.handle_season_game_finished()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_season   UUID;
+  v_winner   UUID;
+  v_loser    UUID;
+  v_w_rating INT;
+  v_l_rating INT;
+  v_pts      INT;
+  v_streak   INT;
+  v_u        UUID;
+BEGIN
+  IF NEW.white_id IS NULL OR NEW.black_id IS NULL THEN RETURN NEW; END IF;
+  IF NEW.result NOT IN ('white', 'black', 'draw') THEN RETURN NEW; END IF;
+  IF COALESCE(NEW.moves_count, 0) < 2 THEN RETURN NEW; END IF;
+  IF COALESCE(NEW.end_reason, '') IN ('aborted', 'no_show', 'tournament_cancelled') THEN RETURN NEW; END IF;
+
+  SELECT id INTO v_season FROM public.seasons
+  WHERE status = 'live' ORDER BY season_number DESC LIMIT 1;
+  IF v_season IS NULL THEN RETURN NEW; END IF;
+
+  -- Ensure both ranking rows exist, then book the per-game stats.
+  INSERT INTO public.season_rankings (season_id, user_id)
+  SELECT v_season, u FROM unnest(ARRAY[NEW.white_id, NEW.black_id]) AS u
+  ON CONFLICT (season_id, user_id) DO NOTHING;
+
+  IF NEW.result = 'draw' THEN
+    UPDATE public.season_rankings SET
+      games_played = games_played + 1,
+      draws        = draws + 1,
+      cur_win_streak = 0,
+      updated_at   = now()
+    WHERE season_id = v_season AND user_id IN (NEW.white_id, NEW.black_id);
+    PERFORM public._season_award_iq(NEW.white_id, 'game_draw', 5, NEW.id::text);
+    PERFORM public._season_award_iq(NEW.black_id, 'game_draw', 5, NEW.id::text);
+  ELSE
+    v_winner   := CASE WHEN NEW.result = 'white' THEN NEW.white_id ELSE NEW.black_id END;
+    v_loser    := CASE WHEN NEW.result = 'white' THEN NEW.black_id ELSE NEW.white_id END;
+    v_w_rating := CASE WHEN NEW.result = 'white' THEN NEW.white_rating ELSE NEW.black_rating END;
+    v_l_rating := CASE WHEN NEW.result = 'white' THEN NEW.black_rating ELSE NEW.white_rating END;
+
+    UPDATE public.season_rankings SET
+      games_played    = games_played + 1,
+      wins            = wins + 1,
+      cur_win_streak  = cur_win_streak + 1,
+      best_win_streak = GREATEST(best_win_streak, cur_win_streak + 1),
+      updated_at      = now()
+    WHERE season_id = v_season AND user_id = v_winner
+    RETURNING cur_win_streak INTO v_streak;
+
+    UPDATE public.season_rankings SET
+      games_played   = games_played + 1,
+      losses         = losses + 1,
+      cur_win_streak = 0,
+      updated_at     = now()
+    WHERE season_id = v_season AND user_id = v_loser;
+
+    v_pts := 20;
+    IF COALESCE(v_l_rating, 0) > COALESCE(v_w_rating, 0) + 50 THEN
+      v_pts := v_pts + LEAST(40, (v_l_rating - v_w_rating) / 10);  -- upset bonus
+    END IF;
+    IF NEW.end_reason = 'checkmate' THEN v_pts := v_pts + 5; END IF;
+    IF COALESCE(v_streak, 0) >= 3 THEN v_pts := v_pts + 5; END IF;  -- streak bonus
+
+    PERFORM public._season_award_iq(
+      v_winner, 'game_win', v_pts, NEW.id::text,
+      jsonb_build_object('streak', v_streak, 'reason', NEW.end_reason));
+    PERFORM public._season_award_iq(v_loser, 'game_loss', 2, NEW.id::text);
+  END IF;
+
+  -- Daily-activity bonus: first finished game of the UTC day.
+  FOR v_u IN SELECT unnest(ARRAY[NEW.white_id, NEW.black_id]) LOOP
+    UPDATE public.season_rankings
+    SET daily_bonus_date = current_date
+    WHERE season_id = v_season AND user_id = v_u
+      AND (daily_bonus_date IS NULL OR daily_bonus_date < current_date);
+    IF FOUND THEN
+      PERFORM public._season_award_iq(v_u, 'daily', 10, current_date::text);
+    END IF;
+  END LOOP;
+
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS trg_season_game_finished ON public.games;
+CREATE TRIGGER trg_season_game_finished
+  AFTER UPDATE ON public.games
+  FOR EACH ROW
+  WHEN (OLD.ended_at IS NULL AND NEW.ended_at IS NOT NULL)
+  EXECUTE FUNCTION public.handle_season_game_finished();
+
+-- ---------------------------------------------------------------------
+-- 77.5 Earning: puzzles
+-- ---------------------------------------------------------------------
+-- +3 per puzzle solved (+3 extra for 1800+ rated puzzles). Keyed on the
+-- puzzle id, so re-solving the same puzzle never pays twice a season.
+CREATE OR REPLACE FUNCTION public.handle_season_puzzle_attempt()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_season UUID;
+BEGIN
+  IF NOT NEW.solved THEN RETURN NEW; END IF;
+
+  SELECT id INTO v_season FROM public.seasons
+  WHERE status = 'live' ORDER BY season_number DESC LIMIT 1;
+  IF v_season IS NULL THEN RETURN NEW; END IF;
+
+  INSERT INTO public.season_rankings (season_id, user_id)
+  VALUES (v_season, NEW.user_id)
+  ON CONFLICT (season_id, user_id) DO NOTHING;
+
+  -- Count the solve only when it is this season's first for that puzzle.
+  IF NOT EXISTS (
+    SELECT 1 FROM public.season_iq_events
+    WHERE season_id = v_season AND user_id = NEW.user_id
+      AND kind = 'puzzle' AND ref = NEW.puzzle_id
+  ) THEN
+    UPDATE public.season_rankings
+    SET puzzles_solved = puzzles_solved + 1, updated_at = now()
+    WHERE season_id = v_season AND user_id = NEW.user_id;
+  END IF;
+
+  PERFORM public._season_award_iq(
+    NEW.user_id, 'puzzle',
+    3 + CASE WHEN COALESCE(NEW.puzzle_rating, 0) >= 1800 THEN 3 ELSE 0 END,
+    NEW.puzzle_id);
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS trg_season_puzzle_attempt ON public.puzzle_attempts;
+CREATE TRIGGER trg_season_puzzle_attempt
+  AFTER INSERT ON public.puzzle_attempts
+  FOR EACH ROW EXECUTE FUNCTION public.handle_season_puzzle_attempt();
+
+-- ---------------------------------------------------------------------
+-- 77.6 Earning: analysis accuracy
+-- ---------------------------------------------------------------------
+-- A completed engine analysis with 90%+ accuracy pays +10 to that side.
+CREATE OR REPLACE FUNCTION public.handle_season_analysis_done()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_g RECORD;
+BEGIN
+  IF NEW.analysis_status <> 'done' THEN RETURN NEW; END IF;
+
+  SELECT white_id, black_id INTO v_g FROM public.games WHERE id = NEW.game_id;
+  IF v_g.white_id IS NULL OR v_g.black_id IS NULL THEN RETURN NEW; END IF;
+
+  IF COALESCE(NEW.accuracy_white, 0) >= 90 THEN
+    PERFORM public._season_award_iq(
+      v_g.white_id, 'accuracy', 10, NEW.game_id::text || ':w',
+      jsonb_build_object('accuracy', NEW.accuracy_white));
+  END IF;
+  IF COALESCE(NEW.accuracy_black, 0) >= 90 THEN
+    PERFORM public._season_award_iq(
+      v_g.black_id, 'accuracy', 10, NEW.game_id::text || ':b',
+      jsonb_build_object('accuracy', NEW.accuracy_black));
+  END IF;
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS trg_season_analysis_done ON public.game_analysis;
+CREATE TRIGGER trg_season_analysis_done
+  AFTER INSERT OR UPDATE ON public.game_analysis
+  FOR EACH ROW EXECUTE FUNCTION public.handle_season_analysis_done();
+
+-- ---------------------------------------------------------------------
+-- 77.7 Earning: tournament podium
+-- ---------------------------------------------------------------------
+-- Champion +250, runner-up +150, third +100 when a tournament completes
+-- (the individual games already paid their win points).
+CREATE OR REPLACE FUNCTION public.handle_season_tournament_completed()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_e RECORD;
+BEGIN
+  FOR v_e IN
+    SELECT user_id, rank FROM public.tournament_entries
+    WHERE tournament_id = NEW.id AND rank BETWEEN 1 AND 3
+  LOOP
+    PERFORM public._season_award_iq(
+      v_e.user_id,
+      CASE v_e.rank WHEN 1 THEN 'tournament_champion'
+                    WHEN 2 THEN 'tournament_runner_up'
+                    ELSE 'tournament_third' END,
+      CASE v_e.rank WHEN 1 THEN 250 WHEN 2 THEN 150 ELSE 100 END,
+      NEW.id::text);
+  END LOOP;
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS trg_season_tournament_completed ON public.tournaments;
+CREATE TRIGGER trg_season_tournament_completed
+  AFTER UPDATE OF status ON public.tournaments
+  FOR EACH ROW
+  WHEN (OLD.status IS DISTINCT FROM 'completed' AND NEW.status = 'completed')
+  EXECUTE FUNCTION public.handle_season_tournament_completed();
+
+-- ---------------------------------------------------------------------
+-- 77.8 Rank recompute v2 — season_iq only, participants only
+-- ---------------------------------------------------------------------
+-- Replaces the v1 body that ranked EVERY profile by lifetime iq_level.
+-- Only players who actually earned something this season are ranked;
+-- prev_rank keeps the previous standing for the trend arrows.
+CREATE OR REPLACE FUNCTION public._season_recompute_rankings(p_season_id UUID)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  WITH ranked AS (
+    SELECT user_id,
+           ROW_NUMBER() OVER (
+             ORDER BY season_iq DESC, wins DESC, games_played ASC, user_id ASC
+           ) AS rnk
+    FROM public.season_rankings
+    WHERE season_id = p_season_id
+  )
+  UPDATE public.season_rankings sr SET
+    prev_rank  = sr.rank,
+    rank       = ranked.rnk,
+    updated_at = now()
+  FROM ranked
+  WHERE sr.season_id = p_season_id AND sr.user_id = ranked.user_id;
+END; $$;
+REVOKE ALL ON FUNCTION public._season_recompute_rankings(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._season_recompute_rankings(UUID) TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 77.9 season_leaderboard v2 — live ranks, tiers, trend, win rate
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.season_leaderboard(UUID, TEXT, TEXT, TEXT, TEXT, INT, INT);
+CREATE OR REPLACE FUNCTION public.season_leaderboard(
+  p_season_id UUID,
+  p_country   TEXT DEFAULT NULL,
+  p_state     TEXT DEFAULT NULL,
+  p_district  TEXT DEFAULT NULL,
+  p_search    TEXT DEFAULT NULL,
+  p_limit     INT DEFAULT 25,
+  p_offset    INT DEFAULT 0
+)
+RETURNS TABLE (
+  rank               BIGINT,
+  prev_rank          INT,
+  user_id            UUID,
+  season_iq          INT,
+  tier               TEXT,
+  games_played       INT,
+  wins               INT,
+  losses             INT,
+  draws              INT,
+  win_rate           INT,
+  puzzles_solved     INT,
+  best_win_streak    INT,
+  iq_level           INT,
+  rating_points      INT,
+  country            TEXT,
+  state              TEXT,
+  district           TEXT,
+  rewards            TEXT[],
+  username           TEXT,
+  full_name          TEXT,
+  avatar_url         TEXT,
+  premium_active     BOOLEAN,
+  premium_expires_at TIMESTAMPTZ
+)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY
+  WITH scoped AS (
+    SELECT sr.*, p.country AS p_country2, p.state AS p_state2, p.district AS p_district2,
+           p.username AS p_username, COALESCE(p.display_name, p.full_name, p.username) AS p_name,
+           p.avatar_url AS p_avatar, p.premium_active AS p_prem, p.premium_expires_at AS p_prem_at
+    FROM public.season_rankings sr
+    JOIN public.profiles p ON p.id = sr.user_id
+    WHERE sr.season_id = p_season_id
+      AND (p_country  IS NULL OR p.country  = p_country)
+      AND (p_state    IS NULL OR p.state    = p_state)
+      AND (p_district IS NULL OR p.district = p_district)
+  ),
+  ranked AS (
+    SELECT s.*,
+           ROW_NUMBER() OVER (
+             ORDER BY s.season_iq DESC, s.wins DESC, s.games_played ASC, s.user_id ASC
+           ) AS live_rank
+    FROM scoped s
+  )
+  SELECT
+    r.live_rank,
+    r.prev_rank,
+    r.user_id,
+    r.season_iq,
+    public.season_tier(r.season_iq),
+    r.games_played,
+    r.wins,
+    r.losses,
+    r.draws,
+    CASE WHEN r.games_played > 0 THEN ROUND(r.wins * 100.0 / r.games_played)::INT ELSE 0 END,
+    r.puzzles_solved,
+    r.best_win_streak,
+    r.iq_level,
+    r.rating_points,
+    r.p_country2,
+    r.p_state2,
+    r.p_district2,
+    r.rewards,
+    r.p_username,
+    r.p_name,
+    r.p_avatar,
+    r.p_prem,
+    r.p_prem_at
+  FROM ranked r
+  WHERE (p_search IS NULL OR p_search = ''
+         OR r.p_username ILIKE '%' || p_search || '%'
+         OR r.p_name ILIKE '%' || p_search || '%')
+  ORDER BY r.live_rank ASC
+  LIMIT p_limit OFFSET p_offset;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.season_leaderboard(UUID, TEXT, TEXT, TEXT, TEXT, INT, INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.season_leaderboard(UUID, TEXT, TEXT, TEXT, TEXT, INT, INT) TO anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 77.10 Finalize: freeze, award, record careers, keep history forever
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public._season_finalize(p_season_id UUID)
+RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_num    INT;
+  v_count  INT;
+  v_uid    UUID;
+BEGIN
+  SELECT season_number INTO v_num FROM public.seasons WHERE id = p_season_id;
+
+  PERFORM public._season_recompute_rankings(p_season_id);
+
+  -- Rank-based reward tags.
+  UPDATE public.season_rankings
+  SET rewards = CASE
+    WHEN rank = 1 THEN ARRAY['season_champion', 'champion_badge', 'top_1']
+    WHEN rank <= 3 THEN ARRAY['podium_badge', 'top_3']
+    WHEN rank <= 10 THEN ARRAY['top_10']
+    WHEN rank <= 100 THEN ARRAY['top_100']
+    ELSE '{}'::text[]
+  END
+  WHERE season_id = p_season_id;
+
+  -- Special achievements (each goes to a single best-qualifying player,
+  -- except regional_champion which goes to every country's #1).
+  SELECT sr.user_id INTO v_uid
+  FROM public.season_rankings sr
+  LEFT JOIN LATERAL (
+    SELECT MAX(sh.season_iq) AS prev_best FROM public.season_history sh
+    WHERE sh.user_id = sr.user_id
+  ) h ON true
+  WHERE sr.season_id = p_season_id AND h.prev_best IS NOT NULL AND sr.season_iq > h.prev_best
+  ORDER BY sr.season_iq - h.prev_best DESC, sr.rank ASC LIMIT 1;
+  IF v_uid IS NOT NULL THEN
+    UPDATE public.season_rankings SET rewards = rewards || ARRAY['most_improved']
+    WHERE season_id = p_season_id AND user_id = v_uid;
+  END IF;
+
+  SELECT user_id INTO v_uid FROM public.season_rankings
+  WHERE season_id = p_season_id AND puzzles_solved > 0
+  ORDER BY puzzles_solved DESC, rank ASC LIMIT 1;
+  IF v_uid IS NOT NULL THEN
+    UPDATE public.season_rankings SET rewards = rewards || ARRAY['puzzle_master']
+    WHERE season_id = p_season_id AND user_id = v_uid;
+  END IF;
+
+  SELECT user_id INTO v_uid FROM public.season_rankings
+  WHERE season_id = p_season_id AND best_win_streak >= 3
+  ORDER BY best_win_streak DESC, rank ASC LIMIT 1;
+  IF v_uid IS NOT NULL THEN
+    UPDATE public.season_rankings SET rewards = rewards || ARRAY['highest_win_streak']
+    WHERE season_id = p_season_id AND user_id = v_uid;
+  END IF;
+
+  SELECT sr.user_id INTO v_uid FROM public.season_rankings sr
+  WHERE sr.season_id = p_season_id AND sr.season_iq > 0
+    AND NOT EXISTS (SELECT 1 FROM public.season_history sh WHERE sh.user_id = sr.user_id)
+  ORDER BY sr.season_iq DESC, sr.rank ASC LIMIT 1;
+  IF v_uid IS NOT NULL THEN
+    UPDATE public.season_rankings SET rewards = rewards || ARRAY['best_new_player']
+    WHERE season_id = p_season_id AND user_id = v_uid;
+  END IF;
+
+  -- Regional champion: the top-ranked player of each country.
+  UPDATE public.season_rankings sr
+  SET rewards = sr.rewards || ARRAY['regional_champion']
+  FROM (
+    SELECT DISTINCT ON (p.country) sr2.user_id
+    FROM public.season_rankings sr2
+    JOIN public.profiles p ON p.id = sr2.user_id
+    WHERE sr2.season_id = p_season_id AND p.country IS NOT NULL AND sr2.season_iq > 0
+    ORDER BY p.country, sr2.rank ASC
+  ) rc
+  WHERE sr.season_id = p_season_id AND sr.user_id = rc.user_id;
+
+  -- Freeze into permanent history (with the new season columns + tier).
+  INSERT INTO public.season_history
+    (season_id, user_id, final_rank, iq_level, rating_points, rewards, ended_at,
+     season_iq, games_played, wins, losses, draws, best_win_streak, tier)
+  SELECT season_id, user_id, rank, iq_level, rating_points, rewards, now(),
+         season_iq, games_played, wins, losses, draws, best_win_streak,
+         public.season_tier(season_iq)
+  FROM public.season_rankings
+  WHERE season_id = p_season_id AND rank IS NOT NULL
+  ON CONFLICT (season_id, user_id) DO UPDATE SET
+    final_rank = EXCLUDED.final_rank,
+    iq_level = EXCLUDED.iq_level,
+    rating_points = EXCLUDED.rating_points,
+    rewards = EXCLUDED.rewards,
+    season_iq = EXCLUDED.season_iq,
+    games_played = EXCLUDED.games_played,
+    wins = EXCLUDED.wins,
+    losses = EXCLUDED.losses,
+    draws = EXCLUDED.draws,
+    best_win_streak = EXCLUDED.best_win_streak,
+    tier = EXCLUDED.tier,
+    ended_at = now();
+
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+
+  -- Permanent career records: only ever improved, never reset.
+  UPDATE public.profiles p SET
+    career_highest_iq        = sr.season_iq,
+    career_highest_iq_season = v_num
+  FROM public.season_rankings sr
+  WHERE sr.season_id = p_season_id AND p.id = sr.user_id
+    AND sr.season_iq > p.career_highest_iq;
+
+  UPDATE public.profiles p SET
+    career_best_rank        = sr.rank,
+    career_best_rank_season = v_num
+  FROM public.season_rankings sr
+  WHERE sr.season_id = p_season_id AND p.id = sr.user_id AND sr.rank IS NOT NULL
+    AND sr.season_iq > 0
+    AND (p.career_best_rank IS NULL OR sr.rank < p.career_best_rank);
+
+  -- Permanent badge wallet on the profile.
+  UPDATE public.profiles p
+  SET season_badges = p.season_badges || b.badges
+  FROM (
+    SELECT user_id,
+           jsonb_agg(jsonb_build_object('season', v_num, 'code', code)) AS badges
+    FROM (
+      SELECT user_id, unnest(rewards) AS code
+      FROM public.season_rankings
+      WHERE season_id = p_season_id AND rewards <> '{}'::text[]
+    ) x
+    GROUP BY user_id
+  ) b
+  WHERE p.id = b.user_id;
+
+  UPDATE public.seasons SET status = 'ended', updated_at = now() WHERE id = p_season_id;
+
+  RETURN v_count;
+END; $$;
+REVOKE ALL ON FUNCTION public._season_finalize(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._season_finalize(UUID) TO service_role;
+
+-- admin_end_season v2: same contract, now built on _season_finalize.
+CREATE OR REPLACE FUNCTION public.admin_end_season(
+  p_season_id       UUID,
+  p_auto_start_next BOOLEAN DEFAULT true
+)
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_status TEXT;
+  v_ranked_players INT;
+  v_next_season_id UUID;
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+
+  SELECT status INTO v_status FROM public.seasons WHERE id = p_season_id;
+  IF v_status IS NULL THEN RAISE EXCEPTION 'Season not found'; END IF;
+  IF v_status = 'ended' THEN RAISE EXCEPTION 'Season already ended'; END IF;
+
+  v_ranked_players := public._season_finalize(p_season_id);
+
+  IF p_auto_start_next THEN
+    SELECT id INTO v_next_season_id FROM public.seasons
+    WHERE status = 'upcoming'
+    ORDER BY season_number ASC
+    LIMIT 1;
+    IF v_next_season_id IS NOT NULL THEN
+      PERFORM public.admin_start_season(v_next_season_id);
+    END IF;
+  END IF;
+
+  RETURN json_build_object(
+    'success', true,
+    'ranked_players', v_ranked_players,
+    'next_season_id', v_next_season_id
+  );
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.admin_end_season(UUID, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_end_season(UUID, BOOLEAN) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 77.11 Monthly automation: season_rollover()
+-- ---------------------------------------------------------------------
+-- One idempotent tick, safe from any caller:
+--   1. no seasons at all → bootstrap Season 1 (1st of this month +1mo, live)
+--   2. live season past its end_date → finalize it, then create AND start
+--      the next exactly-one-month season
+--   3. an upcoming season whose start has arrived (and nothing live) → start
+-- Serialized via an advisory lock so concurrent nudges can't double-run.
+CREATE OR REPLACE FUNCTION public.season_rollover()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_live   public.seasons%ROWTYPE;
+  v_next   UUID;
+  v_number INT;
+  v_start  TIMESTAMPTZ;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('season_rollover'));
+
+  IF NOT EXISTS (SELECT 1 FROM public.seasons) THEN
+    INSERT INTO public.seasons (season_number, name, start_date, end_date, status)
+    VALUES (1, 'Season 1', date_trunc('month', now()),
+            date_trunc('month', now()) + interval '1 month', 'live');
+    RETURN;
+  END IF;
+
+  SELECT * INTO v_live FROM public.seasons
+  WHERE status IN ('live', 'paused') ORDER BY season_number DESC LIMIT 1;
+
+  IF v_live.id IS NOT NULL AND v_live.end_date <= now() THEN
+    PERFORM public._season_finalize(v_live.id);
+
+    -- Prefer a pre-created upcoming season; otherwise mint the next
+    -- one-month season starting where the old one ended.
+    SELECT id INTO v_next FROM public.seasons
+    WHERE status = 'upcoming' ORDER BY season_number ASC LIMIT 1;
+
+    IF v_next IS NULL THEN
+      SELECT COALESCE(MAX(season_number), 0) + 1 INTO v_number FROM public.seasons;
+      v_start := GREATEST(v_live.end_date, date_trunc('month', now()));
+      INSERT INTO public.seasons (season_number, name, start_date, end_date, status)
+      VALUES (v_number, 'Season ' || v_number, v_start, v_start + interval '1 month', 'live');
+    ELSE
+      UPDATE public.seasons SET status = 'live', updated_at = now() WHERE id = v_next;
+    END IF;
+    RETURN;
+  END IF;
+
+  -- Nothing live: start an upcoming season whose time has come.
+  IF v_live.id IS NULL THEN
+    SELECT id INTO v_next FROM public.seasons
+    WHERE status = 'upcoming' AND start_date <= now()
+    ORDER BY season_number ASC LIMIT 1;
+    IF v_next IS NOT NULL THEN
+      UPDATE public.seasons SET status = 'live', updated_at = now() WHERE id = v_next;
+    END IF;
+  END IF;
+END; $$;
+REVOKE ALL ON FUNCTION public.season_rollover() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.season_rollover() TO authenticated, service_role;
+
+DO $$
+BEGIN
+  PERFORM cron.unschedule('season_rollover');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  PERFORM cron.schedule('season_rollover', '*/10 * * * *', 'SELECT public.season_rollover();');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron not available — schedule season_rollover manually';
+END $$;
+
+-- Keep the live season's stored ranks (and trend arrows) fresh.
+DO $$
+BEGIN
+  PERFORM cron.unschedule('season_rank_refresh');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  PERFORM cron.schedule('season_rank_refresh', '*/5 * * * *',
+    $sql$SELECT public._season_recompute_rankings(id) FROM public.seasons WHERE status = 'live';$sql$);
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron not available — schedule season_rank_refresh manually';
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 77.12 season_history_for_user v2 — career block + current season card
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.season_history_for_user(UUID);
+CREATE OR REPLACE FUNCTION public.season_history_for_user(p_user_id UUID)
+RETURNS JSON
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_result JSON;
+  v_current_season_id UUID;
+  v_current RECORD;
+BEGIN
+  SELECT id INTO v_current_season_id FROM public.seasons
+    WHERE status IN ('live', 'paused') ORDER BY season_number DESC LIMIT 1;
+
+  IF v_current_season_id IS NOT NULL THEN
+    SELECT sr.rank, sr.season_iq, sr.games_played, sr.wins, sr.losses, sr.draws,
+           sr.puzzles_solved, sr.best_win_streak
+    INTO v_current
+    FROM public.season_rankings sr
+    WHERE sr.season_id = v_current_season_id AND sr.user_id = p_user_id;
+  END IF;
+
+  SELECT json_build_object(
+    'seasons', COALESCE((
+      SELECT json_agg(json_build_object(
+        'season_id', sh.season_id,
+        'season_number', s.season_number,
+        'season_name', s.name,
+        'final_rank', sh.final_rank,
+        'iq_level', sh.iq_level,
+        'season_iq', sh.season_iq,
+        'tier', COALESCE(sh.tier, public.season_tier(sh.season_iq)),
+        'games_played', sh.games_played,
+        'wins', sh.wins,
+        'losses', sh.losses,
+        'draws', sh.draws,
+        'best_win_streak', sh.best_win_streak,
+        'rating_points', sh.rating_points,
+        'rewards', sh.rewards,
+        'ended_at', sh.ended_at
+      ) ORDER BY s.season_number DESC)
+      FROM public.season_history sh
+      JOIN public.seasons s ON s.id = sh.season_id
+      WHERE sh.user_id = p_user_id
+    ), '[]'::json),
+    'current_season_rank', v_current.rank,
+    'current_season_iq', COALESCE(v_current.season_iq, 0),
+    'current_tier', public.season_tier(COALESCE(v_current.season_iq, 0)),
+    'current_games_played', COALESCE(v_current.games_played, 0),
+    'current_wins', COALESCE(v_current.wins, 0),
+    'current_losses', COALESCE(v_current.losses, 0),
+    'current_draws', COALESCE(v_current.draws, 0),
+    'current_puzzles_solved', COALESCE(v_current.puzzles_solved, 0),
+    'current_best_win_streak', COALESCE(v_current.best_win_streak, 0),
+    'seasons_played', (SELECT COUNT(*) FROM public.season_history WHERE user_id = p_user_id),
+    'seasons_won', (SELECT COUNT(*) FROM public.season_history WHERE user_id = p_user_id AND final_rank = 1),
+    'top_10_finishes', (SELECT COUNT(*) FROM public.season_history WHERE user_id = p_user_id AND final_rank <= 10),
+    'top_100_finishes', (SELECT COUNT(*) FROM public.season_history WHERE user_id = p_user_id AND final_rank <= 100),
+    'best_rank_ever', (SELECT MIN(final_rank) FROM public.season_history WHERE user_id = p_user_id AND season_iq > 0),
+    'best_iq_level', COALESCE((SELECT MAX(iq_level) FROM public.season_history WHERE user_id = p_user_id), 0),
+    'best_rating', COALESCE((SELECT MAX(rating_points) FROM public.season_history WHERE user_id = p_user_id), 0),
+    'career_highest_iq', COALESCE((SELECT career_highest_iq FROM public.profiles WHERE id = p_user_id), 0),
+    'career_highest_iq_season', (SELECT career_highest_iq_season FROM public.profiles WHERE id = p_user_id),
+    'career_best_rank', (SELECT career_best_rank FROM public.profiles WHERE id = p_user_id),
+    'career_best_rank_season', (SELECT career_best_rank_season FROM public.profiles WHERE id = p_user_id),
+    'best_season_number', (
+      SELECT s.season_number FROM public.season_history sh
+      JOIN public.seasons s ON s.id = sh.season_id
+      WHERE sh.user_id = p_user_id
+      ORDER BY sh.season_iq DESC, sh.final_rank ASC LIMIT 1
+    ),
+    'season_badges', COALESCE((SELECT season_badges FROM public.profiles WHERE id = p_user_id), '[]'::jsonb)
+  ) INTO v_result;
+
+  RETURN v_result;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.season_history_for_user(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.season_history_for_user(UUID) TO anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 77.13 career_summaries — batch career info for search results
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.career_summaries(p_user_ids UUID[])
+RETURNS TABLE (
+  user_id                  UUID,
+  career_highest_iq        INT,
+  career_highest_iq_season INT,
+  career_best_rank         INT,
+  career_best_rank_season  INT,
+  best_season_number       INT,
+  current_season_iq        INT,
+  current_tier             TEXT
+)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_current_season_id UUID;
+BEGIN
+  SELECT id INTO v_current_season_id FROM public.seasons
+  WHERE status IN ('live', 'paused') ORDER BY season_number DESC LIMIT 1;
+
+  RETURN QUERY
+  SELECT
+    p.id,
+    p.career_highest_iq,
+    p.career_highest_iq_season,
+    p.career_best_rank,
+    p.career_best_rank_season,
+    (SELECT s.season_number FROM public.season_history sh
+     JOIN public.seasons s ON s.id = sh.season_id
+     WHERE sh.user_id = p.id
+     ORDER BY sh.season_iq DESC, sh.final_rank ASC LIMIT 1),
+    COALESCE(sr.season_iq, 0),
+    public.season_tier(COALESCE(sr.season_iq, 0))
+  FROM public.profiles p
+  LEFT JOIN public.season_rankings sr
+    ON sr.user_id = p.id AND sr.season_id = v_current_season_id
+  WHERE p.id = ANY(p_user_ids);
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.career_summaries(UUID[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.career_summaries(UUID[]) TO anon, authenticated, service_role;
+
+
+
+
+
+
+-- ---------------------------------------------------------------------
+-- 76.6 Round-by-round progression: the 10-second intermission
+-- ---------------------------------------------------------------------
+-- The next round must NOT start the instant the last board finishes.
+-- Instead the finish trigger stamps tournaments.next_round_at 10 seconds
+-- out and stops; advance_pending_rounds() (76.7) does the actual pairing
+-- once that moment passes. Clients render the stamp as the full-screen
+-- "Round N Complete" countdown overlay. The final round is exempt — the
+-- tournament completes (prizes, placings, archive) immediately.
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS next_round_at TIMESTAMPTZ;
+
+CREATE OR REPLACE FUNCTION public.handle_tournament_game_finished()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_match       public.tournament_matches%ROWTYPE;
+  v_t           public.tournaments%ROWTYPE;
+  v_winner      UUID;
+  v_loser       UUID;
+  v_is_draw     BOOLEAN := false;
+  v_wname       TEXT;
+  v_lname       TEXT;
+  v_white_used  BIGINT;
+  v_black_used  BIGINT;
+  v_duration_ms BIGINT;
+  v_pending     INT;
+  v_in_round    INT;
+  v_next_at     TIMESTAMPTZ;
+BEGIN
+  SELECT * INTO v_match FROM public.tournament_matches
+  WHERE game_id = NEW.id AND status = 'active'
+  LIMIT 1;
+  IF NOT FOUND THEN RETURN NEW; END IF;
+
+  -- Serialize all bracket processing per tournament.
+  SELECT * INTO v_t FROM public.tournaments WHERE id = v_match.tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN NEW; END IF;
+
+  IF NEW.result = 'white' THEN
+    v_winner := NEW.white_id;
+  ELSIF NEW.result = 'black' THEN
+    v_winner := NEW.black_id;
+  ELSE
+    v_is_draw := (NEW.result = 'draw');
+    v_winner := CASE WHEN COALESCE(NEW.white_time_ms, 0) >= COALESCE(NEW.black_time_ms, 0)
+                     THEN NEW.white_id ELSE NEW.black_id END;
+  END IF;
+  v_loser := CASE WHEN v_winner = NEW.white_id THEN NEW.black_id ELSE NEW.white_id END;
+
+  UPDATE public.tournament_matches SET winner_id = v_winner, status = 'finished'
+  WHERE id = v_match.id;
+
+  v_white_used  := GREATEST(0, NEW.initial_seconds::BIGINT * 1000 - COALESCE(NEW.white_time_ms, 0));
+  v_black_used  := GREATEST(0, NEW.initial_seconds::BIGINT * 1000 - COALESCE(NEW.black_time_ms, 0));
+  v_duration_ms := GREATEST(0,
+    (EXTRACT(EPOCH FROM (COALESCE(NEW.ended_at, now()) - NEW.created_at)) * 1000)::BIGINT);
+
+  -- Arena points: WIN +5, LOSS −5, DRAW both +2 (the clock-tiebreak
+  -- "winner" of a draw still advances the bracket but scores it as a draw).
+  UPDATE public.tournament_entries SET
+    wins   = wins   + CASE WHEN NOT v_is_draw AND user_id = v_winner THEN 1 ELSE 0 END,
+    losses = losses + CASE WHEN NOT v_is_draw AND user_id = v_loser  THEN 1 ELSE 0 END,
+    draws  = draws  + CASE WHEN v_is_draw THEN 1 ELSE 0 END,
+    score  = score  + CASE WHEN v_is_draw THEN 2
+                           WHEN user_id = v_winner THEN 5
+                           ELSE -5 END,
+    time_used_ms = time_used_ms + CASE WHEN user_id = NEW.white_id THEN v_white_used ELSE v_black_used END,
+    fastest_win_ms = CASE WHEN NOT v_is_draw AND user_id = v_winner
+                          THEN LEAST(COALESCE(fastest_win_ms, 9223372036854775807), v_duration_ms)
+                          ELSE fastest_win_ms END,
+    status = CASE WHEN user_id = v_loser THEN 'eliminated' ELSE status END,
+    eliminated_in_round = CASE WHEN user_id = v_loser THEN v_match.round ELSE eliminated_in_round END
+  WHERE tournament_id = v_t.id AND user_id IN (NEW.white_id, NEW.black_id);
+
+  SELECT username INTO v_wname FROM public.profiles WHERE id = v_winner;
+  SELECT username INTO v_lname FROM public.profiles WHERE id = v_loser;
+
+  PERFORM public._tournament_log(
+    v_t.id, 'match_finished',
+    COALESCE(v_wname, 'Winner')
+      || CASE WHEN v_is_draw THEN ' advances on tiebreak vs ' ELSE ' defeats ' END
+      || COALESCE(v_lname, 'opponent')
+      || ' (' || COALESCE(NEW.end_reason, 'finished') || ')',
+    v_winner,
+    jsonb_build_object(
+      'round', v_match.round, 'winner', v_wname, 'loser', v_lname,
+      'reason', NEW.end_reason, 'moves', NEW.moves_count,
+      'draw', v_is_draw, 'game_id', NEW.id,
+      'winner_id', v_winner, 'loser_id', v_loser));
+
+  INSERT INTO public.notifications (user_id, kind, title, body, link) VALUES
+    (v_winner, 'tournament_result', 'You advanced!',
+     'You won your Round ' || v_match.round || ' match in ' || v_t.name || '.',
+     '/tournament/' || v_t.id::text),
+    (v_loser, 'tournament_result', 'Eliminated',
+     'You were knocked out in Round ' || v_match.round || ' of ' || v_t.name || '.',
+     '/tournament/' || v_t.id::text);
+
+  SELECT count(*) FILTER (WHERE status IN ('pending', 'active')), count(*)
+  INTO v_pending, v_in_round
+  FROM public.tournament_matches
+  WHERE tournament_id = v_t.id AND round = v_t.current_round;
+
+  IF v_pending = 0 THEN
+    IF v_in_round = 1 THEN
+      -- The final: no intermission, crown the champion right away.
+      PERFORM public._tournament_log(
+        v_t.id, 'round_finished', 'Round ' || v_t.current_round || ' complete',
+        NULL, jsonb_build_object('round', v_t.current_round, 'final', true));
+      PERFORM public._tournament_complete(v_t.id);
+    ELSE
+      -- Round-by-round rule: stamp the intermission instead of pairing now.
+      -- Every board in this round is done; the whole field waits out the
+      -- same 10 seconds and advances together via advance_pending_rounds().
+      v_next_at := now() + interval '10 seconds';
+      UPDATE public.tournaments SET next_round_at = v_next_at WHERE id = v_t.id;
+      PERFORM public._tournament_log(
+        v_t.id, 'round_finished',
+        'Round ' || v_t.current_round || ' complete — next round starts in 10 seconds',
+        NULL, jsonb_build_object('round', v_t.current_round, 'next_round_at', v_next_at));
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END; $$;
+
+-- ---------------------------------------------------------------------
+-- 76.7 advance_pending_rounds — fires the pairing once the 10s are up
+-- ---------------------------------------------------------------------
+-- Idempotent and race-safe: SKIP LOCKED + the next_round_at <= now()
+-- guard mean that when every arena client calls this at countdown zero,
+-- exactly one caller pairs the round and the rest no-op. Cron backstops
+-- it for tournaments nobody is watching.
+CREATE OR REPLACE FUNCTION public.advance_pending_rounds()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_tourn RECORD;
+BEGIN
+  FOR v_tourn IN
+    SELECT id FROM public.tournaments
+    WHERE status = 'live' AND next_round_at IS NOT NULL AND next_round_at <= now()
+    FOR UPDATE SKIP LOCKED
+  LOOP
+    UPDATE public.tournaments SET next_round_at = NULL WHERE id = v_tourn.id;
+    PERFORM public._tournament_start_round(v_tourn.id);
+  END LOOP;
+END; $$;
+REVOKE ALL ON FUNCTION public.advance_pending_rounds() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.advance_pending_rounds() TO authenticated, service_role;
+
+DO $$
+BEGIN
+  PERFORM cron.unschedule('advance_pending_rounds');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  PERFORM cron.schedule('advance_pending_rounds', '* * * * *', 'SELECT public.advance_pending_rounds();');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron not available — schedule advance_pending_rounds manually';
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 76.8 _tournament_start_round v4 — clears the intermission stamp
+-- ---------------------------------------------------------------------
+-- Identical to 76.1 (random re-pairing every round) plus next_round_at
+-- is reset in the same UPDATE, so a round can never start while the
+-- overlay stamp is still live.
+CREATE OR REPLACE FUNCTION public._tournament_start_round(p_tournament_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_t       public.tournaments%ROWTYPE;
+  v_round   INT;
+  v_players UUID[];
+  v_n       INT;
+  v_slot    INT := 0;
+  v_i       INT := 1;
+  v_p1      UUID;
+  v_p2      UUID;
+  v_game    UUID;
+BEGIN
+  SELECT * INTO v_t FROM public.tournaments WHERE id = p_tournament_id FOR UPDATE;
+  IF NOT FOUND OR v_t.status <> 'live' THEN RETURN; END IF;
+
+  v_round := COALESCE(v_t.current_round, 0) + 1;
+
+  IF v_round = 1 THEN
+    SELECT array_agg(user_id ORDER BY random()) INTO v_players
+    FROM public.tournament_entries
+    WHERE tournament_id = p_tournament_id AND status = 'active';
+  ELSE
+    -- Fresh random pairings every round: shuffle the survivors instead
+    -- of walking the previous round's slots.
+    SELECT array_agg(winner_id ORDER BY random()) INTO v_players
+    FROM public.tournament_matches
+    WHERE tournament_id = p_tournament_id
+      AND round = v_t.current_round
+      AND winner_id IS NOT NULL;
+  END IF;
+
+  v_n := COALESCE(array_length(v_players, 1), 0);
+  IF v_n < 2 THEN RETURN; END IF;
+
+  WHILE v_i <= v_n LOOP
+    v_slot := v_slot + 1;
+    v_p1 := v_players[v_i];
+    v_p2 := CASE WHEN v_i + 1 <= v_n THEN v_players[v_i + 1] ELSE NULL END;
+
+    IF v_p2 IS NULL THEN
+      INSERT INTO public.tournament_matches
+        (tournament_id, round, slot, player1_id, player2_id, winner_id, status)
+      VALUES (p_tournament_id, v_round, v_slot, v_p1, NULL, v_p1, 'bye');
+      PERFORM public._tournament_log(
+        p_tournament_id, 'bye',
+        COALESCE((SELECT username FROM public.profiles WHERE id = v_p1), 'A player') || ' advances on a bye',
+        v_p1, jsonb_build_object('round', v_round));
+    ELSE
+      v_game := public._tournament_create_game(v_t, v_p1, v_p2);
+      INSERT INTO public.tournament_matches
+        (tournament_id, round, slot, player1_id, player2_id, game_id, status)
+      VALUES (p_tournament_id, v_round, v_slot, v_p1, v_p2, v_game, 'active');
+
+      INSERT INTO public.notifications (user_id, kind, title, body, link)
+      SELECT u, 'tournament_round',
+             'Round ' || v_round || ' — your match is live',
+             'Your ' || v_t.name || ' match has started. Good luck!',
+             '/game/' || v_game::text
+      FROM unnest(ARRAY[v_p1, v_p2]) AS u;
+    END IF;
+
+    v_i := v_i + 2;
+  END LOOP;
+
+  UPDATE public.tournaments SET
+    current_round    = v_round,
+    round_started_at = now(),
+    next_round_at    = NULL,
+    total_rounds     = CASE WHEN v_round = 1
+                            THEN GREATEST(1, CEIL(LOG(2, GREATEST(v_n, 2)::NUMERIC))::INT)
+                            ELSE total_rounds END
+  WHERE id = p_tournament_id;
+
+  PERFORM public._tournament_log(
+    p_tournament_id, 'round_started',
+    'Round ' || v_round || ' started — ' || v_slot || ' pairing' || CASE WHEN v_slot = 1 THEN '' ELSE 's' END,
+    NULL, jsonb_build_object('round', v_round, 'matches', v_slot));
+END; $$;
+REVOKE ALL ON FUNCTION public._tournament_start_round(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._tournament_start_round(UUID) TO service_role;
+
+
+
+
+
+
+-- =====================================================================
+-- SECTION 77: SEASON IQ ENGINE — PUBG-STYLE MONTHLY SEASONS (2026-07-20)
+-- ---------------------------------------------------------------------
+-- Upgrades the SEASONS BACKEND (tables seasons / season_rankings /
+-- season_history + admin lifecycle RPCs) from "mirror of lifetime IQ"
+-- to a true seasonal ranking system:
+--   • season_iq: per-season points that START AT 0 every season and are
+--     earned from in-season activity only (games, upsets, checkmates,
+--     win streaks, daily activity, puzzles, accuracy, tournaments) via
+--     an idempotent ledger (season_iq_events)
+--   • 8-tier ladder (Beginner → Chessox Legend) via season_tier()
+--   • season_leaderboard v2: live window-ranked, trend (prev_rank),
+--     win rate, games, tier — global/country/state/district scopes
+--   • monthly automation: season_rollover() ends an expired season,
+--     freezes history, awards badges + special achievements, updates
+--     permanent career records, and starts the next 1-month season
+--     (also bootstraps Season 1 on an empty table)
+--   • permanent career: profiles.career_highest_iq(+season),
+--     career_best_rank(+season), season_badges jsonb — never reset
+--   • career_summaries(uuid[]): batch career info for search results
+-- Historical season_history rows are never deleted or rewritten after
+-- a season ends; only the live season's rankings ever change.
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 77.1 Columns + ledger table
+-- ---------------------------------------------------------------------
+ALTER TABLE public.season_rankings
+  ADD COLUMN IF NOT EXISTS season_iq        INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS prev_rank        INT,
+  ADD COLUMN IF NOT EXISTS games_played     INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS wins             INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS losses           INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS draws            INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS puzzles_solved   INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS cur_win_streak   INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS best_win_streak  INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS daily_bonus_date DATE;
+
+ALTER TABLE public.season_history
+  ADD COLUMN IF NOT EXISTS season_iq       INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS games_played    INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS wins            INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS losses          INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS draws           INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS best_win_streak INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS tier            TEXT;
+
+-- Permanent career records — written only when a season is finalized,
+-- and only ever improved, never reset.
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS career_highest_iq        INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS career_highest_iq_season INT,
+  ADD COLUMN IF NOT EXISTS career_best_rank         INT,
+  ADD COLUMN IF NOT EXISTS career_best_rank_season  INT,
+  ADD COLUMN IF NOT EXISTS season_badges            JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+-- Every point ever earned, one row per award. The UNIQUE key is the
+-- anti-double-award guard (e.g. a game can pay its winner exactly once).
+CREATE TABLE IF NOT EXISTS public.season_iq_events (
+  id         BIGSERIAL PRIMARY KEY,
+  season_id  UUID NOT NULL REFERENCES public.seasons(id) ON DELETE CASCADE,
+  user_id    UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL,
+  ref        TEXT NOT NULL,
+  points     INT  NOT NULL,
+  meta       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (season_id, user_id, kind, ref)
+);
+CREATE INDEX IF NOT EXISTS idx_season_iq_events_user
+  ON public.season_iq_events(season_id, user_id, created_at DESC);
+GRANT SELECT ON public.season_iq_events TO authenticated;
+GRANT ALL ON public.season_iq_events TO service_role;
+ALTER TABLE public.season_iq_events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Season IQ events own read" ON public.season_iq_events;
+CREATE POLICY "Season IQ events own read"
+  ON public.season_iq_events FOR SELECT USING (auth.uid() = user_id);
+-- Writes only via the SECURITY DEFINER award function below.
+
+-- ---------------------------------------------------------------------
+-- 77.2 Tier ladder
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.season_tier(p_iq INT)
+RETURNS TEXT LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE
+    WHEN p_iq >= 8000 THEN 'Chessox Legend'
+    WHEN p_iq >= 5500 THEN 'Elite'
+    WHEN p_iq >= 3500 THEN 'Grandmaster'
+    WHEN p_iq >= 2000 THEN 'Master'
+    WHEN p_iq >= 1000 THEN 'Expert'
+    WHEN p_iq >=  500 THEN 'Skilled'
+    WHEN p_iq >=  200 THEN 'Learner'
+    ELSE 'Beginner'
+  END;
+$$;
+GRANT EXECUTE ON FUNCTION public.season_tier(INT) TO anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 77.3 The award primitive
+-- ---------------------------------------------------------------------
+-- Books points into the CURRENT LIVE season only. Idempotent per
+-- (kind, ref): replaying the same event is a silent no-op, so triggers
+-- can fire safely under retries. No live season → no-op (off-season
+-- play simply earns nothing).
+CREATE OR REPLACE FUNCTION public._season_award_iq(
+  p_user   UUID,
+  p_kind   TEXT,
+  p_points INT,
+  p_ref    TEXT,
+  p_meta   JSONB DEFAULT '{}'::jsonb
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_season UUID;
+BEGIN
+  IF p_user IS NULL OR COALESCE(p_points, 0) = 0 THEN RETURN; END IF;
+
+  SELECT id INTO v_season FROM public.seasons
+  WHERE status = 'live' ORDER BY season_number DESC LIMIT 1;
+  IF v_season IS NULL THEN RETURN; END IF;
+
+  INSERT INTO public.season_rankings (season_id, user_id)
+  VALUES (v_season, p_user)
+  ON CONFLICT (season_id, user_id) DO NOTHING;
+
+  INSERT INTO public.season_iq_events (season_id, user_id, kind, ref, points, meta)
+  VALUES (v_season, p_user, p_kind, COALESCE(p_ref, 'x'), p_points, COALESCE(p_meta, '{}'::jsonb))
+  ON CONFLICT (season_id, user_id, kind, ref) DO NOTHING;
+  IF NOT FOUND THEN RETURN; END IF;  -- already awarded
+
+  UPDATE public.season_rankings SET
+    season_iq  = GREATEST(0, season_iq + p_points),
+    iq_level   = GREATEST(0, season_iq + p_points),  -- legacy mirror
+    updated_at = now()
+  WHERE season_id = v_season AND user_id = p_user;
+END; $$;
+REVOKE ALL ON FUNCTION public._season_award_iq(UUID, TEXT, INT, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._season_award_iq(UUID, TEXT, INT, TEXT, JSONB) TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 77.4 Earning: finished games
+-- ---------------------------------------------------------------------
+-- Skill-weighted, not volume-weighted: a win pays 20, beating a
+-- stronger player pays up to +40 more, checkmates +5, and every win
+-- during a 3+ streak +5. Losses pay 2 (participation), draws 5. The
+-- first game of the (UTC) day adds a +10 daily-activity bonus. Aborts /
+-- no-shows / sub-2-move games earn nothing — no idle farming.
+CREATE OR REPLACE FUNCTION public.handle_season_game_finished()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_season   UUID;
+  v_winner   UUID;
+  v_loser    UUID;
+  v_w_rating INT;
+  v_l_rating INT;
+  v_pts      INT;
+  v_streak   INT;
+  v_u        UUID;
+BEGIN
+  IF NEW.white_id IS NULL OR NEW.black_id IS NULL THEN RETURN NEW; END IF;
+  IF NEW.result NOT IN ('white', 'black', 'draw') THEN RETURN NEW; END IF;
+  IF COALESCE(NEW.moves_count, 0) < 2 THEN RETURN NEW; END IF;
+  IF COALESCE(NEW.end_reason, '') IN ('aborted', 'no_show', 'tournament_cancelled') THEN RETURN NEW; END IF;
+
+  SELECT id INTO v_season FROM public.seasons
+  WHERE status = 'live' ORDER BY season_number DESC LIMIT 1;
+  IF v_season IS NULL THEN RETURN NEW; END IF;
+
+  -- Ensure both ranking rows exist, then book the per-game stats.
+  INSERT INTO public.season_rankings (season_id, user_id)
+  SELECT v_season, u FROM unnest(ARRAY[NEW.white_id, NEW.black_id]) AS u
+  ON CONFLICT (season_id, user_id) DO NOTHING;
+
+  IF NEW.result = 'draw' THEN
+    UPDATE public.season_rankings SET
+      games_played = games_played + 1,
+      draws        = draws + 1,
+      cur_win_streak = 0,
+      updated_at   = now()
+    WHERE season_id = v_season AND user_id IN (NEW.white_id, NEW.black_id);
+    PERFORM public._season_award_iq(NEW.white_id, 'game_draw', 5, NEW.id::text);
+    PERFORM public._season_award_iq(NEW.black_id, 'game_draw', 5, NEW.id::text);
+  ELSE
+    v_winner   := CASE WHEN NEW.result = 'white' THEN NEW.white_id ELSE NEW.black_id END;
+    v_loser    := CASE WHEN NEW.result = 'white' THEN NEW.black_id ELSE NEW.white_id END;
+    v_w_rating := CASE WHEN NEW.result = 'white' THEN NEW.white_rating ELSE NEW.black_rating END;
+    v_l_rating := CASE WHEN NEW.result = 'white' THEN NEW.black_rating ELSE NEW.white_rating END;
+
+    UPDATE public.season_rankings SET
+      games_played    = games_played + 1,
+      wins            = wins + 1,
+      cur_win_streak  = cur_win_streak + 1,
+      best_win_streak = GREATEST(best_win_streak, cur_win_streak + 1),
+      updated_at      = now()
+    WHERE season_id = v_season AND user_id = v_winner
+    RETURNING cur_win_streak INTO v_streak;
+
+    UPDATE public.season_rankings SET
+      games_played   = games_played + 1,
+      losses         = losses + 1,
+      cur_win_streak = 0,
+      updated_at     = now()
+    WHERE season_id = v_season AND user_id = v_loser;
+
+    v_pts := 20;
+    IF COALESCE(v_l_rating, 0) > COALESCE(v_w_rating, 0) + 50 THEN
+      v_pts := v_pts + LEAST(40, (v_l_rating - v_w_rating) / 10);  -- upset bonus
+    END IF;
+    IF NEW.end_reason = 'checkmate' THEN v_pts := v_pts + 5; END IF;
+    IF COALESCE(v_streak, 0) >= 3 THEN v_pts := v_pts + 5; END IF;  -- streak bonus
+
+    PERFORM public._season_award_iq(
+      v_winner, 'game_win', v_pts, NEW.id::text,
+      jsonb_build_object('streak', v_streak, 'reason', NEW.end_reason));
+    PERFORM public._season_award_iq(v_loser, 'game_loss', 2, NEW.id::text);
+  END IF;
+
+  -- Daily-activity bonus: first finished game of the UTC day.
+  FOR v_u IN SELECT unnest(ARRAY[NEW.white_id, NEW.black_id]) LOOP
+    UPDATE public.season_rankings
+    SET daily_bonus_date = current_date
+    WHERE season_id = v_season AND user_id = v_u
+      AND (daily_bonus_date IS NULL OR daily_bonus_date < current_date);
+    IF FOUND THEN
+      PERFORM public._season_award_iq(v_u, 'daily', 10, current_date::text);
+    END IF;
+  END LOOP;
+
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS trg_season_game_finished ON public.games;
+CREATE TRIGGER trg_season_game_finished
+  AFTER UPDATE ON public.games
+  FOR EACH ROW
+  WHEN (OLD.ended_at IS NULL AND NEW.ended_at IS NOT NULL)
+  EXECUTE FUNCTION public.handle_season_game_finished();
+
+-- ---------------------------------------------------------------------
+-- 77.5 Earning: puzzles
+-- ---------------------------------------------------------------------
+-- +3 per puzzle solved (+3 extra for 1800+ rated puzzles). Keyed on the
+-- puzzle id, so re-solving the same puzzle never pays twice a season.
+CREATE OR REPLACE FUNCTION public.handle_season_puzzle_attempt()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_season UUID;
+BEGIN
+  IF NOT NEW.solved THEN RETURN NEW; END IF;
+
+  SELECT id INTO v_season FROM public.seasons
+  WHERE status = 'live' ORDER BY season_number DESC LIMIT 1;
+  IF v_season IS NULL THEN RETURN NEW; END IF;
+
+  INSERT INTO public.season_rankings (season_id, user_id)
+  VALUES (v_season, NEW.user_id)
+  ON CONFLICT (season_id, user_id) DO NOTHING;
+
+  -- Count the solve only when it is this season's first for that puzzle.
+  IF NOT EXISTS (
+    SELECT 1 FROM public.season_iq_events
+    WHERE season_id = v_season AND user_id = NEW.user_id
+      AND kind = 'puzzle' AND ref = NEW.puzzle_id
+  ) THEN
+    UPDATE public.season_rankings
+    SET puzzles_solved = puzzles_solved + 1, updated_at = now()
+    WHERE season_id = v_season AND user_id = NEW.user_id;
+  END IF;
+
+  PERFORM public._season_award_iq(
+    NEW.user_id, 'puzzle',
+    3 + CASE WHEN COALESCE(NEW.puzzle_rating, 0) >= 1800 THEN 3 ELSE 0 END,
+    NEW.puzzle_id);
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS trg_season_puzzle_attempt ON public.puzzle_attempts;
+CREATE TRIGGER trg_season_puzzle_attempt
+  AFTER INSERT ON public.puzzle_attempts
+  FOR EACH ROW EXECUTE FUNCTION public.handle_season_puzzle_attempt();
+
+-- ---------------------------------------------------------------------
+-- 77.6 Earning: analysis accuracy
+-- ---------------------------------------------------------------------
+-- A completed engine analysis with 90%+ accuracy pays +10 to that side.
+CREATE OR REPLACE FUNCTION public.handle_season_analysis_done()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_g RECORD;
+BEGIN
+  IF NEW.analysis_status <> 'done' THEN RETURN NEW; END IF;
+
+  SELECT white_id, black_id INTO v_g FROM public.games WHERE id = NEW.game_id;
+  IF v_g.white_id IS NULL OR v_g.black_id IS NULL THEN RETURN NEW; END IF;
+
+  IF COALESCE(NEW.accuracy_white, 0) >= 90 THEN
+    PERFORM public._season_award_iq(
+      v_g.white_id, 'accuracy', 10, NEW.game_id::text || ':w',
+      jsonb_build_object('accuracy', NEW.accuracy_white));
+  END IF;
+  IF COALESCE(NEW.accuracy_black, 0) >= 90 THEN
+    PERFORM public._season_award_iq(
+      v_g.black_id, 'accuracy', 10, NEW.game_id::text || ':b',
+      jsonb_build_object('accuracy', NEW.accuracy_black));
+  END IF;
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS trg_season_analysis_done ON public.game_analysis;
+CREATE TRIGGER trg_season_analysis_done
+  AFTER INSERT OR UPDATE ON public.game_analysis
+  FOR EACH ROW EXECUTE FUNCTION public.handle_season_analysis_done();
+
+-- ---------------------------------------------------------------------
+-- 77.7 Earning: tournament podium
+-- ---------------------------------------------------------------------
+-- Champion +250, runner-up +150, third +100 when a tournament completes
+-- (the individual games already paid their win points).
+CREATE OR REPLACE FUNCTION public.handle_season_tournament_completed()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_e RECORD;
+BEGIN
+  FOR v_e IN
+    SELECT user_id, rank FROM public.tournament_entries
+    WHERE tournament_id = NEW.id AND rank BETWEEN 1 AND 3
+  LOOP
+    PERFORM public._season_award_iq(
+      v_e.user_id,
+      CASE v_e.rank WHEN 1 THEN 'tournament_champion'
+                    WHEN 2 THEN 'tournament_runner_up'
+                    ELSE 'tournament_third' END,
+      CASE v_e.rank WHEN 1 THEN 250 WHEN 2 THEN 150 ELSE 100 END,
+      NEW.id::text);
+  END LOOP;
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS trg_season_tournament_completed ON public.tournaments;
+CREATE TRIGGER trg_season_tournament_completed
+  AFTER UPDATE OF status ON public.tournaments
+  FOR EACH ROW
+  WHEN (OLD.status IS DISTINCT FROM 'completed' AND NEW.status = 'completed')
+  EXECUTE FUNCTION public.handle_season_tournament_completed();
+
+-- ---------------------------------------------------------------------
+-- 77.8 Rank recompute v2 — season_iq only, participants only
+-- ---------------------------------------------------------------------
+-- Replaces the v1 body that ranked EVERY profile by lifetime iq_level.
+-- Only players who actually earned something this season are ranked;
+-- prev_rank keeps the previous standing for the trend arrows.
+CREATE OR REPLACE FUNCTION public._season_recompute_rankings(p_season_id UUID)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  WITH ranked AS (
+    SELECT user_id,
+           ROW_NUMBER() OVER (
+             ORDER BY season_iq DESC, wins DESC, games_played ASC, user_id ASC
+           ) AS rnk
+    FROM public.season_rankings
+    WHERE season_id = p_season_id
+  )
+  UPDATE public.season_rankings sr SET
+    prev_rank  = sr.rank,
+    rank       = ranked.rnk,
+    updated_at = now()
+  FROM ranked
+  WHERE sr.season_id = p_season_id AND sr.user_id = ranked.user_id;
+END; $$;
+REVOKE ALL ON FUNCTION public._season_recompute_rankings(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._season_recompute_rankings(UUID) TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 77.9 season_leaderboard v2 — live ranks, tiers, trend, win rate
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.season_leaderboard(UUID, TEXT, TEXT, TEXT, TEXT, INT, INT);
+CREATE OR REPLACE FUNCTION public.season_leaderboard(
+  p_season_id UUID,
+  p_country   TEXT DEFAULT NULL,
+  p_state     TEXT DEFAULT NULL,
+  p_district  TEXT DEFAULT NULL,
+  p_search    TEXT DEFAULT NULL,
+  p_limit     INT DEFAULT 25,
+  p_offset    INT DEFAULT 0
+)
+RETURNS TABLE (
+  rank               BIGINT,
+  prev_rank          INT,
+  user_id            UUID,
+  season_iq          INT,
+  tier               TEXT,
+  games_played       INT,
+  wins               INT,
+  losses             INT,
+  draws              INT,
+  win_rate           INT,
+  puzzles_solved     INT,
+  best_win_streak    INT,
+  iq_level           INT,
+  rating_points      INT,
+  country            TEXT,
+  state              TEXT,
+  district           TEXT,
+  rewards            TEXT[],
+  username           TEXT,
+  full_name          TEXT,
+  avatar_url         TEXT,
+  premium_active     BOOLEAN,
+  premium_expires_at TIMESTAMPTZ
+)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY
+  WITH scoped AS (
+    SELECT sr.*, p.country AS p_country2, p.state AS p_state2, p.district AS p_district2,
+           p.username AS p_username, COALESCE(p.display_name, p.full_name, p.username) AS p_name,
+           p.avatar_url AS p_avatar, p.premium_active AS p_prem, p.premium_expires_at AS p_prem_at
+    FROM public.season_rankings sr
+    JOIN public.profiles p ON p.id = sr.user_id
+    WHERE sr.season_id = p_season_id
+      AND (p_country  IS NULL OR p.country  = p_country)
+      AND (p_state    IS NULL OR p.state    = p_state)
+      AND (p_district IS NULL OR p.district = p_district)
+  ),
+  ranked AS (
+    SELECT s.*,
+           ROW_NUMBER() OVER (
+             ORDER BY s.season_iq DESC, s.wins DESC, s.games_played ASC, s.user_id ASC
+           ) AS live_rank
+    FROM scoped s
+  )
+  SELECT
+    r.live_rank,
+    r.prev_rank,
+    r.user_id,
+    r.season_iq,
+    public.season_tier(r.season_iq),
+    r.games_played,
+    r.wins,
+    r.losses,
+    r.draws,
+    CASE WHEN r.games_played > 0 THEN ROUND(r.wins * 100.0 / r.games_played)::INT ELSE 0 END,
+    r.puzzles_solved,
+    r.best_win_streak,
+    r.iq_level,
+    r.rating_points,
+    r.p_country2,
+    r.p_state2,
+    r.p_district2,
+    r.rewards,
+    r.p_username,
+    r.p_name,
+    r.p_avatar,
+    r.p_prem,
+    r.p_prem_at
+  FROM ranked r
+  WHERE (p_search IS NULL OR p_search = ''
+         OR r.p_username ILIKE '%' || p_search || '%'
+         OR r.p_name ILIKE '%' || p_search || '%')
+  ORDER BY r.live_rank ASC
+  LIMIT p_limit OFFSET p_offset;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.season_leaderboard(UUID, TEXT, TEXT, TEXT, TEXT, INT, INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.season_leaderboard(UUID, TEXT, TEXT, TEXT, TEXT, INT, INT) TO anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 77.10 Finalize: freeze, award, record careers, keep history forever
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public._season_finalize(p_season_id UUID)
+RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_num    INT;
+  v_count  INT;
+  v_uid    UUID;
+BEGIN
+  SELECT season_number INTO v_num FROM public.seasons WHERE id = p_season_id;
+
+  PERFORM public._season_recompute_rankings(p_season_id);
+
+  -- Rank-based reward tags.
+  UPDATE public.season_rankings
+  SET rewards = CASE
+    WHEN rank = 1 THEN ARRAY['season_champion', 'champion_badge', 'top_1']
+    WHEN rank <= 3 THEN ARRAY['podium_badge', 'top_3']
+    WHEN rank <= 10 THEN ARRAY['top_10']
+    WHEN rank <= 100 THEN ARRAY['top_100']
+    ELSE '{}'::text[]
+  END
+  WHERE season_id = p_season_id;
+
+  -- Special achievements (each goes to a single best-qualifying player,
+  -- except regional_champion which goes to every country's #1).
+  SELECT sr.user_id INTO v_uid
+  FROM public.season_rankings sr
+  LEFT JOIN LATERAL (
+    SELECT MAX(sh.season_iq) AS prev_best FROM public.season_history sh
+    WHERE sh.user_id = sr.user_id
+  ) h ON true
+  WHERE sr.season_id = p_season_id AND h.prev_best IS NOT NULL AND sr.season_iq > h.prev_best
+  ORDER BY sr.season_iq - h.prev_best DESC, sr.rank ASC LIMIT 1;
+  IF v_uid IS NOT NULL THEN
+    UPDATE public.season_rankings SET rewards = rewards || ARRAY['most_improved']
+    WHERE season_id = p_season_id AND user_id = v_uid;
+  END IF;
+
+  SELECT user_id INTO v_uid FROM public.season_rankings
+  WHERE season_id = p_season_id AND puzzles_solved > 0
+  ORDER BY puzzles_solved DESC, rank ASC LIMIT 1;
+  IF v_uid IS NOT NULL THEN
+    UPDATE public.season_rankings SET rewards = rewards || ARRAY['puzzle_master']
+    WHERE season_id = p_season_id AND user_id = v_uid;
+  END IF;
+
+  SELECT user_id INTO v_uid FROM public.season_rankings
+  WHERE season_id = p_season_id AND best_win_streak >= 3
+  ORDER BY best_win_streak DESC, rank ASC LIMIT 1;
+  IF v_uid IS NOT NULL THEN
+    UPDATE public.season_rankings SET rewards = rewards || ARRAY['highest_win_streak']
+    WHERE season_id = p_season_id AND user_id = v_uid;
+  END IF;
+
+  SELECT sr.user_id INTO v_uid FROM public.season_rankings sr
+  WHERE sr.season_id = p_season_id AND sr.season_iq > 0
+    AND NOT EXISTS (SELECT 1 FROM public.season_history sh WHERE sh.user_id = sr.user_id)
+  ORDER BY sr.season_iq DESC, sr.rank ASC LIMIT 1;
+  IF v_uid IS NOT NULL THEN
+    UPDATE public.season_rankings SET rewards = rewards || ARRAY['best_new_player']
+    WHERE season_id = p_season_id AND user_id = v_uid;
+  END IF;
+
+  -- Regional champion: the top-ranked player of each country.
+  UPDATE public.season_rankings sr
+  SET rewards = sr.rewards || ARRAY['regional_champion']
+  FROM (
+    SELECT DISTINCT ON (p.country) sr2.user_id
+    FROM public.season_rankings sr2
+    JOIN public.profiles p ON p.id = sr2.user_id
+    WHERE sr2.season_id = p_season_id AND p.country IS NOT NULL AND sr2.season_iq > 0
+    ORDER BY p.country, sr2.rank ASC
+  ) rc
+  WHERE sr.season_id = p_season_id AND sr.user_id = rc.user_id;
+
+  -- Freeze into permanent history (with the new season columns + tier).
+  INSERT INTO public.season_history
+    (season_id, user_id, final_rank, iq_level, rating_points, rewards, ended_at,
+     season_iq, games_played, wins, losses, draws, best_win_streak, tier)
+  SELECT season_id, user_id, rank, iq_level, rating_points, rewards, now(),
+         season_iq, games_played, wins, losses, draws, best_win_streak,
+         public.season_tier(season_iq)
+  FROM public.season_rankings
+  WHERE season_id = p_season_id AND rank IS NOT NULL
+  ON CONFLICT (season_id, user_id) DO UPDATE SET
+    final_rank = EXCLUDED.final_rank,
+    iq_level = EXCLUDED.iq_level,
+    rating_points = EXCLUDED.rating_points,
+    rewards = EXCLUDED.rewards,
+    season_iq = EXCLUDED.season_iq,
+    games_played = EXCLUDED.games_played,
+    wins = EXCLUDED.wins,
+    losses = EXCLUDED.losses,
+    draws = EXCLUDED.draws,
+    best_win_streak = EXCLUDED.best_win_streak,
+    tier = EXCLUDED.tier,
+    ended_at = now();
+
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+
+  -- Permanent career records: only ever improved, never reset.
+  UPDATE public.profiles p SET
+    career_highest_iq        = sr.season_iq,
+    career_highest_iq_season = v_num
+  FROM public.season_rankings sr
+  WHERE sr.season_id = p_season_id AND p.id = sr.user_id
+    AND sr.season_iq > p.career_highest_iq;
+
+  UPDATE public.profiles p SET
+    career_best_rank        = sr.rank,
+    career_best_rank_season = v_num
+  FROM public.season_rankings sr
+  WHERE sr.season_id = p_season_id AND p.id = sr.user_id AND sr.rank IS NOT NULL
+    AND sr.season_iq > 0
+    AND (p.career_best_rank IS NULL OR sr.rank < p.career_best_rank);
+
+  -- Permanent badge wallet on the profile.
+  UPDATE public.profiles p
+  SET season_badges = p.season_badges || b.badges
+  FROM (
+    SELECT user_id,
+           jsonb_agg(jsonb_build_object('season', v_num, 'code', code)) AS badges
+    FROM (
+      SELECT user_id, unnest(rewards) AS code
+      FROM public.season_rankings
+      WHERE season_id = p_season_id AND rewards <> '{}'::text[]
+    ) x
+    GROUP BY user_id
+  ) b
+  WHERE p.id = b.user_id;
+
+  UPDATE public.seasons SET status = 'ended', updated_at = now() WHERE id = p_season_id;
+
+  RETURN v_count;
+END; $$;
+REVOKE ALL ON FUNCTION public._season_finalize(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._season_finalize(UUID) TO service_role;
+
+-- admin_end_season v2: same contract, now built on _season_finalize.
+CREATE OR REPLACE FUNCTION public.admin_end_season(
+  p_season_id       UUID,
+  p_auto_start_next BOOLEAN DEFAULT true
+)
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_status TEXT;
+  v_ranked_players INT;
+  v_next_season_id UUID;
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+
+  SELECT status INTO v_status FROM public.seasons WHERE id = p_season_id;
+  IF v_status IS NULL THEN RAISE EXCEPTION 'Season not found'; END IF;
+  IF v_status = 'ended' THEN RAISE EXCEPTION 'Season already ended'; END IF;
+
+  v_ranked_players := public._season_finalize(p_season_id);
+
+  IF p_auto_start_next THEN
+    SELECT id INTO v_next_season_id FROM public.seasons
+    WHERE status = 'upcoming'
+    ORDER BY season_number ASC
+    LIMIT 1;
+    IF v_next_season_id IS NOT NULL THEN
+      PERFORM public.admin_start_season(v_next_season_id);
+    END IF;
+  END IF;
+
+  RETURN json_build_object(
+    'success', true,
+    'ranked_players', v_ranked_players,
+    'next_season_id', v_next_season_id
+  );
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.admin_end_season(UUID, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_end_season(UUID, BOOLEAN) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 77.11 Monthly automation: season_rollover()
+-- ---------------------------------------------------------------------
+-- One idempotent tick, safe from any caller:
+--   1. no seasons at all → bootstrap Season 1 (1st of this month +1mo, live)
+--   2. live season past its end_date → finalize it, then create AND start
+--      the next exactly-one-month season
+--   3. an upcoming season whose start has arrived (and nothing live) → start
+-- Serialized via an advisory lock so concurrent nudges can't double-run.
+CREATE OR REPLACE FUNCTION public.season_rollover()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_live   public.seasons%ROWTYPE;
+  v_next   UUID;
+  v_number INT;
+  v_start  TIMESTAMPTZ;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('season_rollover'));
+
+  IF NOT EXISTS (SELECT 1 FROM public.seasons) THEN
+    INSERT INTO public.seasons (season_number, name, start_date, end_date, status)
+    VALUES (1, 'Season 1', date_trunc('month', now()),
+            date_trunc('month', now()) + interval '1 month', 'live');
+    RETURN;
+  END IF;
+
+  SELECT * INTO v_live FROM public.seasons
+  WHERE status IN ('live', 'paused') ORDER BY season_number DESC LIMIT 1;
+
+  IF v_live.id IS NOT NULL AND v_live.end_date <= now() THEN
+    PERFORM public._season_finalize(v_live.id);
+
+    -- Prefer a pre-created upcoming season; otherwise mint the next
+    -- one-month season starting where the old one ended.
+    SELECT id INTO v_next FROM public.seasons
+    WHERE status = 'upcoming' ORDER BY season_number ASC LIMIT 1;
+
+    IF v_next IS NULL THEN
+      SELECT COALESCE(MAX(season_number), 0) + 1 INTO v_number FROM public.seasons;
+      v_start := GREATEST(v_live.end_date, date_trunc('month', now()));
+      INSERT INTO public.seasons (season_number, name, start_date, end_date, status)
+      VALUES (v_number, 'Season ' || v_number, v_start, v_start + interval '1 month', 'live');
+    ELSE
+      UPDATE public.seasons SET status = 'live', updated_at = now() WHERE id = v_next;
+    END IF;
+    RETURN;
+  END IF;
+
+  -- Nothing live: start an upcoming season whose time has come.
+  IF v_live.id IS NULL THEN
+    SELECT id INTO v_next FROM public.seasons
+    WHERE status = 'upcoming' AND start_date <= now()
+    ORDER BY season_number ASC LIMIT 1;
+    IF v_next IS NOT NULL THEN
+      UPDATE public.seasons SET status = 'live', updated_at = now() WHERE id = v_next;
+    END IF;
+  END IF;
+END; $$;
+REVOKE ALL ON FUNCTION public.season_rollover() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.season_rollover() TO authenticated, service_role;
+
+DO $$
+BEGIN
+  PERFORM cron.unschedule('season_rollover');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  PERFORM cron.schedule('season_rollover', '*/10 * * * *', 'SELECT public.season_rollover();');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron not available — schedule season_rollover manually';
+END $$;
+
+-- Keep the live season's stored ranks (and trend arrows) fresh.
+DO $$
+BEGIN
+  PERFORM cron.unschedule('season_rank_refresh');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  PERFORM cron.schedule('season_rank_refresh', '*/5 * * * *',
+    $sql$SELECT public._season_recompute_rankings(id) FROM public.seasons WHERE status = 'live';$sql$);
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron not available — schedule season_rank_refresh manually';
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 77.12 season_history_for_user v2 — career block + current season card
+-- ---------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.season_history_for_user(UUID);
+CREATE OR REPLACE FUNCTION public.season_history_for_user(p_user_id UUID)
+RETURNS JSON
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_result JSON;
+  v_current_season_id UUID;
+  v_current RECORD;
+BEGIN
+  SELECT id INTO v_current_season_id FROM public.seasons
+    WHERE status IN ('live', 'paused') ORDER BY season_number DESC LIMIT 1;
+
+  IF v_current_season_id IS NOT NULL THEN
+    SELECT sr.rank, sr.season_iq, sr.games_played, sr.wins, sr.losses, sr.draws,
+           sr.puzzles_solved, sr.best_win_streak
+    INTO v_current
+    FROM public.season_rankings sr
+    WHERE sr.season_id = v_current_season_id AND sr.user_id = p_user_id;
+  END IF;
+
+  SELECT json_build_object(
+    'seasons', COALESCE((
+      SELECT json_agg(json_build_object(
+        'season_id', sh.season_id,
+        'season_number', s.season_number,
+        'season_name', s.name,
+        'final_rank', sh.final_rank,
+        'iq_level', sh.iq_level,
+        'season_iq', sh.season_iq,
+        'tier', COALESCE(sh.tier, public.season_tier(sh.season_iq)),
+        'games_played', sh.games_played,
+        'wins', sh.wins,
+        'losses', sh.losses,
+        'draws', sh.draws,
+        'best_win_streak', sh.best_win_streak,
+        'rating_points', sh.rating_points,
+        'rewards', sh.rewards,
+        'ended_at', sh.ended_at
+      ) ORDER BY s.season_number DESC)
+      FROM public.season_history sh
+      JOIN public.seasons s ON s.id = sh.season_id
+      WHERE sh.user_id = p_user_id
+    ), '[]'::json),
+    'current_season_rank', v_current.rank,
+    'current_season_iq', COALESCE(v_current.season_iq, 0),
+    'current_tier', public.season_tier(COALESCE(v_current.season_iq, 0)),
+    'current_games_played', COALESCE(v_current.games_played, 0),
+    'current_wins', COALESCE(v_current.wins, 0),
+    'current_losses', COALESCE(v_current.losses, 0),
+    'current_draws', COALESCE(v_current.draws, 0),
+    'current_puzzles_solved', COALESCE(v_current.puzzles_solved, 0),
+    'current_best_win_streak', COALESCE(v_current.best_win_streak, 0),
+    'seasons_played', (SELECT COUNT(*) FROM public.season_history WHERE user_id = p_user_id),
+    'seasons_won', (SELECT COUNT(*) FROM public.season_history WHERE user_id = p_user_id AND final_rank = 1),
+    'top_10_finishes', (SELECT COUNT(*) FROM public.season_history WHERE user_id = p_user_id AND final_rank <= 10),
+    'top_100_finishes', (SELECT COUNT(*) FROM public.season_history WHERE user_id = p_user_id AND final_rank <= 100),
+    'best_rank_ever', (SELECT MIN(final_rank) FROM public.season_history WHERE user_id = p_user_id AND season_iq > 0),
+    'best_iq_level', COALESCE((SELECT MAX(iq_level) FROM public.season_history WHERE user_id = p_user_id), 0),
+    'best_rating', COALESCE((SELECT MAX(rating_points) FROM public.season_history WHERE user_id = p_user_id), 0),
+    'career_highest_iq', COALESCE((SELECT career_highest_iq FROM public.profiles WHERE id = p_user_id), 0),
+    'career_highest_iq_season', (SELECT career_highest_iq_season FROM public.profiles WHERE id = p_user_id),
+    'career_best_rank', (SELECT career_best_rank FROM public.profiles WHERE id = p_user_id),
+    'career_best_rank_season', (SELECT career_best_rank_season FROM public.profiles WHERE id = p_user_id),
+    'best_season_number', (
+      SELECT s.season_number FROM public.season_history sh
+      JOIN public.seasons s ON s.id = sh.season_id
+      WHERE sh.user_id = p_user_id
+      ORDER BY sh.season_iq DESC, sh.final_rank ASC LIMIT 1
+    ),
+    'season_badges', COALESCE((SELECT season_badges FROM public.profiles WHERE id = p_user_id), '[]'::jsonb)
+  ) INTO v_result;
+
+  RETURN v_result;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.season_history_for_user(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.season_history_for_user(UUID) TO anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 77.13 career_summaries — batch career info for search results
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.career_summaries(p_user_ids UUID[])
+RETURNS TABLE (
+  user_id                  UUID,
+  career_highest_iq        INT,
+  career_highest_iq_season INT,
+  career_best_rank         INT,
+  career_best_rank_season  INT,
+  best_season_number       INT,
+  current_season_iq        INT,
+  current_tier             TEXT
+)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_current_season_id UUID;
+BEGIN
+  SELECT id INTO v_current_season_id FROM public.seasons
+  WHERE status IN ('live', 'paused') ORDER BY season_number DESC LIMIT 1;
+
+  RETURN QUERY
+  SELECT
+    p.id,
+    p.career_highest_iq,
+    p.career_highest_iq_season,
+    p.career_best_rank,
+    p.career_best_rank_season,
+    (SELECT s.season_number FROM public.season_history sh
+     JOIN public.seasons s ON s.id = sh.season_id
+     WHERE sh.user_id = p.id
+     ORDER BY sh.season_iq DESC, sh.final_rank ASC LIMIT 1),
+    COALESCE(sr.season_iq, 0),
+    public.season_tier(COALESCE(sr.season_iq, 0))
+  FROM public.profiles p
+  LEFT JOIN public.season_rankings sr
+    ON sr.user_id = p.id AND sr.season_id = v_current_season_id
+  WHERE p.id = ANY(p_user_ids);
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.career_summaries(UUID[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.career_summaries(UUID[]) TO anon, authenticated, service_role;
+
+-- =====================================================================
+-- SECTION 78: EMAIL OTP VERIFICATION (registration email verification, 2026-07-22)
+-- ---------------------------------------------------------------------
+-- Backs the "Verify" button on the signup form: a 6-digit OTP is
+-- generated server-side, hashed (HMAC-SHA256), and stored here while the
+-- Supabase Auth user itself is NOT created until the OTP is confirmed.
+-- This table is intentionally reachable only by the service-role server
+-- (RLS is enabled with zero policies, so it default-denies anon/
+-- authenticated entirely) — never queried from the browser. See
+-- supabase/migrations/20260722000001_email_otp_verification.sql — that
+-- file is the one actually applied; this section mirrors it for repo
+-- documentation.
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS public.email_otp_verifications (
+  email        TEXT PRIMARY KEY,
+  username     TEXT NOT NULL,
+  otp_hash     TEXT NOT NULL,
+  expires_at   TIMESTAMPTZ NOT NULL,
+  attempts     INTEGER NOT NULL DEFAULT 0,
+  max_attempts INTEGER NOT NULL DEFAULT 5,
+  last_sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_otp_verifications_expires_at
+  ON public.email_otp_verifications (expires_at);
+
+ALTER TABLE public.email_otp_verifications ENABLE ROW LEVEL SECURITY;
+-- No policies defined on purpose: RLS with zero policies denies anon and
+-- authenticated entirely. The service-role key (used only in server
+-- functions, never shipped to the browser) bypasses RLS by design.
+
+CREATE OR REPLACE FUNCTION public.is_email_registered(p_email TEXT)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM auth.users WHERE lower(email) = lower(p_email)
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.is_email_registered(TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.is_email_registered(TEXT) TO service_role;
+
+
+-- =====================================================================
+-- EMAIL OTP VERIFICATION (registration email verification)
+-- ---------------------------------------------------------------------
+-- Backs the "Verify" button on the signup form: a 6-digit OTP is
+-- generated server-side, hashed (HMAC-SHA256), and stored here while the
+-- Supabase Auth user itself is NOT created until the OTP is confirmed.
+-- This table is intentionally reachable only by the service-role server
+-- (RLS is enabled with zero policies, so it default-denies anon/
+-- authenticated entirely) — never queried from the browser.
+--
+-- Apply this against whichever Supabase project your app's SUPABASE_URL
+-- / SUPABASE_SERVICE_ROLE_KEY point at, e.g. via the Dashboard SQL editor
+-- or `supabase db push`. This repo's schema.sql is known to drift from
+-- live databases (see project memory) — treat this file as authoritative
+-- for this feature regardless of that drift.
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS public.email_otp_verifications (
+  email        TEXT PRIMARY KEY,
+  username     TEXT NOT NULL,
+  otp_hash     TEXT NOT NULL,
+  expires_at   TIMESTAMPTZ NOT NULL,
+  attempts     INTEGER NOT NULL DEFAULT 0,
+  max_attempts INTEGER NOT NULL DEFAULT 5,
+  last_sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_otp_verifications_expires_at
+  ON public.email_otp_verifications (expires_at);
+
+ALTER TABLE public.email_otp_verifications ENABLE ROW LEVEL SECURITY;
+-- No policies defined on purpose: RLS with zero policies denies anon and
+-- authenticated entirely. The service-role key (used only in server
+-- functions, never shipped to the browser) bypasses RLS by design.
+
+-- ---------------------------------------------------------------------
+-- Helper RPC: is a given email already a registered auth user?
+-- auth.users is not exposed via PostgREST, so this SECURITY DEFINER shim
+-- lets the trusted server check registration status without a raw query
+-- against the auth schema. Only the service role may call it.
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.is_email_registered(p_email TEXT)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM auth.users WHERE lower(email) = lower(p_email)
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.is_email_registered(TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.is_email_registered(TEXT) TO service_role;
+
+-- =====================================================================
+-- FRIENDS REDESIGN - challenges + cross-user notification RPCs
+-- =====================================================================
+-- Apply this against whichever Supabase project your app's SUPABASE_URL /
+-- SUPABASE_SERVICE_ROLE_KEY point at (this repo's schema.sql is known to
+-- drift from the live database - see project memory). This reuses the
+-- EXISTING public.game_challenges table (from_user_id, to_user_id, status,
+-- timer, created_at, updated_at - already live per src/integrations/
+-- supabase/types.ts, though nothing in the app queried it before this
+-- redesign) rather than inventing a parallel table, per project instruction
+-- to reuse existing tables wherever possible. It only ADDS the columns
+-- needed for time-control/rated/game-linkage metadata; every ADD COLUMN
+-- and policy statement below is idempotent (IF NOT EXISTS / DROP+CREATE)
+-- so it's safe to run against the real database even if some of this
+-- already partially exists.
+
+ALTER TABLE public.game_challenges
+  ADD COLUMN IF NOT EXISTS time_class        public.time_class NOT NULL DEFAULT 'blitz',
+  ADD COLUMN IF NOT EXISTS time_control      TEXT NOT NULL DEFAULT '5+0',
+  ADD COLUMN IF NOT EXISTS increment_seconds INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS is_rated          BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS game_id           UUID REFERENCES public.games(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS responded_at      TIMESTAMPTZ;
+
+-- `status` on the live table is a nullable free-form TEXT (no CHECK
+-- constraint was found in the generated types) - constrain it going forward
+-- without breaking any pre-existing rows that don't match.
+ALTER TABLE public.game_challenges ALTER COLUMN status SET DEFAULT 'pending';
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'game_challenges_status_check'
+  ) THEN
+    ALTER TABLE public.game_challenges
+      ADD CONSTRAINT game_challenges_status_check
+      CHECK (status IN ('pending','accepted','declined','cancelled','expired'));
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_game_challenges_from ON public.game_challenges(from_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_game_challenges_to ON public.game_challenges(to_user_id, created_at DESC);
+
+GRANT SELECT ON public.game_challenges TO authenticated;
+GRANT ALL ON public.game_challenges TO service_role;
+ALTER TABLE public.game_challenges ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users view own challenges" ON public.game_challenges;
+CREATE POLICY "Users view own challenges"
+  ON public.game_challenges FOR SELECT
+  USING (auth.uid() IN (from_user_id, to_user_id));
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'game_challenges'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.game_challenges;
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------
+-- RPC - send a challenge to another player, notifying them
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.send_challenge(
+  p_opponent_id       UUID,
+  p_time_class        public.time_class,
+  p_time_control      TEXT,
+  p_initial_seconds   INT,
+  p_increment_seconds INT,
+  p_is_rated          BOOLEAN
+) RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid          UUID := auth.uid();
+  v_challenge_id UUID;
+  v_username     TEXT;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  IF p_opponent_id = v_uid THEN RAISE EXCEPTION 'Cannot challenge yourself'; END IF;
+  IF p_initial_seconds < 10 OR p_initial_seconds > 86400 THEN RAISE EXCEPTION 'Invalid time control'; END IF;
+  IF p_increment_seconds < 0 OR p_increment_seconds > 180 THEN RAISE EXCEPTION 'Invalid increment'; END IF;
+
+  SELECT username INTO v_username FROM public.profiles WHERE id = v_uid;
+
+  INSERT INTO public.game_challenges (
+    from_user_id, to_user_id, timer, time_class, time_control,
+    increment_seconds, is_rated, status
+  ) VALUES (
+    v_uid, p_opponent_id, p_initial_seconds, p_time_class, p_time_control,
+    p_increment_seconds, p_is_rated, 'pending'
+  ) RETURNING id INTO v_challenge_id;
+
+  INSERT INTO public.notifications (user_id, kind, title, body, link)
+  VALUES (
+    p_opponent_id, 'challenge', 'New challenge',
+    coalesce(v_username, 'A friend') || ' challenged you to ' || p_time_control ||
+      ' (' || (CASE WHEN p_is_rated THEN 'rated' ELSE 'casual' END) || ')',
+    '/friends'
+  );
+
+  RETURN v_challenge_id;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.send_challenge(UUID, public.time_class, TEXT, INT, INT, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.send_challenge(UUID, public.time_class, TEXT, INT, INT, BOOLEAN) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- RPC - accept/decline a challenge. On accept, creates the game row
+-- (mirrors create_challenge) and returns the game id so the UI can send
+-- the acceptor straight into the room; the challenger discovers it via
+-- their own realtime subscription + the "Join Game" activity entry.
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.respond_challenge(
+  p_challenge_id UUID,
+  p_accept       BOOLEAN
+) RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid        UUID := auth.uid();
+  v_c          public.game_challenges%ROWTYPE;
+  v_game_id    UUID;
+  v_host_white BOOLEAN := (random() < 0.5);
+  v_challenger_username TEXT;
+  v_opponent_username   TEXT;
+  v_challenger_rating   INT;
+  v_opponent_rating     INT;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+
+  SELECT * INTO v_c FROM public.game_challenges WHERE id = p_challenge_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Challenge not found'; END IF;
+  IF v_c.to_user_id <> v_uid THEN RAISE EXCEPTION 'Not your challenge to answer'; END IF;
+  IF v_c.status <> 'pending' THEN RAISE EXCEPTION 'Challenge already resolved'; END IF;
+
+  IF NOT p_accept THEN
+    UPDATE public.game_challenges SET status = 'declined', responded_at = now() WHERE id = p_challenge_id;
+    INSERT INTO public.notifications (user_id, kind, title, body, link)
+    SELECT v_c.from_user_id, 'challenge', 'Challenge declined',
+           coalesce(username, 'Your friend') || ' declined your challenge.', '/friends'
+    FROM public.profiles WHERE id = v_uid;
+    RETURN NULL;
+  END IF;
+
+  SELECT username INTO v_challenger_username FROM public.profiles WHERE id = v_c.from_user_id;
+  SELECT username INTO v_opponent_username FROM public.profiles WHERE id = v_c.to_user_id;
+  v_challenger_rating := public.current_rating(v_c.from_user_id, v_c.time_class);
+  v_opponent_rating   := public.current_rating(v_c.to_user_id, v_c.time_class);
+
+  INSERT INTO public.games (
+    host_id,
+    white_id, black_id, white_username, black_username, white_rating, black_rating,
+    status, result, time_class, time_control,
+    initial_seconds, increment_seconds, white_time_ms, black_time_ms,
+    is_rated, fen, turn
+  ) VALUES (
+    v_c.from_user_id,
+    CASE WHEN v_host_white THEN v_c.from_user_id ELSE v_c.to_user_id END,
+    CASE WHEN v_host_white THEN v_c.to_user_id ELSE v_c.from_user_id END,
+    CASE WHEN v_host_white THEN v_challenger_username ELSE v_opponent_username END,
+    CASE WHEN v_host_white THEN v_opponent_username ELSE v_challenger_username END,
+    CASE WHEN v_host_white THEN v_challenger_rating ELSE v_opponent_rating END,
+    CASE WHEN v_host_white THEN v_opponent_rating ELSE v_challenger_rating END,
+    'active', 'ongoing', v_c.time_class, v_c.time_control,
+    v_c.timer, v_c.increment_seconds,
+    v_c.timer * 1000, v_c.timer * 1000,
+    v_c.is_rated,
+    'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', 'w'
+  ) RETURNING id INTO v_game_id;
+
+  UPDATE public.game_challenges
+  SET status = 'accepted', responded_at = now(), game_id = v_game_id
+  WHERE id = p_challenge_id;
+
+  INSERT INTO public.notifications (user_id, kind, title, body, link)
+  VALUES (
+    v_c.from_user_id, 'challenge', 'Challenge accepted',
+    coalesce(v_opponent_username, 'Your friend') || ' accepted - the game has begun!',
+    '/game/' || v_game_id
+  );
+
+  RETURN v_game_id;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.respond_challenge(UUID, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.respond_challenge(UUID, BOOLEAN) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- RPC - cancel an outgoing challenge that hasn't been answered yet
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.cancel_challenge(p_challenge_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_c   public.game_challenges%ROWTYPE;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  SELECT * INTO v_c FROM public.game_challenges WHERE id = p_challenge_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Challenge not found'; END IF;
+  IF v_c.from_user_id <> v_uid THEN RAISE EXCEPTION 'Not your challenge to cancel'; END IF;
+  IF v_c.status <> 'pending' THEN RAISE EXCEPTION 'Challenge already resolved'; END IF;
+
+  UPDATE public.game_challenges SET status = 'cancelled', responded_at = now() WHERE id = p_challenge_id;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.cancel_challenge(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cancel_challenge(UUID) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- RPC - send a friend request, notifying the addressee (the existing
+-- friends table/RLS/plain-insert flow in useFriends() is untouched and
+-- still works; this just layers a notification on top for the new
+-- activity inbox).
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.send_friend_request(p_addressee_id UUID)
+RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid       UUID := auth.uid();
+  v_friend_id UUID;
+  v_username  TEXT;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  IF p_addressee_id = v_uid THEN RAISE EXCEPTION 'Cannot friend yourself'; END IF;
+
+  INSERT INTO public.friends (requester_id, addressee_id)
+  VALUES (v_uid, p_addressee_id)
+  RETURNING id INTO v_friend_id;
+
+  SELECT username INTO v_username FROM public.profiles WHERE id = v_uid;
+
+  INSERT INTO public.notifications (user_id, kind, title, body, link)
+  VALUES (
+    p_addressee_id, 'friend_request', 'New friend request',
+    coalesce(v_username, 'Someone') || ' sent you a friend request.', '/friends'
+  );
+
+  RETURN v_friend_id;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.send_friend_request(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.send_friend_request(UUID) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- RPC - accept a friend request, notifying the original requester
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.accept_friend_request(p_friend_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_f   public.friends%ROWTYPE;
+  v_username TEXT;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  SELECT * INTO v_f FROM public.friends WHERE id = p_friend_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Friend request not found'; END IF;
+  IF v_f.addressee_id <> v_uid THEN RAISE EXCEPTION 'Not your request to accept'; END IF;
+  IF v_f.status <> 'pending' THEN RAISE EXCEPTION 'Request already resolved'; END IF;
+
+  UPDATE public.friends SET status = 'accepted' WHERE id = p_friend_id;
+
+  SELECT username INTO v_username FROM public.profiles WHERE id = v_uid;
+  INSERT INTO public.notifications (user_id, kind, title, body, link)
+  VALUES (
+    v_f.requester_id, 'friend_accept', 'Friend request accepted',
+    coalesce(v_username, 'Your friend') || ' accepted your friend request.', '/friends'
+  );
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.accept_friend_request(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.accept_friend_request(UUID) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- RPC - accept/reject a clan invite. clan_invites already existed in
+-- schema (see CLANS section) but nothing wired invite response yet -
+-- only token-based invite links had an accept path.
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.respond_clan_invite(
+  p_invite_id UUID,
+  p_accept    BOOLEAN
+) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_inv public.clan_invites%ROWTYPE;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  SELECT * INTO v_inv FROM public.clan_invites WHERE id = p_invite_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Invite not found'; END IF;
+  IF v_inv.invitee_id <> v_uid THEN RAISE EXCEPTION 'Not your invite to answer'; END IF;
+  IF v_inv.status <> 'pending' THEN RAISE EXCEPTION 'Invite already resolved'; END IF;
+
+  IF NOT p_accept THEN
+    UPDATE public.clan_invites SET status = 'rejected' WHERE id = p_invite_id;
+    RETURN;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.clan_members WHERE user_id = v_uid) THEN
+    RAISE EXCEPTION 'You are already in a clan';
+  END IF;
+
+  INSERT INTO public.clan_members (clan_id, user_id, role)
+  VALUES (v_inv.clan_id, v_uid, 'member');
+
+  UPDATE public.clan_invites SET status = 'accepted' WHERE id = p_invite_id;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.respond_clan_invite(UUID, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.respond_clan_invite(UUID, BOOLEAN) TO authenticated, service_role;
+
+-- Realtime for clan_invites (used by the new Friends -> Clan Invites tab)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'clan_invites'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.clan_invites;
+  END IF;
+END $$;
+
+-- Realtime for profiles (used by the Friend Activity page's online/offline feed)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'profiles'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+  END IF;
+END $$;

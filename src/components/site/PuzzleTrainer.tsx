@@ -56,9 +56,15 @@ export function PuzzleTrainer() {
           // Unlock automatically
           fetchDailyPuzzle();
         } else {
-          const h = Math.floor(diff / 3600000).toString().padStart(2, "0");
-          const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, "0");
-          const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, "0");
+          const h = Math.floor(diff / 3600000)
+            .toString()
+            .padStart(2, "0");
+          const m = Math.floor((diff % 3600000) / 60000)
+            .toString()
+            .padStart(2, "0");
+          const s = Math.floor((diff % 60000) / 1000)
+            .toString()
+            .padStart(2, "0");
           setTimeLeft(`${h}:${m}:${s}`);
         }
       }, 1000);
@@ -75,11 +81,11 @@ export function PuzzleTrainer() {
       setWrongMoves(progress.wrong_moves_count);
       setHintUsed(progress.hint_used);
       startTime.current = Date.now();
-      
+
       if (progress.last_move_played) {
-        setLastMove({ 
-          from: progress.last_move_played.slice(0,2), 
-          to: progress.last_move_played.slice(2,4) 
+        setLastMove({
+          from: progress.last_move_played.slice(0, 2),
+          to: progress.last_move_played.slice(2, 4),
         });
       } else {
         setLastMove(null);
@@ -93,8 +99,12 @@ export function PuzzleTrainer() {
         <div className="text-center">
           <Lock className="mx-auto h-12 w-12 text-gold/50 mb-4" />
           <h2 className="text-2xl font-display mb-2">Sign in to train</h2>
-          <p className="text-muted-foreground mb-6">Puzzle progress is permanently tracked for all users.</p>
-          <Link to="/auth"><GoldButton>Sign In</GoldButton></Link>
+          <p className="text-muted-foreground mb-6">
+            Puzzle progress is permanently tracked for all users.
+          </p>
+          <Link to="/auth">
+            <GoldButton>Sign In</GoldButton>
+          </Link>
         </div>
       </div>
     );
@@ -109,11 +119,7 @@ export function PuzzleTrainer() {
   }
 
   if (error) {
-    return (
-      <div className="grid h-[60vh] place-items-center text-rose-500">
-        {error}
-      </div>
-    );
+    return <div className="grid h-[60vh] place-items-center text-rose-500">{error}</div>;
   }
 
   const sync = () => {
@@ -156,7 +162,7 @@ export function PuzzleTrainer() {
     if (!puzzle || localStatus !== "IN_PROGRESS" || !gameRef.current) return;
     const playerColor = puzzle.fen.split(" ")[1] as "w" | "b";
     const g = gameRef.current;
-    
+
     if (g.turn() !== playerColor) return;
 
     const piece = g.get(sq as Square);
@@ -172,10 +178,10 @@ export function PuzzleTrainer() {
       applyUci(expected);
       sync();
       doFlash("good");
-      
+
       const newStep = step + 1;
       let nextStatus: PuzzleStatus = "IN_PROGRESS";
-      
+
       if (newStep >= puzzle.moves.length) {
         nextStatus = "SOLVED";
         setLocalStatus("SOLVED");
@@ -183,10 +189,10 @@ export function PuzzleTrainer() {
         timers.current.push(
           window.setTimeout(() => {
             fetchDailyPuzzle();
-          }, 1500)
+          }, 1500),
         );
       }
-      
+
       updateProgress({
         status: nextStatus,
         time_spent_ms: getTimeSpent(),
@@ -194,7 +200,7 @@ export function PuzzleTrainer() {
         step_index: newStep,
         wrong_moves_count: wrongMoves,
         hint_used: hintUsed,
-        last_move_played: expected
+        last_move_played: expected,
       });
 
       if (nextStatus === "IN_PROGRESS") {
@@ -211,7 +217,7 @@ export function PuzzleTrainer() {
               step_index: newStep + 1,
               wrong_moves_count: wrongMoves,
               hint_used: hintUsed,
-              last_move_played: reply
+              last_move_played: reply,
             });
           }, 500),
         );
@@ -225,9 +231,9 @@ export function PuzzleTrainer() {
       setLastMove({ from: made.from, to: made.to });
       sync();
       doFlash("bad");
-      setWrongMoves(w => w + 1);
+      setWrongMoves((w) => w + 1);
       toast.error("Not the best move — try again.");
-      
+
       updateProgress({
         status: "FAILED",
         time_spent_ms: getTimeSpent(),
@@ -235,7 +241,7 @@ export function PuzzleTrainer() {
         step_index: step,
         wrong_moves_count: wrongMoves + 1,
         hint_used: hintUsed,
-        last_move_played: made.from + made.to
+        last_move_played: made.from + made.to,
       });
       setLocalStatus("FAILED");
 
@@ -266,14 +272,14 @@ export function PuzzleTrainer() {
       step_index: step,
       wrong_moves_count: wrongMoves,
       hint_used: true,
-      last_move_played: progress?.last_move_played || null
+      last_move_played: progress?.last_move_played || null,
     });
   };
 
   const showSolution = () => {
     if (!puzzle || localStatus !== "IN_PROGRESS") return;
     setLocalStatus("SHOWING");
-    
+
     // Mark as skipped/failed
     updateProgress({
       status: "SKIPPED",
@@ -282,7 +288,7 @@ export function PuzzleTrainer() {
       step_index: step,
       wrong_moves_count: wrongMoves,
       hint_used: hintUsed,
-      last_move_played: null
+      last_move_played: null,
     });
 
     let i = step;
@@ -311,16 +317,17 @@ export function PuzzleTrainer() {
             <h2 className="font-display text-4xl mb-4">Daily Limit Reached</h2>
             <p className="text-lg text-muted-foreground mb-8">
               You have completed today's 3 puzzles.
-              <br />Next puzzles unlock in:
+              <br />
+              Next puzzles unlock in:
             </p>
-            <div className="font-mono text-5xl text-gradient-gold mb-8 font-bold">
-              {timeLeft}
-            </div>
-            
+            <div className="font-mono text-5xl text-gradient-gold mb-8 font-bold">{timeLeft}</div>
+
             <div className="max-w-md mx-auto grid grid-cols-3 gap-4 text-sm mt-8 border-t border-gold/10 pt-8">
               <div>
                 <div className="text-muted-foreground mb-1">Solved Today</div>
-                <div className="text-2xl text-emerald-400 font-bold">{stats?.completed_today} / {DAILY_GOAL}</div>
+                <div className="text-2xl text-emerald-400 font-bold">
+                  {stats?.completed_today} / {DAILY_GOAL}
+                </div>
               </div>
               <div>
                 <div className="text-muted-foreground mb-1">Current Streak</div>
@@ -345,7 +352,8 @@ export function PuzzleTrainer() {
           <Target className="mx-auto h-16 w-16 text-emerald-500 mb-6" />
           <h2 className="font-display text-3xl mb-2 text-emerald-400">All Done!</h2>
           <p className="text-muted-foreground mb-8">
-            You have completed all the puzzles currently available in the system. Great job! Check back later for more.
+            You have completed all the puzzles currently available in the system. Great job! Check
+            back later for more.
           </p>
           <div className="flex justify-center">
             <Link to="/puzzles/rush">
@@ -364,7 +372,8 @@ export function PuzzleTrainer() {
       : flash === "bad"
         ? "shadow-[0_0_0_4px_rgba(239,68,68,0.65)]"
         : "";
-  const isMate = (localStatus === "SOLVED" || localStatus === "SKIPPED") && !!gameRef.current?.isCheckmate();
+  const isMate =
+    (localStatus === "SOLVED" || localStatus === "SKIPPED") && !!gameRef.current?.isCheckmate();
   const difficulty: string = puzzle.difficulty ?? difficultyOf(puzzle.rating) ?? "Intermediate";
   const DIFF_COLOR: Record<string, string> = {
     Easy: "text-emerald-400",
@@ -395,22 +404,31 @@ export function PuzzleTrainer() {
           <div className="flex items-center gap-2 text-sm">
             <Flame className="h-4 w-4 text-gold" /> Streak
           </div>
-          <div className="mt-1 font-display text-3xl text-gold">{stats?.current_streak || 0} 🔥</div>
-          <div className="text-xs text-muted-foreground">Personal best: {stats?.longest_streak || 0}</div>
+          <div className="mt-1 font-display text-3xl text-gold">
+            {stats?.current_streak || 0} 🔥
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Personal best: {stats?.longest_streak || 0}
+          </div>
         </Card>
 
         <Card className="p-5">
-          <div className="text-xs uppercase tracking-widest text-muted-foreground">Today's Progress</div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">
+            Today's Progress
+          </div>
           <div className="mt-4 flex gap-2">
             {[1, 2, 3].map((i) => (
-              <div 
-                key={i} 
-                className={`flex-1 h-2 rounded-full ${i <= (stats?.completed_today || 0) ? 'bg-gold' : 'bg-white/10'}`} 
+              <div
+                key={i}
+                className={`flex-1 h-2 rounded-full ${i <= (stats?.completed_today || 0) ? "bg-gold" : "bg-white/10"}`}
               />
             ))}
           </div>
           <div className="mt-4 text-xs text-muted-foreground">
-            Remaining Today: <span className="text-gold font-bold">{remainingToday} / {DAILY_GOAL}</span>
+            Remaining Today:{" "}
+            <span className="text-gold font-bold">
+              {remainingToday} / {DAILY_GOAL}
+            </span>
           </div>
         </Card>
       </div>
@@ -476,7 +494,7 @@ export function PuzzleTrainer() {
             Rated {puzzle.rating} · {puzzle.theme}
           </div>
         </Card>
-        
+
         {localStatus === "IN_PROGRESS" && (
           <>
             <GhostButton className="w-full" onClick={showHint}>

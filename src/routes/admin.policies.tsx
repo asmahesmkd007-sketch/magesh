@@ -10,16 +10,7 @@
 // =====================================================================
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Eye,
-  ExternalLink,
-  History,
-  Loader2,
-  Pencil,
-  Save,
-  Send,
-  Trash2,
-} from "lucide-react";
+import { Eye, ExternalLink, History, Loader2, Pencil, Save, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/site/AdminShell";
 import { Card } from "@/components/site/Primitives";
@@ -39,7 +30,12 @@ import {
 } from "@/lib/api/policyClient";
 
 export const Route = createFileRoute("/admin/policies")({
-  head: () => ({ meta: [{ title: "Admin — Policies — ChessOx" }] }),
+  head: () => ({
+    meta: [
+      { title: "Admin — Policies — ChessOx" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: () => (
     <AdminShell title="Policy Management">
       <PoliciesAdmin />
@@ -159,10 +155,7 @@ function PolicyEditor({ type, onChanged }: { type: PolicyType; onChanged: () => 
   }, [title, content, type, loading]);
 
   const lineCount = useMemo(() => content.split("\n").length, [content]);
-  const words = useMemo(
-    () => (content.trim() ? content.trim().split(/\s+/).length : 0),
-    [content],
-  );
+  const words = useMemo(() => (content.trim() ? content.trim().split(/\s+/).length : 0), [content]);
 
   async function submit(publish: boolean) {
     if (!content.trim()) {
@@ -309,8 +302,7 @@ function PolicyEditor({ type, onChanged }: { type: PolicyType; onChanged: () => 
                   <span className="font-mono text-gold">v{v.version}</span>
                   <span className="min-w-0 flex-1 truncate text-ivory/80">{v.title}</span>
                   <span className="text-muted-foreground">
-                    {new Date(v.created_at).toLocaleString()} · {v.content.split("\n").length}{" "}
-                    lines
+                    {new Date(v.created_at).toLocaleString()} · {v.content.split("\n").length} lines
                   </span>
                   <button
                     onClick={() => setViewVersion(viewVersion?.id === v.id ? null : v)}

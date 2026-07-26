@@ -139,7 +139,10 @@ export async function saveArticle(input: {
 
 export async function deleteArticle(id: string): Promise<void> {
   try {
-    const { error } = await supabase.from("about_articles" as never).delete().eq("id" as never, id as never);
+    const { error } = await supabase
+      .from("about_articles" as never)
+      .delete()
+      .eq("id" as never, id as never);
     if (error) throw error;
   } catch (e) {
     if (!isMissingTable(e)) throw e;

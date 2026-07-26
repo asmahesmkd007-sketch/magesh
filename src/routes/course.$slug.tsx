@@ -8,11 +8,51 @@ import {
 } from "@/components/site/Primitives";
 import { Play, Lock, Clock, BookOpen, Download, CheckCircle2 } from "lucide-react";
 import { getCourse, COURSES } from "@/lib/courses";
+import { seo, breadcrumbLd, courseLd, webPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/course/$slug")({
   head: ({ params }) => {
     const course = getCourse(params.slug);
-    return { meta: [{ title: `${course?.title ?? "Course"} — ChessOx` }] };
+    const path = `/course/${params.slug}`;
+    if (!course) {
+      return seo({
+        title: "Chess Course Not Found — ChessOx Academy",
+        description:
+          "This chess course is not available. Browse the ChessOx academy for chess lessons on openings, strategy, tactics and endgames.",
+        noindex: true,
+      });
+    }
+    return seo({
+      title: `${course.title} — Online Chess Course | ChessOx Academy`,
+      description: `${course.blurb} A ${course.level.toLowerCase()}-level online chess course with ${course.lessonCount} lessons (${course.duration}) in the ChessOx academy.`,
+      keywords: [
+        "online chess academy",
+        "chess lessons online",
+        "chess courses online",
+        "chess training online",
+        "learn chess online",
+      ],
+      path,
+      jsonLd: [
+        courseLd({
+          name: course.title,
+          description: course.blurb,
+          path,
+          level: course.level,
+        }),
+        webPageLd({
+          name: `${course.title} — ChessOx Academy`,
+          description: course.blurb,
+          path,
+          primaryTopic: "Online chess course",
+        }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Academy", path: "/learn" },
+          { name: course.title, path },
+        ]),
+      ],
+    });
   },
   loader: ({ params }) => {
     const course = getCourse(params.slug);

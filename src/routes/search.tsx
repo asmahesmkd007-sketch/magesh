@@ -3,13 +3,25 @@ import { PageShell, Card, SectionTitle } from "@/components/site/Primitives";
 import { Search as SearchIcon, User, Users, Trophy, Newspaper, Loader2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getCareerSummaries, type CareerSummary } from "@/lib/api/seasonsClient";
+import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/search")({
-  head: () => ({ meta: [{ title: "Search — ChessOx" }] }),
+  head: () =>
+    noindexSeo(
+      "Search ChessOx — Players, Clubs, Tournaments & News",
+      "Search ChessOx for chess players, clubs, tournaments and chess news articles.",
+    ),
   component: Search,
 });
 
-type Profile = { id: string; username: string; full_name: string | null };
+type Profile = {
+  id: string;
+  username: string;
+  full_name: string | null;
+  country: string | null;
+  state: string | null;
+};
 type Clan = { id: string; name: string; member_count: number | null };
 type Tournament = { id: string; name: string; format: string | null };
 type Article = {
@@ -24,6 +36,7 @@ function Search() {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [players, setPlayers] = useState<Profile[]>([]);
+  const [careers, setCareers] = useState<Record<string, CareerSummary>>({});
   const [clans, setclans] = useState<Clan[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
@@ -44,7 +57,7 @@ function Search() {
       const [{ data: p }, { data: c }, { data: t }, { data: a }] = await Promise.all([
         supabase
           .from("profiles")
-          .select("id,username,full_name")
+          .select("id,username,full_name,country,state")
           .or(`username.ilike.${term},full_name.ilike.${term}`)
           .limit(5),
         supabase.from("clans").select("id,name,member_count").ilike("name", term).limit(5),
@@ -55,11 +68,27 @@ function Search() {
           .ilike("title", term)
           .limit(5),
       ]);
-      setPlayers((p ?? []) as Profile[]);
-      setclans((c ?? []) as Clan[]);
+      // state is a live column (schema.sql SECTION 19) absent from the
+      // generated types.ts — same drift as member_count/created_at below.
+      const foundPlayers = (p ?? []) as unknown as Profile[];
+      setPlayers(foundPlayers);
+      setclans((c ?? []) as unknown as Clan[]);
       setTournaments((t ?? []) as Tournament[]);
       setArticles((a ?? []) as Article[]);
       setLoading(false);
+
+      // Career records for the player rows (SECTION 77) — degrade to
+      // plain results on databases without the RPC.
+      if (foundPlayers.length > 0) {
+        try {
+          const rows = await getCareerSummaries(foundPlayers.map((x) => x.id));
+          setCareers(Object.fromEntries((rows ?? []).map((r) => [r.user_id, r])));
+        } catch {
+          setCareers({});
+        }
+      } else {
+        setCareers({});
+      }
     }, 350);
     return () => {
       if (debounce.current) clearTimeout(debounce.current);
@@ -109,9 +138,28 @@ function Search() {
                       <span className="grid h-9 w-9 place-items-center rounded-full bg-gold/10 text-gold">
                         <User className="h-4 w-4" />
                       </span>
-                      <div className="flex-1">
+                      <div className="min-w-0 flex-1">
                         <div>{p.full_name ?? p.username}</div>
-                        <div className="text-xs text-muted-foreground">@{p.username}</div>
+                        <div className="text-xs text-muted-foreground">
+                          @{p.username}
+                          {(p.state || p.country) && (
+                            <> · {[p.state, p.country].filter(Boolean).join(", ")}</>
+                          )}
+                        </div>
+                        {careers[p.id] && (
+                          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                            <span className="text-gold">
+                              Career IQ {careers[p.id].career_highest_iq.toLocaleString()}
+                            </span>
+                            {careers[p.id].career_best_rank != null && (
+                              <> · Best Rank #{careers[p.id].career_best_rank}</>
+                            )}
+                            {careers[p.id].best_season_number != null && (
+                              <> · Best: Season {careers[p.id].best_season_number}</>
+                            )}
+                            <> · {careers[p.id].current_tier}</>
+                          </div>
+                        )}
                       </div>
                     </Link>
                   </li>

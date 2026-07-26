@@ -131,7 +131,13 @@ function CommentInput({
           disabled={comment.isPending || !text.trim()}
           className="ml-auto rounded-full gradient-gold px-4 py-1 text-xs font-medium text-background disabled:opacity-50"
         >
-          {comment.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : parentId ? "Reply" : "Comment"}
+          {comment.isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : parentId ? (
+            "Reply"
+          ) : (
+            "Comment"
+          )}
         </button>
       </div>
     </div>
@@ -233,7 +239,9 @@ function CommentItem({
               className={`${iconBtn} ${node.my_reaction === "like" ? "!text-rose-400" : ""}`}
               onClick={() => reactToComment.mutate({ commentId: node.id, reaction: "like" })}
             >
-              <Heart className={`h-3.5 w-3.5 ${node.my_reaction === "like" ? "fill-current" : ""}`} />
+              <Heart
+                className={`h-3.5 w-3.5 ${node.my_reaction === "like" ? "fill-current" : ""}`}
+              />
               {node.likes_count > 0 && node.likes_count}
             </button>
             <button

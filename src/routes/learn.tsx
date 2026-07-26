@@ -3,9 +3,130 @@ import { useState, type ReactNode } from "react";
 import { PageShell, Card } from "@/components/site/Primitives";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { YouTubeTopicVideo } from "@/components/site/YouTubeTopicVideo";
+import { seo, breadcrumbLd, faqLd, howToLd, webPageLd } from "@/lib/seo";
+
+// The seven steps below mirror the numbered guide rendered on this page, and
+// LEARN_FAQ mirrors the visible FAQ accordions — schema must never describe
+// content a visitor cannot see.
+const LEARN_STEPS = [
+  {
+    name: "Set up the chess board",
+    text: "Lay the board out so each player has a light square in the bottom right-hand corner. Pawns fill the second rank; rooks go in the corners, then knights, then bishops, with the queen on her own colour and the king on the remaining square.",
+    anchor: "setup",
+  },
+  {
+    name: "Learn how the chess pieces move",
+    text: "Each of the six pieces moves differently. Pieces cannot move through other pieces except the knight, which jumps, and they can never land on a square occupied by a friendly piece.",
+    anchor: "pieces",
+  },
+  {
+    name: "Discover the special rules of chess",
+    text: "Learn castling, en passant and pawn promotion — the three special moves that sit outside the basic movement rules.",
+    anchor: "special-rules",
+  },
+  {
+    name: "Find out who makes the first move",
+    text: "The player with the white pieces always moves first, then players alternate moves until the game ends.",
+    anchor: "first-move",
+  },
+  {
+    name: "Review the rules on how to win",
+    text: "A game of chess ends by checkmate, resignation, forfeit on time or a draw. Checkmate happens when a king is in check and cannot escape capture.",
+    anchor: "winning",
+  },
+  {
+    name: "Study basic chess strategies",
+    text: "Protect your king, avoid giving pieces away, control the centre and develop your pieces towards active squares.",
+    anchor: "strategies",
+  },
+  {
+    name: "Practice by playing lots of games",
+    text: "The fastest way to improve at chess is to play often — against friends, family or opponents online — and learn from every game you win or lose.",
+    anchor: "practice",
+  },
+];
+
+const LEARN_FAQ = [
+  {
+    question: "How do I get better at chess?",
+    answer:
+      "To improve at chess you need to do three things: play lots of chess and learn from every game you win or lose, study with chess lessons, and keep the game fun so you stay motivated. Even world champions lose games.",
+  },
+  {
+    question: "What is the best first move in chess?",
+    answer:
+      "There is no single agreed-upon best first move, but it is important to control the centre right away. Most players push a central pawn two squares with 1.e4 or 1.d4, while others prefer 1.c4 or 1.Nf3.",
+  },
+  {
+    question: "Which colour starts in chess?",
+    answer: "The player with the white pieces always moves first.",
+  },
+  {
+    question: "Can a pawn move backwards in chess?",
+    answer:
+      "Pawns cannot move backward. When a pawn reaches the other side of the board it must be promoted to another piece, such as a queen, and then it moves like that piece and can move backward.",
+  },
+  {
+    question: "Which is the most important chess piece?",
+    answer:
+      "The king is the most important chess piece — if you lose the king you lose the game. The queen is the most powerful piece.",
+  },
+  {
+    question: "What is the goal of chess?",
+    answer:
+      "Chess is played between two opponents on a board of 64 alternating-coloured squares, each with 16 pieces: one king, one queen, two rooks, two bishops, two knights and eight pawns. The goal is to checkmate the opponent's king, which happens when the king is in check and cannot escape capture.",
+  },
+  {
+    question: "What is chess notation?",
+    answer:
+      "Chess notation is the written record of a game so it can be replayed and analysed afterwards. Each square has a coordinate and each piece has an initial: N for knight, B for bishop, Q for queen, R for rook and K for king.",
+  },
+  {
+    question: "When was chess invented?",
+    answer:
+      "The origins of chess are not exactly clear, though most believe it evolved from earlier chess-like games played in India almost two thousand years ago. The game as we know it today has been played since the 15th century, when it became popular in Europe.",
+  },
+];
 
 export const Route = createFileRoute("/learn")({
-  head: () => ({ meta: [{ title: "How To Use � ChessOx" }] }),
+  head: () =>
+    seo({
+      title: "Learn Chess Online — How to Play Chess for Beginners | ChessOx",
+      description:
+        "Learn chess online free with the ChessOx beginner guide: how to set up the board, how every piece moves, the special rules, how to win, basic strategy and answers to common chess questions.",
+      keywords: [
+        "learn chess online",
+        "how to play chess",
+        "chess for beginners",
+        "chess rules",
+        "chess basics",
+        "chess lessons online",
+      ],
+      path: "/learn",
+      type: "article",
+      jsonLd: [
+        webPageLd({
+          name: "How to Play Chess: 7 Rules To Get You Started — ChessOx",
+          description:
+            "A step-by-step beginner guide to learning chess online: board setup, piece movement, special rules, first move, how to win, basic strategy and practice.",
+          path: "/learn",
+          primaryTopic: "How to play chess",
+          about: ["Chess rules", "Chess for beginners", "Learn chess online", "Chess strategy"],
+        }),
+        howToLd({
+          name: "How to Play Chess: 7 Rules To Get You Started",
+          description:
+            "Learn how to play chess step by step — set up the board, move the pieces, use the special rules, win the game and start practising.",
+          path: "/learn",
+          steps: LEARN_STEPS,
+        }),
+        faqLd(LEARN_FAQ),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Learn Chess", path: "/learn" },
+        ]),
+      ],
+    }),
   component: HowToUse,
 });
 
@@ -72,18 +193,18 @@ function HowToUse() {
         {/* Article meta */}
         <Card className="p-6">
           <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground mb-4">
-            <span className="text-gold font-medium">CHESScom</span>
-            <span>�</span>
-            <span>Updated: Mar 31, 2026, 7:43 AM</span>
-            <span>�</span>
-            <span>1,095</span>
-            <span>�</span>
+            <span className="text-gold font-medium">ChessOx</span>
+            <span>·</span>
+            <span>Chess Basics</span>
+            <span>·</span>
+            <span>7 steps</span>
+            <span>·</span>
             <span className="rounded-full border border-gold/25 bg-gold/10 px-3 py-0.5 text-xs text-gold">
               For Beginners
             </span>
           </div>
           <p className="text-foreground leading-relaxed">
-            It's never too late to learn how to play chess�the most popular game in the world!
+            It's never too late to learn how to play chess — the most popular game in the world!
             Learning the rules of chess is easy:
           </p>
           <ol className="mt-4 space-y-2 text-sm text-muted-foreground">
@@ -130,7 +251,7 @@ function HowToUse() {
             <p className="text-muted-foreground text-sm">
               Set up the pieces at the beginning of the game will be really easy.
             </p>
-            <TipBox icon="??" text="Recommended Tool ? Train your vision of the board" />
+            <TipBox icon="♟" text="Train your board vision in the ChessOx puzzle trainer." />
           </Card>
         </section>
 
@@ -166,14 +287,14 @@ function HowToUse() {
               />
               <PieceCard
                 name="How To Move The Knight In Chess"
-                description='Knights move in a very different way from the other pieces � going two squares in one direction, and then one more move at a 90-degree angle, just like the shape of an "L". Knights are also the only pieces that can move over other pieces.'
+                description='Knights move in a very different way from the other pieces — going two squares in one direction, and then one more move at a 90-degree angle, just like the shape of an "L". Knights are also the only pieces that can move over other pieces.'
               />
               <PieceCard
                 name="How To Move The Pawn In Chess"
                 description="Pawns are unusual because they move and capture in different ways: they move forward but capture diagonally. Pawns can only move forward one square at a time, except for their very first move where they can move forward two squares. Pawns can only capture one square diagonally in front of them. They can never move or capture backward. If there is another piece directly in front of a pawn he cannot move past or capture that piece."
               />
             </div>
-            <TipBox icon="??" text="Recommended Tool ? Solitaire Chess (capture all your pieces)" />
+            <TipBox icon="🧩" text="Drill how the pieces move with free ChessOx chess puzzles." />
           </Card>
         </section>
 
@@ -246,7 +367,7 @@ function HowToUse() {
                   "the king may not be in check or pass through check",
                 ].map((rule, i) => (
                   <li key={i} className="flex items-start gap-2">
-                    <span className="text-gold mt-0.5 shrink-0">�</span>
+                    <span className="text-gold mt-0.5 shrink-0">•</span>
                     {rule}
                   </li>
                 ))}
@@ -312,7 +433,7 @@ function HowToUse() {
                   "capture the piece threatening the king.",
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-2">
-                    <span className="text-gold mt-0.5 shrink-0">�</span>
+                    <span className="text-gold mt-0.5 shrink-0">•</span>
                     {item}
                   </li>
                 ))}
@@ -430,8 +551,8 @@ function HowToUse() {
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
-                  At the end of the game, these points don't mean anything�it is simply a system you
-                  can use to make decisions while playing, helping you know when to capture,
+                  At the end of the game, these points don't mean anything — it is simply a system
+                  you can use to make decisions while playing, helping you know when to capture,
                   exchange, or make other moves.
                 </p>
               </div>
@@ -460,7 +581,10 @@ function HowToUse() {
                 </p>
               </div>
             </div>
-            <TipBox icon="??" text="Recommended Article ? 10 Common Mistakes Among Beginners" />
+            <TipBox
+              icon="🔍"
+              text="Replay a finished game on the ChessOx analysis board to find the mistakes that cost you."
+            />
           </Card>
         </section>
 
@@ -527,7 +651,10 @@ function HowToUse() {
               keywords={["chess variants", "crazyhouse", "bughouse", "chess960"]}
               category="chess"
             />
-            <TipBox icon="??" text="Recommended Article ? 5 Amazing Chess Variants" />
+            <TipBox
+              icon="📖"
+              text="Read more about chess variants in the ChessOx complete chess guide."
+            />
           </Card>
         </section>
 
@@ -548,8 +675,14 @@ function HowToUse() {
               category="chess"
             />
             <div className="grid gap-3 sm:grid-cols-2">
-              <TipBox icon="??" text="Recommended Tool ? Play Chess960 vs the Computer" />
-              <TipBox icon="??" text="Recommended Tool ? Play Chess960 with Friends" />
+              <TipBox
+                icon="🤖"
+                text="ChessOx games use the standard starting position. Play the computer across five difficulty levels."
+              />
+              <TipBox
+                icon="🤝"
+                text="Challenge a friend to a private standard game with a shareable invite link."
+              />
             </div>
           </Card>
         </section>
@@ -614,23 +747,26 @@ function HowToUse() {
                   </p>
                   <ul className="space-y-2">
                     <li>
-                      <strong className="text-gold">Play lots of chess</strong> � Just keep playing!
-                      Play as much as possible. You should learn from each game � those you win and
+                      <strong className="text-gold">Play lots of chess</strong> — Just keep playing!
+                      Play as much as possible. You should learn from each game — those you win and
                       those you lose.
                     </li>
                     <li>
-                      <strong className="text-gold">Study with chess lessons</strong> � If you
+                      <strong className="text-gold">Study with chess lessons</strong> — If you
                       really want to improve quickly then you should do some online chess lessons.
                       You can find online chess lessons here.
                     </li>
                     <li>
-                      <strong className="text-gold">Have fun</strong> � Don't get discouraged if you
-                      don't win all of your games right away. Everyone loses � even world champions.
+                      <strong className="text-gold">Have fun</strong> — Don't get discouraged if you
+                      don't win all of your games right away. Everyone loses — even world champions.
                       As long as you continue to have fun and learn from the games you lose then you
                       can enjoy chess forever!
                     </li>
                   </ul>
-                  <TipBox icon="??" text="Recommended Article ? 7 Tips to Get Better at Chess" />
+                  <TipBox
+                    icon="⚡"
+                    text="Build the habit: a few puzzles and one rated game a day is enough to improve."
+                  />
                 </div>
               }
             />
@@ -665,8 +801,8 @@ function HowToUse() {
                     popular in Europe.
                   </p>
                   <TipBox
-                    icon="??"
-                    text="Recommended Article ? The 10 Most Important Moments in Chess History"
+                    icon="📜"
+                    text="Explore chess history and every world champion in the ChessOx complete chess guide."
                   />
                 </div>
               }
@@ -683,7 +819,10 @@ function HowToUse() {
                     <p>Ivan Nikolic vs. Goran Arsovic</p>
                     <p>1/2-1/2 17 Feb 1989 ECO: E95</p>
                   </div>
-                  <TipBox icon="??" text="The Longest Chess Games in History (article)" />
+                  <TipBox
+                    icon="📜"
+                    text="More chess records and history are covered in the ChessOx complete chess guide."
+                  />
                 </div>
               }
             />
@@ -705,8 +844,8 @@ function HowToUse() {
                     knight, B for bishop, Q for queen, R for rook, and K for king).
                   </p>
                   <TipBox
-                    icon="??"
-                    text="Recommended Article ? Chess Notation - The Language of The Game"
+                    icon="♞"
+                    text="Step through any game in algebraic notation on the ChessOx analysis board."
                   />
                 </div>
               }
@@ -749,20 +888,28 @@ function HowToUse() {
           </Card>
         </section>
 
-        {/* More from CHESScom */}
+        {/* Where to go next — real pages on this site, not placeholder cards */}
         <section id="more-articles">
-          <h2 className="text-xl tracking-tight text-gradient-gold mb-4">More from CHESScom</h2>
+          <h2 className="text-xl tracking-tight text-gradient-gold mb-4">Where to go next</h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-gold/15 bg-white/[0.02] p-5 hover:border-gold/30 transition-colors cursor-default">
+            <Link
+              to="/puzzles"
+              className="rounded-xl border border-gold/15 bg-white/[0.02] p-5 hover:border-gold/30 transition-colors"
+            >
               <p className="text-sm text-foreground">
-                chessox.com Broadcast Schedule: Live Chess Streams on Twitch &amp; YouTube
+                Practise chess tactics with free puzzles — forks, pins, skewers and mating patterns,
+                with hints and full solutions.
               </p>
-            </div>
-            <div className="rounded-xl border border-gold/15 bg-white/[0.02] p-5 hover:border-gold/30 transition-colors cursor-default">
+            </Link>
+            <Link
+              to="/about-chess"
+              className="rounded-xl border border-gold/15 bg-white/[0.02] p-5 hover:border-gold/30 transition-colors"
+            >
               <p className="text-sm text-foreground">
-                Ratings, Prizes, And More This Month At chessox.com
+                Read the complete chess guide — history, full rules, notation, openings, strategy
+                and endgames in one reference.
               </p>
-            </div>
+            </Link>
           </div>
         </section>
       </div>

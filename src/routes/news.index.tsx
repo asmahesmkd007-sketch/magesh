@@ -3,9 +3,41 @@ import { PageShell, Card, SectionTitle } from "@/components/site/Primitives";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { seo, breadcrumbLd, collectionPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/news/")({
-  head: () => ({ meta: [{ title: "News — ChessOx" }] }),
+  head: () =>
+    seo({
+      title: "Chess News — Latest Chess News & Updates | ChessOx",
+      description:
+        "Read the latest chess news on ChessOx: tournament reports, player stories, opening trends and platform updates from the world of chess.",
+      keywords: [
+        "chess news",
+        "latest chess news",
+        "chess news today",
+        "chess updates",
+        "world chess news",
+      ],
+      // Anonymous reads on news_articles now work, but no article has been
+      // published yet, so this page still renders empty to a crawler. Remove
+      // this line once the newsroom has published articles — individual
+      // article pages already gate themselves (they emit noindex only when
+      // the loader finds no article).
+      robots: "noindex, follow",
+      jsonLd: [
+        collectionPageLd({
+          name: "Chess News — ChessOx",
+          description:
+            "The ChessOx chess news feed, with featured stories and the latest articles about tournaments, players and the game.",
+          path: "/news",
+          about: ["Chess news", "Chess updates", "World chess news"],
+        }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Chess News", path: "/news" },
+        ]),
+      ],
+    }),
   component: News,
 });
 

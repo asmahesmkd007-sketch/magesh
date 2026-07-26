@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL!,
-  process.env.VITE_SUPABASE_PUBLISHABLE_KEY!
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY!,
 );
 
 async function test() {
@@ -13,7 +13,7 @@ async function test() {
     p_district: null,
     p_sort_col: "iq_desc",
     p_limit: 25,
-    p_offset: 0
+    p_offset: 0,
   });
 
   console.log("RPC result:", { data, error });

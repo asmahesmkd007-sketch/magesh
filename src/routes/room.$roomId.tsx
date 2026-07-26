@@ -27,9 +27,14 @@ import {
 } from "@/lib/api/roomClient";
 import { toast } from "sonner";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
+import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/room/$roomId")({
-  head: () => ({ meta: [{ title: "Waiting Room — ChessOx" }] }),
+  head: () =>
+    noindexSeo(
+      "Chess Waiting Room — ChessOx",
+      "A ChessOx waiting room where players pair up before an online chess game starts.",
+    ),
   component: RoomWaiting,
 });
 

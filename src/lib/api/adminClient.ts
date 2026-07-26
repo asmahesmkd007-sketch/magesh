@@ -2,47 +2,89 @@
 // ADMIN SERVICE LAYER (client)
 // ---------------------------------------------------------------------
 // Every mutation is a SECURITY DEFINER RPC that re-checks the caller's
-// admin role server-side and writes to admin_audit_logs. The frontend
+// admin role server-side (public.has_role(auth.uid(),'admin')) and
+// writes to public.admin_audit_logs via log_admin_action(). The frontend
 // role check (useIsAdmin) only hides the UI — it is never the gate.
-// Backend: supabase/migrations/20260701000005_admin_system.sql
+//
+// These types/functions are wired to the REAL live production schema
+// (verified directly against the connected Supabase project), which in
+// several places differs from supabase/schema.sql in this repo — e.g.
+// withdrawals live in `withdraw_requests` (UPI-based) not
+// `withdrawal_requests`/bank details, premium lives in `memberships`
+// not `subscriptions`, user status is `profiles.status`
+// (active/blocked/banned/suspended/muted), and real gameplay rows are
+// in `matches`, not `games`. Backend: see admin_core_infra_* and
+// admin_premium_withdrawals_kyc_support_puzzles_broadcast_tournaments
+// migrations applied directly to the live project.
 // =====================================================================
 import { supabase } from "@/integrations/supabase/client";
 
 export type AdminStats = {
   total_users: number;
   online_users: number;
-  premium_users: number;
   new_users_today: number;
-  total_games: number;
-  games_today: number;
-  active_matches: number;
+  premium_users: number;
+  banned_users: number;
+  suspended_users: number;
+  coins_in_system: number;
+  locked_coins: number;
+  total_deposits: number;
+  total_withdrawals_amt: number;
+  pending_withdrawals: number;
+  completed_withdrawals: number;
+  rejected_withdrawals: number;
+  withdrawals_amount_pending: number;
+  total_matches: number;
+  matches_today: number;
+  live_matches: number;
+  finished_matches: number;
   total_tournaments: number;
   upcoming_tournaments: number;
   live_tournaments: number;
-  pending_withdrawals: number;
-  completed_withdrawals: number;
-  reports_pending: number;
-  community_posts: number;
-  coins_in_system: number;
-  locked_coins: number;
+  completed_tournaments: number;
   prize_distributed: number;
-  entry_fees_collected: number;
-  withdrawals_paid: number;
+  total_clans: number;
+  active_clan_wars: number;
+  community_posts: number;
+  community_comments: number;
+  reports_pending: number;
+  feedback_total: number;
+  support_tickets_open: number;
+  kyc_pending: number;
+  total_puzzles: number;
+  total_puzzle_attempts: number;
+  puzzles_solved: number;
 };
 
 export type AdminUser = {
   id: string;
   username: string;
-  full_name: string;
-  account_status: "active" | "banned" | "suspended" | "muted";
-  premium_active: boolean;
-  premium_tier: string;
+  display_name: string | null;
+  full_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  country: string | null;
+  status: "active" | "blocked" | "banned" | "suspended" | "muted";
+  kyc_status: string;
+  is_member: boolean;
+  membership_tier: string | null;
+  membership_status: string;
+  iq_level: number;
+  rank: string;
   is_online: boolean;
   last_seen: string | null;
   created_at: string;
+  total_matches: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  premium_tier: string;
+  premium_active: boolean;
+  is_admin: boolean;
+  is_super_admin: boolean;
   balance: number;
   locked_balance: number;
-  role: string;
+  role: string | null;
 };
 
 export type AdminAuditLog = {
@@ -54,6 +96,51 @@ export type AdminAuditLog = {
   old_status: string | null;
   new_status: string | null;
   metadata: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type AdminWithdrawal = {
+  id: string;
+  user_id: string;
+  username: string;
+  full_name: string | null;
+  amount: number;
+  gst_amount: number;
+  net_amount: number;
+  status: "pending" | "approved" | "rejected" | "completed" | "success";
+  upi_id: string | null;
+  admin_note: string | null;
+  rejection_reason: string | null;
+  processed_by: string | null;
+  processed_at: string | null;
+  created_at: string;
+};
+
+export type AdminKycRequest = {
+  id: string;
+  user_id: string;
+  username: string;
+  document_type: "aadhaar" | "pan" | "passport";
+  name: string;
+  dob: string;
+  status: "pending" | "approved" | "rejected";
+  rejection_reason: string | null;
+  front_image_url: string | null;
+  back_image_url: string | null;
+  full_image_url: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminSupportTicket = {
+  id: string;
+  user_id: string | null;
+  username: string | null;
+  email: string;
+  priority: "low" | "medium" | "high" | "critical";
+  issue_type: string;
+  message: string;
+  status: "open" | "in_progress" | "resolved" | "closed";
   created_at: string;
 };
 
@@ -89,9 +176,10 @@ export async function getAuditLogs(limit = 100): Promise<AdminAuditLog[]> {
 }
 
 // ── User management ──────────────────────────────────────────────────
+// Real profiles.status check constraint: active | blocked | banned | suspended | muted
 export const setUserStatus = (
   userId: string,
-  status: AdminUser["account_status"],
+  status: AdminUser["status"],
   reason?: string,
   until?: string,
 ) =>
@@ -111,17 +199,26 @@ export const resetCoins = (userId: string, to = 100) =>
 export const resetRatings = (userId: string, to = 100) =>
   rpc<void>("admin_reset_ratings", { p_user_id: userId, p_to: to });
 
-export const setRole = (userId: string, role: "user" | "moderator" | "admin" | "super_admin") =>
+// Real app_role enum only has admin/moderator/user — there is no
+// "super_admin" role value. Super-admin is a separate boolean flag
+// (profiles.is_super_admin), toggled via setSuperAdmin below.
+export const setRole = (userId: string, role: "user" | "moderator" | "admin") =>
   rpc<void>("admin_set_role", { p_user_id: userId, p_role: role });
 
-// ── Premium ──────────────────────────────────────────────────────────
-export const grantPremium = (userId: string, tier = "gold", days = 30) =>
-  rpc<void>("admin_grant_premium", { p_user_id: userId, p_tier: tier, p_days: days });
+export const setSuperAdmin = (userId: string, value: boolean) =>
+  rpc<void>("admin_set_super_admin", { p_user_id: userId, p_value: value });
+
+// ── Premium (real backing table is `memberships`, tiers: basic/pro/grandmaster) ──
+export const grantPremium = (
+  userId: string,
+  tier: "basic" | "pro" | "grandmaster" = "pro",
+  days = 30,
+) => rpc<void>("admin_grant_premium", { p_user_id: userId, p_tier: tier, p_days: days });
 
 export const removePremium = (userId: string) =>
   rpc<void>("admin_remove_premium", { p_user_id: userId });
 
-// ── Tournaments ──────────────────────────────────────────────────────
+// ── Tournaments (real status values: upcoming/locked/full/live/starting/completed/cancelled) ──
 export const forceStartTournament = (id: string) =>
   rpc<void>("admin_force_start_tournament", { p_tournament_id: id });
 
@@ -131,9 +228,6 @@ export const forceEndTournament = (id: string) =>
 // ── Community ────────────────────────────────────────────────────────
 export const deletePost = (postId: string) => rpc<void>("admin_delete_post", { p_post_id: postId });
 
-export const deleteComment = (commentId: string) =>
-  rpc<void>("admin_delete_comment", { p_comment_id: commentId });
-
 export const moderatePost = (postId: string, pinned?: boolean, hidden?: boolean) =>
   rpc<void>("admin_moderate_post", {
     p_post_id: postId,
@@ -141,17 +235,33 @@ export const moderatePost = (postId: string, pinned?: boolean, hidden?: boolean)
     p_hidden: hidden ?? null,
   });
 
-// ── Reports ──────────────────────────────────────────────────────────
-export const resolveReport = (
-  reportId: string,
-  action: "ignore" | "warn" | "ban",
-  resolution?: string,
-) =>
-  rpc<void>("admin_resolve_report", {
-    p_report_id: reportId,
-    p_action: action,
-    p_resolution: resolution ?? null,
-  });
+// ── Reports (public.reports table; status: open/resolved/ignored) ─────
+export const resolveReport = (reportId: string, status: "resolved" | "ignored") =>
+  rpc<void>("admin_resolve_report", { p_report_id: reportId, p_status: status });
+
+// ── Withdrawals (real table: withdraw_requests, UPI-based) ────────────
+export const getWithdrawalRequests = (status?: string) =>
+  rpc<AdminWithdrawal[]>("admin_get_withdrawal_requests", { p_status: status ?? null });
+
+export const approveWithdrawal = (id: string, note?: string) =>
+  rpc<void>("admin_approve_withdrawal", { p_id: id, p_note: note ?? null });
+
+export const rejectWithdrawal = (id: string, reason: string) =>
+  rpc<void>("admin_reject_withdrawal", { p_id: id, p_reason: reason });
+
+// ── KYC review (new admin surface — kyc_requests had no admin UI before) ──
+export const listKycRequests = (status?: string) =>
+  rpc<AdminKycRequest[]>("admin_list_kyc_requests", { p_status: status ?? null });
+
+export const reviewKyc = (id: string, approve: boolean, reason?: string) =>
+  rpc<void>("admin_review_kyc", { p_id: id, p_approve: approve, p_reason: reason ?? null });
+
+// ── Support tickets (new admin surface) ────────────────────────────────
+export const listSupportTickets = (status?: string) =>
+  rpc<AdminSupportTicket[]>("admin_list_support_tickets", { p_status: status ?? null });
+
+export const updateTicketStatus = (id: string, status: AdminSupportTicket["status"]) =>
+  rpc<void>("admin_update_ticket_status", { p_id: id, p_status: status });
 
 // ── Puzzles ──────────────────────────────────────────────────────────
 export type AdminPuzzle = {
@@ -176,7 +286,6 @@ export async function listPuzzles(
   limit = 100,
   difficulty = "",
 ): Promise<AdminPuzzle[]> {
-  // Loose client: the puzzles table columns aren't in the generated types.
   let q = (supabase as unknown as { from: (n: string) => any })
     .from("puzzles")
     .select("id,fen,moves,rating,theme,category,goal,difficulty,explanation,themes,enabled")
@@ -187,11 +296,10 @@ export async function listPuzzles(
   if (category) q = q.eq("category", category);
   if (difficulty) q = q.eq("difficulty", difficulty);
   if (search) {
-    // `id` is a UUID column — Postgres has no ILIKE for uuid, so route a
-    // UUID-shaped search to an exact id match and everything else to a FEN
-    // substring search.
     const trimmed = search.trim();
-    const looksLikeId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
+    const looksLikeId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      trimmed,
+    );
     q = looksLikeId ? q.eq("id", trimmed) : q.ilike("fen", `%${trimmed}%`);
   }
   const { data, error } = await q;

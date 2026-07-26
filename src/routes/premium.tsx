@@ -13,9 +13,36 @@ import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import { creditPremiumBonus } from "@/lib/api/walletClient";
 import { toast } from "sonner";
+import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/premium")({
-  head: () => ({ meta: [{ title: "Premium — ChessOx" }] }),
+  head: () =>
+    seo({
+      title: "ChessOx Premium — Chess Membership Plans | ChessOx",
+      description:
+        "Compare ChessOx Premium membership plans. Unlock unlimited chess puzzles, deeper game analysis, an ad-free experience and premium online chess tournaments.",
+      keywords: [
+        "chess membership",
+        "premium chess account",
+        "unlimited chess puzzles",
+        "chess analysis",
+        "online chess game",
+      ],
+      path: "/premium",
+      jsonLd: [
+        webPageLd({
+          name: "ChessOx Premium — Membership Plans",
+          description:
+            "Premium membership tiers on ChessOx and the chess features included with each plan, alongside the free tier that covers everyday play.",
+          path: "/premium",
+          primaryTopic: "Chess membership plans",
+        }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Premium", path: "/premium" },
+        ]),
+      ],
+    }),
   component: Premium,
 });
 

@@ -53,7 +53,11 @@ export function ReportDialog({
           className="mt-3 w-full rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs outline-none focus:border-gold/40"
         />
         <div className="mt-4 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
             Cancel
           </button>
           <button

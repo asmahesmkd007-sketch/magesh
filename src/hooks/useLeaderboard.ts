@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 export type LeaderboardEntry = {
   id: string;
   username: string;
-  full_name: string;
+  display_name?: string | null;
+  full_name?: string | null;
   avatar_url: string | null;
   country: string | null;
   state: string | null;
@@ -15,7 +16,7 @@ export type LeaderboardEntry = {
   premium_active: boolean;
   premium_expires_at: string | null;
   title: string | null;
-  
+
   // New Stats
   is_online: boolean;
   last_seen: string | null;
@@ -40,7 +41,19 @@ export type LeaderboardEntry = {
   total_count: number; // for pagination
 };
 
-export type SortOption = "iq_desc" | "iq_asc" | "rating_desc" | "newest" | "oldest" | "wins_desc" | "matches_desc" | "winrate_desc" | "active_desc" | "puzzle_desc" | "streak_desc" | "score_desc";
+export type SortOption =
+  | "iq_desc"
+  | "iq_asc"
+  | "rating_desc"
+  | "newest"
+  | "oldest"
+  | "wins_desc"
+  | "matches_desc"
+  | "winrate_desc"
+  | "active_desc"
+  | "puzzle_desc"
+  | "streak_desc"
+  | "score_desc";
 
 export type LeaderboardFilters = {
   country: string | null; // null = Global
@@ -48,7 +61,7 @@ export type LeaderboardFilters = {
   district: string | null;
   search: string;
   sort: SortOption;
-  timeframe: 'all_time' | 'today' | 'week' | 'month';
+  timeframe: "all_time" | "today" | "week" | "month";
   friendsOnly: boolean;
 };
 
@@ -67,7 +80,15 @@ export function useLeaderboard(filters: LeaderboardFilters) {
   // Reset to page 0 whenever filters change (a new filter set is a new result set).
   useEffect(() => {
     setPage(0);
-  }, [filters.country, filters.state, filters.district, filters.search, filters.sort, filters.timeframe, filters.friendsOnly]);
+  }, [
+    filters.country,
+    filters.state,
+    filters.district,
+    filters.search,
+    filters.sort,
+    filters.timeframe,
+    filters.friendsOnly,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,8 +100,6 @@ export function useLeaderboard(filters: LeaderboardFilters) {
       p_state: filters.state || null,
       p_district: filters.district || null,
       p_sort_col: filters.sort,
-      p_timeframe: filters.timeframe || 'all_time',
-      p_friends_only: filters.friendsOnly || false,
       p_limit: PAGE_SIZE,
       p_offset: page * PAGE_SIZE,
     };
@@ -102,7 +121,17 @@ export function useLeaderboard(filters: LeaderboardFilters) {
     return () => {
       cancelled = true;
     };
-  }, [filters.country, filters.state, filters.district, filters.search, filters.sort, filters.timeframe, filters.friendsOnly, page, refetchTick]);
+  }, [
+    filters.country,
+    filters.state,
+    filters.district,
+    filters.search,
+    filters.sort,
+    filters.timeframe,
+    filters.friendsOnly,
+    page,
+    refetchTick,
+  ]);
 
   useEffect(() => {
     const channel = supabase

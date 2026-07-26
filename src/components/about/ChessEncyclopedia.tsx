@@ -163,25 +163,87 @@ const PIECES = [
       "When a pawn reaches the opposite end of the board, it must immediately be promoted to any other piece except a king. Almost universally, players promote to a queen. The famous Tarrasch proverb states: 'Pawns are the soul of chess.'",
     ],
   },
-  { glyph: "♘", name: "The Knight", tag: "The Jumping Piece • Value: 3 Points", chip: ["Knight", "3"], body: [] },
-  { glyph: "♗", name: "The Bishop", tag: "The Diagonal Mover • Value: 3 Points", chip: ["Bishop", "3"], body: [] },
-  { glyph: "♖", name: "The Rook", tag: "The Tower of Power • Value: 5 Points", chip: ["Rook", "5"], body: [] },
-  { glyph: "♕", name: "The Queen", tag: "The Most Powerful Piece • Value: 9 Points", chip: ["Queen", "9"], body: [] },
-  { glyph: "♔", name: "The King", tag: "The Most Important Piece • Value: Infinite", chip: ["King", "∞"], body: [] },
+  {
+    glyph: "♘",
+    name: "The Knight",
+    tag: "The Jumping Piece • Value: 3 Points",
+    chip: ["Knight", "3"],
+    body: [],
+  },
+  {
+    glyph: "♗",
+    name: "The Bishop",
+    tag: "The Diagonal Mover • Value: 3 Points",
+    chip: ["Bishop", "3"],
+    body: [],
+  },
+  {
+    glyph: "♖",
+    name: "The Rook",
+    tag: "The Tower of Power • Value: 5 Points",
+    chip: ["Rook", "5"],
+    body: [],
+  },
+  {
+    glyph: "♕",
+    name: "The Queen",
+    tag: "The Most Powerful Piece • Value: 9 Points",
+    chip: ["Queen", "9"],
+    body: [],
+  },
+  {
+    glyph: "♔",
+    name: "The King",
+    tag: "The Most Important Piece • Value: Infinite",
+    chip: ["King", "∞"],
+    body: [],
+  },
 ];
 
 // ---------------------------------------------------------------- quiz
 const QUIZ: { q: string; options: string[]; answer: number }[] = [
   { q: "How many squares are on a chessboard?", options: ["32", "48", "64", "81"], answer: 2 },
-  { q: "Which piece is the only one that can jump over other pieces?", options: ["Bishop", "Knight", "Rook", "Queen"], answer: 1 },
+  {
+    q: "Which piece is the only one that can jump over other pieces?",
+    options: ["Bishop", "Knight", "Rook", "Queen"],
+    answer: 1,
+  },
   { q: "What is the point value of a queen?", options: ["5", "7", "9", "12"], answer: 2 },
-  { q: "Which special move involves the king and a rook moving in the same turn?", options: ["En passant", "Promotion", "Castling", "Zwischenzug"], answer: 2 },
-  { q: "What does the Persian phrase 'shah mat' mean?", options: ["The king is dead", "The king is helpless", "Attack the king", "The king escapes"], answer: 1 },
-  { q: "What happens when a stalemate occurs?", options: ["White wins", "Black wins", "The game is a draw", "The game restarts"], answer: 2 },
-  { q: "Which opening begins 1.e4 c5?", options: ["Ruy Lopez", "French Defense", "Sicilian Defense", "Queen's Gambit"], answer: 2 },
-  { q: "Who was the first official World Chess Champion in 1886?", options: ["Emanuel Lasker", "Wilhelm Steinitz", "Paul Morphy", "José Raúl Capablanca"], answer: 1 },
-  { q: "What is the highest Elo rating ever recorded (Magnus Carlsen's peak)?", options: ["2780", "2812", "2882", "2914"], answer: 2 },
-  { q: "In which country did chess originate as chaturanga?", options: ["Persia", "China", "Egypt", "India"], answer: 3 },
+  {
+    q: "Which special move involves the king and a rook moving in the same turn?",
+    options: ["En passant", "Promotion", "Castling", "Zwischenzug"],
+    answer: 2,
+  },
+  {
+    q: "What does the Persian phrase 'shah mat' mean?",
+    options: ["The king is dead", "The king is helpless", "Attack the king", "The king escapes"],
+    answer: 1,
+  },
+  {
+    q: "What happens when a stalemate occurs?",
+    options: ["White wins", "Black wins", "The game is a draw", "The game restarts"],
+    answer: 2,
+  },
+  {
+    q: "Which opening begins 1.e4 c5?",
+    options: ["Ruy Lopez", "French Defense", "Sicilian Defense", "Queen's Gambit"],
+    answer: 2,
+  },
+  {
+    q: "Who was the first official World Chess Champion in 1886?",
+    options: ["Emanuel Lasker", "Wilhelm Steinitz", "Paul Morphy", "José Raúl Capablanca"],
+    answer: 1,
+  },
+  {
+    q: "What is the highest Elo rating ever recorded (Magnus Carlsen's peak)?",
+    options: ["2780", "2812", "2882", "2914"],
+    answer: 2,
+  },
+  {
+    q: "In which country did chess originate as chaturanga?",
+    options: ["Persia", "China", "Egypt", "India"],
+    answer: 3,
+  },
 ];
 
 function Quiz() {
@@ -270,56 +332,240 @@ function Quiz() {
 // ---------------------------------------------------------------- glossary
 type GlossCat = "History" | "Openings" | "Rules" | "Strategy" | "Tactics" | "Titles";
 const GLOSSARY: { term: string; cat: GlossCat; def: string }[] = [
-  { term: "Algebraic Notation", cat: "Rules", def: "The standard system for recording chess moves using file letters (a-h) and rank numbers (1-8)." },
-  { term: "Back Rank Mate", cat: "Tactics", def: "Checkmate delivered along the opponent's first rank when their king is trapped behind its own pawns." },
-  { term: "Bad Bishop", cat: "Strategy", def: "A bishop blocked by its own pawns on its color, severely limiting its mobility." },
-  { term: "Blitz Chess", cat: "Rules", def: "Fast time control, typically 3-10 minutes per player for the entire game." },
-  { term: "Blunder", cat: "Strategy", def: "A serious mistake that significantly worsens a player's position, often losing material or the game." },
-  { term: "Bullet Chess", cat: "Rules", def: "Ultra-fast time control of 1-2 minutes per player, decided largely by reflex and pattern recognition." },
-  { term: "Candidates Tournament", cat: "History", def: "FIDE tournament that determines the challenger for the World Chess Championship." },
-  { term: "Castling", cat: "Rules", def: "A special move where the king moves two squares toward a rook, and the rook jumps over to the other side." },
-  { term: "Check", cat: "Rules", def: "A position where a king is under direct attack and must immediately respond." },
-  { term: "Checkmate", cat: "Rules", def: "A position where a king is in check with no legal escape — the game ends immediately." },
-  { term: "Classical Chess", cat: "Rules", def: "Long time control, typically 60-120+ minutes per player. Used in the World Championship." },
-  { term: "Discovered Attack", cat: "Tactics", def: "An attack revealed when a piece moves out of the way of another attacking piece." },
-  { term: "Double Check", cat: "Tactics", def: "Check from two pieces simultaneously — the only response is to move the king." },
-  { term: "Draw", cat: "Rules", def: "A tied game with no winner. Can occur via stalemate, agreement, repetition, or insufficient material." },
-  { term: "En Passant", cat: "Rules", def: "Special pawn capture allowed against a pawn that just advanced two squares past it." },
-  { term: "Endgame", cat: "Strategy", def: "The final phase of a chess game, characterized by few pieces and an active king." },
-  { term: "FIDE", cat: "History", def: "The Federation Internationale des Echecs — the international governing body of chess." },
-  { term: "Fianchetto", cat: "Openings", def: "Developing a bishop to the long diagonal (b2/g2 for White, b7/g7 for Black)." },
-  { term: "Fork", cat: "Tactics", def: "A single piece attacking two or more enemy pieces simultaneously." },
-  { term: "Gambit", cat: "Openings", def: "An opening where a player sacrifices material — usually a pawn — for development or attack." },
-  { term: "Grandmaster", cat: "Titles", def: "The highest regular FIDE title, requiring a 2500 rating and three GM norms." },
-  { term: "Hypermodern", cat: "Strategy", def: "An opening philosophy that controls the center with pieces from a distance rather than occupying it with pawns." },
-  { term: "Increment", cat: "Rules", def: "Extra seconds added to a player's clock after every move." },
-  { term: "International Master", cat: "Titles", def: "FIDE title (IM) requiring a 2400 rating and three IM norms." },
-  { term: "King Safety", cat: "Strategy", def: "The protection of the king from attack, usually achieved by castling and maintaining the pawn shield." },
-  { term: "Luft", cat: "Strategy", def: "German for 'air' — a square created for the king to escape back rank threats." },
-  { term: "Middlegame", cat: "Strategy", def: "The complex middle phase of a chess game between the opening and endgame." },
-  { term: "Opposition", cat: "Strategy", def: "An endgame technique where kings face each other with one square between them — the player NOT to move has the advantage." },
-  { term: "Outpost", cat: "Strategy", def: "A square (usually in enemy territory) where a piece cannot be attacked by an enemy pawn." },
-  { term: "Passed Pawn", cat: "Strategy", def: "A pawn with no enemy pawns on its file or adjacent files that can stop it from promoting." },
-  { term: "Pawn Structure", cat: "Strategy", def: "The arrangement of pawns on the board, which determines the strategic character of a position." },
-  { term: "Pin", cat: "Tactics", def: "A piece is pinned when moving it would expose a more valuable piece behind it to attack." },
-  { term: "Promotion", cat: "Rules", def: "When a pawn reaches the opposite end of the board, it must be promoted to another piece (except king)." },
-  { term: "Rapid Chess", cat: "Rules", def: "Time control of 10-60 minutes per player. The most common tournament format." },
-  { term: "Resign", cat: "Rules", def: "Voluntarily giving up the game when the position is hopeless." },
-  { term: "Skewer", cat: "Tactics", def: "An attack on a valuable piece that forces it to move, exposing a less valuable piece behind it." },
-  { term: "Smothered Mate", cat: "Tactics", def: "Checkmate where a knight delivers mate against a king completely surrounded by its own pieces." },
-  { term: "Stalemate", cat: "Rules", def: "A draw where the player to move has no legal moves and is not in check." },
-  { term: "Tactics", cat: "Tactics", def: "Short forcing sequences that win material or deliver checkmate." },
-  { term: "Tempo", cat: "Strategy", def: "A unit of time in chess equivalent to one move. Losing a tempo means wasting a move." },
-  { term: "Threefold Repetition", cat: "Rules", def: "If the same position occurs three times, either player may claim a draw." },
-  { term: "Underpromotion", cat: "Rules", def: "Promoting a pawn to a piece other than a queen — usually a knight for tactical reasons." },
-  { term: "Zugzwang", cat: "Strategy", def: "A position where any move worsens the player’s situation. Common in endgames." },
-  { term: "Zwischenzug", cat: "Tactics", def: "An ‘in-between move’ inserted before an expected response, improving the position first." },
+  {
+    term: "Algebraic Notation",
+    cat: "Rules",
+    def: "The standard system for recording chess moves using file letters (a-h) and rank numbers (1-8).",
+  },
+  {
+    term: "Back Rank Mate",
+    cat: "Tactics",
+    def: "Checkmate delivered along the opponent's first rank when their king is trapped behind its own pawns.",
+  },
+  {
+    term: "Bad Bishop",
+    cat: "Strategy",
+    def: "A bishop blocked by its own pawns on its color, severely limiting its mobility.",
+  },
+  {
+    term: "Blitz Chess",
+    cat: "Rules",
+    def: "Fast time control, typically 3-10 minutes per player for the entire game.",
+  },
+  {
+    term: "Blunder",
+    cat: "Strategy",
+    def: "A serious mistake that significantly worsens a player's position, often losing material or the game.",
+  },
+  {
+    term: "Bullet Chess",
+    cat: "Rules",
+    def: "Ultra-fast time control of 1-2 minutes per player, decided largely by reflex and pattern recognition.",
+  },
+  {
+    term: "Candidates Tournament",
+    cat: "History",
+    def: "FIDE tournament that determines the challenger for the World Chess Championship.",
+  },
+  {
+    term: "Castling",
+    cat: "Rules",
+    def: "A special move where the king moves two squares toward a rook, and the rook jumps over to the other side.",
+  },
+  {
+    term: "Check",
+    cat: "Rules",
+    def: "A position where a king is under direct attack and must immediately respond.",
+  },
+  {
+    term: "Checkmate",
+    cat: "Rules",
+    def: "A position where a king is in check with no legal escape — the game ends immediately.",
+  },
+  {
+    term: "Classical Chess",
+    cat: "Rules",
+    def: "Long time control, typically 60-120+ minutes per player. Used in the World Championship.",
+  },
+  {
+    term: "Discovered Attack",
+    cat: "Tactics",
+    def: "An attack revealed when a piece moves out of the way of another attacking piece.",
+  },
+  {
+    term: "Double Check",
+    cat: "Tactics",
+    def: "Check from two pieces simultaneously — the only response is to move the king.",
+  },
+  {
+    term: "Draw",
+    cat: "Rules",
+    def: "A tied game with no winner. Can occur via stalemate, agreement, repetition, or insufficient material.",
+  },
+  {
+    term: "En Passant",
+    cat: "Rules",
+    def: "Special pawn capture allowed against a pawn that just advanced two squares past it.",
+  },
+  {
+    term: "Endgame",
+    cat: "Strategy",
+    def: "The final phase of a chess game, characterized by few pieces and an active king.",
+  },
+  {
+    term: "FIDE",
+    cat: "History",
+    def: "The Federation Internationale des Echecs — the international governing body of chess.",
+  },
+  {
+    term: "Fianchetto",
+    cat: "Openings",
+    def: "Developing a bishop to the long diagonal (b2/g2 for White, b7/g7 for Black).",
+  },
+  {
+    term: "Fork",
+    cat: "Tactics",
+    def: "A single piece attacking two or more enemy pieces simultaneously.",
+  },
+  {
+    term: "Gambit",
+    cat: "Openings",
+    def: "An opening where a player sacrifices material — usually a pawn — for development or attack.",
+  },
+  {
+    term: "Grandmaster",
+    cat: "Titles",
+    def: "The highest regular FIDE title, requiring a 2500 rating and three GM norms.",
+  },
+  {
+    term: "Hypermodern",
+    cat: "Strategy",
+    def: "An opening philosophy that controls the center with pieces from a distance rather than occupying it with pawns.",
+  },
+  {
+    term: "Increment",
+    cat: "Rules",
+    def: "Extra seconds added to a player's clock after every move.",
+  },
+  {
+    term: "International Master",
+    cat: "Titles",
+    def: "FIDE title (IM) requiring a 2400 rating and three IM norms.",
+  },
+  {
+    term: "King Safety",
+    cat: "Strategy",
+    def: "The protection of the king from attack, usually achieved by castling and maintaining the pawn shield.",
+  },
+  {
+    term: "Luft",
+    cat: "Strategy",
+    def: "German for 'air' — a square created for the king to escape back rank threats.",
+  },
+  {
+    term: "Middlegame",
+    cat: "Strategy",
+    def: "The complex middle phase of a chess game between the opening and endgame.",
+  },
+  {
+    term: "Opposition",
+    cat: "Strategy",
+    def: "An endgame technique where kings face each other with one square between them — the player NOT to move has the advantage.",
+  },
+  {
+    term: "Outpost",
+    cat: "Strategy",
+    def: "A square (usually in enemy territory) where a piece cannot be attacked by an enemy pawn.",
+  },
+  {
+    term: "Passed Pawn",
+    cat: "Strategy",
+    def: "A pawn with no enemy pawns on its file or adjacent files that can stop it from promoting.",
+  },
+  {
+    term: "Pawn Structure",
+    cat: "Strategy",
+    def: "The arrangement of pawns on the board, which determines the strategic character of a position.",
+  },
+  {
+    term: "Pin",
+    cat: "Tactics",
+    def: "A piece is pinned when moving it would expose a more valuable piece behind it to attack.",
+  },
+  {
+    term: "Promotion",
+    cat: "Rules",
+    def: "When a pawn reaches the opposite end of the board, it must be promoted to another piece (except king).",
+  },
+  {
+    term: "Rapid Chess",
+    cat: "Rules",
+    def: "Time control of 10-60 minutes per player. The most common tournament format.",
+  },
+  {
+    term: "Resign",
+    cat: "Rules",
+    def: "Voluntarily giving up the game when the position is hopeless.",
+  },
+  {
+    term: "Skewer",
+    cat: "Tactics",
+    def: "An attack on a valuable piece that forces it to move, exposing a less valuable piece behind it.",
+  },
+  {
+    term: "Smothered Mate",
+    cat: "Tactics",
+    def: "Checkmate where a knight delivers mate against a king completely surrounded by its own pieces.",
+  },
+  {
+    term: "Stalemate",
+    cat: "Rules",
+    def: "A draw where the player to move has no legal moves and is not in check.",
+  },
+  {
+    term: "Tactics",
+    cat: "Tactics",
+    def: "Short forcing sequences that win material or deliver checkmate.",
+  },
+  {
+    term: "Tempo",
+    cat: "Strategy",
+    def: "A unit of time in chess equivalent to one move. Losing a tempo means wasting a move.",
+  },
+  {
+    term: "Threefold Repetition",
+    cat: "Rules",
+    def: "If the same position occurs three times, either player may claim a draw.",
+  },
+  {
+    term: "Underpromotion",
+    cat: "Rules",
+    def: "Promoting a pawn to a piece other than a queen — usually a knight for tactical reasons.",
+  },
+  {
+    term: "Zugzwang",
+    cat: "Strategy",
+    def: "A position where any move worsens the player’s situation. Common in endgames.",
+  },
+  {
+    term: "Zwischenzug",
+    cat: "Tactics",
+    def: "An ‘in-between move’ inserted before an expected response, improving the position first.",
+  },
 ];
 
 function Glossary() {
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState<"All" | GlossCat>("All");
-  const cats: ("All" | GlossCat)[] = ["All", "History", "Openings", "Rules", "Strategy", "Tactics", "Titles"];
+  const cats: ("All" | GlossCat)[] = [
+    "All",
+    "History",
+    "Openings",
+    "Rules",
+    "Strategy",
+    "Tactics",
+    "Titles",
+  ];
   const shown = useMemo(
     () =>
       GLOSSARY.filter(
@@ -346,7 +592,9 @@ function Glossary() {
             key={c}
             onClick={() => setCat(c)}
             className={`rounded-full border px-3 py-1 text-xs ${
-              cat === c ? "border-gold/40 bg-gold/10 text-gold" : "border-white/10 text-muted-foreground"
+              cat === c
+                ? "border-gold/40 bg-gold/10 text-gold"
+                : "border-white/10 text-muted-foreground"
             }`}
           >
             {c}
@@ -358,7 +606,9 @@ function Glossary() {
           <Card key={g.term} className="p-4">
             <div className="flex items-center justify-between gap-2">
               <h4 className="font-medium text-ivory">{g.term}</h4>
-              <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] text-gold">{g.cat}</span>
+              <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] text-gold">
+                {g.cat}
+              </span>
             </div>
             <p className="mt-1 text-sm text-ivory/75">{g.def}</p>
           </Card>
@@ -373,50 +623,228 @@ function Glossary() {
 
 // ---------------------------------------------------------------- champions
 const CHAMPIONS = [
-  { n: 1, flag: "🇦🇹🇺🇸", name: "Wilhelm Steinitz", reign: "1886–1894 · 8 years", bio: "The Father of Modern Chess. Steinitz invented positional theory and was the first to scientifically explain why moves are good. He won the first official championship match by defeating Johannes Zukertort 10–5." },
-  { n: 2, flag: "🇩🇪", name: "Emanuel Lasker", reign: "1894–1921 · 27 years", bio: "Holds the record for longest reign as World Champion — 27 years. A mathematician and philosopher close friends with Albert Einstein, Lasker was a master of practical, psychological chess." },
-  { n: 3, flag: "🇨🇺", name: "José Raúl Capablanca", reign: "1921–1927 · 6 years", bio: "The 'Chess Machine' from Cuba was perhaps the most naturally gifted player in history. He went three years without losing a single game and his endgame technique is still used as a teaching model." },
-  { n: 4, flag: "🇷🇺🇫🇷", name: "Alexander Alekhine", reign: "1927–1935, 1937–1946 · 17 years", bio: "Defeated Capablanca in a major upset in 1927 with ferocious attacking play and devastating preparation. The only World Champion to die while holding the title." },
-  { n: 5, flag: "🇳🇱", name: "Max Euwe", reign: "1935–1937 · 2 years", bio: "A Dutch mathematics professor who upset Alekhine in 1935 in one of the greatest shocks in championship history. Remains the only Dutch World Champion." },
-  { n: 6, flag: "🇷🇺", name: "Mikhail Botvinnik", reign: "1948–1963 · 13 years", bio: "The patriarch of Soviet chess. Won the first FIDE World Championship in 1948 and shaped Soviet chess methodology for generations through iron discipline and systematic preparation." },
-  { n: 7, flag: "🇷🇺", name: "Vasily Smyslov", reign: "1957–1958 · 1 year", bio: "A supremely harmonious player who developed each piece to its ideal square with effortless elegance. Competed at the highest level for six decades." },
-  { n: 8, flag: "🇱🇻", name: "Mikhail Tal", reign: "1960–1961 · 1 year", bio: "The 'Magician from Riga' — the most exciting World Champion in history. Sacrificed material recklessly, creating positions of such complexity that opponents and even computers struggled to defend." },
-  { n: 9, flag: "🇦🇲", name: "Tigran Petrosian", reign: "1963–1969 · 6 years", bio: "Known as 'Iron Tigran,' Petrosian was the greatest defensive player in chess history. His style was built on prophylaxis — preventing the opponent's plans before they began." },
-  { n: 10, flag: "🇷🇺", name: "Boris Spassky", reign: "1969–1972 · 3 years", bio: "A universal champion comfortable in any type of position. Remembered for his sportsmanship in the 'Match of the Century' against Bobby Fischer." },
-  { n: 11, flag: "🇺🇸", name: "Bobby Fischer", reign: "1972–1975 · 3 years", bio: "The most controversial and arguably most talented chess player ever. Crushed Spassky 12.5–8.5 to become the first American World Champion, then disappeared from competitive chess for nearly 20 years." },
-  { n: 12, flag: "🇷🇺", name: "Anatoly Karpov", reign: "1975–1985 · 10 years", bio: "Won the title by default when Fischer refused to play, then proved himself worthy by dominating chess for a decade. His matches against Kasparov are the greatest rivalry in chess history." },
-  { n: 13, flag: "🇦🇿", name: "Garry Kasparov", reign: "1985–2000 · 15 years", bio: "Many consider Kasparov the greatest chess player in history. Held the world number one ranking for 225 consecutive months and his 1997 match against Deep Blue marked a turning point in human-AI competition." },
-  { n: 14, flag: "🇷🇺", name: "Vladimir Kramnik", reign: "2000–2007 · 7 years", bio: "Ended Kasparov's 15-year reign with the famous Berlin Defense. Known for his deep positional understanding and flawless endgame technique." },
-  { n: 15, flag: "🇮🇳", name: "Viswanathan Anand", reign: "2000, 2007–2013 · 5 titles", bio: "The first Indian World Chess Champion, nicknamed 'The Tiger of Madras.' Has won the World Championship in all three formats — match, tournament, and knockout." },
-  { n: 16, flag: "🇳🇴", name: "Magnus Carlsen", reign: "2013–2023 · 10 years", bio: "Widely considered the greatest endgame player in history. His peak rating of 2882 is the highest ever recorded. Won five consecutive World Championship titles before voluntarily declining to defend in 2023." },
-  { n: 17, flag: "🇨🇳", name: "Ding Liren", reign: "2023–2024 · 1 year", bio: "Made history as the first Chinese World Chess Champion when he defeated Ian Nepomniachtchi in 2023 in a dramatic match that went to tiebreaks." },
-  { n: 18, flag: "🇮🇳", name: "Gukesh Dommaraju", reign: "2024–Present · Current", bio: "At just 18 years old, Gukesh became the youngest undisputed World Chess Champion ever, defeating Ding Liren in Singapore in December 2024." },
+  {
+    n: 1,
+    flag: "🇦🇹🇺🇸",
+    name: "Wilhelm Steinitz",
+    reign: "1886–1894 · 8 years",
+    bio: "The Father of Modern Chess. Steinitz invented positional theory and was the first to scientifically explain why moves are good. He won the first official championship match by defeating Johannes Zukertort 10–5.",
+  },
+  {
+    n: 2,
+    flag: "🇩🇪",
+    name: "Emanuel Lasker",
+    reign: "1894–1921 · 27 years",
+    bio: "Holds the record for longest reign as World Champion — 27 years. A mathematician and philosopher close friends with Albert Einstein, Lasker was a master of practical, psychological chess.",
+  },
+  {
+    n: 3,
+    flag: "🇨🇺",
+    name: "José Raúl Capablanca",
+    reign: "1921–1927 · 6 years",
+    bio: "The 'Chess Machine' from Cuba was perhaps the most naturally gifted player in history. He went three years without losing a single game and his endgame technique is still used as a teaching model.",
+  },
+  {
+    n: 4,
+    flag: "🇷🇺🇫🇷",
+    name: "Alexander Alekhine",
+    reign: "1927–1935, 1937–1946 · 17 years",
+    bio: "Defeated Capablanca in a major upset in 1927 with ferocious attacking play and devastating preparation. The only World Champion to die while holding the title.",
+  },
+  {
+    n: 5,
+    flag: "🇳🇱",
+    name: "Max Euwe",
+    reign: "1935–1937 · 2 years",
+    bio: "A Dutch mathematics professor who upset Alekhine in 1935 in one of the greatest shocks in championship history. Remains the only Dutch World Champion.",
+  },
+  {
+    n: 6,
+    flag: "🇷🇺",
+    name: "Mikhail Botvinnik",
+    reign: "1948–1963 · 13 years",
+    bio: "The patriarch of Soviet chess. Won the first FIDE World Championship in 1948 and shaped Soviet chess methodology for generations through iron discipline and systematic preparation.",
+  },
+  {
+    n: 7,
+    flag: "🇷🇺",
+    name: "Vasily Smyslov",
+    reign: "1957–1958 · 1 year",
+    bio: "A supremely harmonious player who developed each piece to its ideal square with effortless elegance. Competed at the highest level for six decades.",
+  },
+  {
+    n: 8,
+    flag: "🇱🇻",
+    name: "Mikhail Tal",
+    reign: "1960–1961 · 1 year",
+    bio: "The 'Magician from Riga' — the most exciting World Champion in history. Sacrificed material recklessly, creating positions of such complexity that opponents and even computers struggled to defend.",
+  },
+  {
+    n: 9,
+    flag: "🇦🇲",
+    name: "Tigran Petrosian",
+    reign: "1963–1969 · 6 years",
+    bio: "Known as 'Iron Tigran,' Petrosian was the greatest defensive player in chess history. His style was built on prophylaxis — preventing the opponent's plans before they began.",
+  },
+  {
+    n: 10,
+    flag: "🇷🇺",
+    name: "Boris Spassky",
+    reign: "1969–1972 · 3 years",
+    bio: "A universal champion comfortable in any type of position. Remembered for his sportsmanship in the 'Match of the Century' against Bobby Fischer.",
+  },
+  {
+    n: 11,
+    flag: "🇺🇸",
+    name: "Bobby Fischer",
+    reign: "1972–1975 · 3 years",
+    bio: "The most controversial and arguably most talented chess player ever. Crushed Spassky 12.5–8.5 to become the first American World Champion, then disappeared from competitive chess for nearly 20 years.",
+  },
+  {
+    n: 12,
+    flag: "🇷🇺",
+    name: "Anatoly Karpov",
+    reign: "1975–1985 · 10 years",
+    bio: "Won the title by default when Fischer refused to play, then proved himself worthy by dominating chess for a decade. His matches against Kasparov are the greatest rivalry in chess history.",
+  },
+  {
+    n: 13,
+    flag: "🇦🇿",
+    name: "Garry Kasparov",
+    reign: "1985–2000 · 15 years",
+    bio: "Many consider Kasparov the greatest chess player in history. Held the world number one ranking for 225 consecutive months and his 1997 match against Deep Blue marked a turning point in human-AI competition.",
+  },
+  {
+    n: 14,
+    flag: "🇷🇺",
+    name: "Vladimir Kramnik",
+    reign: "2000–2007 · 7 years",
+    bio: "Ended Kasparov's 15-year reign with the famous Berlin Defense. Known for his deep positional understanding and flawless endgame technique.",
+  },
+  {
+    n: 15,
+    flag: "🇮🇳",
+    name: "Viswanathan Anand",
+    reign: "2000, 2007–2013 · 5 titles",
+    bio: "The first Indian World Chess Champion, nicknamed 'The Tiger of Madras.' Has won the World Championship in all three formats — match, tournament, and knockout.",
+  },
+  {
+    n: 16,
+    flag: "🇳🇴",
+    name: "Magnus Carlsen",
+    reign: "2013–2023 · 10 years",
+    bio: "Widely considered the greatest endgame player in history. His peak rating of 2882 is the highest ever recorded. Won five consecutive World Championship titles before voluntarily declining to defend in 2023.",
+  },
+  {
+    n: 17,
+    flag: "🇨🇳",
+    name: "Ding Liren",
+    reign: "2023–2024 · 1 year",
+    bio: "Made history as the first Chinese World Chess Champion when he defeated Ian Nepomniachtchi in 2023 in a dramatic match that went to tiebreaks.",
+  },
+  {
+    n: 18,
+    flag: "🇮🇳",
+    name: "Gukesh Dommaraju",
+    reign: "2024–Present · Current",
+    bio: "At just 18 years old, Gukesh became the youngest undisputed World Chess Champion ever, defeating Ding Liren in Singapore in December 2024.",
+  },
 ];
 
 // ---------------------------------------------------------------- FAQ
 const FAQ: { q: string; a: string }[] = [
-  { q: "What is chess?", a: "Chess is a two-player, turn-based strategy board game played on an 8x8 grid of 64 squares. Each player begins with 16 pieces and the objective is to checkmate the opponent’s king. Chess contains no luck or hidden information; the outcome depends entirely on the players’ decisions." },
-  { q: "How do you play chess for beginners?", a: "Start by learning how each of the six pieces moves, set up the board with a light square on each player's right, and play with the goal of checkmating the opponent's king. Follow the three opening principles — control the center, develop your pieces, castle your king — and improve by playing games and solving puzzles daily." },
-  { q: "Who invented chess?", a: "Chess evolved from the ancient Indian game chaturanga, played during the Gupta Empire around the 4th–6th centuries AD. It spread to Persia as shatranj, then through the Islamic world into Europe, where the modern rules were established around 1475. No single person invented chess — it developed over more than 1,500 years." },
-  { q: "How long does a chess game last?", a: "It depends on the time control. Bullet games last under 2 minutes per player, blitz games 3–10 minutes, rapid games 10–60 minutes, and classical games can last several hours. A typical casual game runs 30–60 moves; correspondence games can take days per move." },
-  { q: "What is checkmate in chess?", a: "Checkmate is the position where a king is in check and has no legal move to escape. The game ends immediately and the player delivering checkmate wins. The word comes from the Persian 'shah mat' — 'the king is helpless.'" },
-  { q: "What is the best first move in chess?", a: "The most popular and principled first moves are 1.e4 and 1.d4, both of which stake a claim in the center and open lines for the pieces. 1.c4 (the English) and 1.Nf3 are also excellent. For beginners, 1.e4 is usually recommended for its open, instructive positions." },
-  { q: "Who is the greatest chess player of all time?", a: "It is debated. Garry Kasparov held the world number one ranking for 225 consecutive months, while Magnus Carlsen achieved the highest rating ever recorded (2882) and held the title for a decade. Bobby Fischer and José Raúl Capablanca are also frequently named among the greatest." },
-  { q: "Who is the current World Chess Champion?", a: "Gukesh Dommaraju of India, who became the youngest undisputed World Chess Champion in history in December 2024 at age 18 by defeating Ding Liren in Singapore." },
-  { q: "What is the fastest checkmate in chess?", a: "Fool's Mate — checkmate in just two moves (1.f3 e5 2.g4 Qh4#). It requires White to make two serious mistakes. The better-known Scholar's Mate delivers mate on move 4 by targeting the f7 square." },
-  { q: "Is chess a sport?", a: "Yes. Chess is recognized as a sport by the International Olympic Committee and by more than 100 countries. It is played competitively worldwide, including at the Chess Olympiad featuring teams from 195+ countries." },
+  {
+    q: "What is chess?",
+    a: "Chess is a two-player, turn-based strategy board game played on an 8x8 grid of 64 squares. Each player begins with 16 pieces and the objective is to checkmate the opponent’s king. Chess contains no luck or hidden information; the outcome depends entirely on the players’ decisions.",
+  },
+  {
+    q: "How do you play chess for beginners?",
+    a: "Start by learning how each of the six pieces moves, set up the board with a light square on each player's right, and play with the goal of checkmating the opponent's king. Follow the three opening principles — control the center, develop your pieces, castle your king — and improve by playing games and solving puzzles daily.",
+  },
+  {
+    q: "Who invented chess?",
+    a: "Chess evolved from the ancient Indian game chaturanga, played during the Gupta Empire around the 4th–6th centuries AD. It spread to Persia as shatranj, then through the Islamic world into Europe, where the modern rules were established around 1475. No single person invented chess — it developed over more than 1,500 years.",
+  },
+  {
+    q: "How long does a chess game last?",
+    a: "It depends on the time control. Bullet games last under 2 minutes per player, blitz games 3–10 minutes, rapid games 10–60 minutes, and classical games can last several hours. A typical casual game runs 30–60 moves; correspondence games can take days per move.",
+  },
+  {
+    q: "What is checkmate in chess?",
+    a: "Checkmate is the position where a king is in check and has no legal move to escape. The game ends immediately and the player delivering checkmate wins. The word comes from the Persian 'shah mat' — 'the king is helpless.'",
+  },
+  {
+    q: "What is the best first move in chess?",
+    a: "The most popular and principled first moves are 1.e4 and 1.d4, both of which stake a claim in the center and open lines for the pieces. 1.c4 (the English) and 1.Nf3 are also excellent. For beginners, 1.e4 is usually recommended for its open, instructive positions.",
+  },
+  {
+    q: "Who is the greatest chess player of all time?",
+    a: "It is debated. Garry Kasparov held the world number one ranking for 225 consecutive months, while Magnus Carlsen achieved the highest rating ever recorded (2882) and held the title for a decade. Bobby Fischer and José Raúl Capablanca are also frequently named among the greatest.",
+  },
+  {
+    q: "Who is the current World Chess Champion?",
+    a: "Gukesh Dommaraju of India, who became the youngest undisputed World Chess Champion in history in December 2024 at age 18 by defeating Ding Liren in Singapore.",
+  },
+  {
+    q: "What is the fastest checkmate in chess?",
+    a: "Fool's Mate — checkmate in just two moves (1.f3 e5 2.g4 Qh4#). It requires White to make two serious mistakes. The better-known Scholar's Mate delivers mate on move 4 by targeting the f7 square.",
+  },
+  {
+    q: "Is chess a sport?",
+    a: "Yes. Chess is recognized as a sport by the International Olympic Committee and by more than 100 countries. It is played competitively worldwide, including at the Chess Olympiad featuring teams from 195+ countries.",
+  },
 ];
 
 // ---------------------------------------------------------------- rules
 const RULES: { icon: string; title: string; subtitle: string; body: string }[] = [
-  { icon: "♔", title: "Rule 1 — Introduction", subtitle: "Nature of the game • Conduct • Contest types", body: "Chess is played between two opponents who move their pieces alternately on a square board called a chessboard. The player with the white pieces commences the game. A player is said to 'have the move' when the opponent's move has been made. Players must conduct themselves with sportsmanship; it is forbidden to distract or annoy the opponent in any manner." },
-  { icon: "♖", title: "Rule 2 — The Chessboard and Its Arrangement", subtitle: "64 squares • Color requirements • Orientation", body: "The chessboard is composed of an 8×8 grid of 64 equal squares alternately light ('white') and dark ('black'). The board is placed between the players so that the near corner square to the right of each player is light." },
-  { icon: "♙", title: "Rule 3 — The Chessmen and Their Arrangement", subtitle: "16 pieces per side • Starting positions", body: "At the beginning of the game each player has 16 pieces: one king, one queen, two rooks, two bishops, two knights, and eight pawns. White's pieces occupy the first rank (rooks on a1/h1, knights on b1/g1, bishops on c1/f1, queen on d1, king on e1) with pawns on the second rank; Black's mirror them on the eighth and seventh ranks." },
-  { icon: "♘", title: "Rule 4 — Conduct of the Game", subtitle: "Alternating turns • White moves first • Completing a move", body: "The player with the white pieces makes the first move, after which the players move alternately, one move at a time. A player may not skip a turn. A move is completed when the piece has been released on its new square and any captured piece removed from the board." },
-  { icon: "♗", title: "Rule 5 — Definition of the Move", subtitle: "Transfer • Capture • Castling • En passant • Promotion", body: "A move is the transfer of a piece from one square to another square which is either vacant or occupied by an enemy piece. Capturing means removing the enemy piece from the board and placing the capturing piece on its square. Castling, en passant, and pawn promotion are the three special moves, each governed by its own conditions described in this guide." },
-  { icon: "♕", title: "Rule 6 — Moves of the Individual Chessmen", subtitle: "King • Queen • Rook • Bishop • Knight • Pawn", body: "The king moves one square in any direction. The queen moves any number of squares along a rank, file, or diagonal. The rook moves along ranks and files; the bishop along diagonals. The knight moves in an 'L' shape — two squares in one direction plus one perpendicular — and is the only piece that jumps. Pawns move forward one square (two from the start) and capture diagonally." },
-  { icon: "⚒", title: "Rules 7–9 — Completing a Move, Touch-Move & Illegal Positions", subtitle: "Determination • Touch-move • Illegal position correction", body: "In formal play, a player who deliberately touches one of their own pieces must move it if a legal move exists; touching an opponent's piece obliges its capture if legal ('touch-move'). If an illegal move or position is discovered, the position immediately before the irregularity is reinstated and the game continues from there." },
-  { icon: "⚔", title: "Rules 10–12 — Check, Won Game & Draw", subtitle: "Check • Checkmate • Resignation • Stalemate • All draw conditions", body: "A king is in check when attacked by an enemy piece; check must be addressed immediately. The game is won by checkmating the opponent's king, by the opponent's resignation, or by time forfeit. The game is drawn by stalemate, mutual agreement, threefold repetition, the fifty-move rule, or insufficient mating material." },
+  {
+    icon: "♔",
+    title: "Rule 1 — Introduction",
+    subtitle: "Nature of the game • Conduct • Contest types",
+    body: "Chess is played between two opponents who move their pieces alternately on a square board called a chessboard. The player with the white pieces commences the game. A player is said to 'have the move' when the opponent's move has been made. Players must conduct themselves with sportsmanship; it is forbidden to distract or annoy the opponent in any manner.",
+  },
+  {
+    icon: "♖",
+    title: "Rule 2 — The Chessboard and Its Arrangement",
+    subtitle: "64 squares • Color requirements • Orientation",
+    body: "The chessboard is composed of an 8×8 grid of 64 equal squares alternately light ('white') and dark ('black'). The board is placed between the players so that the near corner square to the right of each player is light.",
+  },
+  {
+    icon: "♙",
+    title: "Rule 3 — The Chessmen and Their Arrangement",
+    subtitle: "16 pieces per side • Starting positions",
+    body: "At the beginning of the game each player has 16 pieces: one king, one queen, two rooks, two bishops, two knights, and eight pawns. White's pieces occupy the first rank (rooks on a1/h1, knights on b1/g1, bishops on c1/f1, queen on d1, king on e1) with pawns on the second rank; Black's mirror them on the eighth and seventh ranks.",
+  },
+  {
+    icon: "♘",
+    title: "Rule 4 — Conduct of the Game",
+    subtitle: "Alternating turns • White moves first • Completing a move",
+    body: "The player with the white pieces makes the first move, after which the players move alternately, one move at a time. A player may not skip a turn. A move is completed when the piece has been released on its new square and any captured piece removed from the board.",
+  },
+  {
+    icon: "♗",
+    title: "Rule 5 — Definition of the Move",
+    subtitle: "Transfer • Capture • Castling • En passant • Promotion",
+    body: "A move is the transfer of a piece from one square to another square which is either vacant or occupied by an enemy piece. Capturing means removing the enemy piece from the board and placing the capturing piece on its square. Castling, en passant, and pawn promotion are the three special moves, each governed by its own conditions described in this guide.",
+  },
+  {
+    icon: "♕",
+    title: "Rule 6 — Moves of the Individual Chessmen",
+    subtitle: "King • Queen • Rook • Bishop • Knight • Pawn",
+    body: "The king moves one square in any direction. The queen moves any number of squares along a rank, file, or diagonal. The rook moves along ranks and files; the bishop along diagonals. The knight moves in an 'L' shape — two squares in one direction plus one perpendicular — and is the only piece that jumps. Pawns move forward one square (two from the start) and capture diagonally.",
+  },
+  {
+    icon: "⚒",
+    title: "Rules 7–9 — Completing a Move, Touch-Move & Illegal Positions",
+    subtitle: "Determination • Touch-move • Illegal position correction",
+    body: "In formal play, a player who deliberately touches one of their own pieces must move it if a legal move exists; touching an opponent's piece obliges its capture if legal ('touch-move'). If an illegal move or position is discovered, the position immediately before the irregularity is reinstated and the game continues from there.",
+  },
+  {
+    icon: "⚔",
+    title: "Rules 10–12 — Check, Won Game & Draw",
+    subtitle: "Check • Checkmate • Resignation • Stalemate • All draw conditions",
+    body: "A king is in check when attacked by an enemy piece; check must be addressed immediately. The game is won by checkmating the opponent's king, by the opponent's resignation, or by time forfeit. The game is drawn by stalemate, mutual agreement, threefold repetition, the fifty-move rule, or insufficient mating material.",
+  },
 ];
 
 // ---------------------------------------------------------------- page
@@ -431,9 +859,10 @@ export function ChessEncyclopedia() {
         <div className="mb-4 text-xs text-muted-foreground">
           ~25 min read • Last updated 2025 • Free Complete Guide — No Sign Up Needed
         </div>
-        <h1 className="font-display text-4xl md:text-6xl leading-tight">
+        {/* h2 — the hosting page (PageShell) already provides the single h1. */}
+        <h2 className="font-display text-4xl md:text-6xl leading-tight">
           Chess: The <span className="text-gradient-gold">Complete Encyclopedia</span>
-        </h1>
+        </h2>
         <p className="mx-auto mt-4 max-w-2xl leading-relaxed text-ivory/85">
           Chess is a two-player strategy board game played on a 64-square board, where each player
           commands 16 pieces with the goal of trapping the opponent’s king. It is one of the oldest,
@@ -529,12 +958,36 @@ export function ChessEncyclopedia() {
           competitive sport, a form of art, and a historical artifact.
         </P>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <InfoCard icon="🧠" title="Boosts Intelligence" body="Multiple studies show chess players score higher on spatial reasoning and problem-solving tests. Learning chess trains the brain to think several steps ahead." />
-          <InfoCard icon="📚" title="Improves Academic Performance" body="Students who study chess show measurable gains in reading comprehension and mathematics. Armenia has made chess a compulsory school subject." />
-          <InfoCard icon="🎯" title="Develops Focus & Patience" body="A single chess game can last hours, requiring sustained concentration and calm under pressure. These skills transfer directly to academic and professional life." />
-          <InfoCard icon="🌐" title="Universal Language" body="Chess needs no translation. A player from India can sit across from a player from Norway and communicate entirely through moves." />
-          <InfoCard icon="🏆" title="Competitive Sport" body="Chess is recognized by the IOC as a sport. The Chess Olympiad features teams from 195+ countries — more than almost any global sporting event." />
-          <InfoCard icon="🤖" title="Foundation of AI Research" body="Chess was one of the first domains used to test AI. Deep Blue defeating Garry Kasparov in 1997 was a landmark moment in machine learning history." />
+          <InfoCard
+            icon="🧠"
+            title="Boosts Intelligence"
+            body="Multiple studies show chess players score higher on spatial reasoning and problem-solving tests. Learning chess trains the brain to think several steps ahead."
+          />
+          <InfoCard
+            icon="📚"
+            title="Improves Academic Performance"
+            body="Students who study chess show measurable gains in reading comprehension and mathematics. Armenia has made chess a compulsory school subject."
+          />
+          <InfoCard
+            icon="🎯"
+            title="Develops Focus & Patience"
+            body="A single chess game can last hours, requiring sustained concentration and calm under pressure. These skills transfer directly to academic and professional life."
+          />
+          <InfoCard
+            icon="🌐"
+            title="Universal Language"
+            body="Chess needs no translation. A player from India can sit across from a player from Norway and communicate entirely through moves."
+          />
+          <InfoCard
+            icon="🏆"
+            title="Competitive Sport"
+            body="Chess is recognized by the IOC as a sport. The Chess Olympiad features teams from 195+ countries — more than almost any global sporting event."
+          />
+          <InfoCard
+            icon="🤖"
+            title="Foundation of AI Research"
+            body="Chess was one of the first domains used to test AI. Deep Blue defeating Garry Kasparov in 1997 was a landmark moment in machine learning history."
+          />
         </div>
       </Section>
 
@@ -568,7 +1021,10 @@ export function ChessEncyclopedia() {
         </P>
         <div className="mb-6 grid grid-cols-3 gap-3 sm:grid-cols-6">
           {PIECES.map((p) => (
-            <div key={p.name} className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-center">
+            <div
+              key={p.name}
+              className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-center"
+            >
               <div className="text-3xl">{p.glyph}</div>
               <div className="mt-1 text-xs text-ivory/80">{p.chip[0]}</div>
               <div className="text-sm font-medium text-gold">{p.chip[1]}</div>
@@ -603,15 +1059,39 @@ export function ChessEncyclopedia() {
         </P>
         <ol className="space-y-3">
           {[
-            ["Orient the board", "Place the board so each player has a LIGHT square in the bottom-right corner. Easy to remember: 'Light on right.'"],
-            ["Place the rooks", "White rooks on a1 and h1; Black rooks on a8 and h8. The rooks go in the four corners."],
-            ["Place the knights", "White knights on b1 and g1; Black knights on b8 and g8. Each knight goes immediately next to a rook."],
-            ["Place the bishops", "White bishops on c1 and f1; Black bishops on c8 and f8. The bishops go next to each knight."],
-            ["Place the queens", "Queen on her own color. White queen on d1 (light square); Black queen on d8 (dark square). The most common beginner mistake."],
-            ["Place the kings", "King on the remaining center square — White king on e1, Black king on e8. The kings face each other directly."],
-            ["Place the pawns", "White’s eight pawns fill the second rank (a2–h2). Black’s eight pawns fill the seventh rank (a7–h7)."],
+            [
+              "Orient the board",
+              "Place the board so each player has a LIGHT square in the bottom-right corner. Easy to remember: 'Light on right.'",
+            ],
+            [
+              "Place the rooks",
+              "White rooks on a1 and h1; Black rooks on a8 and h8. The rooks go in the four corners.",
+            ],
+            [
+              "Place the knights",
+              "White knights on b1 and g1; Black knights on b8 and g8. Each knight goes immediately next to a rook.",
+            ],
+            [
+              "Place the bishops",
+              "White bishops on c1 and f1; Black bishops on c8 and f8. The bishops go next to each knight.",
+            ],
+            [
+              "Place the queens",
+              "Queen on her own color. White queen on d1 (light square); Black queen on d8 (dark square). The most common beginner mistake.",
+            ],
+            [
+              "Place the kings",
+              "King on the remaining center square — White king on e1, Black king on e8. The kings face each other directly.",
+            ],
+            [
+              "Place the pawns",
+              "White’s eight pawns fill the second rank (a2–h2). Black’s eight pawns fill the seventh rank (a7–h7).",
+            ],
           ].map(([t, d], i) => (
-            <li key={t} className="flex gap-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+            <li
+              key={t}
+              className="flex gap-4 rounded-xl border border-white/10 bg-white/[0.02] p-4"
+            >
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gold/10 font-display text-gold">
                 {i + 1}
               </span>
@@ -631,12 +1111,36 @@ export function ChessEncyclopedia() {
       {/* ---- 06 ---- */}
       <Section num="06" title="How Chess Pieces Move" id={sid(6)}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <InfoCard icon="♙" title="Pawn" body="Forward 1 square always. Forward 2 squares on first move only. Captures diagonally forward 1 square. Cannot move backward. Special: en passant capture." />
-          <InfoCard icon="♘" title="Knight" body="Moves in an 'L': 2 squares in one direction + 1 square perpendicular. From the center, reaches up to 8 squares. The ONLY piece that jumps over others." />
-          <InfoCard icon="♗" title="Bishop" body="Moves diagonally any number of squares. Always stays on the same color square it started on. From the center, reaches up to 13 squares." />
-          <InfoCard icon="♖" title="Rook" body="Moves horizontally or vertically any number of squares. From any square it always reaches exactly 14 squares. Participates in castling." />
-          <InfoCard icon="♕" title="Queen" body="Combines rook + bishop. Moves in any of 8 directions any number of squares. From the center, can reach up to 27 squares — more than any other piece." />
-          <InfoCard icon="♔" title="King" body="Moves exactly 1 square in any direction. Can never move into check. Participates in castling. Cannot be captured — the game ends if it is checkmated." />
+          <InfoCard
+            icon="♙"
+            title="Pawn"
+            body="Forward 1 square always. Forward 2 squares on first move only. Captures diagonally forward 1 square. Cannot move backward. Special: en passant capture."
+          />
+          <InfoCard
+            icon="♘"
+            title="Knight"
+            body="Moves in an 'L': 2 squares in one direction + 1 square perpendicular. From the center, reaches up to 8 squares. The ONLY piece that jumps over others."
+          />
+          <InfoCard
+            icon="♗"
+            title="Bishop"
+            body="Moves diagonally any number of squares. Always stays on the same color square it started on. From the center, reaches up to 13 squares."
+          />
+          <InfoCard
+            icon="♖"
+            title="Rook"
+            body="Moves horizontally or vertically any number of squares. From any square it always reaches exactly 14 squares. Participates in castling."
+          />
+          <InfoCard
+            icon="♕"
+            title="Queen"
+            body="Combines rook + bishop. Moves in any of 8 directions any number of squares. From the center, can reach up to 27 squares — more than any other piece."
+          />
+          <InfoCard
+            icon="♔"
+            title="King"
+            body="Moves exactly 1 square in any direction. Can never move into check. Participates in castling. Cannot be captured — the game ends if it is checkmated."
+          />
         </div>
       </Section>
 
@@ -721,17 +1225,49 @@ export function ChessEncyclopedia() {
         <P>A chess game can end in three ways: a win for White, a win for Black, or a draw.</P>
         <h3 className="mb-3 font-display text-xl text-gold">Wins</h3>
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
-          <InfoCard icon="♚" title="Checkmate" body="The opponent's king is in check with no legal escape. The game ends immediately." />
-          <InfoCard icon="🏳" title="Resignation" body="A player gives up when the position is hopeless. Most professional games end in resignation." />
-          <InfoCard icon="⏱" title="Time Forfeit" body="In timed games, if your clock runs out you lose — unless the opponent lacks the material to mate." />
+          <InfoCard
+            icon="♚"
+            title="Checkmate"
+            body="The opponent's king is in check with no legal escape. The game ends immediately."
+          />
+          <InfoCard
+            icon="🏳"
+            title="Resignation"
+            body="A player gives up when the position is hopeless. Most professional games end in resignation."
+          />
+          <InfoCard
+            icon="⏱"
+            title="Time Forfeit"
+            body="In timed games, if your clock runs out you lose — unless the opponent lacks the material to mate."
+          />
         </div>
         <h3 className="mb-3 font-display text-xl text-gold">Draws</h3>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <InfoCard icon="🤝" title="Stalemate" body="The player to move has no legal moves and is not in check. Immediate draw." />
-          <InfoCard icon="🤝" title="Mutual Agreement" body="Both players agree to a draw at any point — common in equal positions." />
-          <InfoCard icon="🔁" title="Threefold Repetition" body="If the same position occurs three times, either player may claim a draw." />
-          <InfoCard icon="5️⃣0️⃣" title="Fifty-Move Rule" body="If 50 consecutive moves pass with no pawn move or capture, either player may claim a draw." />
-          <InfoCard icon="♞" title="Insufficient Material" body="If neither player has enough pieces to deliver mate (e.g. K vs K), the game is drawn immediately." />
+          <InfoCard
+            icon="🤝"
+            title="Stalemate"
+            body="The player to move has no legal moves and is not in check. Immediate draw."
+          />
+          <InfoCard
+            icon="🤝"
+            title="Mutual Agreement"
+            body="Both players agree to a draw at any point — common in equal positions."
+          />
+          <InfoCard
+            icon="🔁"
+            title="Threefold Repetition"
+            body="If the same position occurs three times, either player may claim a draw."
+          />
+          <InfoCard
+            icon="5️⃣0️⃣"
+            title="Fifty-Move Rule"
+            body="If 50 consecutive moves pass with no pawn move or capture, either player may claim a draw."
+          />
+          <InfoCard
+            icon="♞"
+            title="Insufficient Material"
+            body="If neither player has enough pieces to deliver mate (e.g. K vs K), the game is drawn immediately."
+          />
         </div>
       </Section>
 
@@ -743,8 +1279,16 @@ export function ChessEncyclopedia() {
           classical games lasting hours to frantic bullet games decided in under two minutes.
         </P>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <InfoCard icon="✉️" title="Correspondence" body="Days per move. Online/postal play. Deep calculation." />
-          <InfoCard icon="🏛" title="Classical" body="60–120+ min each. Used in World Championships." />
+          <InfoCard
+            icon="✉️"
+            title="Correspondence"
+            body="Days per move. Online/postal play. Deep calculation."
+          />
+          <InfoCard
+            icon="🏛"
+            title="Classical"
+            body="60–120+ min each. Used in World Championships."
+          />
           <InfoCard icon="⏲" title="Rapid" body="10–60 min each. Most common tournament format." />
           <InfoCard icon="⚡" title="Blitz" body="3–10 min each. Most popular online format." />
           <InfoCard icon="🚀" title="Bullet" body="1–2 min each. Ultra-fast, reflex-based." />
@@ -783,11 +1327,23 @@ export function ChessEncyclopedia() {
             </thead>
             <tbody>
               {[
-                ["K", "King"], ["Q", "Queen"], ["R", "Rook"], ["B", "Bishop"], ["N", "Knight"],
-                ["x", "Capture"], ["+", "Check"], ["#", "Checkmate"], ["O-O", "Castle Kingside"],
-                ["O-O-O", "Castle Queenside"], ["=", "Promotion (e.g., e8=Q)"], ["!", "Good move"],
-                ["!!", "Brilliant move"], ["?", "Mistake"], ["??", "Blunder"],
-                ["!?", "Interesting / risky"], ["?!", "Dubious"],
+                ["K", "King"],
+                ["Q", "Queen"],
+                ["R", "Rook"],
+                ["B", "Bishop"],
+                ["N", "Knight"],
+                ["x", "Capture"],
+                ["+", "Check"],
+                ["#", "Checkmate"],
+                ["O-O", "Castle Kingside"],
+                ["O-O-O", "Castle Queenside"],
+                ["=", "Promotion (e.g., e8=Q)"],
+                ["!", "Good move"],
+                ["!!", "Brilliant move"],
+                ["?", "Mistake"],
+                ["??", "Blunder"],
+                ["!?", "Interesting / risky"],
+                ["?!", "Dubious"],
               ].map(([s, m]) => (
                 <tr key={s} className="border-b border-white/5 last:border-0">
                   <td className="px-4 py-1.5 font-mono text-gold/90">{s}</td>
@@ -809,9 +1365,21 @@ export function ChessEncyclopedia() {
         <h3 className="mb-3 font-display text-xl text-gold">Three Core Opening Principles</h3>
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
           {[
-            ["PRINCIPLE 01", "Control the Center", "Pawns and pieces in or near the central squares (d4, d5, e4, e5) control more of the board."],
-            ["PRINCIPLE 02", "Develop Your Pieces", "Get your knights and bishops off their starting squares quickly. Undeveloped pieces are sleeping."],
-            ["PRINCIPLE 03", "Castle Your King", "After developing, castle to safety. A king stuck in the center is a constant target."],
+            [
+              "PRINCIPLE 01",
+              "Control the Center",
+              "Pawns and pieces in or near the central squares (d4, d5, e4, e5) control more of the board.",
+            ],
+            [
+              "PRINCIPLE 02",
+              "Develop Your Pieces",
+              "Get your knights and bishops off their starting squares quickly. Undeveloped pieces are sleeping.",
+            ],
+            [
+              "PRINCIPLE 03",
+              "Castle Your King",
+              "After developing, castle to safety. A king stuck in the center is a constant target.",
+            ],
           ].map(([tag, t, d]) => (
             <Card key={t} className="p-5">
               <div className="text-[10px] tracking-[0.25em] text-gold/70">{tag}</div>
@@ -823,17 +1391,43 @@ export function ChessEncyclopedia() {
         <h3 className="mb-3 font-display text-xl text-gold">Most Popular Openings</h3>
         <div className="space-y-3">
           {[
-            ["Italian Game", "1.e4 e5 2.Nf3 Nc6 3.Bc4", "One of the oldest openings, dating to the 16th century. White places the bishop on c4 to target the f7 pawn — a classic attacking approach."],
-            ["Ruy Lopez (Spanish Opening)", "1.e4 e5 2.Nf3 Nc6 3.Bb5", "One of the most studied openings at all levels. White pins the knight defending e5, creating long-term pressure. Used by almost every World Champion."],
-            ["Sicilian Defense", "1.e4 c5", "The most popular chess opening at club and professional level. Black fights for the center asymmetrically, creating imbalanced positions full of tactical possibilities."],
-            ["Queen's Gambit", "1.d4 d5 2.c4", "White offers a pawn to gain central control. Not truly a gambit because Black cannot safely keep the pawn. Made famous by the Netflix series of the same name."],
-            ["King's Indian Defense", "1.d4 Nf6 2.c4 g6", "A popular counter-attacking defense. Black allows White to build a large center and then immediately attacks it. Favored by Kasparov and Fischer."],
-            ["French Defense", "1.e4 e6", "A solid, strategic defense. Black builds a strong pawn structure but can end up with a cramped position. Produces long, positional battles."],
+            [
+              "Italian Game",
+              "1.e4 e5 2.Nf3 Nc6 3.Bc4",
+              "One of the oldest openings, dating to the 16th century. White places the bishop on c4 to target the f7 pawn — a classic attacking approach.",
+            ],
+            [
+              "Ruy Lopez (Spanish Opening)",
+              "1.e4 e5 2.Nf3 Nc6 3.Bb5",
+              "One of the most studied openings at all levels. White pins the knight defending e5, creating long-term pressure. Used by almost every World Champion.",
+            ],
+            [
+              "Sicilian Defense",
+              "1.e4 c5",
+              "The most popular chess opening at club and professional level. Black fights for the center asymmetrically, creating imbalanced positions full of tactical possibilities.",
+            ],
+            [
+              "Queen's Gambit",
+              "1.d4 d5 2.c4",
+              "White offers a pawn to gain central control. Not truly a gambit because Black cannot safely keep the pawn. Made famous by the Netflix series of the same name.",
+            ],
+            [
+              "King's Indian Defense",
+              "1.d4 Nf6 2.c4 g6",
+              "A popular counter-attacking defense. Black allows White to build a large center and then immediately attacks it. Favored by Kasparov and Fischer.",
+            ],
+            [
+              "French Defense",
+              "1.e4 e6",
+              "A solid, strategic defense. Black builds a strong pawn structure but can end up with a cramped position. Produces long, positional battles.",
+            ],
           ].map(([name, moves, d]) => (
             <Card key={name} className="p-5">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h4 className="font-display text-lg">{name}</h4>
-                <code className="rounded-md bg-black/40 px-2 py-0.5 font-mono text-xs text-gold">{moves}</code>
+                <code className="rounded-md bg-black/40 px-2 py-0.5 font-mono text-xs text-gold">
+                  {moves}
+                </code>
               </div>
               <p className="mt-1.5 text-sm text-ivory/80">{d}</p>
             </Card>
@@ -882,12 +1476,36 @@ export function ChessEncyclopedia() {
           strategic plans are meaningless if a player overlooks a one-move tactic.
         </P>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <InfoCard icon="⚡" title="Fork" body="One piece attacks two enemy pieces simultaneously. The opponent can only save one — the other is lost." />
-          <InfoCard icon="📌" title="Pin" body="A piece is pinned when moving it would expose a more valuable piece behind it. Absolute pins (against the king) are especially powerful." />
-          <InfoCard icon="🔱" title="Skewer" body="Like a reverse pin. A valuable piece is attacked, and when it moves, a less valuable piece behind it is captured." />
-          <InfoCard icon="🔍" title="Discovered Attack" body="A piece moves, revealing an attack from another piece behind it. The moved piece can also attack — called a double attack." />
-          <InfoCard icon="⚔" title="Zwischenzug" body="A German word meaning 'in-between move.' A surprising intermediate move improves the position before the obvious recapture." />
-          <InfoCard icon="🎯" title="Deflection" body="A piece is forced away from defending a critical square or another piece. The defender is 'deflected' from its duty." />
+          <InfoCard
+            icon="⚡"
+            title="Fork"
+            body="One piece attacks two enemy pieces simultaneously. The opponent can only save one — the other is lost."
+          />
+          <InfoCard
+            icon="📌"
+            title="Pin"
+            body="A piece is pinned when moving it would expose a more valuable piece behind it. Absolute pins (against the king) are especially powerful."
+          />
+          <InfoCard
+            icon="🔱"
+            title="Skewer"
+            body="Like a reverse pin. A valuable piece is attacked, and when it moves, a less valuable piece behind it is captured."
+          />
+          <InfoCard
+            icon="🔍"
+            title="Discovered Attack"
+            body="A piece moves, revealing an attack from another piece behind it. The moved piece can also attack — called a double attack."
+          />
+          <InfoCard
+            icon="⚔"
+            title="Zwischenzug"
+            body="A German word meaning 'in-between move.' A surprising intermediate move improves the position before the obvious recapture."
+          />
+          <InfoCard
+            icon="🎯"
+            title="Deflection"
+            body="A piece is forced away from defending a critical square or another piece. The defender is 'deflected' from its duty."
+          />
         </div>
       </Section>
 
@@ -904,22 +1522,57 @@ export function ChessEncyclopedia() {
             ["🌿", "Beginner", "Just learning the pieces and rules.", "Under 800"],
             ["📗", "Novice", "Understands basic tactics but misses pieces often.", "800–1000"],
             ["📘", "Intermediate", "Plays full games without major blunders.", "1000–1200"],
-            ["📙", "Club Player", "Studies openings, understands positional concepts.", "1200–1500"],
+            [
+              "📙",
+              "Club Player",
+              "Studies openings, understands positional concepts.",
+              "1200–1500",
+            ],
             ["📚", "Advanced", "Calculates multi-move combinations reliably.", "1500–1800"],
             ["💎", "Expert", "Strong tournament player with deep opening knowledge.", "1800–2000"],
-            ["👑", "Candidate Master", "Near-master level, very strong tactically and positionally.", "2000–2200"],
-            ["🏆", "FIDE Master", "International-level player with formal FIDE title.", "2200–2300"],
-            ["⭐", "International Master", "Elite professional player. One step from Grandmaster.", "2300–2500"],
-            ["🌟", "Grandmaster", "The highest regular title in chess. Fewer than 2,000 GMs exist worldwide.", "2500+"],
-            ["🔮", "Super Grandmaster", "World-elite level. Magnus Carlsen peaked at 2882 — the highest rating ever.", "2700+"],
+            [
+              "👑",
+              "Candidate Master",
+              "Near-master level, very strong tactically and positionally.",
+              "2000–2200",
+            ],
+            [
+              "🏆",
+              "FIDE Master",
+              "International-level player with formal FIDE title.",
+              "2200–2300",
+            ],
+            [
+              "⭐",
+              "International Master",
+              "Elite professional player. One step from Grandmaster.",
+              "2300–2500",
+            ],
+            [
+              "🌟",
+              "Grandmaster",
+              "The highest regular title in chess. Fewer than 2,000 GMs exist worldwide.",
+              "2500+",
+            ],
+            [
+              "🔮",
+              "Super Grandmaster",
+              "World-elite level. Magnus Carlsen peaked at 2882 — the highest rating ever.",
+              "2700+",
+            ],
           ].map(([icon, t, d, r]) => (
-            <div key={t} className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+            <div
+              key={t}
+              className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3"
+            >
               <span className="text-xl">{icon}</span>
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-ivory">{t}</div>
                 <div className="text-xs text-ivory/70">{d}</div>
               </div>
-              <span className="shrink-0 rounded-full bg-gold/10 px-3 py-1 text-xs text-gold">{r}</span>
+              <span className="shrink-0 rounded-full bg-gold/10 px-3 py-1 text-xs text-gold">
+                {r}
+              </span>
             </div>
           ))}
         </div>
@@ -935,8 +1588,24 @@ export function ChessEncyclopedia() {
         <div className="grid gap-4 md:grid-cols-2">
           {(
             [
-              ["Open Titles", [["Candidate Master", "CM", "2200"], ["FIDE Master", "FM", "2300"], ["International Master", "IM", "2400"], ["Grandmaster", "GM", "2500"]]],
-              ["Women's Titles", [["Woman Candidate Master", "WCM", "2000"], ["Woman FIDE Master", "WFM", "2100"], ["Woman International Master", "WIM", "2200"], ["Woman Grandmaster", "WGM", "2300"]]],
+              [
+                "Open Titles",
+                [
+                  ["Candidate Master", "CM", "2200"],
+                  ["FIDE Master", "FM", "2300"],
+                  ["International Master", "IM", "2400"],
+                  ["Grandmaster", "GM", "2500"],
+                ],
+              ],
+              [
+                "Women's Titles",
+                [
+                  ["Woman Candidate Master", "WCM", "2000"],
+                  ["Woman FIDE Master", "WFM", "2100"],
+                  ["Woman International Master", "WIM", "2200"],
+                  ["Woman Grandmaster", "WGM", "2300"],
+                ],
+              ],
             ] as [string, string[][]][]
           ).map(([group, rows]) => (
             <div key={group}>
@@ -982,10 +1651,26 @@ export function ChessEncyclopedia() {
           challenger.
         </P>
         <div className="mb-5 grid gap-4 sm:grid-cols-2">
-          <InfoCard icon="🔁" title="Round Robin" body="Every player plays every other player. The most accurate format for determining the strongest player." />
-          <InfoCard icon="🇨🇭" title="Swiss System" body="Players with similar scores are paired each round. Allows large tournaments (100+) to finish in few rounds." />
-          <InfoCard icon="🥊" title="Knockout / Match" body="Players compete head-to-head; loser is eliminated. Used in World Championship cycles." />
-          <InfoCard icon="🏟" title="Arena" body="Players can start new games immediately after finishing. Popular online." />
+          <InfoCard
+            icon="🔁"
+            title="Round Robin"
+            body="Every player plays every other player. The most accurate format for determining the strongest player."
+          />
+          <InfoCard
+            icon="🇨🇭"
+            title="Swiss System"
+            body="Players with similar scores are paired each round. Allows large tournaments (100+) to finish in few rounds."
+          />
+          <InfoCard
+            icon="🥊"
+            title="Knockout / Match"
+            body="Players compete head-to-head; loser is eliminated. Used in World Championship cycles."
+          />
+          <InfoCard
+            icon="🏟"
+            title="Arena"
+            body="Players can start new games immediately after finishing. Popular online."
+          />
         </div>
         <ul className="list-disc space-y-1.5 pl-6 text-ivory/85">
           <li>World Chess Championship (classical, every 2 years)</li>
@@ -998,20 +1683,57 @@ export function ChessEncyclopedia() {
       </Section>
 
       {/* ---- 17 ---- */}
-      <Section num="17" title="The Complete History of Chess — From Ancient India to Today" id={sid(17)}>
+      <Section
+        num="17"
+        title="The Complete History of Chess — From Ancient India to Today"
+        id={sid(17)}
+      >
         <div className="space-y-6 border-l-2 border-gold/20 pl-6">
           {[
-            ["Origins: Chaturanga in Ancient India", "The origins of chess can be traced back to ancient India, where a game called chaturanga was played during the Gupta Empire, roughly between the 4th and 6th centuries AD. The word 'chaturanga' is Sanskrit for 'four divisions of the military' — infantry, cavalry, elephants, and chariots — corresponding to the four piece types. Chaturanga was already remarkably similar to modern chess: different pieces had different powers, and the fate of the king determined the outcome."],
-            ["The Persian Evolution: Shatranj", "Chaturanga spread westward to Persia around the 6th century AD and evolved into shatranj. The raja became the ‘shah’ (king — the source of the word ‘chess’), and the phrase ‘shah mat’ — ‘the king is helpless’ — became the word ‘checkmate.’ Shatranj became enormously popular in the Islamic Golden Age, with masters like al-Suli and al-Lajlaj writing the first opening theory."],
-            ["Chess Arrives in Europe", "Chess entered Europe via the Moorish conquest of Spain, through Sicily and Italy, and possibly through Byzantine routes. By the 10th and 11th centuries it was widespread throughout medieval Europe. The pieces were reinterpreted to reflect feudal society: the vizier became a queen, the elephant a bishop, and the chariot a castle (rook). Chess was considered one of the seven skills required of a knight."],
-            ["The Revolutionary 15th-Century Rule Changes", "The most dramatic transformation in chess history occurred around 1475 in Spain or Portugal. The queen — formerly the weakest piece — gained the ability to move any number of squares in any direction, instantly becoming the most powerful piece. The new game was sometimes called 'Mad Queen Chess' — and within decades it had replaced the old shatranj throughout Europe."],
-            ["The Romantic Era: 1600s–1800s", "For two centuries chess was dominated by 'Romantic chess' — brilliant sacrifices and aggressive attacks pursued regardless of material cost. The most celebrated figure was Paul Morphy (1837–1884), an American prodigy from New Orleans often considered the greatest natural talent in chess history."],
-            ["The Classical Era: Steinitz and Scientific Chess", "Wilhelm Steinitz (1836–1900) revolutionized chess by replacing the Romantic attacking style with scientific positional principles. He argued that chess was about accumulating small advantages and only attacking when justified. Steinitz became the first official World Chess Champion in 1886 by defeating Johannes Zukertort."],
-            ["The Soviet Chess Empire (1948–1991)", "After WWII, chess became a matter of national prestige for the Soviet Union. From 1948 to 1972, every World Chess Champion was a Soviet citizen. The dominant figure was Mikhail Botvinnik, whose students included future champions Anatoly Karpov and Garry Kasparov."],
-            ["Bobby Fischer and the Match of the Century", "The 1972 World Championship between American Bobby Fischer and Soviet champion Boris Spassky in Reykjavik, Iceland, was one of the most dramatic events in sports history. Played at the height of the Cold War, Fischer won 12.5–8.5, breaking the Soviet monopoly on the world title for the first time in 24 years."],
-            ["Karpov, Kasparov, and Deep Blue", "Karpov dominated chess from 1975 to 1985 with quiet positional precision. In 1985, the young Garry Kasparov won the title at age 22 and held it for 15 years. In 1997, IBM's Deep Blue defeated Kasparov 3.5–2.5 — the first computer to beat a reigning World Champion in a classical match, a landmark moment for AI."],
-            ["The Modern Era: Kramnik, Anand, Carlsen", "Vladimir Kramnik ended Kasparov's reign in 2000 using the famous Berlin Defense. Viswanathan Anand of India became champion in 2007, inspiring an entire generation of Indian players. Magnus Carlsen of Norway held the title from 2013 to 2023 with the highest peak rating ever recorded (2882) before voluntarily declining to defend."],
-            ["Gukesh — The Youngest World Champion", "In December 2024, 18-year-old Gukesh Dommaraju of India became the youngest undisputed World Chess Champion in history, defeating Ding Liren of China in Singapore. His victory represents the rise of a new generation of digital-native chess prodigies and the growing dominance of Indian chess."],
+            [
+              "Origins: Chaturanga in Ancient India",
+              "The origins of chess can be traced back to ancient India, where a game called chaturanga was played during the Gupta Empire, roughly between the 4th and 6th centuries AD. The word 'chaturanga' is Sanskrit for 'four divisions of the military' — infantry, cavalry, elephants, and chariots — corresponding to the four piece types. Chaturanga was already remarkably similar to modern chess: different pieces had different powers, and the fate of the king determined the outcome.",
+            ],
+            [
+              "The Persian Evolution: Shatranj",
+              "Chaturanga spread westward to Persia around the 6th century AD and evolved into shatranj. The raja became the ‘shah’ (king — the source of the word ‘chess’), and the phrase ‘shah mat’ — ‘the king is helpless’ — became the word ‘checkmate.’ Shatranj became enormously popular in the Islamic Golden Age, with masters like al-Suli and al-Lajlaj writing the first opening theory.",
+            ],
+            [
+              "Chess Arrives in Europe",
+              "Chess entered Europe via the Moorish conquest of Spain, through Sicily and Italy, and possibly through Byzantine routes. By the 10th and 11th centuries it was widespread throughout medieval Europe. The pieces were reinterpreted to reflect feudal society: the vizier became a queen, the elephant a bishop, and the chariot a castle (rook). Chess was considered one of the seven skills required of a knight.",
+            ],
+            [
+              "The Revolutionary 15th-Century Rule Changes",
+              "The most dramatic transformation in chess history occurred around 1475 in Spain or Portugal. The queen — formerly the weakest piece — gained the ability to move any number of squares in any direction, instantly becoming the most powerful piece. The new game was sometimes called 'Mad Queen Chess' — and within decades it had replaced the old shatranj throughout Europe.",
+            ],
+            [
+              "The Romantic Era: 1600s–1800s",
+              "For two centuries chess was dominated by 'Romantic chess' — brilliant sacrifices and aggressive attacks pursued regardless of material cost. The most celebrated figure was Paul Morphy (1837–1884), an American prodigy from New Orleans often considered the greatest natural talent in chess history.",
+            ],
+            [
+              "The Classical Era: Steinitz and Scientific Chess",
+              "Wilhelm Steinitz (1836–1900) revolutionized chess by replacing the Romantic attacking style with scientific positional principles. He argued that chess was about accumulating small advantages and only attacking when justified. Steinitz became the first official World Chess Champion in 1886 by defeating Johannes Zukertort.",
+            ],
+            [
+              "The Soviet Chess Empire (1948–1991)",
+              "After WWII, chess became a matter of national prestige for the Soviet Union. From 1948 to 1972, every World Chess Champion was a Soviet citizen. The dominant figure was Mikhail Botvinnik, whose students included future champions Anatoly Karpov and Garry Kasparov.",
+            ],
+            [
+              "Bobby Fischer and the Match of the Century",
+              "The 1972 World Championship between American Bobby Fischer and Soviet champion Boris Spassky in Reykjavik, Iceland, was one of the most dramatic events in sports history. Played at the height of the Cold War, Fischer won 12.5–8.5, breaking the Soviet monopoly on the world title for the first time in 24 years.",
+            ],
+            [
+              "Karpov, Kasparov, and Deep Blue",
+              "Karpov dominated chess from 1975 to 1985 with quiet positional precision. In 1985, the young Garry Kasparov won the title at age 22 and held it for 15 years. In 1997, IBM's Deep Blue defeated Kasparov 3.5–2.5 — the first computer to beat a reigning World Champion in a classical match, a landmark moment for AI.",
+            ],
+            [
+              "The Modern Era: Kramnik, Anand, Carlsen",
+              "Vladimir Kramnik ended Kasparov's reign in 2000 using the famous Berlin Defense. Viswanathan Anand of India became champion in 2007, inspiring an entire generation of Indian players. Magnus Carlsen of Norway held the title from 2013 to 2023 with the highest peak rating ever recorded (2882) before voluntarily declining to defend.",
+            ],
+            [
+              "Gukesh — The Youngest World Champion",
+              "In December 2024, 18-year-old Gukesh Dommaraju of India became the youngest undisputed World Chess Champion in history, defeating Ding Liren of China in Singapore. His victory represents the rise of a new generation of digital-native chess prodigies and the growing dominance of Indian chess.",
+            ],
           ].map(([t, d]) => (
             <div key={t} className="relative">
               <span className="absolute -left-[31px] top-1.5 h-2.5 w-2.5 rounded-full bg-gold" />
@@ -1052,17 +1774,45 @@ export function ChessEncyclopedia() {
           use different rules, boards, or pieces.
         </P>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <InfoCard icon="🎲" title="Chess960 / Fischer Random" body="The starting position of the pieces is randomly chosen, eliminating the value of memorized opening theory. Invented by Bobby Fischer to put pure chess creativity back at the center of the game." />
-          <InfoCard icon="👥" title="Bughouse" body="A 4-player variant played on two boards with partners. Pieces captured by your partner can be placed on your board as your move — creating chaotic, fast-paced fun." />
-          <InfoCard icon="✚" title="4-Player Chess" body="Played on a special cross-shaped board with four sets of pieces. Players form alliances or fight free-for-all. Each player uses their own clock." />
-          <InfoCard icon="🌀" title="Crazyhouse" body="Like bughouse but for 2 players. Captured pieces join your army and can be dropped back onto the board as your move. Creates wild tactical positions." />
-          <InfoCard icon="3️⃣" title="Three-Check" body="The first player to put the opponent's king in check three times wins — regardless of material or checkmate. Forces constant attacking play." />
-          <InfoCard icon="🔄" title="Antichess (Losing Chess)" body="The goal is reversed: you must lose all your pieces or get stalemated. If you can capture an enemy piece, you MUST. The most counterintuitive chess variant." />
+          <InfoCard
+            icon="🎲"
+            title="Chess960 / Fischer Random"
+            body="The starting position of the pieces is randomly chosen, eliminating the value of memorized opening theory. Invented by Bobby Fischer to put pure chess creativity back at the center of the game."
+          />
+          <InfoCard
+            icon="👥"
+            title="Bughouse"
+            body="A 4-player variant played on two boards with partners. Pieces captured by your partner can be placed on your board as your move — creating chaotic, fast-paced fun."
+          />
+          <InfoCard
+            icon="✚"
+            title="4-Player Chess"
+            body="Played on a special cross-shaped board with four sets of pieces. Players form alliances or fight free-for-all. Each player uses their own clock."
+          />
+          <InfoCard
+            icon="🌀"
+            title="Crazyhouse"
+            body="Like bughouse but for 2 players. Captured pieces join your army and can be dropped back onto the board as your move. Creates wild tactical positions."
+          />
+          <InfoCard
+            icon="3️⃣"
+            title="Three-Check"
+            body="The first player to put the opponent's king in check three times wins — regardless of material or checkmate. Forces constant attacking play."
+          />
+          <InfoCard
+            icon="🔄"
+            title="Antichess (Losing Chess)"
+            body="The goal is reversed: you must lose all your pieces or get stalemated. If you can capture an enemy piece, you MUST. The most counterintuitive chess variant."
+          />
         </div>
       </Section>
 
       {/* ---- 20 ---- */}
-      <Section num="20" title="Chess and Artificial Intelligence — A 70-Year Relationship" id={sid(20)}>
+      <Section
+        num="20"
+        title="Chess and Artificial Intelligence — A 70-Year Relationship"
+        id={sid(20)}
+      >
         <P>
           Chess has been central to the history of AI since the very beginning of the field. In
           1950, mathematician Alan Turing wrote the first chess-playing algorithm — not on a
@@ -1092,14 +1842,35 @@ export function ChessEncyclopedia() {
       <Section num="21" title="How to Start Playing Chess — Your First Steps" id={sid(21)}>
         <ol className="space-y-3">
           {[
-            ["Learn the basic rules", "You now know them from this guide! Each piece moves differently, you win by checkmate, and you must always get your king to safety. The rules will feel natural after a few games."],
-            ["Play your first games online for free", "Create an account and play against the computer at the beginner level before challenging real players."],
-            ["Learn the three opening principles", "Before studying specific openings: control the center, develop your pieces, castle your king. These three principles give you a solid start in every game."],
-            ["Solve puzzles every day", "Chess puzzles are short exercises where you find the best move. Solving 5–10 puzzles a day is one of the fastest ways to improve."],
-            ["Review your games", "After every game, spend 5 minutes reviewing your moves. Identify the moment you started to lose — usually a single blunder. Learning to spot your blunders is the fastest path to improvement."],
-            ["Join a club or community", "Chess is more fun with other people. Find a local club, join an online community, or watch chess content on YouTube and Twitch. Learning from stronger players accelerates improvement dramatically."],
+            [
+              "Learn the basic rules",
+              "You now know them from this guide! Each piece moves differently, you win by checkmate, and you must always get your king to safety. The rules will feel natural after a few games.",
+            ],
+            [
+              "Play your first games online for free",
+              "Create an account and play against the computer at the beginner level before challenging real players.",
+            ],
+            [
+              "Learn the three opening principles",
+              "Before studying specific openings: control the center, develop your pieces, castle your king. These three principles give you a solid start in every game.",
+            ],
+            [
+              "Solve puzzles every day",
+              "Chess puzzles are short exercises where you find the best move. Solving 5–10 puzzles a day is one of the fastest ways to improve.",
+            ],
+            [
+              "Review your games",
+              "After every game, spend 5 minutes reviewing your moves. Identify the moment you started to lose — usually a single blunder. Learning to spot your blunders is the fastest path to improvement.",
+            ],
+            [
+              "Join a club or community",
+              "Chess is more fun with other people. Find a local club, join an online community, or watch chess content on YouTube and Twitch. Learning from stronger players accelerates improvement dramatically.",
+            ],
           ].map(([t, d], i) => (
-            <li key={t} className="flex gap-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+            <li
+              key={t}
+              className="flex gap-4 rounded-xl border border-white/10 bg-white/[0.02] p-4"
+            >
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gold/10 font-display text-gold">
                 {i + 1}
               </span>
@@ -1158,7 +1929,9 @@ export function ChessEncyclopedia() {
 
       {/* ---- 26 ---- */}
       <Section num="26" title="About Us" id={sid(26)}>
-        <h3 className="mb-2 font-display text-2xl text-gradient-gold">Welcome to Our Chess Platform</h3>
+        <h3 className="mb-2 font-display text-2xl text-gradient-gold">
+          Welcome to Our Chess Platform
+        </h3>
         <P>
           We are building a modern chess experience designed for players of all skill levels. Our
           platform combines smooth gameplay, intelligent AI, real-time multiplayer, and a visually
@@ -1182,17 +1955,43 @@ export function ChessEncyclopedia() {
           <li>Customizable board and gameplay settings</li>
           <li>A platform where players can learn, practice, and compete confidently</li>
         </ul>
-        <P>We aim to make chess more engaging, strategic, and enjoyable for players around the world.</P>
+        <P>
+          We aim to make chess more engaging, strategic, and enjoyable for players around the world.
+        </P>
         <h3 className="mb-3 font-display text-xl text-gold">Why Choose Us</h3>
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <InfoCard icon="⚡" title="Fast & Smooth" body="Fast and smooth gameplay performance." />
-          <InfoCard icon="🤖" title="Intelligent AI" body="Intelligent AI with multiple difficulty levels." />
-          <InfoCard icon="🌐" title="Real-time Multiplayer" body="Real-time online matchmaking and rooms." />
-          <InfoCard icon="📱" title="Responsive Design" body="Responsive design for desktop and mobile devices." />
+          <InfoCard
+            icon="🤖"
+            title="Intelligent AI"
+            body="Intelligent AI with multiple difficulty levels."
+          />
+          <InfoCard
+            icon="🌐"
+            title="Real-time Multiplayer"
+            body="Real-time online matchmaking and rooms."
+          />
+          <InfoCard
+            icon="📱"
+            title="Responsive Design"
+            body="Responsive design for desktop and mobile devices."
+          />
           <InfoCard icon="🎨" title="Modern UI/UX" body="Modern and immersive chess UI/UX." />
-          <InfoCard icon="⚔" title="Accurate Rules" body="Accurate official chess rules and move validation." />
-          <InfoCard icon="⚙" title="Customizable" body="Customizable board themes, timers, and gameplay settings." />
-          <InfoCard icon="🛡" title="Stable & Optimized" body="Stable and optimized multiplayer experience." />
+          <InfoCard
+            icon="⚔"
+            title="Accurate Rules"
+            body="Accurate official chess rules and move validation."
+          />
+          <InfoCard
+            icon="⚙"
+            title="Customizable"
+            body="Customizable board themes, timers, and gameplay settings."
+          />
+          <InfoCard
+            icon="🛡"
+            title="Stable & Optimized"
+            body="Stable and optimized multiplayer experience."
+          />
         </div>
         <h3 className="mb-2 font-display text-xl text-gold">Contact Us</h3>
         <P>
@@ -1213,7 +2012,9 @@ export function ChessEncyclopedia() {
         </div>
 
         <Card className="p-8 text-center">
-          <h3 className="font-display text-2xl text-gradient-gold">Ready to Play Your First Game?</h3>
+          <h3 className="font-display text-2xl text-gradient-gold">
+            Ready to Play Your First Game?
+          </h3>
           <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-ivory/80">
             You now know everything you need to start playing chess. The best way to improve is
             simply to play — every game teaches you something new.

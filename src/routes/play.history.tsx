@@ -5,9 +5,14 @@ import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Prim
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { UserAvatar } from "@/components/site/UserAvatar";
+import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/play/history")({
-  head: () => ({ meta: [{ title: "Game History — ChessOx" }] }),
+  head: () =>
+    noindexSeo(
+      "Your Chess Game History — ChessOx",
+      "Review your past chess games on ChessOx, with results, ratings and links to full game analysis.",
+    ),
   component: GameHistory,
 });
 
@@ -137,7 +142,7 @@ function GameHistory() {
 
   if (!authLoading && !user) {
     return (
-      <PageShell eyebrow="History" title="Game History">
+      <PageShell eyebrow="History" title="Game History" compact={true}>
         <Card className="p-8 text-center">
           <Crown className="mx-auto h-10 w-10 text-gold/40" />
           <p className="mt-4 text-muted-foreground">Sign in to view your match history.</p>
@@ -180,6 +185,7 @@ function GameHistory() {
       eyebrow="Royal Archives"
       title="Game History"
       subtitle="Every finished match, replayable and reviewable forever."
+      compact={true}
       action={
         <Link to="/play">
           <GoldButton>

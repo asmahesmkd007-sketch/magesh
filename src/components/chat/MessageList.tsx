@@ -17,7 +17,8 @@ export function MessageList({
   onReply: (msg: ChatMessage) => void;
 }) {
   useChannelRealtime(channelId);
-  const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useChannelFeed(channelId);
+  const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } =
+    useChannelFeed(channelId);
   const { data: pinned = [] } = usePinnedMessages(channelId);
   const [showPinned, setShowPinned] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -119,9 +120,13 @@ export function MessageList({
         {results !== null ? (
           <div className="space-y-1">
             {results.length === 0 ? (
-              <p className="py-8 text-center text-xs text-muted-foreground">No messages match "{query}".</p>
+              <p className="py-8 text-center text-xs text-muted-foreground">
+                No messages match "{query}".
+              </p>
             ) : (
-              results.map((m) => <MessageBubble key={m.id} message={m} isStaff={isStaff} onReply={onReply} />)
+              results.map((m) => (
+                <MessageBubble key={m.id} message={m} isStaff={isStaff} onReply={onReply} />
+              ))
             )}
           </div>
         ) : isLoading ? (

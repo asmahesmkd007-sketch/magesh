@@ -15,7 +15,12 @@ import { Card } from "@/components/site/Primitives";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/admin/analytics")({
-  head: () => ({ meta: [{ title: "Admin — Analytics — ChessOx" }] }),
+  head: () => ({
+    meta: [
+      { title: "Admin — Analytics — ChessOx" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: () => (
     <AdminShell title="Analytics">
       <Analytics />

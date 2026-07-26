@@ -43,22 +43,26 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
 
     // Explicit annotation — see note in client.ts: inference from the options
     // object leaves the schema generic unresolved and breaks query typing.
-    const supabase: SupabaseClient<Database> = createClient<Database>(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY!, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
+    const supabase: SupabaseClient<Database> = createClient<Database>(
+      SUPABASE_URL!,
+      SUPABASE_PUBLISHABLE_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          fetch: fetch,
         },
-        fetch: fetch,
+        realtime: {
+          transport: WebSocket as never,
+        },
+        auth: {
+          storage: undefined,
+          persistSession: false,
+          autoRefreshToken: false,
+        },
       },
-      realtime: {
-        transport: WebSocket as never,
-      },
-      auth: {
-        storage: undefined,
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    });
+    );
 
     const {
       data: { user },

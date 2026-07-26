@@ -38,17 +38,15 @@ import { useBankDetails } from "@/hooks/useBankDetails";
 import { useWithdrawalRequests, submitWithdrawal, cancelWithdrawal } from "@/hooks/useWithdrawal";
 import type { TransactionType } from "@/lib/api/walletClient";
 import type { WithdrawalRequest } from "@/hooks/useWithdrawal";
+import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/wallet")({
-  head: () => ({
-    meta: [
-      { title: "Wallet — ChessOx" },
-      {
-        name: "description",
-        content: "Your ChessOx wallet, withdrawals, and transaction history.",
-      },
-    ],
-  }),
+  head: () =>
+    noindexSeo(
+      "Wallet — ChessOx",
+      "Your ChessOx wallet, withdrawals, and transaction history.",
+      "noindex, nofollow",
+    ),
   component: WalletPage,
 });
 
@@ -835,7 +833,9 @@ function WalletPage() {
                   if (!bankAccount) {
                     setShowBankModal(true);
                   } else {
-                    document.getElementById("withdrawal-section")?.scrollIntoView({ behavior: "smooth" });
+                    document
+                      .getElementById("withdrawal-section")
+                      ?.scrollIntoView({ behavior: "smooth" });
                   }
                 }}
                 className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-400 hover:bg-emerald-500/15 transition"
@@ -904,7 +904,6 @@ function WalletPage() {
             />
           </div>
         )}
-
 
         {/* ── Withdrawal History ── */}
         {withdrawalRequests.length > 0 && <WithdrawalHistory requests={withdrawalRequests} />}

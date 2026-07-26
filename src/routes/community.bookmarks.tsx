@@ -10,9 +10,15 @@ import { PostCard } from "@/components/community/PostCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useBookmarks } from "@/hooks/useCommunity";
 import { fetchPostsByIds, setBookmarkCollection } from "@/lib/api/communityClient";
+import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/community/bookmarks")({
-  head: () => ({ meta: [{ title: "Bookmarks — Community — ChessOx" }] }),
+  head: () =>
+    noindexSeo(
+      "Saved Community Posts — ChessOx",
+      "The community posts you have bookmarked on ChessOx.",
+      "noindex, nofollow",
+    ),
   component: Bookmarks,
 });
 

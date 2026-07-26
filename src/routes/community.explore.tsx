@@ -8,9 +8,36 @@ import { UserAvatar } from "@/components/site/UserAvatar";
 import { useCommunityFeed, useLeaderboard } from "@/hooks/useCommunity";
 import { searchUsers } from "@/lib/api/communityClient";
 import { FeedList } from "./community.index";
+import { seo, breadcrumbLd, collectionPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/community/explore")({
-  head: () => ({ meta: [{ title: "Explore — Community — ChessOx" }] }),
+  head: () =>
+    seo({
+      title: "Explore the Chess Community — Players, Posts & Tags | ChessOx",
+      description:
+        "Explore the ChessOx chess community: search for chess players, browse posts by tag and see who is most active in the community right now.",
+      keywords: [
+        "online chess community",
+        "chess players community",
+        "chess social network",
+        "chess discussion forum",
+      ],
+      path: "/community/explore",
+      jsonLd: [
+        collectionPageLd({
+          name: "Explore the Chess Community — ChessOx",
+          description:
+            "Search chess players, browse community posts by tag and view community leaderboards on ChessOx.",
+          path: "/community/explore",
+          about: ["Online chess community", "Chess players community"],
+        }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Community", path: "/community" },
+          { name: "Explore", path: "/community/explore" },
+        ]),
+      ],
+    }),
   validateSearch: (search: Record<string, unknown>) => ({
     q: typeof search.q === "string" && search.q ? search.q : undefined,
     tag: typeof search.tag === "string" && search.tag ? search.tag : undefined,
@@ -25,7 +52,13 @@ const LEADERBOARDS = [
   { kind: "followers", label: "Most Followed" },
 ] as const;
 
-function LeaderboardCard({ kind, label }: { kind: (typeof LEADERBOARDS)[number]["kind"]; label: string }) {
+function LeaderboardCard({
+  kind,
+  label,
+}: {
+  kind: (typeof LEADERBOARDS)[number]["kind"];
+  label: string;
+}) {
   const { data = [] } = useLeaderboard(kind, 5);
   return (
     <Card className="p-4">
@@ -88,7 +121,9 @@ function Explore() {
       {tag && (
         <div className="mb-4 flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">Posts tagged</span>
-          <span className="rounded-full border border-emerald/30 bg-emerald/10 px-3 py-0.5 text-emerald">#{tag}</span>
+          <span className="rounded-full border border-emerald/30 bg-emerald/10 px-3 py-0.5 text-emerald">
+            #{tag}
+          </span>
           <button
             type="button"
             onClick={() => navigate({ search: { q: undefined, tag: undefined } })}
@@ -101,7 +136,9 @@ function Explore() {
 
       {users.length > 0 && (
         <Card className="mb-4 p-4">
-          <div className="mb-2 text-xs font-medium uppercase tracking-wider text-gold/80">Players</div>
+          <div className="mb-2 text-xs font-medium uppercase tracking-wider text-gold/80">
+            Players
+          </div>
           <div className="grid gap-1 sm:grid-cols-2">
             {users.map((u) => (
               <Link

@@ -5,12 +5,12 @@ dotenv.config();
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
 async function main() {
   console.log(`Found ${PUZZLES.length} puzzles to seed.`);
-  
+
   const items = PUZZLES.map((p) => ({
     fen: p.fen,
     moves: p.moves.join(" "),
@@ -21,11 +21,11 @@ async function main() {
     difficulty: p.difficulty,
     explanation: p.explanation,
     themes: p.themes,
-    enabled: true
+    enabled: true,
   }));
 
   const { error } = await supabase.from("puzzles").insert(items);
-  
+
   if (error) {
     console.error("Failed to seed puzzles:", error);
   } else {

@@ -32,15 +32,16 @@ import {
   useCommunityProfile,
   useCommunityRealtime,
 } from "@/hooks/useCommunity";
-import {
-  ACHIEVEMENT_LABELS,
-  fetchFollowList,
-  fetchUserComments,
-} from "@/lib/api/communityClient";
+import { ACHIEVEMENT_LABELS, fetchFollowList, fetchUserComments } from "@/lib/api/communityClient";
 import type { CommunityUserLite } from "@/lib/api/communityClient";
+import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/u/$username")({
-  head: ({ params }) => ({ meta: [{ title: `@${params.username} — ChessOx` }] }),
+  head: ({ params }) =>
+    noindexSeo(
+      `@${params.username} — Chess Player Profile | ChessOx`,
+      `The ChessOx profile of @${params.username}: chess ratings, results, achievements and recent games.`,
+    ),
   component: PublicProfile,
 });
 
@@ -266,7 +267,10 @@ function PublicProfile() {
                               type="button"
                               className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-xs text-muted-foreground hover:bg-white/[0.05] hover:text-foreground"
                               onClick={() => {
-                                actions.mute.mutate({ targetId: profile.id, muted: profile.is_muted });
+                                actions.mute.mutate({
+                                  targetId: profile.id,
+                                  muted: profile.is_muted,
+                                });
                                 setMenuOpen(false);
                               }}
                             >
@@ -277,7 +281,10 @@ function PublicProfile() {
                               type="button"
                               className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-xs text-rose-400 hover:bg-white/[0.05]"
                               onClick={() => {
-                                actions.block.mutate({ targetId: profile.id, blocked: profile.is_blocked });
+                                actions.block.mutate({
+                                  targetId: profile.id,
+                                  blocked: profile.is_blocked,
+                                });
                                 setMenuOpen(false);
                               }}
                             >
@@ -304,7 +311,11 @@ function PublicProfile() {
                       onClick={() => actions.follow.mutate(profile.id)}
                       className={`!px-5 !py-1.5 text-xs ${profile.is_following ? "opacity-70" : ""}`}
                     >
-                      {profile.is_following ? "Following" : profile.follows_me ? "Follow back" : "Follow"}
+                      {profile.is_following
+                        ? "Following"
+                        : profile.follows_me
+                          ? "Follow back"
+                          : "Follow"}
                     </GoldButton>
                   )}
                 </>
@@ -327,7 +338,9 @@ function PublicProfile() {
             <div className="text-sm text-muted-foreground">
               @{profile.username}
               {profile.follows_me && (
-                <span className="ml-2 rounded bg-white/5 px-1.5 py-0.5 text-[10px]">Follows you</span>
+                <span className="ml-2 rounded bg-white/5 px-1.5 py-0.5 text-[10px]">
+                  Follows you
+                </span>
               )}
             </div>
             {profile.bio && <p className="mt-2 whitespace-pre-wrap text-sm">{profile.bio}</p>}
@@ -362,7 +375,8 @@ function PublicProfile() {
               {stat("Comments", profile.comments_count)}
               {!isOwn && profile.mutual_followers > 0 && (
                 <span className="text-xs text-muted-foreground">
-                  {profile.mutual_followers} mutual follower{profile.mutual_followers > 1 ? "s" : ""}
+                  {profile.mutual_followers} mutual follower
+                  {profile.mutual_followers > 1 ? "s" : ""}
                 </span>
               )}
             </div>
@@ -397,9 +411,7 @@ function PublicProfile() {
 
       <div className="mt-4">
         {tab === "posts" && <FeedList feed={postsFeed} emptyText="No posts yet." />}
-        {tab === "media" && (
-          <MediaGrid feed={mediaFeed} />
-        )}
+        {tab === "media" && <MediaGrid feed={mediaFeed} />}
         {tab === "comments" && <CommentsTab userId={profile.id} />}
         {tab === "achievements" && (
           <Card className="p-5">
@@ -429,9 +441,7 @@ function PublicProfile() {
         )}
       </div>
 
-      {modal && (
-        <FollowListModal userId={profile.id} kind={modal} onClose={() => setModal(null)} />
-      )}
+      {modal && <FollowListModal userId={profile.id} kind={modal} onClose={() => setModal(null)} />}
       {reporting && (
         <ReportDialog
           onClose={() => setReporting(false)}

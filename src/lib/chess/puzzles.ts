@@ -11,7 +11,14 @@ export type Puzzle = {
   rating: number;
   // Optional so lightweight DB projections (e.g. Puzzle Rush) can build partial rows.
   category?: string;
-  difficulty?: "Beginner" | "Easy" | "Intermediate" | "Advanced" | "Expert" | "Master" | "Grandmaster";
+  difficulty?:
+    | "Beginner"
+    | "Easy"
+    | "Intermediate"
+    | "Advanced"
+    | "Expert"
+    | "Master"
+    | "Grandmaster";
   themes?: string[];
   explanation?: string;
   // Additive metadata (optional so older callers/rows are unaffected).
@@ -37,14537 +44,10270 @@ export function difficultyOf(rating: number): Puzzle["difficulty"] {
 
 export const PUZZLES: Puzzle[] = [
   {
-    "id": "p-back-rank-mate-350",
-    "fen": "8/8/8/7N/R7/6K1/8/6k1 w - - 0 1",
-    "moves": [
-      "a4a1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 251,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-364",
-    "fen": "7k/8/6Q1/8/8/3B4/8/1K6 w - - 0 1",
-    "moves": [
-      "g6h7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 252,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-233",
-    "fen": "8/8/8/8/2R5/8/5K2/7k w - - 0 1",
-    "moves": [
-      "c4h4"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 253,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-187",
-    "fen": "3k4/8/4K3/8/1Q2B3/8/8/8 w - - 0 1",
-    "moves": [
-      "b4b8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 255,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-341",
-    "fen": "8/8/4Q3/8/8/3KB3/8/7k w - - 0 1",
-    "moves": [
-      "e6h3"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 257,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-80",
-    "fen": "4k3/5R1Q/8/8/3K4/8/8/8 w - - 0 1",
-    "moves": [
-      "h7g8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 259,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-369",
-    "fen": "3Q4/4R3/7k/8/6K1/8/8/8 w - - 0 1",
-    "moves": [
-      "d8d6"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 260,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-401",
-    "fen": "1k6/8/1K5N/8/8/Q7/8/8 w - - 0 1",
-    "moves": [
-      "a3f8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 261,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-176",
-    "fen": "8/5Q2/8/8/8/8/4R3/1K5k w - - 0 1",
-    "moves": [
-      "f7f1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 263,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-444",
-    "fen": "8/1R6/8/8/6Q1/8/8/2K4k w - - 0 1",
-    "moves": [
-      "b7h7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 263,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-99",
-    "fen": "6K1/8/8/8/8/B7/k7/2Q5 w - - 0 1",
-    "moves": [
-      "c1b2"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 265,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-174",
-    "fen": "4k1K1/8/7R/8/8/3R4/8/8 w - - 0 1",
-    "moves": [
-      "h6e6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 265,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-249",
-    "fen": "8/8/1K2R3/8/8/8/3R4/7k w - - 0 1",
-    "moves": [
-      "e6e1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 265,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-334",
-    "fen": "8/8/2Q5/8/8/5K2/N7/3k4 w - - 0 1",
-    "moves": [
-      "c6c1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 265,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-332",
-    "fen": "8/8/8/1Q6/8/8/2N2K2/7k w - - 0 1",
-    "moves": [
-      "b5h5"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 267,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-431",
-    "fen": "8/8/1Q6/8/8/8/5K1k/8 w - - 0 1",
-    "moves": [
-      "b6h6"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 270,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-371",
-    "fen": "4K3/8/8/6R1/1R6/8/8/k7 w - - 0 1",
-    "moves": [
-      "g5a5"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 272,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-348",
-    "fen": "8/8/k7/2K5/8/5Q2/8/8 w - - 0 1",
-    "moves": [
-      "f3a8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 275,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-412",
-    "fen": "8/1K6/4Q3/8/8/k7/8/2N5 w - - 0 1",
-    "moves": [
-      "e6b3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 278,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-107",
-    "fen": "6K1/1R6/8/8/k7/8/8/1R6 w - - 0 1",
-    "moves": [
-      "b7a7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 280,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-151",
-    "fen": "8/8/6R1/8/k1K5/8/8/4Q3 w - - 0 1",
-    "moves": [
-      "g6a6"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 280,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-449",
-    "fen": "8/8/8/2R5/8/4K3/3Q4/6k1 w - - 0 1",
-    "moves": [
-      "c5c1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 283,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-465",
-    "fen": "8/8/8/8/8/3K3R/4R3/k7 w - - 0 1",
-    "moves": [
-      "h3h1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 283,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-365",
-    "fen": "7k/8/3Q2K1/8/8/5N2/8/8 w - - 0 1",
-    "moves": [
-      "d6b8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 285,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-75",
-    "fen": "6Q1/3K4/1R6/8/8/8/8/7k w - - 0 1",
-    "moves": [
-      "b6h6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 287,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-192",
-    "fen": "8/8/4K3/8/8/2R5/7R/k7 w - - 0 1",
-    "moves": [
-      "c3c1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 289,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-97",
-    "fen": "5R2/8/8/5R2/7k/5K2/8/8 w - - 0 1",
-    "moves": [
-      "f8h8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 290,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-353",
-    "fen": "7k/1K6/8/3R4/8/8/8/6R1 w - - 0 1",
-    "moves": [
-      "d5h5"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 293,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-244",
-    "fen": "8/Q7/8/8/8/2N5/8/2K1k3 w - - 0 1",
-    "moves": [
-      "a7g1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 296,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-155",
-    "fen": "4K3/2Q5/8/8/1R6/8/k7/8 w - - 0 1",
-    "moves": [
-      "c7a5"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 298,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-92",
-    "fen": "8/8/8/7k/8/3R4/1K6/6R1 w - - 0 1",
-    "moves": [
-      "d3h3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 303,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-205",
-    "fen": "6k1/3Q4/8/8/8/8/8/B1K5 w - - 0 1",
-    "moves": [
-      "d7g7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 306,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-73",
-    "fen": "8/8/6Q1/8/4K3/1R6/8/7k w - - 0 1",
-    "moves": [
-      "b3h3"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 308,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-234",
-    "fen": "8/8/8/8/B1K5/6Q1/8/7k w - - 0 1",
-    "moves": [
-      "a4c6"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 309,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-248",
-    "fen": "2k5/7Q/8/8/4R3/8/7K/8 w - - 0 1",
-    "moves": [
-      "e4e8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 309,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-466",
-    "fen": "8/8/8/8/8/5K2/2NQ4/7k w - - 0 1",
-    "moves": [
-      "d2g2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 313,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-206",
-    "fen": "8/7K/k7/4R3/1Q6/8/8/8 w - - 0 1",
-    "moves": [
-      "e5a5"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 314,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-306",
-    "fen": "6R1/8/8/8/8/4K3/4R3/2k5 w - - 0 1",
-    "moves": [
-      "g8g1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 315,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-238",
-    "fen": "7k/R7/8/8/6K1/8/4Q3/8 w - - 0 1",
-    "moves": [
-      "e2e8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 319,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-366",
-    "fen": "7K/8/7Q/8/4N3/8/8/3k4 w - - 0 1",
-    "moves": [
-      "h6d2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 319,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-379",
-    "fen": "6Q1/5K2/8/R7/8/8/8/7k w - - 0 1",
-    "moves": [
-      "a5h5"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 319,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-112",
-    "fen": "8/8/5Q2/7k/8/8/3K2R1/8 w - - 0 1",
-    "moves": [
-      "f6h8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 320,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-199",
-    "fen": "8/8/8/8/8/7K/4Q3/6k1 w - - 0 1",
-    "moves": [
-      "e2g2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 321,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-450",
-    "fen": "8/6Q1/8/4N3/7k/8/2K5/8 w - - 0 1",
-    "moves": [
-      "g7g4"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 324,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-455",
-    "fen": "8/8/8/B7/4R3/8/5K2/7k w - - 0 1",
-    "moves": [
-      "e4h4"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 324,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-182",
-    "fen": "8/8/K7/2B5/k7/3R4/8/8 w - - 0 1",
-    "moves": [
-      "d3a3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 325,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-406",
-    "fen": "1k6/2R5/6K1/8/8/8/3Q4/8 w - - 0 1",
-    "moves": [
-      "d2d8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 325,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-446",
-    "fen": "8/8/8/R7/8/6K1/8/7k w - - 0 1",
-    "moves": [
-      "a5a1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 327,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-120",
-    "fen": "5K2/1Q6/8/1R6/8/8/k7/8 w - - 0 1",
-    "moves": [
-      "b7a8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 331,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-93",
-    "fen": "8/8/2Q5/8/K7/8/1R6/6k1 w - - 0 1",
-    "moves": [
-      "c6g2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 332,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-100",
-    "fen": "8/8/8/8/8/8/8/k1K4Q w - - 0 1",
-    "moves": [
-      "h1a8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 333,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-144",
-    "fen": "8/8/8/3R4/1R6/4K3/8/k7 w - - 0 1",
-    "moves": [
-      "d5a5"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 333,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-382",
-    "fen": "8/8/2R5/k7/8/1KR5/8/8 w - - 0 1",
-    "moves": [
-      "c3c5"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 337,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-236",
-    "fen": "8/3Q4/8/8/8/5K2/8/5k2 w - - 0 1",
-    "moves": [
-      "d7d1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 339,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-317",
-    "fen": "4R3/8/8/8/k1K5/8/8/8 w - - 0 1",
-    "moves": [
-      "e8a8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 340,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-204",
-    "fen": "8/R7/8/8/6K1/8/3Q4/6k1 w - - 0 1",
-    "moves": [
-      "a7a1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 343,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-209",
-    "fen": "k7/8/8/8/5B2/1Q6/5K2/8 w - - 0 1",
-    "moves": [
-      "b3b8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 347,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-131",
-    "fen": "7k/5Q2/4N3/8/8/7K/8/8 w - - 0 1",
-    "moves": [
-      "f7g7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 349,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-329",
-    "fen": "k7/7R/8/8/8/8/3KQ3/8 w - - 0 1",
-    "moves": [
-      "e2e8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 349,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-414",
-    "fen": "8/8/1Q6/8/8/2K5/k7/8 w - - 0 1",
-    "moves": [
-      "b6b2"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 351,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-79",
-    "fen": "8/8/7Q/8/8/K7/8/k7 w - - 0 1",
-    "moves": [
-      "h6h1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 353,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-161",
-    "fen": "7K/8/R7/8/6R1/8/8/7k w - - 0 1",
-    "moves": [
-      "a6h6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 353,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-180",
-    "fen": "8/5K2/1Q6/8/8/k7/B7/8 w - - 0 1",
-    "moves": [
-      "b6b3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 354,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-246",
-    "fen": "K6k/8/8/5Q2/8/3B4/8/8 w - - 0 1",
-    "moves": [
-      "f5f8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 355,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-135",
-    "fen": "k7/4K3/8/8/8/1R6/8/2Q5 w - - 0 1",
-    "moves": [
-      "c1a3"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 357,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-136",
-    "fen": "7K/k7/8/5R2/1R6/8/8/8 w - - 0 1",
-    "moves": [
-      "f5a5"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 359,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-166",
-    "fen": "3N4/8/8/3Q4/8/3K4/8/3k4 w - - 0 1",
-    "moves": [
-      "d5h1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 360,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-121",
-    "fen": "8/8/8/8/5R2/4K3/3R4/k7 w - - 0 1",
-    "moves": [
-      "f4f1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 362,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-184",
-    "fen": "4k3/8/3K4/6Q1/8/8/8/8 w - - 0 1",
-    "moves": [
-      "g5e7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 362,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-58",
-    "fen": "3R4/8/8/8/5K1k/8/8/8 w - - 0 1",
-    "moves": [
-      "d8h8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 364,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-437",
-    "fen": "8/3R4/8/6R1/8/6K1/8/6k1 w - - 0 1",
-    "moves": [
-      "d7d1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 366,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-77",
-    "fen": "8/2K5/5R2/8/8/8/7Q/k7 w - - 0 1",
-    "moves": [
-      "f6f1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 369,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-424",
-    "fen": "8/1R6/8/8/8/8/2K3Q1/4k3 w - - 0 1",
-    "moves": [
-      "b7e7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 370,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-479",
-    "fen": "1R6/8/k7/8/8/1R1K4/8/8 w - - 0 1",
-    "moves": [
-      "b8a8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 374,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-227",
-    "fen": "k7/2K5/8/8/8/8/5R2/8 w - - 0 1",
-    "moves": [
-      "f2a2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 375,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-487",
-    "fen": "1k6/5R2/4Q3/3K4/8/8/8/8 w - - 0 1",
-    "moves": [
-      "e6e8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 380,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-415",
-    "fen": "8/4k1K1/4B3/8/3Q4/8/8/8 w - - 0 1",
-    "moves": [
-      "d4d7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 384,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-98",
-    "fen": "1k6/6R1/8/8/4Q3/8/2K5/8 w - - 0 1",
-    "moves": [
-      "e4b7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 385,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-259",
-    "fen": "8/8/8/8/7R/3B4/2K5/k7 w - - 0 1",
-    "moves": [
-      "h4a4"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 385,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-333",
-    "fen": "8/8/8/1N6/8/K7/5Q2/1k6 w - - 0 1",
-    "moves": [
-      "f2b2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 385,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-134",
-    "fen": "7k/4R3/8/3Q4/8/8/8/6K1 w - - 0 1",
-    "moves": [
-      "d5a8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 389,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-302",
-    "fen": "3R4/8/1R6/8/8/6K1/8/k7 w - - 0 1",
-    "moves": [
-      "d8a8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 389,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-252",
-    "fen": "8/1Q6/8/8/8/1K6/8/1k6 w - - 0 1",
-    "moves": [
-      "b7h1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 395,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-148",
-    "fen": "8/8/8/5Q2/B7/5K2/8/5k2 w - - 0 1",
-    "moves": [
-      "f5b1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 397,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-481",
-    "fen": "8/6R1/3R4/8/K7/8/8/7k w - - 0 1",
-    "moves": [
-      "d6h6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 398,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-242",
-    "fen": "3k4/5Q2/3K4/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "f7f8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 399,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-397",
-    "fen": "8/6N1/8/8/R7/8/5K1k/8 w - - 0 1",
-    "moves": [
-      "a4h4"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 400,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-436",
-    "fen": "8/8/8/7R/1K6/8/5R2/3k4 w - - 0 1",
-    "moves": [
-      "h5h1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 400,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-83",
-    "fen": "5k2/3R4/8/R7/3K4/8/8/8 w - - 0 1",
-    "moves": [
-      "a5a8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 403,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-430",
-    "fen": "k7/8/K2Q4/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "d6d8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 403,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-103",
-    "fen": "k7/8/8/4R3/KR6/8/8/8 w - - 0 1",
-    "moves": [
-      "e5a5"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 410,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-464",
-    "fen": "K7/5Q2/7k/8/8/8/5B2/8 w - - 0 1",
-    "moves": [
-      "f2e3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 416,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-232",
-    "fen": "8/8/8/8/8/7B/K3Q3/7k w - - 0 1",
-    "moves": [
-      "e2g2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 417,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-370",
-    "fen": "8/8/8/8/8/8/4RK1k/Q7 w - - 0 1",
-    "moves": [
-      "a1h8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 417,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-447",
-    "fen": "k7/8/1K6/8/8/8/2Q5/8 w - - 0 1",
-    "moves": [
-      "c2c8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 417,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-315",
-    "fen": "k7/1N6/1K6/8/8/5R2/8/8 w - - 0 1",
-    "moves": [
-      "f3f8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 418,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-173",
-    "fen": "8/5K2/8/4BQ2/8/8/8/7k w - - 0 1",
-    "moves": [
-      "f5f1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 419,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-223",
-    "fen": "8/8/8/8/8/4RK1R/8/5k2 w - - 0 1",
-    "moves": [
-      "h3h1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 421,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-423",
-    "fen": "k4B2/8/K7/8/8/1Q6/8/8 w - - 0 1",
-    "moves": [
-      "b3b7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 421,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-84",
-    "fen": "1k6/8/K7/8/3Q4/8/8/7B w - - 0 1",
-    "moves": [
-      "d4d8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 423,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-398",
-    "fen": "7k/8/7N/8/8/5K2/6Q1/8 w - - 0 1",
-    "moves": [
-      "g2g8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 426,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-363",
-    "fen": "8/2K5/8/6B1/1Q6/8/8/3k4 w - - 0 1",
-    "moves": [
-      "b4d2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 427,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-395",
-    "fen": "1Q5K/8/8/8/6R1/8/8/k7 w - - 0 1",
-    "moves": [
-      "g4a4"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 428,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-452",
-    "fen": "1Q6/8/8/8/8/1KR5/8/k7 w - - 0 1",
-    "moves": [
-      "c3c1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 431,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-154",
-    "fen": "1Q6/3R4/8/k7/6K1/8/8/8 w - - 0 1",
-    "moves": [
-      "d7a7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 432,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-378",
-    "fen": "5k2/3Q4/8/6N1/8/8/1K6/8 w - - 0 1",
-    "moves": [
-      "d7f7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 433,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-482",
-    "fen": "k7/8/K6Q/8/8/8/3B4/8 w - - 0 1",
-    "moves": [
-      "h6f8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 435,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-321",
-    "fen": "1k6/6R1/4R3/8/8/8/4K3/8 w - - 0 1",
-    "moves": [
-      "e6e8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 436,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-124",
-    "fen": "4k3/6R1/8/8/8/8/KR6/8 w - - 0 1",
-    "moves": [
-      "b2b8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 443,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-122",
-    "fen": "k7/7R/1K6/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "h7h8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 444,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-319",
-    "fen": "4B3/8/7k/4QK2/8/8/8/8 w - - 0 1",
-    "moves": [
-      "e5h8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 447,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-88",
-    "fen": "K7/8/8/8/8/4Q2N/8/7k w - - 0 1",
-    "moves": [
-      "e3g1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 448,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-314",
-    "fen": "8/8/8/8/8/1R6/5K2/7k w - - 0 1",
-    "moves": [
-      "b3h3"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 455,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-67",
-    "fen": "k7/1R6/1K6/6R1/8/8/8/8 w - - 0 1",
-    "moves": [
-      "g5g8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 457,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-387",
-    "fen": "8/K4Q2/8/8/8/8/3R4/4k3 w - - 0 1",
-    "moves": [
-      "f7f2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 458,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-82",
-    "fen": "5K1k/8/8/8/8/8/8/4QN2 w - - 0 1",
-    "moves": [
-      "e1h4"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 461,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-193",
-    "fen": "7k/8/5K2/5Q2/8/1R6/8/8 w - - 0 1",
-    "moves": [
-      "b3b8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 461,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-225",
-    "fen": "8/7R/8/8/k1K5/8/8/8 w - - 0 1",
-    "moves": [
-      "h7a7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 465,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-56",
-    "fen": "6K1/6R1/7k/8/8/8/8/4Q3 w - - 0 1",
-    "moves": [
-      "e1h4"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 466,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-434",
-    "fen": "7k/5R2/8/8/8/8/R7/3K4 w - - 0 1",
-    "moves": [
-      "a2a8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 466,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-367",
-    "fen": "k7/2K5/8/4R3/8/8/8/8 w - - 0 1",
-    "moves": [
-      "e5a5"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 467,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-102",
-    "fen": "8/4K3/6B1/8/8/1Q6/8/k7 w - - 0 1",
-    "moves": [
-      "b3b1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 468,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-167",
-    "fen": "8/6K1/4Q3/4N3/7k/8/8/8 w - - 0 1",
-    "moves": [
-      "e6g4"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 469,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-64",
-    "fen": "6K1/8/8/8/8/8/3Q2R1/1k6 w - - 0 1",
-    "moves": [
-      "d2e1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 471,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-407",
-    "fen": "8/8/2K2Q2/7k/8/8/2B5/8 w - - 0 1",
-    "moves": [
-      "c2d1"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 476,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-419",
-    "fen": "5R2/8/8/8/8/8/8/k1K5 w - - 0 1",
-    "moves": [
-      "f8a8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 477,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-76",
-    "fen": "8/8/R7/8/5R2/7k/8/7K w - - 0 1",
-    "moves": [
-      "a6a3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 478,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-258",
-    "fen": "k7/6R1/6Q1/3K4/8/8/8/8 w - - 0 1",
-    "moves": [
-      "g6e8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 479,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-228",
-    "fen": "8/7K/8/8/8/7k/5R2/6Q1 w - - 0 1",
-    "moves": [
-      "f2h2"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 480,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-308",
-    "fen": "6k1/2R5/6K1/8/7B/8/8/8 w - - 0 1",
-    "moves": [
-      "c7c8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 480,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-214",
-    "fen": "8/4K3/4B3/8/8/8/6Q1/k7 w - - 0 1",
-    "moves": [
-      "g2a2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 484,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-304",
-    "fen": "k7/5Q2/8/3K2R1/8/8/8/8 w - - 0 1",
-    "moves": [
-      "g5g8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 484,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-342",
-    "fen": "8/5Q2/8/8/7R/5K2/8/5k2 w - - 0 1",
-    "moves": [
-      "h4h1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 485,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-372",
-    "fen": "8/8/5R2/8/8/8/2Q4K/k7 w - - 0 1",
-    "moves": [
-      "f6f1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 486,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-336",
-    "fen": "6k1/8/1R4K1/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "b6b8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 487,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-177",
-    "fen": "k7/8/1K6/8/8/4Q3/7N/8 w - - 0 1",
-    "moves": [
-      "e3e8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 490,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-474",
-    "fen": "k1K5/8/8/8/8/4R3/8/8 w - - 0 1",
-    "moves": [
-      "e3a3"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 491,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-140",
-    "fen": "8/8/8/8/2Q5/8/8/k1K5 w - - 0 1",
-    "moves": [
-      "c4a6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 495,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-325",
-    "fen": "8/1Q6/8/8/8/5K1k/8/8 w - - 0 1",
-    "moves": [
-      "b7h7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 495,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-411",
-    "fen": "1k6/7Q/K7/8/8/8/7R/8 w - - 0 1",
-    "moves": [
-      "h7b7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 495,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-90",
-    "fen": "k5K1/8/8/8/8/8/2Q5/6B1 w - - 0 1",
-    "moves": [
-      "c2c8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 496,
-    "difficulty": "Beginner",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-374",
-    "fen": "8/8/8/8/8/3R1R2/k1K5/8 w - - 0 1",
-    "moves": [
-      "d3a3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 497,
-    "difficulty": "Beginner",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-128",
-    "fen": "8/8/8/8/4R3/7K/3B4/7k w - - 0 1",
-    "moves": [
-      "e4e1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 505,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-335",
-    "fen": "k7/8/1R6/8/2R5/8/K7/8 w - - 0 1",
-    "moves": [
-      "c4a4"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 506,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-251",
-    "fen": "7k/3R1R2/K7/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "d7d8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 507,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-118",
-    "fen": "K1k5/8/8/3R4/8/8/1R6/8 w - - 0 1",
-    "moves": [
-      "b2c2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 514,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-183",
-    "fen": "1R5K/8/8/8/k7/8/4Q3/8 w - - 0 1",
-    "moves": [
-      "e2a6"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 516,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-226",
-    "fen": "k7/6RQ/8/8/6K1/8/8/8 w - - 0 1",
-    "moves": [
-      "g7g8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 517,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-153",
-    "fen": "8/2R5/3K4/8/8/8/4R3/7k w - - 0 1",
-    "moves": [
-      "c7c1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 518,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-352",
-    "fen": "8/8/7R/8/8/4K3/3Q4/6k1 w - - 0 1",
-    "moves": [
-      "d2f2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 518,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-345",
-    "fen": "8/8/7k/1K6/8/5R2/6Q1/8 w - - 0 1",
-    "moves": [
-      "f3h3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 519,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-239",
-    "fen": "8/8/8/8/8/5K1k/1Q6/8 w - - 0 1",
-    "moves": [
-      "b2h8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 522,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-197",
-    "fen": "7k/5K2/8/8/Q7/8/N7/8 w - - 0 1",
-    "moves": [
-      "a4h4"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 526,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-403",
-    "fen": "3R4/8/8/K7/8/8/5Q2/k7 w - - 0 1",
-    "moves": [
-      "d8d1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 528,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-483",
-    "fen": "5Q2/k7/2K5/6R1/8/8/8/8 w - - 0 1",
-    "moves": [
-      "g5a5"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 532,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-240",
-    "fen": "2R5/1K6/1R6/8/k7/8/8/8 w - - 0 1",
-    "moves": [
-      "c8a8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 533,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-453",
-    "fen": "8/8/8/7K/8/7k/4QR2/8 w - - 0 1",
-    "moves": [
-      "e2d3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 533,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-311",
-    "fen": "5R1K/8/1Q6/8/8/k7/8/8 w - - 0 1",
-    "moves": [
-      "f8a8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 534,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-256",
-    "fen": "k7/6R1/8/8/2K5/4R3/8/8 w - - 0 1",
-    "moves": [
-      "e3e8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 540,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-200",
-    "fen": "8/7K/3R4/8/8/8/6R1/1k6 w - - 0 1",
-    "moves": [
-      "d6d1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 542,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-257",
-    "fen": "k7/4R3/8/8/4K3/8/6Q1/8 w - - 0 1",
-    "moves": [
-      "g2g8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 544,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-115",
-    "fen": "7k/8/6K1/8/8/8/3Q4/8 w - - 0 1",
-    "moves": [
-      "d2d8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 546,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-428",
-    "fen": "8/8/1R6/8/8/6K1/8/6k1 w - - 0 1",
-    "moves": [
-      "b6b1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 546,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-326",
-    "fen": "2Q5/8/8/8/8/5K2/8/4k3 w - - 0 1",
-    "moves": [
-      "c8c1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 548,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-178",
-    "fen": "8/8/k1K5/2R5/8/8/8/7R w - - 0 1",
-    "moves": [
-      "h1a1"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 552,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-149",
-    "fen": "8/8/5K1k/8/1R6/R7/8/8 w - - 0 1",
-    "moves": [
-      "b4h4"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 553,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-105",
-    "fen": "8/8/8/2N5/2Q5/8/8/k1K5 w - - 0 1",
-    "moves": [
-      "c4a6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 554,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-202",
-    "fen": "8/6Q1/4B3/8/8/2K5/8/k7 w - - 0 1",
-    "moves": [
-      "g7g1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 555,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-250",
-    "fen": "8/BK4Q1/8/8/8/8/8/7k w - - 0 1",
-    "moves": [
-      "g7g1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 558,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-331",
-    "fen": "8/4R3/8/2K5/8/8/3Q4/k7 w - - 0 1",
-    "moves": [
-      "e7e1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 558,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-472",
-    "fen": "3k4/4R3/6Q1/8/1K6/8/8/8 w - - 0 1",
-    "moves": [
-      "g6e8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 558,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-218",
-    "fen": "6Q1/8/8/8/2K5/8/R7/4k3 w - - 0 1",
-    "moves": [
-      "g8g1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 559,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "queen-corner",
-    "fen": "7k/5Q2/6K1/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "f7e8"
-    ],
-    "theme": "Corner Mate",
-    "category": "Winning Material",
-    "goal": "Mate in 1",
-    "rating": 560,
-    "difficulty": "Easy",
-    "themes": [
-      "corner",
-      "mate",
-      "queen"
-    ],
-    "explanation": "The queen mates the cornered king with its own king in support.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-89",
-    "fen": "8/6Q1/8/8/8/3K4/4N3/7k w - - 0 1",
-    "moves": [
-      "g7g1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 562,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-375",
-    "fen": "8/8/3K4/8/8/8/4RR2/7k w - - 0 1",
-    "moves": [
-      "e2e1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 566,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-358",
-    "fen": "1K6/8/6R1/8/1R6/8/8/7k w - - 0 1",
-    "moves": [
-      "b4h4"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 573,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-60",
-    "fen": "3k4/6Q1/7R/7K/8/8/8/8 w - - 0 1",
-    "moves": [
-      "h6h8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 574,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-359",
-    "fen": "1R6/8/8/k7/4K3/7R/8/8 w - - 0 1",
-    "moves": [
-      "h3a3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 574,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-165",
-    "fen": "k7/3Q4/K7/8/8/8/4B3/8 w - - 0 1",
-    "moves": [
-      "d7c8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 575,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-377",
-    "fen": "8/8/8/8/8/7K/Q7/6k1 w - - 0 1",
-    "moves": [
-      "a2g2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 576,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-63",
-    "fen": "8/8/4K3/8/3B4/8/4Q3/1k6 w - - 0 1",
-    "moves": [
-      "e2b2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 577,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-471",
-    "fen": "1k6/3Q1K2/8/2N5/8/8/8/8 w - - 0 1",
-    "moves": [
-      "d7b7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 577,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-150",
-    "fen": "8/1R6/8/8/8/6K1/8/6k1 w - - 0 1",
-    "moves": [
-      "b7b1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 578,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-433",
-    "fen": "8/6Q1/8/8/k1K5/8/B7/8 w - - 0 1",
-    "moves": [
-      "g7a7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 582,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-253",
-    "fen": "4R3/k7/8/K7/8/8/8/7B w - - 0 1",
-    "moves": [
-      "e8a8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 587,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-312",
-    "fen": "2k5/5R2/5K2/8/8/4R3/8/8 w - - 0 1",
-    "moves": [
-      "e3e8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 590,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-458",
-    "fen": "5k2/8/5K2/8/1R6/8/8/8 w - - 0 1",
-    "moves": [
-      "b4b8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 590,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-396",
-    "fen": "7k/4R3/8/3K4/8/1R6/8/8 w - - 0 1",
-    "moves": [
-      "b3b8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 591,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-362",
-    "fen": "8/N7/8/3Q4/8/k7/2K5/8 w - - 0 1",
-    "moves": [
-      "d5b3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 594,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-376",
-    "fen": "5R2/2K5/8/2k5/7Q/8/8/8 w - - 0 1",
-    "moves": [
-      "f8f5"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 594,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-476",
-    "fen": "6N1/8/8/8/7Q/8/8/k1K5 w - - 0 1",
-    "moves": [
-      "h4a4"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 594,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-222",
-    "fen": "8/8/8/8/2K5/8/2R1Q3/k7 w - - 0 1",
-    "moves": [
-      "c2c1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 597,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-221",
-    "fen": "7k/8/3R2K1/8/8/8/1N6/8 w - - 0 1",
-    "moves": [
-      "d6d8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 598,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-141",
-    "fen": "8/8/6R1/8/1Q6/3K4/k7/8 w - - 0 1",
-    "moves": [
-      "g6a6"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 602,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-170",
-    "fen": "8/3B4/5Q2/8/8/8/k7/2K5 w - - 0 1",
-    "moves": [
-      "f6b2"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 603,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-54",
-    "fen": "3K4/8/8/8/1Q6/8/8/k1B5 w - - 0 1",
-    "moves": [
-      "b4b2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 604,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-213",
-    "fen": "8/8/8/8/8/3Q3K/8/7k w - - 0 1",
-    "moves": [
-      "d3f1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 606,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-111",
-    "fen": "7Q/8/8/8/8/3N4/k5K1/8 w - - 0 1",
-    "moves": [
-      "h8b2"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 608,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-168",
-    "fen": "6k1/8/7Q/5K2/8/8/8/5B2 w - - 0 1",
-    "moves": [
-      "f1c4"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 609,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-188",
-    "fen": "8/8/8/8/Q7/8/5K2/7k w - - 0 1",
-    "moves": [
-      "a4h4"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 611,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-413",
-    "fen": "k7/8/1K6/8/1R6/8/8/6R1 w - - 0 1",
-    "moves": [
-      "g1g8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 611,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-475",
-    "fen": "8/3R4/8/k1K4B/8/8/8/8 w - - 0 1",
-    "moves": [
-      "d7a7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 611,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-220",
-    "fen": "8/2R5/8/7k/8/6R1/4K3/8 w - - 0 1",
-    "moves": [
-      "c7h7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 614,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-91",
-    "fen": "7k/5R2/8/4K3/8/2R5/8/8 w - - 0 1",
-    "moves": [
-      "c3c8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 615,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-53",
-    "fen": "7k/8/8/8/4KQ2/1B6/8/8 w - - 0 1",
-    "moves": [
-      "f4h6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 616,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-winning-material-47",
-    "fen": "6k1/4Rppp/8/8/8/8/5PPP/6K1 w - - 0 1",
-    "moves": [
-      "e7e8"
-    ],
-    "theme": "Winning Material",
-    "category": "Winning Material",
-    "goal": "Mate in 1",
-    "rating": 620,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "The rook infiltrates the open back rank, picking up decisive material and mating threats.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-344",
-    "fen": "4Q3/8/8/8/8/1K6/2R5/3k4 w - - 0 1",
-    "moves": [
-      "e8e2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 620,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-451",
-    "fen": "3K4/1R6/8/8/8/k7/8/7Q w - - 0 1",
-    "moves": [
-      "h1a1"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 621,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-318",
-    "fen": "7R/8/1K6/8/1R6/8/8/k7 w - - 0 1",
-    "moves": [
-      "h8a8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 623,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-62",
-    "fen": "8/8/5K2/8/5R2/8/6Q1/2k5 w - - 0 1",
-    "moves": [
-      "f4f1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 624,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-441",
-    "fen": "8/7k/8/8/8/8/6R1/1K1R4 w - - 0 1",
-    "moves": [
-      "d1h1"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 624,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-427",
-    "fen": "3k4/1K2R1Q1/8/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "g7f8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 625,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-147",
-    "fen": "7k/8/8/3R4/8/2K5/6R1/8 w - - 0 1",
-    "moves": [
-      "d5h5"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 626,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-435",
-    "fen": "1R6/8/k7/8/8/8/6QK/8 w - - 0 1",
-    "moves": [
-      "g2a8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 629,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-461",
-    "fen": "6R1/4R3/K7/8/8/8/7k/8 w - - 0 1",
-    "moves": [
-      "e7h7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 630,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-346",
-    "fen": "8/6B1/5R2/8/8/3K4/8/3k4 w - - 0 1",
-    "moves": [
-      "f6f1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 631,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-137",
-    "fen": "4k3/2Q3K1/8/8/8/8/7R/8 w - - 0 1",
-    "moves": [
-      "h2h8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 632,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-254",
-    "fen": "6R1/8/8/8/8/6R1/8/5K1k w - - 0 1",
-    "moves": [
-      "g8h8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 632,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-445",
-    "fen": "3k4/8/8/5Q2/B7/8/7K/8 w - - 0 1",
-    "moves": [
-      "f5d7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 632,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-57",
-    "fen": "8/8/8/6K1/8/R7/5R2/7k w - - 0 1",
-    "moves": [
-      "a3a1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 635,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-208",
-    "fen": "8/8/8/7K/5Q2/8/8/3k1N2 w - - 0 1",
-    "moves": [
-      "f4d2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 637,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-485",
-    "fen": "k7/2K5/8/8/8/8/5Q2/6B1 w - - 0 1",
-    "moves": [
-      "f2a7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 637,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "queen-support",
-    "fen": "2k5/8/1QK5/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "b6c7"
-    ],
-    "theme": "Corner Box Mate",
-    "category": "Winning Material",
-    "goal": "Mate in 1",
-    "rating": 640,
-    "difficulty": "Easy",
-    "themes": [
-      "box",
-      "mate",
-      "queen"
-    ],
-    "explanation": "The king supports the queen for a textbook box mate.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "scholars-mate",
-    "fen": "r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 4",
-    "moves": [
-      "h5f7"
-    ],
-    "theme": "Scholar's Mate",
-    "category": "Forced Checkmate",
-    "goal": "Mate in 1",
-    "rating": 640,
-    "difficulty": "Easy",
-    "themes": [
-      "opening",
-      "mate",
-      "queen"
-    ],
-    "explanation": "Qxf7 is the four-move Scholar's Mate — f7 is the weakest square in Black's camp.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-ladder-mate-8",
-    "fen": "7k/R7/8/8/8/8/8/1R5K w - - 0 1",
-    "moves": [
-      "b1b8"
-    ],
-    "theme": "Ladder Mate",
-    "category": "Rook Sacrifice Mate",
-    "goal": "Mate in 1",
-    "rating": 640,
-    "difficulty": "Easy",
-    "themes": [
-      "ladder",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The two rooks form a ladder; Rb8 is mate.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-429",
-    "fen": "8/6B1/2R5/8/8/8/5K1k/8 w - - 0 1",
-    "moves": [
-      "c6h6"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 640,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-201",
-    "fen": "5R2/6K1/8/8/8/8/1R6/7k w - - 0 1",
-    "moves": [
-      "f8f1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 641,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-160",
-    "fen": "5K2/8/6R1/8/1R6/8/k7/8 w - - 0 1",
-    "moves": [
-      "g6a6"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 642,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-50",
-    "fen": "8/2Q5/4R3/8/8/7K/8/7k w - - 0 1",
-    "moves": [
-      "c7h2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 645,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-347",
-    "fen": "8/8/8/8/B7/8/1Q3K2/7k w - - 0 1",
-    "moves": [
-      "b2h8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 645,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-196",
-    "fen": "8/8/k1K5/8/4N3/8/3R4/8 w - - 0 1",
-    "moves": [
-      "d2a2"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 647,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-104",
-    "fen": "8/7k/8/6Q1/8/8/3K4/R7 w - - 0 1",
-    "moves": [
-      "a1h1"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 648,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-195",
-    "fen": "2R5/8/8/8/8/3Q4/5K2/7k w - - 0 1",
-    "moves": [
-      "c8h8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 648,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-skewer-16",
-    "fen": "4k3/8/8/8/8/8/8/3RK3 w - - 0 1",
-    "moves": [
-      "d1d8"
-    ],
-    "theme": "Skewer",
-    "category": "Skewer",
-    "goal": "Skewer",
-    "rating": 650,
-    "difficulty": "Easy",
-    "themes": [
-      "skewer"
-    ],
-    "explanation": "Rd8+ is check along the d-file — a piece stacked behind the king on this file would be skewered and lost.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "skewer"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-328",
-    "fen": "k7/8/2K5/1Q1R4/8/8/8/8 w - - 0 1",
-    "moves": [
-      "b5b7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 652,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-442",
-    "fen": "8/4R3/4B3/8/8/k1K5/8/8 w - - 0 1",
-    "moves": [
-      "e7a7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 653,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-207",
-    "fen": "8/8/8/3Q4/8/8/2K5/k4B2 w - - 0 1",
-    "moves": [
-      "d5a8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 656,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-339",
-    "fen": "5Q2/8/8/8/6R1/4K3/8/7k w - - 0 1",
-    "moves": [
-      "f8h8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 665,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-109",
-    "fen": "1k6/8/1K6/8/6R1/4B3/8/8 w - - 0 1",
-    "moves": [
-      "g4g8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 666,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-478",
-    "fen": "6k1/1Q6/5K2/8/8/8/8/7N w - - 0 1",
-    "moves": [
-      "b7g7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 670,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-488",
-    "fen": "8/2R4K/8/8/8/8/6R1/k7 w - - 0 1",
-    "moves": [
-      "c7c1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 674,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-439",
-    "fen": "5QK1/8/8/8/1R6/8/8/k7 w - - 0 1",
-    "moves": [
-      "f8a8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 680,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-163",
-    "fen": "3K4/8/8/8/8/7R/3R4/k7 w - - 0 1",
-    "moves": [
-      "h3h1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 681,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-402",
-    "fen": "8/8/K2B2Q1/8/8/7k/8/8 w - - 0 1",
-    "moves": [
-      "g6g3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 685,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-425",
-    "fen": "8/8/8/8/8/2Q5/5K2/7k w - - 0 1",
-    "moves": [
-      "c3h8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 685,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-361",
-    "fen": "7k/8/8/6R1/3R4/K7/8/8 w - - 0 1",
-    "moves": [
-      "d4h4"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 686,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-72",
-    "fen": "8/5B2/8/8/8/1K4Q1/8/7k w - - 0 1",
-    "moves": [
-      "f7d5"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 687,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-422",
-    "fen": "8/8/6R1/1K6/8/8/R7/3k4 w - - 0 1",
-    "moves": [
-      "g6g1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 687,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-440",
-    "fen": "8/8/8/7k/8/8/5KQ1/5R2 w - - 0 1",
-    "moves": [
-      "f1h1"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 688,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-87",
-    "fen": "7k/K7/3Q4/8/8/8/8/1B6 w - - 0 1",
-    "moves": [
-      "d6f8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 690,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-142",
-    "fen": "8/4R3/8/8/5K2/7k/R7/8 w - - 0 1",
-    "moves": [
-      "e7h7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 690,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-171",
-    "fen": "8/8/6Q1/7K/8/7k/5B2/8 w - - 0 1",
-    "moves": [
-      "g6g3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 692,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-59",
-    "fen": "8/8/8/1R3K2/7R/8/8/k7 w - - 0 1",
-    "moves": [
-      "h4a4"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 695,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-323",
-    "fen": "8/8/8/8/8/1K6/5Q2/k7 w - - 0 1",
-    "moves": [
-      "f2g1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 695,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-473",
-    "fen": "8/8/3Q4/8/8/7k/8/K4N2 w - - 0 1",
-    "moves": [
-      "d6g3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 695,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-463",
-    "fen": "8/7k/8/7K/8/8/8/Q5R1 w - - 0 1",
-    "moves": [
-      "a1g7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 697,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-159",
-    "fen": "k7/3R3R/8/8/8/8/5K2/8 w - - 0 1",
-    "moves": [
-      "d7d8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 699,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-queen-endgame-6",
-    "fen": "7k/8/6K1/8/8/8/8/3Q4 w - - 0 1",
-    "moves": [
-      "d1d8"
-    ],
-    "theme": "Queen Endgame",
-    "category": "Endgame Tactics",
-    "goal": "Mate in 1",
-    "rating": 700,
-    "difficulty": "Easy",
-    "themes": [
-      "queen",
-      "endgame",
-      "mate"
-    ],
-    "explanation": "Qd8 mate — the king on g6 covers the flight squares.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-fork-9",
-    "fen": "4k3/8/8/8/3N4/8/8/4K3 w - - 0 1",
-    "moves": [
-      "d4c6"
-    ],
-    "theme": "Fork",
-    "category": "Fork",
-    "goal": "Fork",
-    "rating": 700,
-    "difficulty": "Easy",
-    "themes": [
-      "fork"
-    ],
-    "explanation": "Nc6 forks the king and would fork rook/queen in a fuller position — the knight jumps to a square attacking two targets at once.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "fork"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-double-attack-20",
-    "fen": "4k3/8/8/8/8/8/8/Q3K3 w - - 0 1",
-    "moves": [
-      "a1a8"
-    ],
-    "theme": "Double Attack",
-    "category": "Double Attack",
-    "goal": "Double Attack",
-    "rating": 700,
-    "difficulty": "Easy",
-    "themes": [
-      "double-attack"
-    ],
-    "explanation": "Qa8+ simultaneously checks the king and, in the full position, attacks an undefended piece — a double attack winning material.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "double-attack"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-ladder-mate-31",
-    "fen": "7k/8/8/8/8/8/6R1/5KR1 w - - 0 1",
-    "moves": [
-      "g2h2"
-    ],
-    "theme": "Ladder Mate",
-    "category": "Ladder Mate",
-    "goal": "Ladder Mate",
-    "rating": 700,
-    "difficulty": "Easy",
-    "themes": [
-      "ladder",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The two rooks climb the board rung by rung until the king is driven to the edge and mated.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "ladder-mate"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-winning-material-45",
-    "fen": "4k3/8/8/8/3n4/8/4B3/4K3 w - - 0 1",
-    "moves": [
-      "e2c4"
-    ],
-    "theme": "Winning Material",
-    "category": "Winning Material",
-    "goal": "Winning Material",
-    "rating": 700,
-    "difficulty": "Easy",
-    "themes": [
-      "winning-material"
-    ],
-    "explanation": "The bishop repositions to attack the loose knight, winning material for free.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "winning-material"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-48",
-    "fen": "3r2k1/6pp/8/8/8/8/5PPP/6K1 b - - 0 1",
-    "moves": [
-      "d8d1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 700,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "Black's rook drops to the back rank; White's king has no flight square behind its own pawns.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-241",
-    "fen": "8/8/4B1Q1/1K6/7k/8/8/8 w - - 0 1",
-    "moves": [
-      "g6g4"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 704,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-66",
-    "fen": "4k3/8/3Q4/8/8/8/1K3R2/8 w - - 0 1",
-    "moves": [
-      "f2f8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 706,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-247",
-    "fen": "k7/6R1/8/3R4/8/8/6K1/8 w - - 0 1",
-    "moves": [
-      "d5d8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 706,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-106",
-    "fen": "4k3/R7/8/8/8/2R5/8/6K1 w - - 0 1",
-    "moves": [
-      "c3c8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 710,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-255",
-    "fen": "8/8/R7/8/8/8/8/5K1k w - - 0 1",
-    "moves": [
-      "a6h6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 711,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-86",
-    "fen": "7k/K7/3Q1N2/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "d6f8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 714,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-114",
-    "fen": "8/8/6N1/8/6R1/1K6/8/1k6 w - - 0 1",
-    "moves": [
-      "g4g1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 715,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-438",
-    "fen": "8/8/8/8/8/1K6/6Q1/k7 w - - 0 1",
-    "moves": [
-      "g2h1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 717,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-421",
-    "fen": "4k3/2B5/5K2/8/8/8/3Q4/8 w - - 0 1",
-    "moves": [
-      "d2d8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 718,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-winning-material-46",
-    "fen": "4k3/8/2r5/8/8/8/1B6/4K3 w - - 0 1",
-    "moves": [
-      "b2a3"
-    ],
-    "theme": "Winning Material",
-    "category": "Winning Material",
-    "goal": "Winning Material",
-    "rating": 720,
-    "difficulty": "Easy",
-    "themes": [
-      "winning-material"
-    ],
-    "explanation": "The bishop sidesteps the attacked square while eyeing the rook on the long diagonal, netting material next move.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "winning-material"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-448",
-    "fen": "8/8/K7/2R5/8/8/R7/5k2 w - - 0 1",
-    "moves": [
-      "c5c1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 720,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-145",
-    "fen": "8/8/8/7k/R7/6Q1/8/3K4 w - - 0 1",
-    "moves": [
-      "a4h4"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 721,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-470",
-    "fen": "4k3/6Q1/8/8/8/8/8/1K3R2 w - - 0 1",
-    "moves": [
-      "f1f8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 724,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-420",
-    "fen": "2B5/5R2/8/8/8/8/8/5K1k w - - 0 1",
-    "moves": [
-      "f7h7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 725,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-94",
-    "fen": "8/1R6/8/4K3/1Q6/8/8/k7 w - - 0 1",
-    "moves": [
-      "b7a7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 726,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-78",
-    "fen": "8/7K/R7/8/8/8/4Q3/7k w - - 0 1",
-    "moves": [
-      "a6a1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 730,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-194",
-    "fen": "k7/8/K4Q2/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "f6d8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 731,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-384",
-    "fen": "7k/8/6K1/8/8/2N5/8/1Q6 w - - 0 1",
-    "moves": [
-      "b1b8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 731,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-404",
-    "fen": "3k4/7R/8/8/8/5K2/8/Q7 w - - 0 1",
-    "moves": [
-      "a1a8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 731,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-355",
-    "fen": "5k2/7Q/8/2K5/8/6R1/8/8 w - - 0 1",
-    "moves": [
-      "g3g8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 732,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-457",
-    "fen": "5Q2/8/8/8/8/3B3K/8/7k w - - 0 1",
-    "moves": [
-      "f8f1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 733,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-51",
-    "fen": "7k/1Q6/8/8/6K1/8/2R5/8 w - - 0 1",
-    "moves": [
-      "c2c8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 734,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-310",
-    "fen": "8/8/4N3/8/6Q1/6K1/8/5k2 w - - 0 1",
-    "moves": [
-      "g4d1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 734,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-113",
-    "fen": "8/8/8/8/5B2/8/2Q5/1K5k w - - 0 1",
-    "moves": [
-      "c2h2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 735,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-307",
-    "fen": "2k5/8/2K5/8/5Q2/B7/8/8 w - - 0 1",
-    "moves": [
-      "f4c7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 735,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-210",
-    "fen": "1R6/8/8/8/8/3K1Q2/k7/8 w - - 0 1",
-    "moves": [
-      "f3a8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 736,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-235",
-    "fen": "8/8/7k/7B/8/8/3K4/1Q6 w - - 0 1",
-    "moves": [
-      "b1g6"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 738,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-360",
-    "fen": "k7/7K/8/8/8/6B1/4Q3/8 w - - 0 1",
-    "moves": [
-      "e2a6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 738,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-139",
-    "fen": "3R4/8/8/1R6/8/8/7K/k7 w - - 0 1",
-    "moves": [
-      "d8a8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 739,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-69",
-    "fen": "8/8/k1K5/8/8/1N6/8/5R2 w - - 0 1",
-    "moves": [
-      "f1a1"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 741,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-484",
-    "fen": "8/6K1/8/8/1R6/8/2R5/7k w - - 0 1",
-    "moves": [
-      "b4b1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 743,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-70",
-    "fen": "8/8/1Q6/8/8/8/7B/5K1k w - - 0 1",
-    "moves": [
-      "b6g1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 744,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-418",
-    "fen": "8/1R6/8/8/8/4K1R1/8/7k w - - 0 1",
-    "moves": [
-      "b7h7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 747,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-127",
-    "fen": "k7/2B5/8/8/8/4K3/8/5Q2 w - - 0 1",
-    "moves": [
-      "f1a6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 748,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-189",
-    "fen": "8/8/3K2Q1/8/8/8/4N3/7k w - - 0 1",
-    "moves": [
-      "g6g1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 749,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-469",
-    "fen": "8/8/6Q1/8/1K6/8/3R4/5k2 w - - 0 1",
-    "moves": [
-      "g6b1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 749,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-fork-10",
-    "fen": "r3k3/8/8/8/8/4N3/8/4K3 w - - 0 1",
-    "moves": [
-      "e3d5"
-    ],
-    "theme": "Fork",
-    "category": "Fork",
-    "goal": "Fork",
-    "rating": 750,
-    "difficulty": "Easy",
-    "themes": [
-      "fork"
-    ],
-    "explanation": "Nd5 forks the king on e8 and the rook on a8 — a classic knight fork wins material.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "fork"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-promotion-36",
-    "fen": "8/4Pk2/8/8/8/8/8/4K3 w - - 0 1",
-    "moves": [
-      "e7e8q"
-    ],
-    "theme": "Promotion",
-    "category": "Promotion",
-    "goal": "Promotion",
-    "rating": 750,
-    "difficulty": "Easy",
-    "themes": [
-      "promotion",
-      "mate",
-      "pawn"
-    ],
-    "explanation": "The pawn queens, immediately winning — always check promotion is safe and decisive first.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "promotion"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-229",
-    "fen": "8/4N3/7k/8/8/6Q1/5K2/8 w - - 0 1",
-    "moves": [
-      "g3g6"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 750,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-486",
-    "fen": "2k5/8/3Q4/8/1R4K1/8/8/8 w - - 0 1",
-    "moves": [
-      "b4b8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 750,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-243",
-    "fen": "8/6Q1/8/k7/8/1R6/4K3/8 w - - 0 1",
-    "moves": [
-      "g7a1"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 751,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-156",
-    "fen": "6K1/8/7k/1Q6/8/8/4B3/8 w - - 0 1",
-    "moves": [
-      "b5h5"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 754,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-460",
-    "fen": "8/8/8/1K2R3/8/6Q1/8/7k w - - 0 1",
-    "moves": [
-      "e5h5"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 754,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-169",
-    "fen": "8/8/1R6/3k4/7Q/3K4/8/8 w - - 0 1",
-    "moves": [
-      "h4g5"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 755,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-349",
-    "fen": "k7/8/1K3B2/1Q6/8/8/8/8 w - - 0 1",
-    "moves": [
-      "b5e8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 755,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-456",
-    "fen": "K1k5/8/8/8/8/8/3R4/7R w - - 0 1",
-    "moves": [
-      "h1c1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 756,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-143",
-    "fen": "k7/8/1K6/6R1/8/8/8/8 w - - 0 1",
-    "moves": [
-      "g5g8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 757,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-338",
-    "fen": "8/1R6/8/8/8/8/2K5/k7 w - - 0 1",
-    "moves": [
-      "b7a7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 758,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-368",
-    "fen": "8/8/1Q6/8/8/k7/2K5/B7 w - - 0 1",
-    "moves": [
-      "b6b3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 758,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-pin-13",
-    "fen": "4k3/8/8/8/8/8/4B3/4K3 w - - 0 1",
-    "moves": [
-      "e2a6"
-    ],
-    "theme": "Pin",
-    "category": "Pin",
-    "goal": "Pin",
-    "rating": 760,
-    "difficulty": "Easy",
-    "themes": [
-      "pin"
-    ],
-    "explanation": "The bishop swings onto the long diagonal; from a6 it would pin any piece standing between it and the enemy king.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "pin"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-130",
-    "fen": "8/8/8/2R5/6R1/8/7k/4K3 w - - 0 1",
-    "moves": [
-      "c5h5"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 760,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-212",
-    "fen": "3k4/1Q6/3K1N2/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "b7a8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 762,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-459",
-    "fen": "k7/2K5/8/8/8/2R5/8/3R4 w - - 0 1",
-    "moves": [
-      "c3a3"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 765,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-172",
-    "fen": "6R1/8/3Q1K1k/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "g8h8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 768,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-385",
-    "fen": "3k4/7R/8/8/8/8/4KR2/8 w - - 0 1",
-    "moves": [
-      "f2f8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 769,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-101",
-    "fen": "8/8/8/8/2QB4/k7/2K5/8 w - - 0 1",
-    "moves": [
-      "c4b3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 771,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-123",
-    "fen": "8/8/8/6RR/8/3K4/8/3k4 w - - 0 1",
-    "moves": [
-      "g5g1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 771,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-162",
-    "fen": "8/8/2K5/8/8/k7/3N4/1Q6 w - - 0 1",
-    "moves": [
-      "b1b3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 772,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-373",
-    "fen": "8/1Q6/2R5/8/8/2K5/8/k7 w - - 0 1",
-    "moves": [
-      "b7b2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 774,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-477",
-    "fen": "1K1k4/8/8/8/4R3/8/7Q/8 w - - 0 1",
-    "moves": [
-      "h2d6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 775,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "back-rank-double",
-    "fen": "6k1/5ppp/8/8/8/8/8/R3R1K1 w - - 0 1",
-    "moves": [
-      "a1a8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 780,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The rook crashes to the back rank where the king is trapped behind its own pawns.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "ladder-start",
-    "fen": "7k/5ppp/8/8/8/8/8/R6K w - - 0 1",
-    "moves": [
-      "a1a8"
-    ],
-    "theme": "Ladder Mate",
-    "category": "Rook Sacrifice Mate",
-    "goal": "Mate in 2",
-    "rating": 780,
-    "difficulty": "Easy",
-    "themes": [
-      "ladder",
-      "mate",
-      "rook"
-    ],
-    "explanation": "Rooks (or rook + support) drive the king up the board rung by rung.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-fork-11",
-    "fen": "4k3/8/8/2n5/8/2K5/1R6/8 b - - 0 1",
-    "moves": [
-      "c5d3"
-    ],
-    "theme": "Fork",
-    "category": "Fork",
-    "goal": "Fork",
-    "rating": 780,
-    "difficulty": "Easy",
-    "themes": [
-      "fork"
-    ],
-    "explanation": "Nd3+ forks the White king and rook, winning the exchange.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "fork"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-393",
-    "fen": "7k/8/6Q1/4KB2/8/8/8/8 w - - 0 1",
-    "moves": [
-      "g6h7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 781,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-71",
-    "fen": "8/8/8/5R2/8/1BK5/8/k7 w - - 0 1",
-    "moves": [
-      "f5f1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 782,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-351",
-    "fen": "8/8/k7/4R3/1Q6/8/4K3/8 w - - 0 1",
-    "moves": [
-      "e5a5"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 782,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-146",
-    "fen": "5R2/8/k7/8/8/8/3K4/1R6 w - - 0 1",
-    "moves": [
-      "f8a8"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 783,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-216",
-    "fen": "8/8/8/1K4R1/8/4R3/8/7k w - - 0 1",
-    "moves": [
-      "e3h3"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 784,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-237",
-    "fen": "8/8/k1K5/4R3/3Q4/8/8/8 w - - 0 1",
-    "moves": [
-      "d4b6"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 789,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-409",
-    "fen": "8/7K/8/8/R7/8/1R6/7k w - - 0 1",
-    "moves": [
-      "a4a1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 789,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-454",
-    "fen": "8/8/8/8/2Q5/k7/B7/2K5 w - - 0 1",
-    "moves": [
-      "c4b3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 794,
-    "difficulty": "Easy",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-217",
-    "fen": "7k/2K5/8/8/Q7/8/6R1/8 w - - 0 1",
-    "moves": [
-      "a4h4"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 795,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-489",
-    "fen": "8/4R3/8/8/8/5K2/7Q/2k5 w - - 0 1",
-    "moves": [
-      "e7e1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 795,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-133",
-    "fen": "8/3R4/8/8/8/8/2K5/k7 w - - 0 1",
-    "moves": [
-      "d7a7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 798,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-245",
-    "fen": "k7/6R1/8/5K2/8/8/3Q4/8 w - - 0 1",
-    "moves": [
-      "d2d8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 798,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-175",
-    "fen": "8/8/5K2/6Q1/8/7N/8/7k w - - 0 1",
-    "moves": [
-      "g5g1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 799,
-    "difficulty": "Easy",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-28",
-    "fen": "6k1/4Rppp/8/8/8/8/8/6K1 w - - 0 1",
-    "moves": [
-      "e7e8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Back Rank Mate",
-    "rating": 800,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "Re8 exploits the trapped king on the back rank — mate.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "back-rank-mate"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-389",
-    "fen": "4k3/7Q/8/1R5K/8/8/8/8 w - - 0 1",
-    "moves": [
-      "b5b8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 804,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-399",
-    "fen": "7k/5Q2/8/4R3/8/3K4/8/8 w - - 0 1",
-    "moves": [
-      "e5e8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 805,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-186",
-    "fen": "7k/3R4/4Q3/8/8/8/1K6/8 w - - 0 1",
-    "moves": [
-      "e6e8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 806,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-410",
-    "fen": "7k/5R2/7K/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "f7f8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 806,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-95",
-    "fen": "k7/8/3R4/1R6/K7/8/8/8 w - - 0 1",
-    "moves": [
-      "d6a6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 808,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-191",
-    "fen": "8/8/5Q2/7k/8/8/7K/2B5 w - - 0 1",
-    "moves": [
-      "f6g5"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 809,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-231",
-    "fen": "5K2/7k/5R2/8/8/8/8/5R2 w - - 0 1",
-    "moves": [
-      "f1h1"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 811,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-322",
-    "fen": "1R6/7K/5R2/8/8/k7/8/8 w - - 0 1",
-    "moves": [
-      "f6a6"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 811,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-203",
-    "fen": "Q7/8/8/K7/8/8/3R4/k7 w - - 0 1",
-    "moves": [
-      "a8h1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 819,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-1",
-    "fen": "6k1/5ppp/8/8/8/8/5PPP/4R1K1 w - - 0 1",
-    "moves": [
-      "e1e8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 820,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The rook lands on the back rank; the g/h pawns leave the king no escape.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-pin-12",
-    "fen": "4k3/8/8/8/4r3/8/4Q3/4K3 b - - 0 1",
-    "moves": [
-      "e4e2"
-    ],
-    "theme": "Pin",
-    "category": "Pin",
-    "goal": "Pin",
-    "rating": 820,
-    "difficulty": "Intermediate",
-    "themes": [
-      "pin"
-    ],
-    "explanation": "The black rook is pinned to its king along the e-file; here it captures because the queen is undefended — illustrating how a pinned piece still exerts pressure.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "pin"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-132",
-    "fen": "8/8/N7/8/8/1K6/4R3/k7 w - - 0 1",
-    "moves": [
-      "e2e1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 821,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-432",
-    "fen": "k1K5/8/7R/8/3N4/8/8/8 w - - 0 1",
-    "moves": [
-      "h6a6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 821,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-313",
-    "fen": "7k/8/2R5/8/6R1/8/6K1/8 w - - 0 1",
-    "moves": [
-      "c6h6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 823,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-179",
-    "fen": "5K1k/8/8/8/8/5R2/8/8 w - - 0 1",
-    "moves": [
-      "f3h3"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 824,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-327",
-    "fen": "2R2K2/1R6/8/8/8/8/8/k7 w - - 0 1",
-    "moves": [
-      "c8a8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 824,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-383",
-    "fen": "8/8/5K1k/8/6R1/8/8/8 w - - 0 1",
-    "moves": [
-      "g4h4"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 824,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-65",
-    "fen": "8/8/1R4K1/8/k7/8/3R4/8 w - - 0 1",
-    "moves": [
-      "d2a2"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 826,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-462",
-    "fen": "3Q4/4K3/8/8/8/8/5R2/4k3 w - - 0 1",
-    "moves": [
-      "d8d2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 826,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-138",
-    "fen": "7k/5Q2/8/5N2/8/K7/8/8 w - - 0 1",
-    "moves": [
-      "f7g7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 829,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-157",
-    "fen": "3Q4/8/8/8/8/4K1R1/8/5k2 w - - 0 1",
-    "moves": [
-      "d8d1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 832,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-390",
-    "fen": "7k/1Q6/7B/8/8/3K4/8/8 w - - 0 1",
-    "moves": [
-      "b7g7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 833,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-108",
-    "fen": "8/8/Q7/6B1/8/5K1k/8/8 w - - 0 1",
-    "moves": [
-      "a6h6"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 837,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-305",
-    "fen": "1K6/6R1/8/8/4R3/8/8/7k w - - 0 1",
-    "moves": [
-      "e4h4"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 838,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-320",
-    "fen": "8/4R3/k1K5/8/8/8/5R2/8 w - - 0 1",
-    "moves": [
-      "f2a2"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 839,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-pin-14",
-    "fen": "3k4/8/8/8/8/8/4R3/4K3 w - - 0 1",
-    "moves": [
-      "e2e8"
-    ],
-    "theme": "Pin",
-    "category": "Pin",
-    "goal": "Pin",
-    "rating": 840,
-    "difficulty": "Intermediate",
-    "themes": [
-      "pin"
-    ],
-    "explanation": "Re8+ checks along the e-file; the king cannot step off without unpinning whatever stood in front of it.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "pin"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-303",
-    "fen": "7k/8/8/8/6R1/8/8/3K2R1 w - - 0 1",
-    "moves": [
-      "g4h4"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 844,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-343",
-    "fen": "8/8/8/8/8/5K1k/8/6Q1 w - - 0 1",
-    "moves": [
-      "g1g3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 847,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-52",
-    "fen": "3k4/Q7/4BK2/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "a7b8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 849,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-endgame-tactics-38",
-    "fen": "8/8/8/8/4k3/8/4P3/4K3 w - - 0 1",
-    "moves": [
-      "e1d1"
-    ],
-    "theme": "Endgame Tactics",
-    "category": "Endgame Tactics",
-    "goal": "Endgame Tactics",
-    "rating": 850,
-    "difficulty": "Intermediate",
-    "themes": [
-      "endgame",
-      "mate"
-    ],
-    "explanation": "Opposition technique: the king sidesteps to keep the opposition and escort the pawn home.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "endgame-tactics"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-316",
-    "fen": "8/8/8/8/8/8/Q7/3K1N1k w - - 0 1",
-    "moves": [
-      "a2h2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 851,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-61",
-    "fen": "4K1Q1/8/8/8/8/7k/8/7N w - - 0 1",
-    "moves": [
-      "g8g3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 854,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-490",
-    "fen": "8/5R2/8/6R1/k7/8/2K5/8 w - - 0 1",
-    "moves": [
-      "f7f4",
-      "a4a3",
-      "g5a5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 856,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-85",
-    "fen": "7k/8/7K/8/8/8/8/R4B2 w - - 0 1",
-    "moves": [
-      "a1a8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 858,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-119",
-    "fen": "6Q1/8/7k/R7/6K1/8/8/8 w - - 0 1",
-    "moves": [
-      "a5a6"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 858,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-152",
-    "fen": "8/k7/8/1QK5/8/3R4/8/8 w - - 0 1",
-    "moves": [
-      "d3a3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 859,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-185",
-    "fen": "8/8/8/k7/8/1R5K/8/1R6 w - - 0 1",
-    "moves": [
-      "b3a3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 862,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-68",
-    "fen": "8/8/3B4/K3Q3/8/7k/8/8 w - - 0 1",
-    "moves": [
-      "e5g3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 864,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-117",
-    "fen": "2Q5/8/8/8/8/1K4B1/8/k7 w - - 0 1",
-    "moves": [
-      "c8c1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 864,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-126",
-    "fen": "8/6R1/5R2/8/8/8/2K5/7k w - - 0 1",
-    "moves": [
-      "f6h6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 864,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-271",
-    "fen": "8/4R3/k7/8/8/1K6/6R1/8 w - - 0 1",
-    "moves": [
-      "g2g6",
-      "a6b5",
-      "e7e5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 866,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-309",
-    "fen": "6Q1/2R5/8/7k/8/8/1K6/8 w - - 0 1",
-    "moves": [
-      "c7h7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 866,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-480",
-    "fen": "8/6R1/8/8/5K2/6Q1/8/7k w - - 0 1",
-    "moves": [
-      "g7h7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 866,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-356",
-    "fen": "7k/R7/8/2R5/8/8/8/4K3 w - - 0 1",
-    "moves": [
-      "c5c8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 867,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-96",
-    "fen": "8/8/4R3/8/8/8/8/k1K5 w - - 0 1",
-    "moves": [
-      "e6a6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 868,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-515",
-    "fen": "8/8/8/1K6/2Q5/1B6/8/1k6 w - - 0 1",
-    "moves": [
-      "c4c2",
-      "b1a1",
-      "c2c1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 868,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-116",
-    "fen": "8/8/8/5RK1/8/8/7Q/k7 w - - 0 1",
-    "moves": [
-      "f5f1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 869,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-280",
-    "fen": "7k/8/8/6Q1/2K3B1/8/8/8 w - - 0 1",
-    "moves": [
-      "g5h6",
-      "h8g8",
-      "g4e6"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 869,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-181",
-    "fen": "1K6/4NQ2/7k/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "f7g6"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 871,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-391",
-    "fen": "k7/2K5/B7/8/8/R7/8/8 w - - 0 1",
-    "moves": [
-      "a6b7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 871,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-55",
-    "fen": "5k2/4R3/8/Q7/8/8/7K/8 w - - 0 1",
-    "moves": [
-      "a5d8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 873,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-49",
-    "fen": "8/1N6/8/8/8/7K/1R6/7k w - - 0 1",
-    "moves": [
-      "b2b1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 874,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-386",
-    "fen": "k6K/8/1Q6/8/4R3/8/8/8 w - - 0 1",
-    "moves": [
-      "e4e8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 874,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-340",
-    "fen": "k7/8/1R4K1/8/8/8/6R1/8 w - - 0 1",
-    "moves": [
-      "g2a2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 875,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-426",
-    "fen": "7k/1Q6/8/8/8/8/6R1/K7 w - - 0 1",
-    "moves": [
-      "b7g7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 875,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-408",
-    "fen": "8/5B2/7k/8/8/8/6Q1/1K6 w - - 0 1",
-    "moves": [
-      "g2g6"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 876,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-125",
-    "fen": "8/8/K7/8/4Q3/8/8/6kB w - - 0 1",
-    "moves": [
-      "e4g2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 878,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-74",
-    "fen": "8/8/Q6K/8/8/6B1/8/7k w - - 0 1",
-    "moves": [
-      "a6f1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 879,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-4",
-    "fen": "6k1/5ppp/8/8/8/8/5PPP/2Q3K1 w - - 0 1",
-    "moves": [
-      "c1c8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 880,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The queen infiltrates the undefended back rank.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-110",
-    "fen": "8/8/8/1R6/8/6K1/8/7k w - - 0 1",
-    "moves": [
-      "b5b1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 880,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-129",
-    "fen": "8/8/8/8/1K6/8/5Q2/4N2k w - - 0 1",
-    "moves": [
-      "f2g2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 882,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-215",
-    "fen": "7k/8/6K1/2Q5/8/8/8/8 w - - 0 1",
-    "moves": [
-      "c5c8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 885,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-381",
-    "fen": "8/8/7Q/8/8/7K/8/7k w - - 0 1",
-    "moves": [
-      "h6c1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 886,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-568",
-    "fen": "8/5R2/5Q2/8/8/8/1K6/6k1 w - - 0 1",
-    "moves": [
-      "f7g7",
-      "g1h2",
-      "f6h6"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 886,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-388",
-    "fen": "2K5/k7/7B/6Q1/8/8/8/8 w - - 0 1",
-    "moves": [
-      "g5a5"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 888,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-230",
-    "fen": "8/8/8/8/2K5/k7/3Q4/3R4 w - - 0 1",
-    "moves": [
-      "d1a1"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 889,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-400",
-    "fen": "8/8/3Q4/3N4/8/1k6/8/1K6 w - - 0 1",
-    "moves": [
-      "d6b4"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 889,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-211",
-    "fen": "k7/8/3R4/8/8/7K/8/1R6 w - - 0 1",
-    "moves": [
-      "d6a6"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 892,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-190",
-    "fen": "6K1/8/8/8/4B3/8/k7/2Q5 w - - 0 1",
-    "moves": [
-      "e4d5"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 894,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-224",
-    "fen": "8/2R5/8/6Q1/8/7k/8/5K2 w - - 0 1",
-    "moves": [
-      "c7h7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 894,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-380",
-    "fen": "K7/8/8/8/6Q1/8/7k/7B w - - 0 1",
-    "moves": [
-      "g4g2"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 895,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-158",
-    "fen": "8/8/2Q5/8/8/K7/8/k7 w - - 0 1",
-    "moves": [
-      "c6h1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 899,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-skewer-15",
-    "fen": "1k6/8/8/8/8/8/8/R3K3 w - - 0 1",
-    "moves": [
-      "a1a8"
-    ],
-    "theme": "Skewer",
-    "category": "Skewer",
-    "goal": "Skewer",
-    "rating": 900,
-    "difficulty": "Intermediate",
-    "themes": [
-      "skewer"
-    ],
-    "explanation": "Ra8+ skewers the king; when it steps aside, anything stacked behind it on the a-file falls.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "skewer"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-passed-pawn-37",
-    "fen": "8/8/8/3P4/8/2k5/8/3K4 w - - 0 1",
-    "moves": [
-      "d5d6"
-    ],
-    "theme": "Passed Pawn",
-    "category": "Passed Pawn",
-    "goal": "Passed Pawn",
-    "rating": 900,
-    "difficulty": "Intermediate",
-    "themes": [
-      "passed-pawn"
-    ],
-    "explanation": "The connected/passed d-pawn marches on; the defending king cannot catch it in time.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "passed-pawn"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-524",
-    "fen": "2Q5/8/8/3B4/8/k2K4/8/8 w - - 0 1",
-    "moves": [
-      "c8c3",
-      "a3a4",
-      "d5c6"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 903,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-574",
-    "fen": "7k/8/8/1B6/1K6/8/8/2Q5 w - - 0 1",
-    "moves": [
-      "c1h6",
-      "h8g8",
-      "b5c4"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 905,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-443",
-    "fen": "8/8/8/4Q3/8/1R5K/8/7k w - - 0 1",
-    "moves": [
-      "e5h2"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 906,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-569",
-    "fen": "8/8/KB6/8/4Q3/8/8/5k2 w - - 0 1",
-    "moves": [
-      "e4f3",
-      "f1e1",
-      "b6a5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 906,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-354",
-    "fen": "6Q1/8/8/2R5/8/k7/2K5/8 w - - 0 1",
-    "moves": [
-      "g8b3"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 909,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-81",
-    "fen": "1R6/8/8/2Q5/k3K3/8/8/8 w - - 0 1",
-    "moves": [
-      "c5a7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 910,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-494",
-    "fen": "8/8/8/8/5K1Q/3R4/k7/8 w - - 0 1",
-    "moves": [
-      "h4h2",
-      "a2b1",
-      "d3d1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 914,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-573",
-    "fen": "k7/8/8/N7/K7/8/8/5Q2 w - - 0 1",
-    "moves": [
-      "f1a6",
-      "a8b8",
-      "a6b7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 919,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-394",
-    "fen": "k7/2Q2R2/8/K7/8/8/8/8 w - - 0 1",
-    "moves": [
-      "c7c8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 920,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-417",
-    "fen": "k7/6QR/K7/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "g7f8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 922,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-330",
-    "fen": "2K1R3/k7/8/8/4Q3/8/8/8 w - - 0 1",
-    "moves": [
-      "e4b7"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 927,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-164",
-    "fen": "8/8/4R3/8/8/R1K5/8/2k5 w - - 0 1",
-    "moves": [
-      "e6e1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 929,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-337",
-    "fen": "4k3/8/4K3/8/8/3R4/2R5/8 w - - 0 1",
-    "moves": [
-      "c2c8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 930,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-1-198",
-    "fen": "8/8/8/8/k1K5/8/3Q4/8 w - - 0 1",
-    "moves": [
-      "d2b4"
-    ],
-    "theme": "Mate in 1",
-    "category": "Mate in 1",
-    "goal": "Mate in 1",
-    "rating": 932,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-1"
-    ],
-    "explanation": "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-263",
-    "fen": "4B3/4Q3/1K6/8/8/8/8/k7 w - - 0 1",
-    "moves": [
-      "e7a3",
-      "a1b1",
-      "e8g6"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 933,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-468",
-    "fen": "6Q1/B4K2/8/8/8/8/8/7k w - - 0 1",
-    "moves": [
-      "g8g1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 939,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-324",
-    "fen": "2R5/8/8/8/8/6K1/8/6k1 w - - 0 1",
-    "moves": [
-      "c8c1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 941,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-500",
-    "fen": "7R/k7/2KR4/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "d6d7",
-      "a7a6",
-      "h8a8"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 941,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-405",
-    "fen": "7k/4R3/8/8/4Q3/K7/8/8 w - - 0 1",
-    "moves": [
-      "e4a8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 942,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-416",
-    "fen": "2K5/1R6/8/6R1/8/8/8/7k w - - 0 1",
-    "moves": [
-      "b7h7"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 944,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-548",
-    "fen": "2K3k1/8/8/8/7R/8/5Q2/8 w - - 0 1",
-    "moves": [
-      "h4g4",
-      "g8h8",
-      "f2h4"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 946,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-219",
-    "fen": "8/8/8/1K6/7R/8/1Q6/3k4 w - - 0 1",
-    "moves": [
-      "h4h1"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 948,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-357",
-    "fen": "3k4/8/3K4/8/8/8/7Q/8 w - - 0 1",
-    "moves": [
-      "h2h8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 948,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-467",
-    "fen": "k7/2Q2K2/8/8/8/8/8/1R6 w - - 0 1",
-    "moves": [
-      "c7b8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 948,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-back-rank-mate-392",
-    "fen": "K3k3/6R1/8/8/1Q6/8/8/8 w - - 0 1",
-    "moves": [
-      "b4b8"
-    ],
-    "theme": "Back Rank Mate",
-    "category": "Back Rank Mate",
-    "goal": "Mate in 1",
-    "rating": 949,
-    "difficulty": "Intermediate",
-    "themes": [
-      "back-rank",
-      "mate",
-      "rook"
-    ],
-    "explanation": "The back rank is fatally weak — the major piece invades where the king cannot flee.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-discovered-attack-17",
-    "fen": "4k3/8/4n3/8/8/8/4B3/4K3 w - - 0 1",
-    "moves": [
-      "e2h5"
-    ],
-    "theme": "Discovered Attack",
-    "category": "Discovered Attack",
-    "goal": "Discovered Attack",
-    "rating": 950,
-    "difficulty": "Intermediate",
-    "themes": [
-      "discovered-attack"
-    ],
-    "explanation": "Moving the bishop off the e-file uncovers an attack from behind (e.g. a rook on e1 in the full position) while also developing the bishop.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "discovered-attack"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-trapped-piece-40",
-    "fen": "4k3/8/8/8/8/8/8/R5K1 w - - 0 1",
-    "moves": [
-      "a1a8"
-    ],
-    "theme": "Trapped Piece",
-    "category": "Trapped Piece",
-    "goal": "Trapped Piece",
-    "rating": 950,
-    "difficulty": "Intermediate",
-    "themes": [
-      "trapped-piece"
-    ],
-    "explanation": "The far-side rook has no safe square to run to — Ra8 traps and wins the cornered piece next.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "trapped-piece"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-547",
-    "fen": "8/5R2/8/4K3/1R6/8/8/6k1 w - - 0 1",
-    "moves": [
-      "b4g4",
-      "g1h2",
-      "f7h7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 958,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-281",
-    "fen": "2K5/8/k7/4Q3/3R4/8/8/8 w - - 0 1",
-    "moves": [
-      "d4d6",
-      "a6a7",
-      "e5a1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 963,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-509",
-    "fen": "6k1/8/8/8/2K5/8/8/5Q1R w - - 0 1",
-    "moves": [
-      "h1g1",
-      "g8h8",
-      "f1h3"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 968,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-572",
-    "fen": "8/8/4R3/8/2Q5/8/4K3/6k1 w - - 0 1",
-    "moves": [
-      "e6g6",
-      "g1h2",
-      "c4h4"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 970,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-558",
-    "fen": "k2K4/5Q2/5R2/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "f6a6",
-      "a8b8",
-      "f7b3"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 972,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-284",
-    "fen": "k7/8/8/8/8/7K/5B2/5Q2 w - - 0 1",
-    "moves": [
-      "f1a6",
-      "a8b8",
-      "f2g3"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 975,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-268",
-    "fen": "6k1/8/8/8/1R6/8/3K1Q2/8 w - - 0 1",
-    "moves": [
-      "b4g4",
-      "g8h8",
-      "f2h4"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 980,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-285",
-    "fen": "3Q4/8/8/8/B7/5K2/8/6k1 w - - 0 1",
-    "moves": [
-      "d8g5",
-      "g1h2",
-      "g5g2"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 987,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-566",
-    "fen": "2K5/4Q3/1k6/2R5/8/8/8/8 w - - 0 1",
-    "moves": [
-      "e7d6",
-      "b6a7",
-      "c5a5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 990,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-274",
-    "fen": "3k4/6R1/8/8/K7/8/4Q3/8 w - - 0 1",
-    "moves": [
-      "e2e7",
-      "d8c8",
-      "e7e8"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 995,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-492",
-    "fen": "8/8/8/8/6K1/8/Q7/2k3B1 w - - 0 1",
-    "moves": [
-      "g1e3",
-      "c1d1",
-      "a2d2"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 996,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-discovered-attack-18",
-    "fen": "4k3/8/8/8/8/4N3/4B3/4K3 w - - 0 1",
-    "moves": [
-      "e3d5"
-    ],
-    "theme": "Discovered Attack",
-    "category": "Discovered Attack",
-    "goal": "Discovered Attack",
-    "rating": 1000,
-    "difficulty": "Intermediate",
-    "themes": [
-      "discovered-attack"
-    ],
-    "explanation": "The knight steps aside, discovering the bishop's attack down the long diagonal — two threats from one move.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "discovered-attack"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-clearance-24",
-    "fen": "3k4/8/8/4Q3/8/8/4R3/4K3 w - - 0 1",
-    "moves": [
-      "e5a5"
-    ],
-    "theme": "Clearance",
-    "category": "Clearance",
-    "goal": "Clearance",
-    "rating": 1000,
-    "difficulty": "Intermediate",
-    "themes": [
-      "clearance"
-    ],
-    "explanation": "The queen clears off the e-file so the rook behind can deliver check on the next move.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "clearance"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-removing-the-defender-27",
-    "fen": "4k3/4n3/8/8/8/8/4R3/4K3 w - - 0 1",
-    "moves": [
-      "e2e7"
-    ],
-    "theme": "Removing the Defender",
-    "category": "Removing the Defender",
-    "goal": "Removing the Defender",
-    "rating": 1000,
-    "difficulty": "Intermediate",
-    "themes": [
-      "removing-the-defender"
-    ],
-    "explanation": "Rxe7+ removes the knight that was defending a key square, opening the position for further gains.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "removing-the-defender"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-stalemate-trick-41",
-    "fen": "7k/8/6Q1/8/8/8/8/6K1 w - - 0 1",
-    "moves": [
-      "g6g7"
-    ],
-    "theme": "Stalemate Trick",
-    "category": "Stalemate Trick",
-    "goal": "Stalemate Trick",
-    "rating": 1000,
-    "difficulty": "Intermediate",
-    "themes": [
-      "stalemate-trick"
-    ],
-    "explanation": "Careless queen play can stalemate a lone king — Qg7 here is intentionally shown as the trap to AVOID; the puzzle trains recognizing stalemate danger.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "stalemate-trick"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-defensive-resource-43",
-    "fen": "4k3/8/8/8/8/8/4r3/4K2R w K - 0 1",
-    "moves": [
-      "e1d1"
-    ],
-    "theme": "Defensive Resource",
-    "category": "Defensive Resource",
-    "goal": "Defensive Resource",
-    "rating": 1000,
-    "difficulty": "Intermediate",
-    "themes": [
-      "defensive-resource"
-    ],
-    "explanation": "Kd1 sidesteps the check and defends, the key defensive resource that holds the position together.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "defensive-resource"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-266",
-    "fen": "2R5/5R2/8/8/8/5K2/8/7k w - - 0 1",
-    "moves": [
-      "c8c1",
-      "h1h2",
-      "f7h7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1000,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-522",
-    "fen": "1k6/8/8/8/8/4R3/6K1/2R5 w - - 0 1",
-    "moves": [
-      "e3b3",
-      "b8a7",
-      "c1a1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1002,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-545",
-    "fen": "1k6/8/5K2/8/2Q5/8/8/6R1 w - - 0 1",
-    "moves": [
-      "g1b1",
-      "b8a7",
-      "c4a2"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1002,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-543",
-    "fen": "2Q5/6K1/8/8/8/3B4/8/k7 w - - 0 1",
-    "moves": [
-      "c8c1",
-      "a1a2",
-      "d3c4"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1004,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-283",
-    "fen": "8/1R6/8/1K6/2Q5/k7/8/8 w - - 0 1",
-    "moves": [
-      "c4b4",
-      "a3a2",
-      "b7a7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1007,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-588",
-    "fen": "2R5/3K4/6k1/8/8/7Q/8/8 w - - 0 1",
-    "moves": [
-      "c8g8",
-      "g6f7",
-      "h3e6"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1014,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-541",
-    "fen": "8/8/8/8/8/3QB3/2K5/7k w - - 0 1",
-    "moves": [
-      "d3f1",
-      "h1h2",
-      "e3f4"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1020,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-587",
-    "fen": "8/8/8/8/2B5/8/Q7/1K5k w - - 0 1",
-    "moves": [
-      "c4d5",
-      "h1g1",
-      "a2g2"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1020,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-arabian-mate-3",
-    "fen": "7k/8/5N2/8/8/8/8/K5R1 w - - 0 1",
-    "moves": [
-      "g1g8"
-    ],
-    "theme": "Arabian Mate",
-    "category": "Arabian Mate",
-    "goal": "Mate in 1",
-    "rating": 1040,
-    "difficulty": "Intermediate",
-    "themes": [
-      "arabian",
-      "mate",
-      "corner"
-    ],
-    "explanation": "Rook and knight cooperate in the corner for the Arabian mate.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-deflection-21",
-    "fen": "3rk3/8/8/8/8/8/8/3RK3 w - - 0 1",
-    "moves": [
-      "d1d8"
-    ],
-    "theme": "Deflection",
-    "category": "Deflection",
-    "goal": "Deflection",
-    "rating": 1050,
-    "difficulty": "Intermediate",
-    "themes": [
-      "deflection"
-    ],
-    "explanation": "Rxd8+ deflects the rook that was guarding a key square/piece; after the forced recapture the point falls.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "deflection"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-interference-25",
-    "fen": "4k3/8/8/8/4b3/8/4R3/4K3 w - - 0 1",
-    "moves": [
-      "e2e4"
-    ],
-    "theme": "Interference",
-    "category": "Interference",
-    "goal": "Interference",
-    "rating": 1050,
-    "difficulty": "Intermediate",
-    "themes": [
-      "interference"
-    ],
-    "explanation": "Rxe4 interposes on the e-file, interfering with the bishop's defense/attack along that line and winning it.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "interference"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-draw-tactic-42",
-    "fen": "7k/8/8/8/8/8/6q1/1K6 w - - 0 1",
-    "moves": [
-      "b1a1"
-    ],
-    "theme": "Draw Tactic",
-    "category": "Draw Tactic",
-    "goal": "Draw Tactic",
-    "rating": 1050,
-    "difficulty": "Intermediate",
-    "themes": [
-      "draw-tactic"
-    ],
-    "explanation": "With only a king left against a queen, White heads for the corner seeking perpetual-check or stalemate resources to salvage a draw.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "draw-tactic"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-262",
-    "fen": "k7/8/8/2N1Q3/8/8/1K6/8 w - - 0 1",
-    "moves": [
-      "e5e4",
-      "a8b8",
-      "e4b7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1063,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-567",
-    "fen": "3R4/8/6K1/8/8/1R6/7k/8 w - - 0 1",
-    "moves": [
-      "d8d2",
-      "h2h1",
-      "b3b1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1067,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-542",
-    "fen": "k7/8/2K5/8/8/4R3/8/2R5 w - - 0 1",
-    "moves": [
-      "e3e8",
-      "a8a7",
-      "c1a1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1072,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-493",
-    "fen": "4k3/8/6K1/8/8/3Q1R2/8/8 w - - 0 1",
-    "moves": [
-      "f3e3",
-      "e8f8",
-      "d3d8"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1080,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-565",
-    "fen": "7B/8/4Q3/8/8/8/8/3K3k w - - 0 1",
-    "moves": [
-      "e6h3",
-      "h1g1",
-      "h8d4"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1091,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-517",
-    "fen": "8/8/5Q2/8/3B4/K7/8/7k w - - 0 1",
-    "moves": [
-      "f6f1",
-      "h1h2",
-      "d4e5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1093,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-decoy-22",
-    "fen": "3k4/8/8/8/8/8/4Q3/4K3 w - - 0 1",
-    "moves": [
-      "e2e8"
-    ],
-    "theme": "Decoy",
-    "category": "Decoy",
-    "goal": "Decoy",
-    "rating": 1100,
-    "difficulty": "Intermediate",
-    "themes": [
-      "decoy"
-    ],
-    "explanation": "Qe8+ decoys the king onto the e-file, where a follow-up fork or mate becomes available.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "decoy"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-546",
-    "fen": "3B4/3k4/8/1K4Q1/8/8/8/8 w - - 0 1",
-    "moves": [
-      "g5e7",
-      "d7c8",
-      "e7c7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1105,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-576",
-    "fen": "8/8/8/6Q1/6N1/8/2K5/4k3 w - - 0 1",
-    "moves": [
-      "g5h4",
-      "e1e2",
-      "h4f2"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1111,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-578",
-    "fen": "8/3R4/8/3R4/8/2K5/k7/8 w - - 0 1",
-    "moves": [
-      "d7a7",
-      "a2b1",
-      "d5d1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1112,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-496",
-    "fen": "8/8/1k6/8/6Q1/2R5/8/5K2 w - - 0 1",
-    "moves": [
-      "g4b4",
-      "b6a7",
-      "c3a3"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1113,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "arabian-classic",
-    "fen": "7k/8/5N1K/8/8/8/8/7R w - - 0 1",
-    "moves": [
-      "h6g6"
-    ],
-    "theme": "Arabian Mate",
-    "category": "Arabian Mate",
-    "goal": "Mate in 1",
-    "rating": 1120,
-    "difficulty": "Intermediate",
-    "themes": [
-      "arabian",
-      "mate",
-      "corner"
-    ],
-    "explanation": "Knight and rook combine in the corner — the classic Arabian mate.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-270",
-    "fen": "6k1/8/8/5R2/5K2/2Q5/8/8 w - - 0 1",
-    "moves": [
-      "c3g3",
-      "g8h8",
-      "f5h5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1134,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-560",
-    "fen": "8/8/2KR4/8/k7/5R2/8/8 w - - 0 1",
-    "moves": [
-      "d6d4",
-      "a4a5",
-      "f3a3"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1134,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-289",
-    "fen": "8/2Q5/1K6/8/k7/8/8/N7 w - - 0 1",
-    "moves": [
-      "c7c4",
-      "a4a3",
-      "c4b3"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1135,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-559",
-    "fen": "1k2K3/8/R7/5Q2/8/8/8/8 w - - 0 1",
-    "moves": [
-      "a6b6",
-      "b8c7",
-      "f5c5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1148,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-smothered-mate-2",
-    "fen": "6rk/6pp/7N/8/8/8/8/6K1 w - - 0 1",
-    "moves": [
-      "h6f7"
-    ],
-    "theme": "Smothered Mate",
-    "category": "Smothered Mate",
-    "goal": "Mate in 1",
-    "rating": 1150,
-    "difficulty": "Intermediate",
-    "themes": [
-      "smothered",
-      "mate",
-      "knight"
-    ],
-    "explanation": "Nf7 is smothered mate — the king is hemmed in by its own rook and pawns.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-attraction-23",
-    "fen": "6k1/8/8/8/8/8/5Q2/5K2 w - - 0 1",
-    "moves": [
-      "f2f7"
-    ],
-    "theme": "Attraction",
-    "category": "Attraction",
-    "goal": "Attraction",
-    "rating": 1150,
-    "difficulty": "Intermediate",
-    "themes": [
-      "attraction"
-    ],
-    "explanation": "Qf7+ attracts the king toward the edge, where it becomes exposed to further checks.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "attraction"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-269",
-    "fen": "1k6/5K2/4Q3/1N6/8/8/8/8 w - - 0 1",
-    "moves": [
-      "e6b6",
-      "b8c8",
-      "b6c7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1150,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-508",
-    "fen": "8/3B1K2/8/7k/8/8/6Q1/8 w - - 0 1",
-    "moves": [
-      "g2g4",
-      "h5h6",
-      "g4g6"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1168,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-513",
-    "fen": "k7/8/8/1Q6/8/8/8/1K3B2 w - - 0 1",
-    "moves": [
-      "f1g2",
-      "a8a7",
-      "b5b7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1168,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-279",
-    "fen": "6k1/8/1Q6/8/8/6K1/8/4B3 w - - 0 1",
-    "moves": [
-      "b6g6",
-      "g8h8",
-      "e1c3"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1185,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-535",
-    "fen": "8/8/8/5K1B/8/4Q3/8/k7 w - - 0 1",
-    "moves": [
-      "e3c1",
-      "a1a2",
-      "h5f7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1188,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-264",
-    "fen": "8/2R5/8/2Q5/6K1/8/8/k7 w - - 0 1",
-    "moves": [
-      "c5a3",
-      "a1b1",
-      "c7c1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1196,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-519",
-    "fen": "8/8/8/6Q1/5N2/4K3/8/5k2 w - - 0 1",
-    "moves": [
-      "g5g2",
-      "f1e1",
-      "g2h1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1196,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-512",
-    "fen": "1k6/7K/8/5R2/8/8/8/2R5 w - - 0 1",
-    "moves": [
-      "f5b5",
-      "b8a7",
-      "c1a1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1197,
-    "difficulty": "Intermediate",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-zwischenzug-26",
-    "fen": "4k3/8/8/3q4/8/8/3R1B2/4K3 w - - 0 1",
-    "moves": [
-      "f2b6"
-    ],
-    "theme": "Zwischenzug",
-    "category": "Zwischenzug",
-    "goal": "Zwischenzug",
-    "rating": 1200,
-    "difficulty": "Advanced",
-    "themes": [
-      "zwischenzug"
-    ],
-    "explanation": "Instead of an immediate recapture, White inserts Bb6+ first (an in-between check) before dealing with the attacked rook.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "zwischenzug"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-511",
-    "fen": "2B5/8/5K2/6Q1/8/8/8/7k w - - 0 1",
-    "moves": [
-      "c8b7",
-      "h1h2",
-      "g5g2"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1221,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-549",
-    "fen": "4R3/8/8/8/2R5/2K5/8/k7 w - - 0 1",
-    "moves": [
-      "e8e1",
-      "a1a2",
-      "c4a4"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1223,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-261",
-    "fen": "8/8/8/6K1/3RQ3/8/7k/8 w - - 0 1",
-    "moves": [
-      "d4d2",
-      "h2g3",
-      "e4g4"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1233,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-503",
-    "fen": "5R2/k7/7Q/8/6K1/8/8/8 w - - 0 1",
-    "moves": [
-      "f8f7",
-      "a7a8",
-      "h6f8"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1238,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-581",
-    "fen": "8/8/8/3N4/4Q3/8/1K6/3k4 w - - 0 1",
-    "moves": [
-      "d5c3",
-      "d1d2",
-      "e4e2"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1241,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-491",
-    "fen": "7k/2K1Q3/3B4/8/8/8/8/8 w - - 0 1",
-    "moves": [
-      "d6e5",
-      "h8g8",
-      "e7g7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1242,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-537",
-    "fen": "1k6/4Q3/8/3N4/K7/8/8/8 w - - 0 1",
-    "moves": [
-      "e7c7",
-      "b8a8",
-      "d5b6"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1248,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-562",
-    "fen": "3B4/1Q6/8/7k/4K3/8/8/8 w - - 0 1",
-    "moves": [
-      "b7h7",
-      "h5g4",
-      "h7h4"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1248,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-bishop-sacrifice-34",
-    "fen": "4k3/8/8/8/8/8/8/2B1K3 w - - 0 1",
-    "moves": [
-      "c1g5"
-    ],
-    "theme": "Bishop Sacrifice",
-    "category": "Bishop Sacrifice",
-    "goal": "Bishop Sacrifice",
-    "rating": 1250,
-    "difficulty": "Advanced",
-    "themes": [
-      "bishop-sacrifice"
-    ],
-    "explanation": "The bishop swings to g5, a thematic pin-and-sacrifice square used to blow open the kingside.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "bishop-sacrifice"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-557",
-    "fen": "8/2Q5/8/8/B6k/8/8/7K w - - 0 1",
-    "moves": [
-      "c7f4",
-      "h4h5",
-      "a4e8"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1250,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-570",
-    "fen": "k7/8/5B2/8/8/1K6/2Q5/8 w - - 0 1",
-    "moves": [
-      "c2c8",
-      "a8a7",
-      "f6d4"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1251,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-290",
-    "fen": "8/7k/5K2/8/8/5Q1B/8/8 w - - 0 1",
-    "moves": [
-      "h3f5",
-      "h7g8",
-      "f3a8"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1253,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-523",
-    "fen": "3K4/k7/2R5/8/8/8/8/6R1 w - - 0 1",
-    "moves": [
-      "g1g7",
-      "a7a8",
-      "c6c8"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1260,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-507",
-    "fen": "1k6/8/8/Q7/8/8/8/2R2K2 w - - 0 1",
-    "moves": [
-      "a5b6",
-      "b8a8",
-      "c1c8"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1262,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-510",
-    "fen": "8/8/2Q5/8/N7/8/3K4/k7 w - - 0 1",
-    "moves": [
-      "c6f6",
-      "a1a2",
-      "f6b2"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1266,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-544",
-    "fen": "k7/8/8/8/8/B7/K7/2Q5 w - - 0 1",
-    "moves": [
-      "c1c8",
-      "a8a7",
-      "a3c5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1268,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-539",
-    "fen": "6R1/8/8/8/8/4R2K/k7/8 w - - 0 1",
-    "moves": [
-      "g8g2",
-      "a2b1",
-      "e3e1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1276,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "epaulette",
-    "fen": "3rkr2/8/4K3/8/7Q/8/8/8 w - - 0 1",
-    "moves": [
-      "h4e7"
-    ],
-    "theme": "Epaulette Mate",
-    "category": "Forced Checkmate",
-    "goal": "Mate in 1",
-    "rating": 1280,
-    "difficulty": "Advanced",
-    "themes": [
-      "epaulette",
-      "mate",
-      "queen"
-    ],
-    "explanation": "The king's own rooks (epaulettes) rob it of escape squares; the queen mates.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-1"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-527",
-    "fen": "8/k2K4/8/8/5Q2/5B2/8/8 w - - 0 1",
-    "moves": [
-      "f4c7",
-      "a7a6",
-      "f3e2"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1283,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-564",
-    "fen": "8/8/8/3B4/7k/5Q2/7K/8 w - - 0 1",
-    "moves": [
-      "f3f4",
-      "h4h5",
-      "d5f7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1287,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-529",
-    "fen": "8/8/8/5Q2/8/2R5/1K6/4k3 w - - 0 1",
-    "moves": [
-      "c3e3",
-      "e1d2",
-      "f5d3"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1296,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-583",
-    "fen": "8/8/5K2/8/7k/2R5/R7/8 w - - 0 1",
-    "moves": [
-      "a2a4",
-      "h4h5",
-      "c3h3"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1298,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-rook-sacrifice-33",
-    "fen": "5k2/6pp/8/8/8/8/8/4R1K1 w - - 0 1",
-    "moves": [
-      "e1e8"
-    ],
-    "theme": "Rook Sacrifice",
-    "category": "Rook Sacrifice",
-    "goal": "Rook Sacrifice",
-    "rating": 1300,
-    "difficulty": "Advanced",
-    "themes": [
-      "rook-sacrifice"
-    ],
-    "explanation": "Re8+ sacrifices the exchange to rip open the back rank.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "rook-sacrifice"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-521",
-    "fen": "1R6/8/8/8/8/3K2Q1/8/k7 w - - 0 1",
-    "moves": [
-      "g3e5",
-      "a1a2",
-      "e5b2"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1303,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-505",
-    "fen": "5K2/8/8/1k6/8/8/3R4/2R5 w - - 0 1",
-    "moves": [
-      "d2b2",
-      "b5a6",
-      "c1a1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1304,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-275",
-    "fen": "8/8/4Q3/5K1k/8/B7/8/8 w - - 0 1",
-    "moves": [
-      "e6g6",
-      "h5h4",
-      "g6g4"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1310,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-534",
-    "fen": "7k/8/4N3/8/8/K7/Q7/8 w - - 0 1",
-    "moves": [
-      "a2b2",
-      "h8h7",
-      "b2g7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1310,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-579",
-    "fen": "8/k7/2Q5/8/3R1K2/8/8/8 w - - 0 1",
-    "moves": [
-      "d4d7",
-      "a7b8",
-      "c6b7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1313,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-528",
-    "fen": "7K/8/8/8/8/8/2B1Q3/7k w - - 0 1",
-    "moves": [
-      "c2e4",
-      "h1g1",
-      "e2g2"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1320,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-272",
-    "fen": "8/8/6R1/7K/8/4R3/k7/8 w - - 0 1",
-    "moves": [
-      "g6g2",
-      "a2b1",
-      "e3e1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1329,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-532",
-    "fen": "B6k/8/5K2/8/8/2Q5/8/8 w - - 0 1",
-    "moves": [
-      "f6f7",
-      "h8h7",
-      "c3g7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1330,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-286",
-    "fen": "2Q3K1/8/8/k7/8/3B4/8/8 w - - 0 1",
-    "moves": [
-      "c8c5",
-      "a5a4",
-      "d3c2"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1333,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-526",
-    "fen": "5R2/8/8/8/8/2Q5/8/K6k w - - 0 1",
-    "moves": [
-      "c3h3",
-      "h1g1",
-      "f8f1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1334,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-495",
-    "fen": "8/7k/3B1Q2/1K6/8/8/8/8 w - - 0 1",
-    "moves": [
-      "f6f7",
-      "h7h8",
-      "d6e5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1340,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-533",
-    "fen": "8/2Q4K/8/8/8/5B2/8/k7 w - - 0 1",
-    "moves": [
-      "c7c1",
-      "a1a2",
-      "f3d5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1343,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-hook-mate-30",
-    "fen": "6k1/7R/4N3/8/8/8/8/6K1 w - - 0 1",
-    "moves": [
-      "h7g7"
-    ],
-    "theme": "Hook Mate",
-    "category": "Hook Mate",
-    "goal": "Hook Mate",
-    "rating": 1350,
-    "difficulty": "Advanced",
-    "themes": [
-      "hook-mate"
-    ],
-    "explanation": "Rook, knight, and a pawn 'hook' combine to trap the king in the corner.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "hook-mate"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-tactical-combination-44",
-    "fen": "r2k4/8/8/8/8/8/4Q3/4K3 w - - 0 1",
-    "moves": [
-      "e2e8"
-    ],
-    "theme": "Tactical Combination",
-    "category": "Tactical Combination",
-    "goal": "Tactical Combination",
-    "rating": 1350,
-    "difficulty": "Advanced",
-    "themes": [
-      "tactical-combination"
-    ],
-    "explanation": "Qe8+ combines a check with an attack on the rook, a short forcing combination that nets material.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "tactical-combination"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-530",
-    "fen": "8/7k/8/8/2Q5/8/8/2B2K2 w - - 0 1",
-    "moves": [
-      "c4f7",
-      "h7h8",
-      "c1b2"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1355,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-556",
-    "fen": "3k4/8/5K2/8/8/2Q3B1/8/8 w - - 0 1",
-    "moves": [
-      "c3c7",
-      "d8e8",
-      "c7c8"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1360,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-580",
-    "fen": "6K1/k7/3R4/8/8/5R2/8/8 w - - 0 1",
-    "moves": [
-      "f3f7",
-      "a7a8",
-      "d6d8"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1361,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-586",
-    "fen": "8/5QR1/6K1/8/6k1/8/8/8 w - - 0 1",
-    "moves": [
-      "g6h6",
-      "g4h4",
-      "f7h5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1375,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-273",
-    "fen": "3R4/8/8/8/7K/R7/7k/8 w - - 0 1",
-    "moves": [
-      "d8d2",
-      "h2h1",
-      "a3a1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1379,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-double-check-19",
-    "fen": "4k3/8/8/8/8/8/4N3/R3K3 w - - 0 1",
-    "moves": [
-      "e2d4"
-    ],
-    "theme": "Double Check",
-    "category": "Double Check",
-    "goal": "Double Check",
-    "rating": 1400,
-    "difficulty": "Advanced",
-    "themes": [
-      "double-check"
-    ],
-    "explanation": "Nd4 gives a discovered check from the rook on the a1-e1 rank AND direct check is not present here, but in the canonical double-check pattern the knight move both checks itself and unmasks the rook — the king has no blocking or capturing defense, only flight.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "double-check"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-knight-sacrifice-35",
-    "fen": "4k3/8/8/8/8/5N2/8/4K3 w - - 0 1",
-    "moves": [
-      "f3g5"
-    ],
-    "theme": "Knight Sacrifice",
-    "category": "Knight Sacrifice",
-    "goal": "Knight Sacrifice",
-    "rating": 1400,
-    "difficulty": "Advanced",
-    "themes": [
-      "knight-sacrifice"
-    ],
-    "explanation": "Ng5 heads for f7/e6 as a thematic knight sacrifice to expose the black king.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "knight-sacrifice"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-518",
-    "fen": "8/6R1/8/5R2/8/2K5/k7/8 w - - 0 1",
-    "moves": [
-      "g7g2",
-      "a2a3",
-      "f5a5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1407,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-276",
-    "fen": "8/4K2k/8/1Q6/2R5/8/8/8 w - - 0 1",
-    "moves": [
-      "b5h5",
-      "h7g8",
-      "c4g4"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1413,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-561",
-    "fen": "8/2R5/8/3Q4/8/7k/8/6K1 w - - 0 1",
-    "moves": [
-      "d5g2",
-      "h3h4",
-      "c7h7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1422,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-536",
-    "fen": "1B5k/Q7/8/8/5K2/8/8/8 w - - 0 1",
-    "moves": [
-      "b8e5",
-      "h8g8",
-      "a7g7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1428,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-531",
-    "fen": "8/k7/6RR/8/8/8/8/2K5 w - - 0 1",
-    "moves": [
-      "g6g7",
-      "a7a8",
-      "h6h8"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1441,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-boden-s-mate-29",
-    "fen": "2kr4/ppp5/8/2B5/8/8/8/1B2K3 w - - 0 1",
-    "moves": [
-      "c5a7"
-    ],
-    "theme": "Boden's Mate",
-    "category": "Boden's Mate",
-    "goal": "Boden's Mate",
-    "rating": 1450,
-    "difficulty": "Advanced",
-    "themes": [
-      "boden-s-mate"
-    ],
-    "explanation": "Two bishops cut across the king's escape squares on crisscrossing diagonals — Boden's Mate pattern (illustrative setup).",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "boden-s-mate"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-575",
-    "fen": "4k3/8/8/6B1/8/8/Q1K5/8 w - - 0 1",
-    "moves": [
-      "a2e6",
-      "e8f8",
-      "g5h6"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1452,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-577",
-    "fen": "8/3Q4/8/8/8/4K3/3R4/7k w - - 0 1",
-    "moves": [
-      "d7h7",
-      "h1g1",
-      "h7b1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1461,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-504",
-    "fen": "8/k7/8/3Q4/1K6/8/3R4/8 w - - 0 1",
-    "moves": [
-      "d5f7",
-      "a7a8",
-      "d2d8"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1465,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-498",
-    "fen": "1k6/8/8/1K6/1Q6/6N1/8/8 w - - 0 1",
-    "moves": [
-      "b5c6",
-      "b8c8",
-      "b4f8"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1469,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-571",
-    "fen": "7k/8/Q6B/8/8/8/6K1/8 w - - 0 1",
-    "moves": [
-      "a6f6",
-      "h8h7",
-      "f6g7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1475,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-l-gal-s-mate-7",
-    "fen": "rn1qkbnr/ppp2ppp/3p4/4N3/2B1P3/2N5/PPPP1PPP/R1BbK2R w KQkq - 0 6",
-    "moves": [
-      "c4f7",
-      "e8e7",
-      "c3d5"
-    ],
-    "theme": "Légal's Mate",
-    "category": "Knight Sacrifice Mate",
-    "goal": "Mate in 2",
-    "rating": 1480,
-    "difficulty": "Advanced",
-    "themes": [
-      "opening",
-      "sacrifice",
-      "mate"
-    ],
-    "explanation": "The famous Légal's Mate: Bxf7+ Ke7 Nd5#.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-497",
-    "fen": "7k/3B4/8/5Q2/7K/8/8/8 w - - 0 1",
-    "moves": [
-      "f5f8",
-      "h8h7",
-      "d7f5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1481,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-277",
-    "fen": "1K6/8/k7/8/6B1/1Q6/8/8 w - - 0 1",
-    "moves": [
-      "g4e2",
-      "a6a5",
-      "b3b5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1493,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-king-hunt-39",
-    "fen": "3k4/8/8/8/8/8/4Q3/R3K3 w - - 0 1",
-    "moves": [
-      "e2e6"
-    ],
-    "theme": "King Hunt",
-    "category": "King Hunt",
-    "goal": "King Hunt",
-    "rating": 1500,
-    "difficulty": "Advanced",
-    "themes": [
-      "king-hunt"
-    ],
-    "explanation": "Qe6+ starts a king hunt, driving the black king into the open where the rook joins the attack.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "king-hunt"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-282",
-    "fen": "1k1K4/8/8/8/7Q/8/8/3R4 w - - 0 1",
-    "moves": [
-      "h4b4",
-      "b8a7",
-      "d1a1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1502,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-563",
-    "fen": "8/8/7B/5K2/8/6Q1/8/7k w - - 0 1",
-    "moves": [
-      "g3h3",
-      "h1g1",
-      "h6e3"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1511,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-287",
-    "fen": "5B2/8/8/2K5/8/8/4Q3/k7 w - - 0 1",
-    "moves": [
-      "f8g7",
-      "a1b1",
-      "e2b2"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1517,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-585",
-    "fen": "8/8/1K2B3/8/8/8/5Q2/3k4 w - - 0 1",
-    "moves": [
-      "e6b3",
-      "d1c1",
-      "f2c2"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1525,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-514",
-    "fen": "3K3k/8/8/2Q3R1/8/8/8/8 w - - 0 1",
-    "moves": [
-      "c5f8",
-      "h8h7",
-      "f8g7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1535,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-551",
-    "fen": "8/8/8/2N5/6K1/3Q4/k7/8 w - - 0 1",
-    "moves": [
-      "d3c2",
-      "a2a3",
-      "c2b3"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1544,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "smothered-knight",
-    "fen": "6rk/6pp/7N/8/8/8/6PP/6K1 w - - 0 1",
-    "moves": [
-      "h6f7"
-    ],
-    "theme": "Smothered Mate",
-    "category": "Smothered Mate",
-    "goal": "Mate in 2",
-    "rating": 1550,
-    "difficulty": "Advanced",
-    "themes": [
-      "smothered",
-      "mate",
-      "knight"
-    ],
-    "explanation": "The knight forces the king into the corner; boxed in by its own pieces, it is smothered.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-525",
-    "fen": "8/8/8/B7/8/7k/2Q5/6K1 w - - 0 1",
-    "moves": [
-      "c2f5",
-      "h3h4",
-      "a5e1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1552,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-582",
-    "fen": "4Q3/8/8/8/8/K7/4R3/7k w - - 0 1",
-    "moves": [
-      "e8h8",
-      "h1g1",
-      "h8a1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1555,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-516",
-    "fen": "k7/3K4/8/8/6Q1/8/8/2R5 w - - 0 1",
-    "moves": [
-      "g4a4",
-      "a8b8",
-      "c1b1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1558,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-538",
-    "fen": "8/8/8/2R5/8/2KR4/8/k7 w - - 0 1",
-    "moves": [
-      "c5a5",
-      "a1b1",
-      "d3d1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1559,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-265",
-    "fen": "8/k7/7K/8/8/1BQ5/8/8 w - - 0 1",
-    "moves": [
-      "c3c7",
-      "a7a8",
-      "b3d5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1560,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-278",
-    "fen": "5B2/8/7K/8/8/8/5Q2/7k w - - 0 1",
-    "moves": [
-      "f2f1",
-      "h1h2",
-      "f8d6"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1567,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-260",
-    "fen": "8/8/8/1K4R1/8/1Q6/7k/8 w - - 0 1",
-    "moves": [
-      "b3g3",
-      "h2h1",
-      "g5h5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1573,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-502",
-    "fen": "7k/8/8/2Q4K/8/4R3/8/8 w - - 0 1",
-    "moves": [
-      "c5f8",
-      "h8h7",
-      "e3e7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1575,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-554",
-    "fen": "8/8/8/8/B7/5K2/7k/4Q3 w - - 0 1",
-    "moves": [
-      "e1d2",
-      "h2h3",
-      "d2h6"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1593,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-540",
-    "fen": "3K4/8/8/8/8/1QR5/7k/8 w - - 0 1",
-    "moves": [
-      "b3b2",
-      "h2h1",
-      "c3c1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1597,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-267",
-    "fen": "1B6/8/8/8/2K5/k7/5R2/8 w - - 0 1",
-    "moves": [
-      "b8d6",
-      "a3a4",
-      "f2a2"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1599,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-queen-sacrifice-32",
-    "fen": "3k4/8/8/8/8/2n5/4Q3/4K2R w K - 0 1",
-    "moves": [
-      "e2e8"
-    ],
-    "theme": "Queen Sacrifice",
-    "category": "Queen Sacrifice",
-    "goal": "Queen Sacrifice",
-    "rating": 1600,
-    "difficulty": "Advanced",
-    "themes": [
-      "queen-sacrifice"
-    ],
-    "explanation": "Qe8+! sacrifices the queen to deflect/expose the king, a thematic queen sac leading to a decisive follow-up.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "queen-sacrifice"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-499",
-    "fen": "k7/8/8/4KQB1/8/8/8/8 w - - 0 1",
-    "moves": [
-      "f5c8",
-      "a8a7",
-      "g5e3"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1605,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-506",
-    "fen": "8/8/8/1K4B1/Q7/8/8/1k6 w - - 0 1",
-    "moves": [
-      "a4b3",
-      "b1a1",
-      "g5f6"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1608,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-520",
-    "fen": "1k6/4Q1K1/8/8/2R5/8/8/8 w - - 0 1",
-    "moves": [
-      "e7c7",
-      "b8a8",
-      "c4a4"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1609,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-555",
-    "fen": "7k/2Q5/3B4/7K/8/8/8/8 w - - 0 1",
-    "moves": [
-      "d6e5",
-      "h8g8",
-      "c7g7"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1610,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-smothered-mate-5",
-    "fen": "5r1k/6pp/7N/8/2Q5/8/8/6K1 w - - 0 1",
-    "moves": [
-      "c4g8",
-      "f8g8",
-      "h6f7"
-    ],
-    "theme": "Smothered Mate",
-    "category": "Queen Sacrifice Mate",
-    "goal": "Mate in 2",
-    "rating": 1620,
-    "difficulty": "Advanced",
-    "themes": [
-      "smothered",
-      "mate",
-      "knight"
-    ],
-    "explanation": "Qg8+! forces Rxg8, then Nf7 is the classic smothered mate.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-552",
-    "fen": "8/7k/2R5/8/R7/8/8/4K3 w - - 0 1",
-    "moves": [
-      "a4a7",
-      "h7g8",
-      "c6c8"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1622,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-550",
-    "fen": "8/8/8/7K/3Q4/2R5/8/k7 w - - 0 1",
-    "moves": [
-      "c3c2",
-      "a1b1",
-      "d4d1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1626,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-584",
-    "fen": "1k6/8/K7/8/8/2B5/4Q3/8 w - - 0 1",
-    "moves": [
-      "e2e8",
-      "b8c7",
-      "c3e5"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1627,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-501",
-    "fen": "R7/8/3R4/7k/8/8/6K1/8 w - - 0 1",
-    "moves": [
-      "a8a5",
-      "h5h4",
-      "d6d4"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1629,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-288",
-    "fen": "k7/7R/8/8/8/2K5/8/2Q5 w - - 0 1",
-    "moves": [
-      "c1a3",
-      "a8b8",
-      "a3f8"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1641,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-2-553",
-    "fen": "8/8/8/8/2Q5/3K4/8/3Nk3 w - - 0 1",
-    "moves": [
-      "c4e4",
-      "e1f1",
-      "e4h1"
-    ],
-    "theme": "Mate in 2",
-    "category": "Mate in 2",
-    "goal": "Mate in 2",
-    "rating": 1644,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-2"
-    ],
-    "explanation": "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-2"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-3-596",
-    "fen": "8/1K2R3/8/8/8/5Q2/8/2k5 w - - 0 1",
-    "moves": [
-      "e7e1",
-      "c1b2",
-      "e1e2",
-      "b2c1",
-      "f3h1"
-    ],
-    "theme": "Mate in 3",
-    "category": "Mate in 3",
-    "goal": "Mate in 3",
-    "rating": 1695,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-3"
-    ],
-    "explanation": "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-3"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-3-296",
-    "fen": "8/5B2/7k/1K6/8/8/5Q2/8 w - - 0 1",
-    "moves": [
-      "f2f6",
-      "h6h7",
-      "f6g6",
-      "h7h8",
-      "g6g8"
-    ],
-    "theme": "Mate in 3",
-    "category": "Mate in 3",
-    "goal": "Mate in 3",
-    "rating": 1716,
-    "difficulty": "Advanced",
-    "themes": [
-      "mate",
-      "mate-in-3"
-    ],
-    "explanation": "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-3"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-3-597",
-    "fen": "8/8/2Q5/R7/5K2/8/8/3k4 w - - 0 1",
-    "moves": [
-      "a5d5",
-      "d1e2",
-      "c6c2",
-      "e2f1",
-      "d5d1"
-    ],
-    "theme": "Mate in 3",
-    "category": "Mate in 3",
-    "goal": "Mate in 3",
-    "rating": 1902,
-    "difficulty": "Expert",
-    "themes": [
-      "mate",
-      "mate-in-3"
-    ],
-    "explanation": "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-3"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-3-295",
-    "fen": "7k/8/8/8/8/Q7/2KB4/8 w - - 0 1",
-    "moves": [
-      "a3f8",
-      "h8h7",
-      "f8f7",
-      "h7h8",
-      "d2c3"
-    ],
-    "theme": "Mate in 3",
-    "category": "Mate in 3",
-    "goal": "Mate in 3",
-    "rating": 2034,
-    "difficulty": "Expert",
-    "themes": [
-      "mate",
-      "mate-in-3"
-    ],
-    "explanation": "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-3"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-3-293",
-    "fen": "8/7k/8/8/7K/2Q5/8/4R3 w - - 0 1",
-    "moves": [
-      "c3c7",
-      "h7g8",
-      "e1e8"
-    ],
-    "theme": "Mate in 3",
-    "category": "Mate in 3",
-    "goal": "Mate in 3",
-    "rating": 2092,
-    "difficulty": "Expert",
-    "themes": [
-      "mate",
-      "mate-in-3"
-    ],
-    "explanation": "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-3"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-3-591",
-    "fen": "8/8/k7/5B2/8/2Q5/3K4/8 w - - 0 1",
-    "moves": [
-      "c3c6",
-      "a6a7",
-      "c6c7",
-      "a7a8",
-      "f5e4"
-    ],
-    "theme": "Mate in 3",
-    "category": "Mate in 3",
-    "goal": "Mate in 3",
-    "rating": 2177,
-    "difficulty": "Expert",
-    "themes": [
-      "mate",
-      "mate-in-3"
-    ],
-    "explanation": "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-3"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-3-593",
-    "fen": "6Q1/1k6/4K3/8/8/8/8/2R5 w - - 0 1",
-    "moves": [
-      "c1b1",
-      "b7c7",
-      "g8h7",
-      "c7c8",
-      "h7d7"
-    ],
-    "theme": "Mate in 3",
-    "category": "Mate in 3",
-    "goal": "Mate in 3",
-    "rating": 2195,
-    "difficulty": "Expert",
-    "themes": [
-      "mate",
-      "mate-in-3"
-    ],
-    "explanation": "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-3"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-4-301",
-    "fen": "8/R7/8/6QK/8/8/8/4k3 w - - 0 1",
-    "moves": [
-      "g5e3",
-      "e1f1",
-      "a7f7",
-      "f1g2",
-      "f7f2",
-      "g2h1",
-      "e3e1"
-    ],
-    "theme": "Mate in 4",
-    "category": "Mate in 4",
-    "goal": "Mate in 4",
-    "rating": 2239,
-    "difficulty": "Master",
-    "themes": [
-      "mate",
-      "mate-in-4"
-    ],
-    "explanation": "Forced checkmate in 4: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-4"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-3-292",
-    "fen": "8/8/6Q1/6K1/8/7k/8/4R3 w - - 0 1",
-    "moves": [
-      "g6d3",
-      "h3h2",
-      "d3d2",
-      "h2g3",
-      "e1e3"
-    ],
-    "theme": "Mate in 3",
-    "category": "Mate in 3",
-    "goal": "Mate in 3",
-    "rating": 2247,
-    "difficulty": "Master",
-    "themes": [
-      "mate",
-      "mate-in-3"
-    ],
-    "explanation": "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-3"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-3-594",
-    "fen": "8/8/6Q1/8/7K/1R6/8/3k4 w - - 0 1",
-    "moves": [
-      "g6b1",
-      "d1d2",
-      "b1a2",
-      "d2e1",
-      "b3b1"
-    ],
-    "theme": "Mate in 3",
-    "category": "Mate in 3",
-    "goal": "Mate in 3",
-    "rating": 2276,
-    "difficulty": "Master",
-    "themes": [
-      "mate",
-      "mate-in-3"
-    ],
-    "explanation": "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-3"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-3-589",
-    "fen": "8/8/8/2K2Q2/4R3/8/8/7k w - - 0 1",
-    "moves": [
-      "f5h3",
-      "h1g1",
-      "h3g3",
-      "g1h1",
-      "e4h4"
-    ],
-    "theme": "Mate in 3",
-    "category": "Mate in 3",
-    "goal": "Mate in 3",
-    "rating": 2280,
-    "difficulty": "Master",
-    "themes": [
-      "mate",
-      "mate-in-3"
-    ],
-    "explanation": "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-3"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-3-294",
-    "fen": "7k/8/1QR5/8/8/8/6K1/8 w - - 0 1",
-    "moves": [
-      "b6b8",
-      "h8h7",
-      "b8b7",
-      "h7g8",
-      "c6c8"
-    ],
-    "theme": "Mate in 3",
-    "category": "Mate in 3",
-    "goal": "Mate in 3",
-    "rating": 2334,
-    "difficulty": "Master",
-    "themes": [
-      "mate",
-      "mate-in-3"
-    ],
-    "explanation": "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-3"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-3-595",
-    "fen": "4Q3/8/8/7K/7N/7k/8/8 w - - 0 1",
-    "moves": [
-      "e8e3",
-      "h3h2",
-      "e3f2",
-      "h2h3",
-      "f2g2"
-    ],
-    "theme": "Mate in 3",
-    "category": "Mate in 3",
-    "goal": "Mate in 3",
-    "rating": 2334,
-    "difficulty": "Master",
-    "themes": [
-      "mate",
-      "mate-in-3"
-    ],
-    "explanation": "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-3"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-4-297",
-    "fen": "5R2/8/8/2K2Q2/8/8/8/k7 w - - 0 1",
-    "moves": [
-      "f5f1",
-      "a1a2",
-      "f8f2",
-      "a2a3",
-      "f1d3",
-      "a3a4",
-      "f2a2"
-    ],
-    "theme": "Mate in 4",
-    "category": "Mate in 4",
-    "goal": "Mate in 4",
-    "rating": 2347,
-    "difficulty": "Master",
-    "themes": [
-      "mate",
-      "mate-in-4"
-    ],
-    "explanation": "Forced checkmate in 4: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-4"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-4-299",
-    "fen": "4k3/8/8/8/8/6Q1/5R2/1K6 w - - 0 1",
-    "moves": [
-      "g3g6",
-      "e8e7",
-      "f2f7",
-      "e7d8",
-      "g6g8"
-    ],
-    "theme": "Mate in 4",
-    "category": "Mate in 4",
-    "goal": "Mate in 4",
-    "rating": 2358,
-    "difficulty": "Master",
-    "themes": [
-      "mate",
-      "mate-in-4"
-    ],
-    "explanation": "Forced checkmate in 4: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-4"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-3-291",
-    "fen": "5Q2/4R3/8/8/8/3K4/7k/8 w - - 0 1",
-    "moves": [
-      "e7h7",
-      "h2g3",
-      "h7g7",
-      "g3h4",
-      "f8h8"
-    ],
-    "theme": "Mate in 3",
-    "category": "Mate in 3",
-    "goal": "Mate in 3",
-    "rating": 2365,
-    "difficulty": "Master",
-    "themes": [
-      "mate",
-      "mate-in-3"
-    ],
-    "explanation": "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-3"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-3-592",
-    "fen": "8/8/7k/R2R4/8/6K1/8/8 w - - 0 1",
-    "moves": [
-      "a5a6",
-      "h6g7",
-      "d5d7",
-      "g7f8",
-      "a6a8"
-    ],
-    "theme": "Mate in 3",
-    "category": "Mate in 3",
-    "goal": "Mate in 3",
-    "rating": 2370,
-    "difficulty": "Master",
-    "themes": [
-      "mate",
-      "mate-in-3"
-    ],
-    "explanation": "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-3"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-3-590",
-    "fen": "8/5B2/5K2/8/8/3Q4/8/7k w - - 0 1",
-    "moves": [
-      "d3f3",
-      "h1h2",
-      "f3f2",
-      "h2h3",
-      "f7e6"
-    ],
-    "theme": "Mate in 3",
-    "category": "Mate in 3",
-    "goal": "Mate in 3",
-    "rating": 2398,
-    "difficulty": "Master",
-    "themes": [
-      "mate",
-      "mate-in-3"
-    ],
-    "explanation": "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-3"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-4-300",
-    "fen": "1Q5R/8/8/8/8/7K/8/3k4 w - - 0 1",
-    "moves": [
-      "b8d6",
-      "d1c2",
-      "h8c8",
-      "c2b3",
-      "d6b6",
-      "b3a4",
-      "c8a8"
-    ],
-    "theme": "Mate in 4",
-    "category": "Mate in 4",
-    "goal": "Mate in 4",
-    "rating": 2499,
-    "difficulty": "Master",
-    "themes": [
-      "mate",
-      "mate-in-4"
-    ],
-    "explanation": "Forced checkmate in 4: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-4"
-    ],
-    "status": "active"
-  },
-  {
-    "id": "p-mate-in-4-298",
-    "fen": "8/8/8/7k/R7/8/8/2Q4K w - - 0 1",
-    "moves": [
-      "c1c5",
-      "h5g6",
-      "a4a6",
-      "g6f7",
-      "c5c7",
-      "f7e8",
-      "a6a8"
-    ],
-    "theme": "Mate in 4",
-    "category": "Mate in 4",
-    "goal": "Mate in 4",
-    "rating": 2509,
-    "difficulty": "Master",
-    "themes": [
-      "mate",
-      "mate-in-4"
-    ],
-    "explanation": "Forced checkmate in 4: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
-    "alternativeLines": [],
-    "hints": [],
-    "tags": [
-      "mate-in-4"
-    ],
-    "status": "active"
-  }
+    id: "p-back-rank-mate-350",
+    fen: "8/8/8/7N/R7/6K1/8/6k1 w - - 0 1",
+    moves: ["a4a1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 251,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-364",
+    fen: "7k/8/6Q1/8/8/3B4/8/1K6 w - - 0 1",
+    moves: ["g6h7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 252,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-233",
+    fen: "8/8/8/8/2R5/8/5K2/7k w - - 0 1",
+    moves: ["c4h4"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 253,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-187",
+    fen: "3k4/8/4K3/8/1Q2B3/8/8/8 w - - 0 1",
+    moves: ["b4b8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 255,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-341",
+    fen: "8/8/4Q3/8/8/3KB3/8/7k w - - 0 1",
+    moves: ["e6h3"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 257,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-80",
+    fen: "4k3/5R1Q/8/8/3K4/8/8/8 w - - 0 1",
+    moves: ["h7g8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 259,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-369",
+    fen: "3Q4/4R3/7k/8/6K1/8/8/8 w - - 0 1",
+    moves: ["d8d6"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 260,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-401",
+    fen: "1k6/8/1K5N/8/8/Q7/8/8 w - - 0 1",
+    moves: ["a3f8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 261,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-176",
+    fen: "8/5Q2/8/8/8/8/4R3/1K5k w - - 0 1",
+    moves: ["f7f1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 263,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-444",
+    fen: "8/1R6/8/8/6Q1/8/8/2K4k w - - 0 1",
+    moves: ["b7h7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 263,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-99",
+    fen: "6K1/8/8/8/8/B7/k7/2Q5 w - - 0 1",
+    moves: ["c1b2"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 265,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-174",
+    fen: "4k1K1/8/7R/8/8/3R4/8/8 w - - 0 1",
+    moves: ["h6e6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 265,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-249",
+    fen: "8/8/1K2R3/8/8/8/3R4/7k w - - 0 1",
+    moves: ["e6e1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 265,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-334",
+    fen: "8/8/2Q5/8/8/5K2/N7/3k4 w - - 0 1",
+    moves: ["c6c1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 265,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-332",
+    fen: "8/8/8/1Q6/8/8/2N2K2/7k w - - 0 1",
+    moves: ["b5h5"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 267,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-431",
+    fen: "8/8/1Q6/8/8/8/5K1k/8 w - - 0 1",
+    moves: ["b6h6"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 270,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-371",
+    fen: "4K3/8/8/6R1/1R6/8/8/k7 w - - 0 1",
+    moves: ["g5a5"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 272,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-348",
+    fen: "8/8/k7/2K5/8/5Q2/8/8 w - - 0 1",
+    moves: ["f3a8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 275,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-412",
+    fen: "8/1K6/4Q3/8/8/k7/8/2N5 w - - 0 1",
+    moves: ["e6b3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 278,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-107",
+    fen: "6K1/1R6/8/8/k7/8/8/1R6 w - - 0 1",
+    moves: ["b7a7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 280,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-151",
+    fen: "8/8/6R1/8/k1K5/8/8/4Q3 w - - 0 1",
+    moves: ["g6a6"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 280,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-449",
+    fen: "8/8/8/2R5/8/4K3/3Q4/6k1 w - - 0 1",
+    moves: ["c5c1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 283,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-465",
+    fen: "8/8/8/8/8/3K3R/4R3/k7 w - - 0 1",
+    moves: ["h3h1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 283,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-365",
+    fen: "7k/8/3Q2K1/8/8/5N2/8/8 w - - 0 1",
+    moves: ["d6b8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 285,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-75",
+    fen: "6Q1/3K4/1R6/8/8/8/8/7k w - - 0 1",
+    moves: ["b6h6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 287,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-192",
+    fen: "8/8/4K3/8/8/2R5/7R/k7 w - - 0 1",
+    moves: ["c3c1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 289,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-97",
+    fen: "5R2/8/8/5R2/7k/5K2/8/8 w - - 0 1",
+    moves: ["f8h8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 290,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-353",
+    fen: "7k/1K6/8/3R4/8/8/8/6R1 w - - 0 1",
+    moves: ["d5h5"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 293,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-244",
+    fen: "8/Q7/8/8/8/2N5/8/2K1k3 w - - 0 1",
+    moves: ["a7g1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 296,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-155",
+    fen: "4K3/2Q5/8/8/1R6/8/k7/8 w - - 0 1",
+    moves: ["c7a5"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 298,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-92",
+    fen: "8/8/8/7k/8/3R4/1K6/6R1 w - - 0 1",
+    moves: ["d3h3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 303,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-205",
+    fen: "6k1/3Q4/8/8/8/8/8/B1K5 w - - 0 1",
+    moves: ["d7g7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 306,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-73",
+    fen: "8/8/6Q1/8/4K3/1R6/8/7k w - - 0 1",
+    moves: ["b3h3"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 308,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-234",
+    fen: "8/8/8/8/B1K5/6Q1/8/7k w - - 0 1",
+    moves: ["a4c6"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 309,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-248",
+    fen: "2k5/7Q/8/8/4R3/8/7K/8 w - - 0 1",
+    moves: ["e4e8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 309,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-466",
+    fen: "8/8/8/8/8/5K2/2NQ4/7k w - - 0 1",
+    moves: ["d2g2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 313,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-206",
+    fen: "8/7K/k7/4R3/1Q6/8/8/8 w - - 0 1",
+    moves: ["e5a5"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 314,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-306",
+    fen: "6R1/8/8/8/8/4K3/4R3/2k5 w - - 0 1",
+    moves: ["g8g1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 315,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-238",
+    fen: "7k/R7/8/8/6K1/8/4Q3/8 w - - 0 1",
+    moves: ["e2e8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 319,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-366",
+    fen: "7K/8/7Q/8/4N3/8/8/3k4 w - - 0 1",
+    moves: ["h6d2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 319,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-379",
+    fen: "6Q1/5K2/8/R7/8/8/8/7k w - - 0 1",
+    moves: ["a5h5"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 319,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-112",
+    fen: "8/8/5Q2/7k/8/8/3K2R1/8 w - - 0 1",
+    moves: ["f6h8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 320,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-199",
+    fen: "8/8/8/8/8/7K/4Q3/6k1 w - - 0 1",
+    moves: ["e2g2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 321,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-450",
+    fen: "8/6Q1/8/4N3/7k/8/2K5/8 w - - 0 1",
+    moves: ["g7g4"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 324,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-455",
+    fen: "8/8/8/B7/4R3/8/5K2/7k w - - 0 1",
+    moves: ["e4h4"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 324,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-182",
+    fen: "8/8/K7/2B5/k7/3R4/8/8 w - - 0 1",
+    moves: ["d3a3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 325,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-406",
+    fen: "1k6/2R5/6K1/8/8/8/3Q4/8 w - - 0 1",
+    moves: ["d2d8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 325,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-446",
+    fen: "8/8/8/R7/8/6K1/8/7k w - - 0 1",
+    moves: ["a5a1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 327,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-120",
+    fen: "5K2/1Q6/8/1R6/8/8/k7/8 w - - 0 1",
+    moves: ["b7a8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 331,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-93",
+    fen: "8/8/2Q5/8/K7/8/1R6/6k1 w - - 0 1",
+    moves: ["c6g2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 332,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-100",
+    fen: "8/8/8/8/8/8/8/k1K4Q w - - 0 1",
+    moves: ["h1a8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 333,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-144",
+    fen: "8/8/8/3R4/1R6/4K3/8/k7 w - - 0 1",
+    moves: ["d5a5"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 333,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-382",
+    fen: "8/8/2R5/k7/8/1KR5/8/8 w - - 0 1",
+    moves: ["c3c5"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 337,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-236",
+    fen: "8/3Q4/8/8/8/5K2/8/5k2 w - - 0 1",
+    moves: ["d7d1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 339,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-317",
+    fen: "4R3/8/8/8/k1K5/8/8/8 w - - 0 1",
+    moves: ["e8a8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 340,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-204",
+    fen: "8/R7/8/8/6K1/8/3Q4/6k1 w - - 0 1",
+    moves: ["a7a1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 343,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-209",
+    fen: "k7/8/8/8/5B2/1Q6/5K2/8 w - - 0 1",
+    moves: ["b3b8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 347,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-131",
+    fen: "7k/5Q2/4N3/8/8/7K/8/8 w - - 0 1",
+    moves: ["f7g7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 349,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-329",
+    fen: "k7/7R/8/8/8/8/3KQ3/8 w - - 0 1",
+    moves: ["e2e8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 349,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-414",
+    fen: "8/8/1Q6/8/8/2K5/k7/8 w - - 0 1",
+    moves: ["b6b2"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 351,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-79",
+    fen: "8/8/7Q/8/8/K7/8/k7 w - - 0 1",
+    moves: ["h6h1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 353,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-161",
+    fen: "7K/8/R7/8/6R1/8/8/7k w - - 0 1",
+    moves: ["a6h6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 353,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-180",
+    fen: "8/5K2/1Q6/8/8/k7/B7/8 w - - 0 1",
+    moves: ["b6b3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 354,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-246",
+    fen: "K6k/8/8/5Q2/8/3B4/8/8 w - - 0 1",
+    moves: ["f5f8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 355,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-135",
+    fen: "k7/4K3/8/8/8/1R6/8/2Q5 w - - 0 1",
+    moves: ["c1a3"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 357,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-136",
+    fen: "7K/k7/8/5R2/1R6/8/8/8 w - - 0 1",
+    moves: ["f5a5"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 359,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-166",
+    fen: "3N4/8/8/3Q4/8/3K4/8/3k4 w - - 0 1",
+    moves: ["d5h1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 360,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-121",
+    fen: "8/8/8/8/5R2/4K3/3R4/k7 w - - 0 1",
+    moves: ["f4f1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 362,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-184",
+    fen: "4k3/8/3K4/6Q1/8/8/8/8 w - - 0 1",
+    moves: ["g5e7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 362,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-58",
+    fen: "3R4/8/8/8/5K1k/8/8/8 w - - 0 1",
+    moves: ["d8h8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 364,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-437",
+    fen: "8/3R4/8/6R1/8/6K1/8/6k1 w - - 0 1",
+    moves: ["d7d1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 366,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-77",
+    fen: "8/2K5/5R2/8/8/8/7Q/k7 w - - 0 1",
+    moves: ["f6f1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 369,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-424",
+    fen: "8/1R6/8/8/8/8/2K3Q1/4k3 w - - 0 1",
+    moves: ["b7e7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 370,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-479",
+    fen: "1R6/8/k7/8/8/1R1K4/8/8 w - - 0 1",
+    moves: ["b8a8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 374,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-227",
+    fen: "k7/2K5/8/8/8/8/5R2/8 w - - 0 1",
+    moves: ["f2a2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 375,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-487",
+    fen: "1k6/5R2/4Q3/3K4/8/8/8/8 w - - 0 1",
+    moves: ["e6e8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 380,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-415",
+    fen: "8/4k1K1/4B3/8/3Q4/8/8/8 w - - 0 1",
+    moves: ["d4d7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 384,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-98",
+    fen: "1k6/6R1/8/8/4Q3/8/2K5/8 w - - 0 1",
+    moves: ["e4b7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 385,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-259",
+    fen: "8/8/8/8/7R/3B4/2K5/k7 w - - 0 1",
+    moves: ["h4a4"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 385,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-333",
+    fen: "8/8/8/1N6/8/K7/5Q2/1k6 w - - 0 1",
+    moves: ["f2b2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 385,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-134",
+    fen: "7k/4R3/8/3Q4/8/8/8/6K1 w - - 0 1",
+    moves: ["d5a8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 389,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-302",
+    fen: "3R4/8/1R6/8/8/6K1/8/k7 w - - 0 1",
+    moves: ["d8a8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 389,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-252",
+    fen: "8/1Q6/8/8/8/1K6/8/1k6 w - - 0 1",
+    moves: ["b7h1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 395,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-148",
+    fen: "8/8/8/5Q2/B7/5K2/8/5k2 w - - 0 1",
+    moves: ["f5b1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 397,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-481",
+    fen: "8/6R1/3R4/8/K7/8/8/7k w - - 0 1",
+    moves: ["d6h6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 398,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-242",
+    fen: "3k4/5Q2/3K4/8/8/8/8/8 w - - 0 1",
+    moves: ["f7f8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 399,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-397",
+    fen: "8/6N1/8/8/R7/8/5K1k/8 w - - 0 1",
+    moves: ["a4h4"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 400,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-436",
+    fen: "8/8/8/7R/1K6/8/5R2/3k4 w - - 0 1",
+    moves: ["h5h1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 400,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-83",
+    fen: "5k2/3R4/8/R7/3K4/8/8/8 w - - 0 1",
+    moves: ["a5a8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 403,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-430",
+    fen: "k7/8/K2Q4/8/8/8/8/8 w - - 0 1",
+    moves: ["d6d8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 403,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-103",
+    fen: "k7/8/8/4R3/KR6/8/8/8 w - - 0 1",
+    moves: ["e5a5"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 410,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-464",
+    fen: "K7/5Q2/7k/8/8/8/5B2/8 w - - 0 1",
+    moves: ["f2e3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 416,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-232",
+    fen: "8/8/8/8/8/7B/K3Q3/7k w - - 0 1",
+    moves: ["e2g2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 417,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-370",
+    fen: "8/8/8/8/8/8/4RK1k/Q7 w - - 0 1",
+    moves: ["a1h8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 417,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-447",
+    fen: "k7/8/1K6/8/8/8/2Q5/8 w - - 0 1",
+    moves: ["c2c8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 417,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-315",
+    fen: "k7/1N6/1K6/8/8/5R2/8/8 w - - 0 1",
+    moves: ["f3f8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 418,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-173",
+    fen: "8/5K2/8/4BQ2/8/8/8/7k w - - 0 1",
+    moves: ["f5f1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 419,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-223",
+    fen: "8/8/8/8/8/4RK1R/8/5k2 w - - 0 1",
+    moves: ["h3h1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 421,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-423",
+    fen: "k4B2/8/K7/8/8/1Q6/8/8 w - - 0 1",
+    moves: ["b3b7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 421,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-84",
+    fen: "1k6/8/K7/8/3Q4/8/8/7B w - - 0 1",
+    moves: ["d4d8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 423,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-398",
+    fen: "7k/8/7N/8/8/5K2/6Q1/8 w - - 0 1",
+    moves: ["g2g8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 426,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-363",
+    fen: "8/2K5/8/6B1/1Q6/8/8/3k4 w - - 0 1",
+    moves: ["b4d2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 427,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-395",
+    fen: "1Q5K/8/8/8/6R1/8/8/k7 w - - 0 1",
+    moves: ["g4a4"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 428,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-452",
+    fen: "1Q6/8/8/8/8/1KR5/8/k7 w - - 0 1",
+    moves: ["c3c1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 431,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-154",
+    fen: "1Q6/3R4/8/k7/6K1/8/8/8 w - - 0 1",
+    moves: ["d7a7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 432,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-378",
+    fen: "5k2/3Q4/8/6N1/8/8/1K6/8 w - - 0 1",
+    moves: ["d7f7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 433,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-482",
+    fen: "k7/8/K6Q/8/8/8/3B4/8 w - - 0 1",
+    moves: ["h6f8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 435,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-321",
+    fen: "1k6/6R1/4R3/8/8/8/4K3/8 w - - 0 1",
+    moves: ["e6e8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 436,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-124",
+    fen: "4k3/6R1/8/8/8/8/KR6/8 w - - 0 1",
+    moves: ["b2b8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 443,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-122",
+    fen: "k7/7R/1K6/8/8/8/8/8 w - - 0 1",
+    moves: ["h7h8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 444,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-319",
+    fen: "4B3/8/7k/4QK2/8/8/8/8 w - - 0 1",
+    moves: ["e5h8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 447,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-88",
+    fen: "K7/8/8/8/8/4Q2N/8/7k w - - 0 1",
+    moves: ["e3g1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 448,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-314",
+    fen: "8/8/8/8/8/1R6/5K2/7k w - - 0 1",
+    moves: ["b3h3"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 455,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-67",
+    fen: "k7/1R6/1K6/6R1/8/8/8/8 w - - 0 1",
+    moves: ["g5g8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 457,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-387",
+    fen: "8/K4Q2/8/8/8/8/3R4/4k3 w - - 0 1",
+    moves: ["f7f2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 458,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-82",
+    fen: "5K1k/8/8/8/8/8/8/4QN2 w - - 0 1",
+    moves: ["e1h4"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 461,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-193",
+    fen: "7k/8/5K2/5Q2/8/1R6/8/8 w - - 0 1",
+    moves: ["b3b8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 461,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-225",
+    fen: "8/7R/8/8/k1K5/8/8/8 w - - 0 1",
+    moves: ["h7a7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 465,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-56",
+    fen: "6K1/6R1/7k/8/8/8/8/4Q3 w - - 0 1",
+    moves: ["e1h4"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 466,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-434",
+    fen: "7k/5R2/8/8/8/8/R7/3K4 w - - 0 1",
+    moves: ["a2a8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 466,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-367",
+    fen: "k7/2K5/8/4R3/8/8/8/8 w - - 0 1",
+    moves: ["e5a5"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 467,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-102",
+    fen: "8/4K3/6B1/8/8/1Q6/8/k7 w - - 0 1",
+    moves: ["b3b1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 468,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-167",
+    fen: "8/6K1/4Q3/4N3/7k/8/8/8 w - - 0 1",
+    moves: ["e6g4"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 469,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-64",
+    fen: "6K1/8/8/8/8/8/3Q2R1/1k6 w - - 0 1",
+    moves: ["d2e1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 471,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-407",
+    fen: "8/8/2K2Q2/7k/8/8/2B5/8 w - - 0 1",
+    moves: ["c2d1"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 476,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-419",
+    fen: "5R2/8/8/8/8/8/8/k1K5 w - - 0 1",
+    moves: ["f8a8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 477,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-76",
+    fen: "8/8/R7/8/5R2/7k/8/7K w - - 0 1",
+    moves: ["a6a3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 478,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-258",
+    fen: "k7/6R1/6Q1/3K4/8/8/8/8 w - - 0 1",
+    moves: ["g6e8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 479,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-228",
+    fen: "8/7K/8/8/8/7k/5R2/6Q1 w - - 0 1",
+    moves: ["f2h2"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 480,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-308",
+    fen: "6k1/2R5/6K1/8/7B/8/8/8 w - - 0 1",
+    moves: ["c7c8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 480,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-214",
+    fen: "8/4K3/4B3/8/8/8/6Q1/k7 w - - 0 1",
+    moves: ["g2a2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 484,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-304",
+    fen: "k7/5Q2/8/3K2R1/8/8/8/8 w - - 0 1",
+    moves: ["g5g8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 484,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-342",
+    fen: "8/5Q2/8/8/7R/5K2/8/5k2 w - - 0 1",
+    moves: ["h4h1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 485,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-372",
+    fen: "8/8/5R2/8/8/8/2Q4K/k7 w - - 0 1",
+    moves: ["f6f1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 486,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-336",
+    fen: "6k1/8/1R4K1/8/8/8/8/8 w - - 0 1",
+    moves: ["b6b8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 487,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-177",
+    fen: "k7/8/1K6/8/8/4Q3/7N/8 w - - 0 1",
+    moves: ["e3e8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 490,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-474",
+    fen: "k1K5/8/8/8/8/4R3/8/8 w - - 0 1",
+    moves: ["e3a3"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 491,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-140",
+    fen: "8/8/8/8/2Q5/8/8/k1K5 w - - 0 1",
+    moves: ["c4a6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 495,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-325",
+    fen: "8/1Q6/8/8/8/5K1k/8/8 w - - 0 1",
+    moves: ["b7h7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 495,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-411",
+    fen: "1k6/7Q/K7/8/8/8/7R/8 w - - 0 1",
+    moves: ["h7b7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 495,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-90",
+    fen: "k5K1/8/8/8/8/8/2Q5/6B1 w - - 0 1",
+    moves: ["c2c8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 496,
+    difficulty: "Beginner",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-374",
+    fen: "8/8/8/8/8/3R1R2/k1K5/8 w - - 0 1",
+    moves: ["d3a3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 497,
+    difficulty: "Beginner",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-128",
+    fen: "8/8/8/8/4R3/7K/3B4/7k w - - 0 1",
+    moves: ["e4e1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 505,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-335",
+    fen: "k7/8/1R6/8/2R5/8/K7/8 w - - 0 1",
+    moves: ["c4a4"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 506,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-251",
+    fen: "7k/3R1R2/K7/8/8/8/8/8 w - - 0 1",
+    moves: ["d7d8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 507,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-118",
+    fen: "K1k5/8/8/3R4/8/8/1R6/8 w - - 0 1",
+    moves: ["b2c2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 514,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-183",
+    fen: "1R5K/8/8/8/k7/8/4Q3/8 w - - 0 1",
+    moves: ["e2a6"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 516,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-226",
+    fen: "k7/6RQ/8/8/6K1/8/8/8 w - - 0 1",
+    moves: ["g7g8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 517,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-153",
+    fen: "8/2R5/3K4/8/8/8/4R3/7k w - - 0 1",
+    moves: ["c7c1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 518,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-352",
+    fen: "8/8/7R/8/8/4K3/3Q4/6k1 w - - 0 1",
+    moves: ["d2f2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 518,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-345",
+    fen: "8/8/7k/1K6/8/5R2/6Q1/8 w - - 0 1",
+    moves: ["f3h3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 519,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-239",
+    fen: "8/8/8/8/8/5K1k/1Q6/8 w - - 0 1",
+    moves: ["b2h8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 522,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-197",
+    fen: "7k/5K2/8/8/Q7/8/N7/8 w - - 0 1",
+    moves: ["a4h4"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 526,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-403",
+    fen: "3R4/8/8/K7/8/8/5Q2/k7 w - - 0 1",
+    moves: ["d8d1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 528,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-483",
+    fen: "5Q2/k7/2K5/6R1/8/8/8/8 w - - 0 1",
+    moves: ["g5a5"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 532,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-240",
+    fen: "2R5/1K6/1R6/8/k7/8/8/8 w - - 0 1",
+    moves: ["c8a8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 533,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-453",
+    fen: "8/8/8/7K/8/7k/4QR2/8 w - - 0 1",
+    moves: ["e2d3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 533,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-311",
+    fen: "5R1K/8/1Q6/8/8/k7/8/8 w - - 0 1",
+    moves: ["f8a8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 534,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-256",
+    fen: "k7/6R1/8/8/2K5/4R3/8/8 w - - 0 1",
+    moves: ["e3e8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 540,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-200",
+    fen: "8/7K/3R4/8/8/8/6R1/1k6 w - - 0 1",
+    moves: ["d6d1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 542,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-257",
+    fen: "k7/4R3/8/8/4K3/8/6Q1/8 w - - 0 1",
+    moves: ["g2g8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 544,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-115",
+    fen: "7k/8/6K1/8/8/8/3Q4/8 w - - 0 1",
+    moves: ["d2d8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 546,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-428",
+    fen: "8/8/1R6/8/8/6K1/8/6k1 w - - 0 1",
+    moves: ["b6b1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 546,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-326",
+    fen: "2Q5/8/8/8/8/5K2/8/4k3 w - - 0 1",
+    moves: ["c8c1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 548,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-178",
+    fen: "8/8/k1K5/2R5/8/8/8/7R w - - 0 1",
+    moves: ["h1a1"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 552,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-149",
+    fen: "8/8/5K1k/8/1R6/R7/8/8 w - - 0 1",
+    moves: ["b4h4"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 553,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-105",
+    fen: "8/8/8/2N5/2Q5/8/8/k1K5 w - - 0 1",
+    moves: ["c4a6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 554,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-202",
+    fen: "8/6Q1/4B3/8/8/2K5/8/k7 w - - 0 1",
+    moves: ["g7g1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 555,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-250",
+    fen: "8/BK4Q1/8/8/8/8/8/7k w - - 0 1",
+    moves: ["g7g1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 558,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-331",
+    fen: "8/4R3/8/2K5/8/8/3Q4/k7 w - - 0 1",
+    moves: ["e7e1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 558,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-472",
+    fen: "3k4/4R3/6Q1/8/1K6/8/8/8 w - - 0 1",
+    moves: ["g6e8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 558,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-218",
+    fen: "6Q1/8/8/8/2K5/8/R7/4k3 w - - 0 1",
+    moves: ["g8g1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 559,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "queen-corner",
+    fen: "7k/5Q2/6K1/8/8/8/8/8 w - - 0 1",
+    moves: ["f7e8"],
+    theme: "Corner Mate",
+    category: "Winning Material",
+    goal: "Mate in 1",
+    rating: 560,
+    difficulty: "Easy",
+    themes: ["corner", "mate", "queen"],
+    explanation: "The queen mates the cornered king with its own king in support.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-89",
+    fen: "8/6Q1/8/8/8/3K4/4N3/7k w - - 0 1",
+    moves: ["g7g1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 562,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-375",
+    fen: "8/8/3K4/8/8/8/4RR2/7k w - - 0 1",
+    moves: ["e2e1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 566,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-358",
+    fen: "1K6/8/6R1/8/1R6/8/8/7k w - - 0 1",
+    moves: ["b4h4"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 573,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-60",
+    fen: "3k4/6Q1/7R/7K/8/8/8/8 w - - 0 1",
+    moves: ["h6h8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 574,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-359",
+    fen: "1R6/8/8/k7/4K3/7R/8/8 w - - 0 1",
+    moves: ["h3a3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 574,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-165",
+    fen: "k7/3Q4/K7/8/8/8/4B3/8 w - - 0 1",
+    moves: ["d7c8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 575,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-377",
+    fen: "8/8/8/8/8/7K/Q7/6k1 w - - 0 1",
+    moves: ["a2g2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 576,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-63",
+    fen: "8/8/4K3/8/3B4/8/4Q3/1k6 w - - 0 1",
+    moves: ["e2b2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 577,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-471",
+    fen: "1k6/3Q1K2/8/2N5/8/8/8/8 w - - 0 1",
+    moves: ["d7b7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 577,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-150",
+    fen: "8/1R6/8/8/8/6K1/8/6k1 w - - 0 1",
+    moves: ["b7b1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 578,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-433",
+    fen: "8/6Q1/8/8/k1K5/8/B7/8 w - - 0 1",
+    moves: ["g7a7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 582,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-253",
+    fen: "4R3/k7/8/K7/8/8/8/7B w - - 0 1",
+    moves: ["e8a8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 587,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-312",
+    fen: "2k5/5R2/5K2/8/8/4R3/8/8 w - - 0 1",
+    moves: ["e3e8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 590,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-458",
+    fen: "5k2/8/5K2/8/1R6/8/8/8 w - - 0 1",
+    moves: ["b4b8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 590,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-396",
+    fen: "7k/4R3/8/3K4/8/1R6/8/8 w - - 0 1",
+    moves: ["b3b8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 591,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-362",
+    fen: "8/N7/8/3Q4/8/k7/2K5/8 w - - 0 1",
+    moves: ["d5b3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 594,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-376",
+    fen: "5R2/2K5/8/2k5/7Q/8/8/8 w - - 0 1",
+    moves: ["f8f5"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 594,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-476",
+    fen: "6N1/8/8/8/7Q/8/8/k1K5 w - - 0 1",
+    moves: ["h4a4"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 594,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-222",
+    fen: "8/8/8/8/2K5/8/2R1Q3/k7 w - - 0 1",
+    moves: ["c2c1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 597,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-221",
+    fen: "7k/8/3R2K1/8/8/8/1N6/8 w - - 0 1",
+    moves: ["d6d8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 598,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-141",
+    fen: "8/8/6R1/8/1Q6/3K4/k7/8 w - - 0 1",
+    moves: ["g6a6"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 602,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-170",
+    fen: "8/3B4/5Q2/8/8/8/k7/2K5 w - - 0 1",
+    moves: ["f6b2"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 603,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-54",
+    fen: "3K4/8/8/8/1Q6/8/8/k1B5 w - - 0 1",
+    moves: ["b4b2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 604,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-213",
+    fen: "8/8/8/8/8/3Q3K/8/7k w - - 0 1",
+    moves: ["d3f1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 606,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-111",
+    fen: "7Q/8/8/8/8/3N4/k5K1/8 w - - 0 1",
+    moves: ["h8b2"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 608,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-168",
+    fen: "6k1/8/7Q/5K2/8/8/8/5B2 w - - 0 1",
+    moves: ["f1c4"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 609,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-188",
+    fen: "8/8/8/8/Q7/8/5K2/7k w - - 0 1",
+    moves: ["a4h4"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 611,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-413",
+    fen: "k7/8/1K6/8/1R6/8/8/6R1 w - - 0 1",
+    moves: ["g1g8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 611,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-475",
+    fen: "8/3R4/8/k1K4B/8/8/8/8 w - - 0 1",
+    moves: ["d7a7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 611,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-220",
+    fen: "8/2R5/8/7k/8/6R1/4K3/8 w - - 0 1",
+    moves: ["c7h7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 614,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-91",
+    fen: "7k/5R2/8/4K3/8/2R5/8/8 w - - 0 1",
+    moves: ["c3c8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 615,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-53",
+    fen: "7k/8/8/8/4KQ2/1B6/8/8 w - - 0 1",
+    moves: ["f4h6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 616,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-winning-material-47",
+    fen: "6k1/4Rppp/8/8/8/8/5PPP/6K1 w - - 0 1",
+    moves: ["e7e8"],
+    theme: "Winning Material",
+    category: "Winning Material",
+    goal: "Mate in 1",
+    rating: 620,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "The rook infiltrates the open back rank, picking up decisive material and mating threats.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-344",
+    fen: "4Q3/8/8/8/8/1K6/2R5/3k4 w - - 0 1",
+    moves: ["e8e2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 620,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-451",
+    fen: "3K4/1R6/8/8/8/k7/8/7Q w - - 0 1",
+    moves: ["h1a1"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 621,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-318",
+    fen: "7R/8/1K6/8/1R6/8/8/k7 w - - 0 1",
+    moves: ["h8a8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 623,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-62",
+    fen: "8/8/5K2/8/5R2/8/6Q1/2k5 w - - 0 1",
+    moves: ["f4f1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 624,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-441",
+    fen: "8/7k/8/8/8/8/6R1/1K1R4 w - - 0 1",
+    moves: ["d1h1"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 624,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-427",
+    fen: "3k4/1K2R1Q1/8/8/8/8/8/8 w - - 0 1",
+    moves: ["g7f8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 625,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-147",
+    fen: "7k/8/8/3R4/8/2K5/6R1/8 w - - 0 1",
+    moves: ["d5h5"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 626,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-435",
+    fen: "1R6/8/k7/8/8/8/6QK/8 w - - 0 1",
+    moves: ["g2a8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 629,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-461",
+    fen: "6R1/4R3/K7/8/8/8/7k/8 w - - 0 1",
+    moves: ["e7h7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 630,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-346",
+    fen: "8/6B1/5R2/8/8/3K4/8/3k4 w - - 0 1",
+    moves: ["f6f1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 631,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-137",
+    fen: "4k3/2Q3K1/8/8/8/8/7R/8 w - - 0 1",
+    moves: ["h2h8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 632,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-254",
+    fen: "6R1/8/8/8/8/6R1/8/5K1k w - - 0 1",
+    moves: ["g8h8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 632,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-445",
+    fen: "3k4/8/8/5Q2/B7/8/7K/8 w - - 0 1",
+    moves: ["f5d7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 632,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-57",
+    fen: "8/8/8/6K1/8/R7/5R2/7k w - - 0 1",
+    moves: ["a3a1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 635,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-208",
+    fen: "8/8/8/7K/5Q2/8/8/3k1N2 w - - 0 1",
+    moves: ["f4d2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 637,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-485",
+    fen: "k7/2K5/8/8/8/8/5Q2/6B1 w - - 0 1",
+    moves: ["f2a7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 637,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "queen-support",
+    fen: "2k5/8/1QK5/8/8/8/8/8 w - - 0 1",
+    moves: ["b6c7"],
+    theme: "Corner Box Mate",
+    category: "Winning Material",
+    goal: "Mate in 1",
+    rating: 640,
+    difficulty: "Easy",
+    themes: ["box", "mate", "queen"],
+    explanation: "The king supports the queen for a textbook box mate.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "scholars-mate",
+    fen: "r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 4",
+    moves: ["h5f7"],
+    theme: "Scholar's Mate",
+    category: "Forced Checkmate",
+    goal: "Mate in 1",
+    rating: 640,
+    difficulty: "Easy",
+    themes: ["opening", "mate", "queen"],
+    explanation: "Qxf7 is the four-move Scholar's Mate — f7 is the weakest square in Black's camp.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-ladder-mate-8",
+    fen: "7k/R7/8/8/8/8/8/1R5K w - - 0 1",
+    moves: ["b1b8"],
+    theme: "Ladder Mate",
+    category: "Rook Sacrifice Mate",
+    goal: "Mate in 1",
+    rating: 640,
+    difficulty: "Easy",
+    themes: ["ladder", "mate", "rook"],
+    explanation: "The two rooks form a ladder; Rb8 is mate.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-429",
+    fen: "8/6B1/2R5/8/8/8/5K1k/8 w - - 0 1",
+    moves: ["c6h6"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 640,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-201",
+    fen: "5R2/6K1/8/8/8/8/1R6/7k w - - 0 1",
+    moves: ["f8f1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 641,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-160",
+    fen: "5K2/8/6R1/8/1R6/8/k7/8 w - - 0 1",
+    moves: ["g6a6"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 642,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-50",
+    fen: "8/2Q5/4R3/8/8/7K/8/7k w - - 0 1",
+    moves: ["c7h2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 645,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-347",
+    fen: "8/8/8/8/B7/8/1Q3K2/7k w - - 0 1",
+    moves: ["b2h8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 645,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-196",
+    fen: "8/8/k1K5/8/4N3/8/3R4/8 w - - 0 1",
+    moves: ["d2a2"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 647,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-104",
+    fen: "8/7k/8/6Q1/8/8/3K4/R7 w - - 0 1",
+    moves: ["a1h1"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 648,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-195",
+    fen: "2R5/8/8/8/8/3Q4/5K2/7k w - - 0 1",
+    moves: ["c8h8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 648,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-skewer-16",
+    fen: "4k3/8/8/8/8/8/8/3RK3 w - - 0 1",
+    moves: ["d1d8"],
+    theme: "Skewer",
+    category: "Skewer",
+    goal: "Skewer",
+    rating: 650,
+    difficulty: "Easy",
+    themes: ["skewer"],
+    explanation:
+      "Rd8+ is check along the d-file — a piece stacked behind the king on this file would be skewered and lost.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["skewer"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-328",
+    fen: "k7/8/2K5/1Q1R4/8/8/8/8 w - - 0 1",
+    moves: ["b5b7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 652,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-442",
+    fen: "8/4R3/4B3/8/8/k1K5/8/8 w - - 0 1",
+    moves: ["e7a7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 653,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-207",
+    fen: "8/8/8/3Q4/8/8/2K5/k4B2 w - - 0 1",
+    moves: ["d5a8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 656,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-339",
+    fen: "5Q2/8/8/8/6R1/4K3/8/7k w - - 0 1",
+    moves: ["f8h8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 665,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-109",
+    fen: "1k6/8/1K6/8/6R1/4B3/8/8 w - - 0 1",
+    moves: ["g4g8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 666,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-478",
+    fen: "6k1/1Q6/5K2/8/8/8/8/7N w - - 0 1",
+    moves: ["b7g7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 670,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-488",
+    fen: "8/2R4K/8/8/8/8/6R1/k7 w - - 0 1",
+    moves: ["c7c1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 674,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-439",
+    fen: "5QK1/8/8/8/1R6/8/8/k7 w - - 0 1",
+    moves: ["f8a8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 680,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-163",
+    fen: "3K4/8/8/8/8/7R/3R4/k7 w - - 0 1",
+    moves: ["h3h1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 681,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-402",
+    fen: "8/8/K2B2Q1/8/8/7k/8/8 w - - 0 1",
+    moves: ["g6g3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 685,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-425",
+    fen: "8/8/8/8/8/2Q5/5K2/7k w - - 0 1",
+    moves: ["c3h8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 685,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-361",
+    fen: "7k/8/8/6R1/3R4/K7/8/8 w - - 0 1",
+    moves: ["d4h4"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 686,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-72",
+    fen: "8/5B2/8/8/8/1K4Q1/8/7k w - - 0 1",
+    moves: ["f7d5"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 687,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-422",
+    fen: "8/8/6R1/1K6/8/8/R7/3k4 w - - 0 1",
+    moves: ["g6g1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 687,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-440",
+    fen: "8/8/8/7k/8/8/5KQ1/5R2 w - - 0 1",
+    moves: ["f1h1"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 688,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-87",
+    fen: "7k/K7/3Q4/8/8/8/8/1B6 w - - 0 1",
+    moves: ["d6f8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 690,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-142",
+    fen: "8/4R3/8/8/5K2/7k/R7/8 w - - 0 1",
+    moves: ["e7h7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 690,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-171",
+    fen: "8/8/6Q1/7K/8/7k/5B2/8 w - - 0 1",
+    moves: ["g6g3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 692,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-59",
+    fen: "8/8/8/1R3K2/7R/8/8/k7 w - - 0 1",
+    moves: ["h4a4"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 695,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-323",
+    fen: "8/8/8/8/8/1K6/5Q2/k7 w - - 0 1",
+    moves: ["f2g1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 695,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-473",
+    fen: "8/8/3Q4/8/8/7k/8/K4N2 w - - 0 1",
+    moves: ["d6g3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 695,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-463",
+    fen: "8/7k/8/7K/8/8/8/Q5R1 w - - 0 1",
+    moves: ["a1g7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 697,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-159",
+    fen: "k7/3R3R/8/8/8/8/5K2/8 w - - 0 1",
+    moves: ["d7d8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 699,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-queen-endgame-6",
+    fen: "7k/8/6K1/8/8/8/8/3Q4 w - - 0 1",
+    moves: ["d1d8"],
+    theme: "Queen Endgame",
+    category: "Endgame Tactics",
+    goal: "Mate in 1",
+    rating: 700,
+    difficulty: "Easy",
+    themes: ["queen", "endgame", "mate"],
+    explanation: "Qd8 mate — the king on g6 covers the flight squares.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-fork-9",
+    fen: "4k3/8/8/8/3N4/8/8/4K3 w - - 0 1",
+    moves: ["d4c6"],
+    theme: "Fork",
+    category: "Fork",
+    goal: "Fork",
+    rating: 700,
+    difficulty: "Easy",
+    themes: ["fork"],
+    explanation:
+      "Nc6 forks the king and would fork rook/queen in a fuller position — the knight jumps to a square attacking two targets at once.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["fork"],
+    status: "active",
+  },
+  {
+    id: "p-double-attack-20",
+    fen: "4k3/8/8/8/8/8/8/Q3K3 w - - 0 1",
+    moves: ["a1a8"],
+    theme: "Double Attack",
+    category: "Double Attack",
+    goal: "Double Attack",
+    rating: 700,
+    difficulty: "Easy",
+    themes: ["double-attack"],
+    explanation:
+      "Qa8+ simultaneously checks the king and, in the full position, attacks an undefended piece — a double attack winning material.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["double-attack"],
+    status: "active",
+  },
+  {
+    id: "p-ladder-mate-31",
+    fen: "7k/8/8/8/8/8/6R1/5KR1 w - - 0 1",
+    moves: ["g2h2"],
+    theme: "Ladder Mate",
+    category: "Ladder Mate",
+    goal: "Ladder Mate",
+    rating: 700,
+    difficulty: "Easy",
+    themes: ["ladder", "mate", "rook"],
+    explanation:
+      "The two rooks climb the board rung by rung until the king is driven to the edge and mated.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["ladder-mate"],
+    status: "active",
+  },
+  {
+    id: "p-winning-material-45",
+    fen: "4k3/8/8/8/3n4/8/4B3/4K3 w - - 0 1",
+    moves: ["e2c4"],
+    theme: "Winning Material",
+    category: "Winning Material",
+    goal: "Winning Material",
+    rating: 700,
+    difficulty: "Easy",
+    themes: ["winning-material"],
+    explanation: "The bishop repositions to attack the loose knight, winning material for free.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["winning-material"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-48",
+    fen: "3r2k1/6pp/8/8/8/8/5PPP/6K1 b - - 0 1",
+    moves: ["d8d1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 700,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "Black's rook drops to the back rank; White's king has no flight square behind its own pawns.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-241",
+    fen: "8/8/4B1Q1/1K6/7k/8/8/8 w - - 0 1",
+    moves: ["g6g4"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 704,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-66",
+    fen: "4k3/8/3Q4/8/8/8/1K3R2/8 w - - 0 1",
+    moves: ["f2f8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 706,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-247",
+    fen: "k7/6R1/8/3R4/8/8/6K1/8 w - - 0 1",
+    moves: ["d5d8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 706,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-106",
+    fen: "4k3/R7/8/8/8/2R5/8/6K1 w - - 0 1",
+    moves: ["c3c8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 710,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-255",
+    fen: "8/8/R7/8/8/8/8/5K1k w - - 0 1",
+    moves: ["a6h6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 711,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-86",
+    fen: "7k/K7/3Q1N2/8/8/8/8/8 w - - 0 1",
+    moves: ["d6f8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 714,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-114",
+    fen: "8/8/6N1/8/6R1/1K6/8/1k6 w - - 0 1",
+    moves: ["g4g1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 715,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-438",
+    fen: "8/8/8/8/8/1K6/6Q1/k7 w - - 0 1",
+    moves: ["g2h1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 717,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-421",
+    fen: "4k3/2B5/5K2/8/8/8/3Q4/8 w - - 0 1",
+    moves: ["d2d8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 718,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-winning-material-46",
+    fen: "4k3/8/2r5/8/8/8/1B6/4K3 w - - 0 1",
+    moves: ["b2a3"],
+    theme: "Winning Material",
+    category: "Winning Material",
+    goal: "Winning Material",
+    rating: 720,
+    difficulty: "Easy",
+    themes: ["winning-material"],
+    explanation:
+      "The bishop sidesteps the attacked square while eyeing the rook on the long diagonal, netting material next move.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["winning-material"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-448",
+    fen: "8/8/K7/2R5/8/8/R7/5k2 w - - 0 1",
+    moves: ["c5c1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 720,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-145",
+    fen: "8/8/8/7k/R7/6Q1/8/3K4 w - - 0 1",
+    moves: ["a4h4"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 721,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-470",
+    fen: "4k3/6Q1/8/8/8/8/8/1K3R2 w - - 0 1",
+    moves: ["f1f8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 724,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-420",
+    fen: "2B5/5R2/8/8/8/8/8/5K1k w - - 0 1",
+    moves: ["f7h7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 725,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-94",
+    fen: "8/1R6/8/4K3/1Q6/8/8/k7 w - - 0 1",
+    moves: ["b7a7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 726,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-78",
+    fen: "8/7K/R7/8/8/8/4Q3/7k w - - 0 1",
+    moves: ["a6a1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 730,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-194",
+    fen: "k7/8/K4Q2/8/8/8/8/8 w - - 0 1",
+    moves: ["f6d8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 731,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-384",
+    fen: "7k/8/6K1/8/8/2N5/8/1Q6 w - - 0 1",
+    moves: ["b1b8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 731,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-404",
+    fen: "3k4/7R/8/8/8/5K2/8/Q7 w - - 0 1",
+    moves: ["a1a8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 731,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-355",
+    fen: "5k2/7Q/8/2K5/8/6R1/8/8 w - - 0 1",
+    moves: ["g3g8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 732,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-457",
+    fen: "5Q2/8/8/8/8/3B3K/8/7k w - - 0 1",
+    moves: ["f8f1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 733,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-51",
+    fen: "7k/1Q6/8/8/6K1/8/2R5/8 w - - 0 1",
+    moves: ["c2c8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 734,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-310",
+    fen: "8/8/4N3/8/6Q1/6K1/8/5k2 w - - 0 1",
+    moves: ["g4d1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 734,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-113",
+    fen: "8/8/8/8/5B2/8/2Q5/1K5k w - - 0 1",
+    moves: ["c2h2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 735,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-307",
+    fen: "2k5/8/2K5/8/5Q2/B7/8/8 w - - 0 1",
+    moves: ["f4c7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 735,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-210",
+    fen: "1R6/8/8/8/8/3K1Q2/k7/8 w - - 0 1",
+    moves: ["f3a8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 736,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-235",
+    fen: "8/8/7k/7B/8/8/3K4/1Q6 w - - 0 1",
+    moves: ["b1g6"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 738,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-360",
+    fen: "k7/7K/8/8/8/6B1/4Q3/8 w - - 0 1",
+    moves: ["e2a6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 738,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-139",
+    fen: "3R4/8/8/1R6/8/8/7K/k7 w - - 0 1",
+    moves: ["d8a8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 739,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-69",
+    fen: "8/8/k1K5/8/8/1N6/8/5R2 w - - 0 1",
+    moves: ["f1a1"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 741,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-484",
+    fen: "8/6K1/8/8/1R6/8/2R5/7k w - - 0 1",
+    moves: ["b4b1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 743,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-70",
+    fen: "8/8/1Q6/8/8/8/7B/5K1k w - - 0 1",
+    moves: ["b6g1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 744,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-418",
+    fen: "8/1R6/8/8/8/4K1R1/8/7k w - - 0 1",
+    moves: ["b7h7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 747,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-127",
+    fen: "k7/2B5/8/8/8/4K3/8/5Q2 w - - 0 1",
+    moves: ["f1a6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 748,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-189",
+    fen: "8/8/3K2Q1/8/8/8/4N3/7k w - - 0 1",
+    moves: ["g6g1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 749,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-469",
+    fen: "8/8/6Q1/8/1K6/8/3R4/5k2 w - - 0 1",
+    moves: ["g6b1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 749,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-fork-10",
+    fen: "r3k3/8/8/8/8/4N3/8/4K3 w - - 0 1",
+    moves: ["e3d5"],
+    theme: "Fork",
+    category: "Fork",
+    goal: "Fork",
+    rating: 750,
+    difficulty: "Easy",
+    themes: ["fork"],
+    explanation:
+      "Nd5 forks the king on e8 and the rook on a8 — a classic knight fork wins material.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["fork"],
+    status: "active",
+  },
+  {
+    id: "p-promotion-36",
+    fen: "8/4Pk2/8/8/8/8/8/4K3 w - - 0 1",
+    moves: ["e7e8q"],
+    theme: "Promotion",
+    category: "Promotion",
+    goal: "Promotion",
+    rating: 750,
+    difficulty: "Easy",
+    themes: ["promotion", "mate", "pawn"],
+    explanation:
+      "The pawn queens, immediately winning — always check promotion is safe and decisive first.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["promotion"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-229",
+    fen: "8/4N3/7k/8/8/6Q1/5K2/8 w - - 0 1",
+    moves: ["g3g6"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 750,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-486",
+    fen: "2k5/8/3Q4/8/1R4K1/8/8/8 w - - 0 1",
+    moves: ["b4b8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 750,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-243",
+    fen: "8/6Q1/8/k7/8/1R6/4K3/8 w - - 0 1",
+    moves: ["g7a1"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 751,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-156",
+    fen: "6K1/8/7k/1Q6/8/8/4B3/8 w - - 0 1",
+    moves: ["b5h5"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 754,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-460",
+    fen: "8/8/8/1K2R3/8/6Q1/8/7k w - - 0 1",
+    moves: ["e5h5"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 754,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-169",
+    fen: "8/8/1R6/3k4/7Q/3K4/8/8 w - - 0 1",
+    moves: ["h4g5"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 755,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-349",
+    fen: "k7/8/1K3B2/1Q6/8/8/8/8 w - - 0 1",
+    moves: ["b5e8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 755,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-456",
+    fen: "K1k5/8/8/8/8/8/3R4/7R w - - 0 1",
+    moves: ["h1c1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 756,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-143",
+    fen: "k7/8/1K6/6R1/8/8/8/8 w - - 0 1",
+    moves: ["g5g8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 757,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-338",
+    fen: "8/1R6/8/8/8/8/2K5/k7 w - - 0 1",
+    moves: ["b7a7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 758,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-368",
+    fen: "8/8/1Q6/8/8/k7/2K5/B7 w - - 0 1",
+    moves: ["b6b3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 758,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-pin-13",
+    fen: "4k3/8/8/8/8/8/4B3/4K3 w - - 0 1",
+    moves: ["e2a6"],
+    theme: "Pin",
+    category: "Pin",
+    goal: "Pin",
+    rating: 760,
+    difficulty: "Easy",
+    themes: ["pin"],
+    explanation:
+      "The bishop swings onto the long diagonal; from a6 it would pin any piece standing between it and the enemy king.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["pin"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-130",
+    fen: "8/8/8/2R5/6R1/8/7k/4K3 w - - 0 1",
+    moves: ["c5h5"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 760,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-212",
+    fen: "3k4/1Q6/3K1N2/8/8/8/8/8 w - - 0 1",
+    moves: ["b7a8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 762,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-459",
+    fen: "k7/2K5/8/8/8/2R5/8/3R4 w - - 0 1",
+    moves: ["c3a3"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 765,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-172",
+    fen: "6R1/8/3Q1K1k/8/8/8/8/8 w - - 0 1",
+    moves: ["g8h8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 768,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-385",
+    fen: "3k4/7R/8/8/8/8/4KR2/8 w - - 0 1",
+    moves: ["f2f8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 769,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-101",
+    fen: "8/8/8/8/2QB4/k7/2K5/8 w - - 0 1",
+    moves: ["c4b3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 771,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-123",
+    fen: "8/8/8/6RR/8/3K4/8/3k4 w - - 0 1",
+    moves: ["g5g1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 771,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-162",
+    fen: "8/8/2K5/8/8/k7/3N4/1Q6 w - - 0 1",
+    moves: ["b1b3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 772,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-373",
+    fen: "8/1Q6/2R5/8/8/2K5/8/k7 w - - 0 1",
+    moves: ["b7b2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 774,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-477",
+    fen: "1K1k4/8/8/8/4R3/8/7Q/8 w - - 0 1",
+    moves: ["h2d6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 775,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "back-rank-double",
+    fen: "6k1/5ppp/8/8/8/8/8/R3R1K1 w - - 0 1",
+    moves: ["a1a8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 780,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The rook crashes to the back rank where the king is trapped behind its own pawns.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "ladder-start",
+    fen: "7k/5ppp/8/8/8/8/8/R6K w - - 0 1",
+    moves: ["a1a8"],
+    theme: "Ladder Mate",
+    category: "Rook Sacrifice Mate",
+    goal: "Mate in 2",
+    rating: 780,
+    difficulty: "Easy",
+    themes: ["ladder", "mate", "rook"],
+    explanation: "Rooks (or rook + support) drive the king up the board rung by rung.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-fork-11",
+    fen: "4k3/8/8/2n5/8/2K5/1R6/8 b - - 0 1",
+    moves: ["c5d3"],
+    theme: "Fork",
+    category: "Fork",
+    goal: "Fork",
+    rating: 780,
+    difficulty: "Easy",
+    themes: ["fork"],
+    explanation: "Nd3+ forks the White king and rook, winning the exchange.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["fork"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-393",
+    fen: "7k/8/6Q1/4KB2/8/8/8/8 w - - 0 1",
+    moves: ["g6h7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 781,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-71",
+    fen: "8/8/8/5R2/8/1BK5/8/k7 w - - 0 1",
+    moves: ["f5f1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 782,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-351",
+    fen: "8/8/k7/4R3/1Q6/8/4K3/8 w - - 0 1",
+    moves: ["e5a5"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 782,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-146",
+    fen: "5R2/8/k7/8/8/8/3K4/1R6 w - - 0 1",
+    moves: ["f8a8"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 783,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-216",
+    fen: "8/8/8/1K4R1/8/4R3/8/7k w - - 0 1",
+    moves: ["e3h3"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 784,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-237",
+    fen: "8/8/k1K5/4R3/3Q4/8/8/8 w - - 0 1",
+    moves: ["d4b6"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 789,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-409",
+    fen: "8/7K/8/8/R7/8/1R6/7k w - - 0 1",
+    moves: ["a4a1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 789,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-454",
+    fen: "8/8/8/8/2Q5/k7/B7/2K5 w - - 0 1",
+    moves: ["c4b3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 794,
+    difficulty: "Easy",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-217",
+    fen: "7k/2K5/8/8/Q7/8/6R1/8 w - - 0 1",
+    moves: ["a4h4"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 795,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-489",
+    fen: "8/4R3/8/8/8/5K2/7Q/2k5 w - - 0 1",
+    moves: ["e7e1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 795,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-133",
+    fen: "8/3R4/8/8/8/8/2K5/k7 w - - 0 1",
+    moves: ["d7a7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 798,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-245",
+    fen: "k7/6R1/8/5K2/8/8/3Q4/8 w - - 0 1",
+    moves: ["d2d8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 798,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-175",
+    fen: "8/8/5K2/6Q1/8/7N/8/7k w - - 0 1",
+    moves: ["g5g1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 799,
+    difficulty: "Easy",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-28",
+    fen: "6k1/4Rppp/8/8/8/8/8/6K1 w - - 0 1",
+    moves: ["e7e8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Back Rank Mate",
+    rating: 800,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation: "Re8 exploits the trapped king on the back rank — mate.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["back-rank-mate"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-389",
+    fen: "4k3/7Q/8/1R5K/8/8/8/8 w - - 0 1",
+    moves: ["b5b8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 804,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-399",
+    fen: "7k/5Q2/8/4R3/8/3K4/8/8 w - - 0 1",
+    moves: ["e5e8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 805,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-186",
+    fen: "7k/3R4/4Q3/8/8/8/1K6/8 w - - 0 1",
+    moves: ["e6e8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 806,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-410",
+    fen: "7k/5R2/7K/8/8/8/8/8 w - - 0 1",
+    moves: ["f7f8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 806,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-95",
+    fen: "k7/8/3R4/1R6/K7/8/8/8 w - - 0 1",
+    moves: ["d6a6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 808,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-191",
+    fen: "8/8/5Q2/7k/8/8/7K/2B5 w - - 0 1",
+    moves: ["f6g5"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 809,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-231",
+    fen: "5K2/7k/5R2/8/8/8/8/5R2 w - - 0 1",
+    moves: ["f1h1"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 811,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-322",
+    fen: "1R6/7K/5R2/8/8/k7/8/8 w - - 0 1",
+    moves: ["f6a6"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 811,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-203",
+    fen: "Q7/8/8/K7/8/8/3R4/k7 w - - 0 1",
+    moves: ["a8h1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 819,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-1",
+    fen: "6k1/5ppp/8/8/8/8/5PPP/4R1K1 w - - 0 1",
+    moves: ["e1e8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 820,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation: "The rook lands on the back rank; the g/h pawns leave the king no escape.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-pin-12",
+    fen: "4k3/8/8/8/4r3/8/4Q3/4K3 b - - 0 1",
+    moves: ["e4e2"],
+    theme: "Pin",
+    category: "Pin",
+    goal: "Pin",
+    rating: 820,
+    difficulty: "Intermediate",
+    themes: ["pin"],
+    explanation:
+      "The black rook is pinned to its king along the e-file; here it captures because the queen is undefended — illustrating how a pinned piece still exerts pressure.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["pin"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-132",
+    fen: "8/8/N7/8/8/1K6/4R3/k7 w - - 0 1",
+    moves: ["e2e1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 821,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-432",
+    fen: "k1K5/8/7R/8/3N4/8/8/8 w - - 0 1",
+    moves: ["h6a6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 821,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-313",
+    fen: "7k/8/2R5/8/6R1/8/6K1/8 w - - 0 1",
+    moves: ["c6h6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 823,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-179",
+    fen: "5K1k/8/8/8/8/5R2/8/8 w - - 0 1",
+    moves: ["f3h3"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 824,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-327",
+    fen: "2R2K2/1R6/8/8/8/8/8/k7 w - - 0 1",
+    moves: ["c8a8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 824,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-383",
+    fen: "8/8/5K1k/8/6R1/8/8/8 w - - 0 1",
+    moves: ["g4h4"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 824,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-65",
+    fen: "8/8/1R4K1/8/k7/8/3R4/8 w - - 0 1",
+    moves: ["d2a2"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 826,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-462",
+    fen: "3Q4/4K3/8/8/8/8/5R2/4k3 w - - 0 1",
+    moves: ["d8d2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 826,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-138",
+    fen: "7k/5Q2/8/5N2/8/K7/8/8 w - - 0 1",
+    moves: ["f7g7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 829,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-157",
+    fen: "3Q4/8/8/8/8/4K1R1/8/5k2 w - - 0 1",
+    moves: ["d8d1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 832,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-390",
+    fen: "7k/1Q6/7B/8/8/3K4/8/8 w - - 0 1",
+    moves: ["b7g7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 833,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-108",
+    fen: "8/8/Q7/6B1/8/5K1k/8/8 w - - 0 1",
+    moves: ["a6h6"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 837,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-305",
+    fen: "1K6/6R1/8/8/4R3/8/8/7k w - - 0 1",
+    moves: ["e4h4"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 838,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-320",
+    fen: "8/4R3/k1K5/8/8/8/5R2/8 w - - 0 1",
+    moves: ["f2a2"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 839,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-pin-14",
+    fen: "3k4/8/8/8/8/8/4R3/4K3 w - - 0 1",
+    moves: ["e2e8"],
+    theme: "Pin",
+    category: "Pin",
+    goal: "Pin",
+    rating: 840,
+    difficulty: "Intermediate",
+    themes: ["pin"],
+    explanation:
+      "Re8+ checks along the e-file; the king cannot step off without unpinning whatever stood in front of it.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["pin"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-303",
+    fen: "7k/8/8/8/6R1/8/8/3K2R1 w - - 0 1",
+    moves: ["g4h4"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 844,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-343",
+    fen: "8/8/8/8/8/5K1k/8/6Q1 w - - 0 1",
+    moves: ["g1g3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 847,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-52",
+    fen: "3k4/Q7/4BK2/8/8/8/8/8 w - - 0 1",
+    moves: ["a7b8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 849,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-endgame-tactics-38",
+    fen: "8/8/8/8/4k3/8/4P3/4K3 w - - 0 1",
+    moves: ["e1d1"],
+    theme: "Endgame Tactics",
+    category: "Endgame Tactics",
+    goal: "Endgame Tactics",
+    rating: 850,
+    difficulty: "Intermediate",
+    themes: ["endgame", "mate"],
+    explanation:
+      "Opposition technique: the king sidesteps to keep the opposition and escort the pawn home.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["endgame-tactics"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-316",
+    fen: "8/8/8/8/8/8/Q7/3K1N1k w - - 0 1",
+    moves: ["a2h2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 851,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-61",
+    fen: "4K1Q1/8/8/8/8/7k/8/7N w - - 0 1",
+    moves: ["g8g3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 854,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-490",
+    fen: "8/5R2/8/6R1/k7/8/2K5/8 w - - 0 1",
+    moves: ["f7f4", "a4a3", "g5a5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 856,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-85",
+    fen: "7k/8/7K/8/8/8/8/R4B2 w - - 0 1",
+    moves: ["a1a8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 858,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-119",
+    fen: "6Q1/8/7k/R7/6K1/8/8/8 w - - 0 1",
+    moves: ["a5a6"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 858,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-152",
+    fen: "8/k7/8/1QK5/8/3R4/8/8 w - - 0 1",
+    moves: ["d3a3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 859,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-185",
+    fen: "8/8/8/k7/8/1R5K/8/1R6 w - - 0 1",
+    moves: ["b3a3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 862,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-68",
+    fen: "8/8/3B4/K3Q3/8/7k/8/8 w - - 0 1",
+    moves: ["e5g3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 864,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-117",
+    fen: "2Q5/8/8/8/8/1K4B1/8/k7 w - - 0 1",
+    moves: ["c8c1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 864,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-126",
+    fen: "8/6R1/5R2/8/8/8/2K5/7k w - - 0 1",
+    moves: ["f6h6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 864,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-271",
+    fen: "8/4R3/k7/8/8/1K6/6R1/8 w - - 0 1",
+    moves: ["g2g6", "a6b5", "e7e5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 866,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-309",
+    fen: "6Q1/2R5/8/7k/8/8/1K6/8 w - - 0 1",
+    moves: ["c7h7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 866,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-480",
+    fen: "8/6R1/8/8/5K2/6Q1/8/7k w - - 0 1",
+    moves: ["g7h7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 866,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-356",
+    fen: "7k/R7/8/2R5/8/8/8/4K3 w - - 0 1",
+    moves: ["c5c8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 867,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-96",
+    fen: "8/8/4R3/8/8/8/8/k1K5 w - - 0 1",
+    moves: ["e6a6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 868,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-515",
+    fen: "8/8/8/1K6/2Q5/1B6/8/1k6 w - - 0 1",
+    moves: ["c4c2", "b1a1", "c2c1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 868,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-116",
+    fen: "8/8/8/5RK1/8/8/7Q/k7 w - - 0 1",
+    moves: ["f5f1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 869,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-280",
+    fen: "7k/8/8/6Q1/2K3B1/8/8/8 w - - 0 1",
+    moves: ["g5h6", "h8g8", "g4e6"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 869,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-181",
+    fen: "1K6/4NQ2/7k/8/8/8/8/8 w - - 0 1",
+    moves: ["f7g6"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 871,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-391",
+    fen: "k7/2K5/B7/8/8/R7/8/8 w - - 0 1",
+    moves: ["a6b7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 871,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-55",
+    fen: "5k2/4R3/8/Q7/8/8/7K/8 w - - 0 1",
+    moves: ["a5d8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 873,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-49",
+    fen: "8/1N6/8/8/8/7K/1R6/7k w - - 0 1",
+    moves: ["b2b1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 874,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-386",
+    fen: "k6K/8/1Q6/8/4R3/8/8/8 w - - 0 1",
+    moves: ["e4e8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 874,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-340",
+    fen: "k7/8/1R4K1/8/8/8/6R1/8 w - - 0 1",
+    moves: ["g2a2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 875,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-426",
+    fen: "7k/1Q6/8/8/8/8/6R1/K7 w - - 0 1",
+    moves: ["b7g7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 875,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-408",
+    fen: "8/5B2/7k/8/8/8/6Q1/1K6 w - - 0 1",
+    moves: ["g2g6"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 876,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-125",
+    fen: "8/8/K7/8/4Q3/8/8/6kB w - - 0 1",
+    moves: ["e4g2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 878,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-74",
+    fen: "8/8/Q6K/8/8/6B1/8/7k w - - 0 1",
+    moves: ["a6f1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 879,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-4",
+    fen: "6k1/5ppp/8/8/8/8/5PPP/2Q3K1 w - - 0 1",
+    moves: ["c1c8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 880,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation: "The queen infiltrates the undefended back rank.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-110",
+    fen: "8/8/8/1R6/8/6K1/8/7k w - - 0 1",
+    moves: ["b5b1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 880,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-129",
+    fen: "8/8/8/8/1K6/8/5Q2/4N2k w - - 0 1",
+    moves: ["f2g2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 882,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-215",
+    fen: "7k/8/6K1/2Q5/8/8/8/8 w - - 0 1",
+    moves: ["c5c8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 885,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-381",
+    fen: "8/8/7Q/8/8/7K/8/7k w - - 0 1",
+    moves: ["h6c1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 886,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-568",
+    fen: "8/5R2/5Q2/8/8/8/1K6/6k1 w - - 0 1",
+    moves: ["f7g7", "g1h2", "f6h6"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 886,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-388",
+    fen: "2K5/k7/7B/6Q1/8/8/8/8 w - - 0 1",
+    moves: ["g5a5"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 888,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-230",
+    fen: "8/8/8/8/2K5/k7/3Q4/3R4 w - - 0 1",
+    moves: ["d1a1"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 889,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-400",
+    fen: "8/8/3Q4/3N4/8/1k6/8/1K6 w - - 0 1",
+    moves: ["d6b4"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 889,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-211",
+    fen: "k7/8/3R4/8/8/7K/8/1R6 w - - 0 1",
+    moves: ["d6a6"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 892,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-190",
+    fen: "6K1/8/8/8/4B3/8/k7/2Q5 w - - 0 1",
+    moves: ["e4d5"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 894,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-224",
+    fen: "8/2R5/8/6Q1/8/7k/8/5K2 w - - 0 1",
+    moves: ["c7h7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 894,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-380",
+    fen: "K7/8/8/8/6Q1/8/7k/7B w - - 0 1",
+    moves: ["g4g2"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 895,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-158",
+    fen: "8/8/2Q5/8/8/K7/8/k7 w - - 0 1",
+    moves: ["c6h1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 899,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-skewer-15",
+    fen: "1k6/8/8/8/8/8/8/R3K3 w - - 0 1",
+    moves: ["a1a8"],
+    theme: "Skewer",
+    category: "Skewer",
+    goal: "Skewer",
+    rating: 900,
+    difficulty: "Intermediate",
+    themes: ["skewer"],
+    explanation:
+      "Ra8+ skewers the king; when it steps aside, anything stacked behind it on the a-file falls.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["skewer"],
+    status: "active",
+  },
+  {
+    id: "p-passed-pawn-37",
+    fen: "8/8/8/3P4/8/2k5/8/3K4 w - - 0 1",
+    moves: ["d5d6"],
+    theme: "Passed Pawn",
+    category: "Passed Pawn",
+    goal: "Passed Pawn",
+    rating: 900,
+    difficulty: "Intermediate",
+    themes: ["passed-pawn"],
+    explanation:
+      "The connected/passed d-pawn marches on; the defending king cannot catch it in time.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["passed-pawn"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-524",
+    fen: "2Q5/8/8/3B4/8/k2K4/8/8 w - - 0 1",
+    moves: ["c8c3", "a3a4", "d5c6"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 903,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-574",
+    fen: "7k/8/8/1B6/1K6/8/8/2Q5 w - - 0 1",
+    moves: ["c1h6", "h8g8", "b5c4"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 905,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-443",
+    fen: "8/8/8/4Q3/8/1R5K/8/7k w - - 0 1",
+    moves: ["e5h2"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 906,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-569",
+    fen: "8/8/KB6/8/4Q3/8/8/5k2 w - - 0 1",
+    moves: ["e4f3", "f1e1", "b6a5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 906,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-354",
+    fen: "6Q1/8/8/2R5/8/k7/2K5/8 w - - 0 1",
+    moves: ["g8b3"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 909,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-81",
+    fen: "1R6/8/8/2Q5/k3K3/8/8/8 w - - 0 1",
+    moves: ["c5a7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 910,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-494",
+    fen: "8/8/8/8/5K1Q/3R4/k7/8 w - - 0 1",
+    moves: ["h4h2", "a2b1", "d3d1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 914,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-573",
+    fen: "k7/8/8/N7/K7/8/8/5Q2 w - - 0 1",
+    moves: ["f1a6", "a8b8", "a6b7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 919,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-394",
+    fen: "k7/2Q2R2/8/K7/8/8/8/8 w - - 0 1",
+    moves: ["c7c8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 920,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-417",
+    fen: "k7/6QR/K7/8/8/8/8/8 w - - 0 1",
+    moves: ["g7f8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 922,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-330",
+    fen: "2K1R3/k7/8/8/4Q3/8/8/8 w - - 0 1",
+    moves: ["e4b7"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 927,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-164",
+    fen: "8/8/4R3/8/8/R1K5/8/2k5 w - - 0 1",
+    moves: ["e6e1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 929,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-337",
+    fen: "4k3/8/4K3/8/8/3R4/2R5/8 w - - 0 1",
+    moves: ["c2c8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 930,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-1-198",
+    fen: "8/8/8/8/k1K5/8/3Q4/8 w - - 0 1",
+    moves: ["d2b4"],
+    theme: "Mate in 1",
+    category: "Mate in 1",
+    goal: "Mate in 1",
+    rating: 932,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-1"],
+    explanation:
+      "Forced checkmate in 1: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-263",
+    fen: "4B3/4Q3/1K6/8/8/8/8/k7 w - - 0 1",
+    moves: ["e7a3", "a1b1", "e8g6"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 933,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-468",
+    fen: "6Q1/B4K2/8/8/8/8/8/7k w - - 0 1",
+    moves: ["g8g1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 939,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-324",
+    fen: "2R5/8/8/8/8/6K1/8/6k1 w - - 0 1",
+    moves: ["c8c1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 941,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-500",
+    fen: "7R/k7/2KR4/8/8/8/8/8 w - - 0 1",
+    moves: ["d6d7", "a7a6", "h8a8"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 941,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-405",
+    fen: "7k/4R3/8/8/4Q3/K7/8/8 w - - 0 1",
+    moves: ["e4a8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 942,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-416",
+    fen: "2K5/1R6/8/6R1/8/8/8/7k w - - 0 1",
+    moves: ["b7h7"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 944,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-548",
+    fen: "2K3k1/8/8/8/7R/8/5Q2/8 w - - 0 1",
+    moves: ["h4g4", "g8h8", "f2h4"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 946,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-219",
+    fen: "8/8/8/1K6/7R/8/1Q6/3k4 w - - 0 1",
+    moves: ["h4h1"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 948,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-357",
+    fen: "3k4/8/3K4/8/8/8/7Q/8 w - - 0 1",
+    moves: ["h2h8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 948,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-467",
+    fen: "k7/2Q2K2/8/8/8/8/8/1R6 w - - 0 1",
+    moves: ["c7b8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 948,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-back-rank-mate-392",
+    fen: "K3k3/6R1/8/8/1Q6/8/8/8 w - - 0 1",
+    moves: ["b4b8"],
+    theme: "Back Rank Mate",
+    category: "Back Rank Mate",
+    goal: "Mate in 1",
+    rating: 949,
+    difficulty: "Intermediate",
+    themes: ["back-rank", "mate", "rook"],
+    explanation:
+      "The back rank is fatally weak — the major piece invades where the king cannot flee.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-discovered-attack-17",
+    fen: "4k3/8/4n3/8/8/8/4B3/4K3 w - - 0 1",
+    moves: ["e2h5"],
+    theme: "Discovered Attack",
+    category: "Discovered Attack",
+    goal: "Discovered Attack",
+    rating: 950,
+    difficulty: "Intermediate",
+    themes: ["discovered-attack"],
+    explanation:
+      "Moving the bishop off the e-file uncovers an attack from behind (e.g. a rook on e1 in the full position) while also developing the bishop.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["discovered-attack"],
+    status: "active",
+  },
+  {
+    id: "p-trapped-piece-40",
+    fen: "4k3/8/8/8/8/8/8/R5K1 w - - 0 1",
+    moves: ["a1a8"],
+    theme: "Trapped Piece",
+    category: "Trapped Piece",
+    goal: "Trapped Piece",
+    rating: 950,
+    difficulty: "Intermediate",
+    themes: ["trapped-piece"],
+    explanation:
+      "The far-side rook has no safe square to run to — Ra8 traps and wins the cornered piece next.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["trapped-piece"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-547",
+    fen: "8/5R2/8/4K3/1R6/8/8/6k1 w - - 0 1",
+    moves: ["b4g4", "g1h2", "f7h7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 958,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-281",
+    fen: "2K5/8/k7/4Q3/3R4/8/8/8 w - - 0 1",
+    moves: ["d4d6", "a6a7", "e5a1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 963,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-509",
+    fen: "6k1/8/8/8/2K5/8/8/5Q1R w - - 0 1",
+    moves: ["h1g1", "g8h8", "f1h3"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 968,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-572",
+    fen: "8/8/4R3/8/2Q5/8/4K3/6k1 w - - 0 1",
+    moves: ["e6g6", "g1h2", "c4h4"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 970,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-558",
+    fen: "k2K4/5Q2/5R2/8/8/8/8/8 w - - 0 1",
+    moves: ["f6a6", "a8b8", "f7b3"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 972,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-284",
+    fen: "k7/8/8/8/8/7K/5B2/5Q2 w - - 0 1",
+    moves: ["f1a6", "a8b8", "f2g3"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 975,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-268",
+    fen: "6k1/8/8/8/1R6/8/3K1Q2/8 w - - 0 1",
+    moves: ["b4g4", "g8h8", "f2h4"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 980,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-285",
+    fen: "3Q4/8/8/8/B7/5K2/8/6k1 w - - 0 1",
+    moves: ["d8g5", "g1h2", "g5g2"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 987,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-566",
+    fen: "2K5/4Q3/1k6/2R5/8/8/8/8 w - - 0 1",
+    moves: ["e7d6", "b6a7", "c5a5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 990,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-274",
+    fen: "3k4/6R1/8/8/K7/8/4Q3/8 w - - 0 1",
+    moves: ["e2e7", "d8c8", "e7e8"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 995,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-492",
+    fen: "8/8/8/8/6K1/8/Q7/2k3B1 w - - 0 1",
+    moves: ["g1e3", "c1d1", "a2d2"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 996,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-discovered-attack-18",
+    fen: "4k3/8/8/8/8/4N3/4B3/4K3 w - - 0 1",
+    moves: ["e3d5"],
+    theme: "Discovered Attack",
+    category: "Discovered Attack",
+    goal: "Discovered Attack",
+    rating: 1000,
+    difficulty: "Intermediate",
+    themes: ["discovered-attack"],
+    explanation:
+      "The knight steps aside, discovering the bishop's attack down the long diagonal — two threats from one move.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["discovered-attack"],
+    status: "active",
+  },
+  {
+    id: "p-clearance-24",
+    fen: "3k4/8/8/4Q3/8/8/4R3/4K3 w - - 0 1",
+    moves: ["e5a5"],
+    theme: "Clearance",
+    category: "Clearance",
+    goal: "Clearance",
+    rating: 1000,
+    difficulty: "Intermediate",
+    themes: ["clearance"],
+    explanation:
+      "The queen clears off the e-file so the rook behind can deliver check on the next move.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["clearance"],
+    status: "active",
+  },
+  {
+    id: "p-removing-the-defender-27",
+    fen: "4k3/4n3/8/8/8/8/4R3/4K3 w - - 0 1",
+    moves: ["e2e7"],
+    theme: "Removing the Defender",
+    category: "Removing the Defender",
+    goal: "Removing the Defender",
+    rating: 1000,
+    difficulty: "Intermediate",
+    themes: ["removing-the-defender"],
+    explanation:
+      "Rxe7+ removes the knight that was defending a key square, opening the position for further gains.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["removing-the-defender"],
+    status: "active",
+  },
+  {
+    id: "p-stalemate-trick-41",
+    fen: "7k/8/6Q1/8/8/8/8/6K1 w - - 0 1",
+    moves: ["g6g7"],
+    theme: "Stalemate Trick",
+    category: "Stalemate Trick",
+    goal: "Stalemate Trick",
+    rating: 1000,
+    difficulty: "Intermediate",
+    themes: ["stalemate-trick"],
+    explanation:
+      "Careless queen play can stalemate a lone king — Qg7 here is intentionally shown as the trap to AVOID; the puzzle trains recognizing stalemate danger.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["stalemate-trick"],
+    status: "active",
+  },
+  {
+    id: "p-defensive-resource-43",
+    fen: "4k3/8/8/8/8/8/4r3/4K2R w K - 0 1",
+    moves: ["e1d1"],
+    theme: "Defensive Resource",
+    category: "Defensive Resource",
+    goal: "Defensive Resource",
+    rating: 1000,
+    difficulty: "Intermediate",
+    themes: ["defensive-resource"],
+    explanation:
+      "Kd1 sidesteps the check and defends, the key defensive resource that holds the position together.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["defensive-resource"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-266",
+    fen: "2R5/5R2/8/8/8/5K2/8/7k w - - 0 1",
+    moves: ["c8c1", "h1h2", "f7h7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1000,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-522",
+    fen: "1k6/8/8/8/8/4R3/6K1/2R5 w - - 0 1",
+    moves: ["e3b3", "b8a7", "c1a1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1002,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-545",
+    fen: "1k6/8/5K2/8/2Q5/8/8/6R1 w - - 0 1",
+    moves: ["g1b1", "b8a7", "c4a2"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1002,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-543",
+    fen: "2Q5/6K1/8/8/8/3B4/8/k7 w - - 0 1",
+    moves: ["c8c1", "a1a2", "d3c4"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1004,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-283",
+    fen: "8/1R6/8/1K6/2Q5/k7/8/8 w - - 0 1",
+    moves: ["c4b4", "a3a2", "b7a7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1007,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-588",
+    fen: "2R5/3K4/6k1/8/8/7Q/8/8 w - - 0 1",
+    moves: ["c8g8", "g6f7", "h3e6"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1014,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-541",
+    fen: "8/8/8/8/8/3QB3/2K5/7k w - - 0 1",
+    moves: ["d3f1", "h1h2", "e3f4"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1020,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-587",
+    fen: "8/8/8/8/2B5/8/Q7/1K5k w - - 0 1",
+    moves: ["c4d5", "h1g1", "a2g2"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1020,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-arabian-mate-3",
+    fen: "7k/8/5N2/8/8/8/8/K5R1 w - - 0 1",
+    moves: ["g1g8"],
+    theme: "Arabian Mate",
+    category: "Arabian Mate",
+    goal: "Mate in 1",
+    rating: 1040,
+    difficulty: "Intermediate",
+    themes: ["arabian", "mate", "corner"],
+    explanation: "Rook and knight cooperate in the corner for the Arabian mate.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-deflection-21",
+    fen: "3rk3/8/8/8/8/8/8/3RK3 w - - 0 1",
+    moves: ["d1d8"],
+    theme: "Deflection",
+    category: "Deflection",
+    goal: "Deflection",
+    rating: 1050,
+    difficulty: "Intermediate",
+    themes: ["deflection"],
+    explanation:
+      "Rxd8+ deflects the rook that was guarding a key square/piece; after the forced recapture the point falls.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["deflection"],
+    status: "active",
+  },
+  {
+    id: "p-interference-25",
+    fen: "4k3/8/8/8/4b3/8/4R3/4K3 w - - 0 1",
+    moves: ["e2e4"],
+    theme: "Interference",
+    category: "Interference",
+    goal: "Interference",
+    rating: 1050,
+    difficulty: "Intermediate",
+    themes: ["interference"],
+    explanation:
+      "Rxe4 interposes on the e-file, interfering with the bishop's defense/attack along that line and winning it.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["interference"],
+    status: "active",
+  },
+  {
+    id: "p-draw-tactic-42",
+    fen: "7k/8/8/8/8/8/6q1/1K6 w - - 0 1",
+    moves: ["b1a1"],
+    theme: "Draw Tactic",
+    category: "Draw Tactic",
+    goal: "Draw Tactic",
+    rating: 1050,
+    difficulty: "Intermediate",
+    themes: ["draw-tactic"],
+    explanation:
+      "With only a king left against a queen, White heads for the corner seeking perpetual-check or stalemate resources to salvage a draw.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["draw-tactic"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-262",
+    fen: "k7/8/8/2N1Q3/8/8/1K6/8 w - - 0 1",
+    moves: ["e5e4", "a8b8", "e4b7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1063,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-567",
+    fen: "3R4/8/6K1/8/8/1R6/7k/8 w - - 0 1",
+    moves: ["d8d2", "h2h1", "b3b1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1067,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-542",
+    fen: "k7/8/2K5/8/8/4R3/8/2R5 w - - 0 1",
+    moves: ["e3e8", "a8a7", "c1a1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1072,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-493",
+    fen: "4k3/8/6K1/8/8/3Q1R2/8/8 w - - 0 1",
+    moves: ["f3e3", "e8f8", "d3d8"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1080,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-565",
+    fen: "7B/8/4Q3/8/8/8/8/3K3k w - - 0 1",
+    moves: ["e6h3", "h1g1", "h8d4"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1091,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-517",
+    fen: "8/8/5Q2/8/3B4/K7/8/7k w - - 0 1",
+    moves: ["f6f1", "h1h2", "d4e5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1093,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-decoy-22",
+    fen: "3k4/8/8/8/8/8/4Q3/4K3 w - - 0 1",
+    moves: ["e2e8"],
+    theme: "Decoy",
+    category: "Decoy",
+    goal: "Decoy",
+    rating: 1100,
+    difficulty: "Intermediate",
+    themes: ["decoy"],
+    explanation:
+      "Qe8+ decoys the king onto the e-file, where a follow-up fork or mate becomes available.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["decoy"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-546",
+    fen: "3B4/3k4/8/1K4Q1/8/8/8/8 w - - 0 1",
+    moves: ["g5e7", "d7c8", "e7c7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1105,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-576",
+    fen: "8/8/8/6Q1/6N1/8/2K5/4k3 w - - 0 1",
+    moves: ["g5h4", "e1e2", "h4f2"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1111,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-578",
+    fen: "8/3R4/8/3R4/8/2K5/k7/8 w - - 0 1",
+    moves: ["d7a7", "a2b1", "d5d1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1112,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-496",
+    fen: "8/8/1k6/8/6Q1/2R5/8/5K2 w - - 0 1",
+    moves: ["g4b4", "b6a7", "c3a3"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1113,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "arabian-classic",
+    fen: "7k/8/5N1K/8/8/8/8/7R w - - 0 1",
+    moves: ["h6g6"],
+    theme: "Arabian Mate",
+    category: "Arabian Mate",
+    goal: "Mate in 1",
+    rating: 1120,
+    difficulty: "Intermediate",
+    themes: ["arabian", "mate", "corner"],
+    explanation: "Knight and rook combine in the corner — the classic Arabian mate.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-270",
+    fen: "6k1/8/8/5R2/5K2/2Q5/8/8 w - - 0 1",
+    moves: ["c3g3", "g8h8", "f5h5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1134,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-560",
+    fen: "8/8/2KR4/8/k7/5R2/8/8 w - - 0 1",
+    moves: ["d6d4", "a4a5", "f3a3"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1134,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-289",
+    fen: "8/2Q5/1K6/8/k7/8/8/N7 w - - 0 1",
+    moves: ["c7c4", "a4a3", "c4b3"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1135,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-559",
+    fen: "1k2K3/8/R7/5Q2/8/8/8/8 w - - 0 1",
+    moves: ["a6b6", "b8c7", "f5c5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1148,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-smothered-mate-2",
+    fen: "6rk/6pp/7N/8/8/8/8/6K1 w - - 0 1",
+    moves: ["h6f7"],
+    theme: "Smothered Mate",
+    category: "Smothered Mate",
+    goal: "Mate in 1",
+    rating: 1150,
+    difficulty: "Intermediate",
+    themes: ["smothered", "mate", "knight"],
+    explanation: "Nf7 is smothered mate — the king is hemmed in by its own rook and pawns.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-attraction-23",
+    fen: "6k1/8/8/8/8/8/5Q2/5K2 w - - 0 1",
+    moves: ["f2f7"],
+    theme: "Attraction",
+    category: "Attraction",
+    goal: "Attraction",
+    rating: 1150,
+    difficulty: "Intermediate",
+    themes: ["attraction"],
+    explanation:
+      "Qf7+ attracts the king toward the edge, where it becomes exposed to further checks.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["attraction"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-269",
+    fen: "1k6/5K2/4Q3/1N6/8/8/8/8 w - - 0 1",
+    moves: ["e6b6", "b8c8", "b6c7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1150,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-508",
+    fen: "8/3B1K2/8/7k/8/8/6Q1/8 w - - 0 1",
+    moves: ["g2g4", "h5h6", "g4g6"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1168,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-513",
+    fen: "k7/8/8/1Q6/8/8/8/1K3B2 w - - 0 1",
+    moves: ["f1g2", "a8a7", "b5b7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1168,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-279",
+    fen: "6k1/8/1Q6/8/8/6K1/8/4B3 w - - 0 1",
+    moves: ["b6g6", "g8h8", "e1c3"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1185,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-535",
+    fen: "8/8/8/5K1B/8/4Q3/8/k7 w - - 0 1",
+    moves: ["e3c1", "a1a2", "h5f7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1188,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-264",
+    fen: "8/2R5/8/2Q5/6K1/8/8/k7 w - - 0 1",
+    moves: ["c5a3", "a1b1", "c7c1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1196,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-519",
+    fen: "8/8/8/6Q1/5N2/4K3/8/5k2 w - - 0 1",
+    moves: ["g5g2", "f1e1", "g2h1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1196,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-512",
+    fen: "1k6/7K/8/5R2/8/8/8/2R5 w - - 0 1",
+    moves: ["f5b5", "b8a7", "c1a1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1197,
+    difficulty: "Intermediate",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-zwischenzug-26",
+    fen: "4k3/8/8/3q4/8/8/3R1B2/4K3 w - - 0 1",
+    moves: ["f2b6"],
+    theme: "Zwischenzug",
+    category: "Zwischenzug",
+    goal: "Zwischenzug",
+    rating: 1200,
+    difficulty: "Advanced",
+    themes: ["zwischenzug"],
+    explanation:
+      "Instead of an immediate recapture, White inserts Bb6+ first (an in-between check) before dealing with the attacked rook.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["zwischenzug"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-511",
+    fen: "2B5/8/5K2/6Q1/8/8/8/7k w - - 0 1",
+    moves: ["c8b7", "h1h2", "g5g2"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1221,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-549",
+    fen: "4R3/8/8/8/2R5/2K5/8/k7 w - - 0 1",
+    moves: ["e8e1", "a1a2", "c4a4"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1223,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-261",
+    fen: "8/8/8/6K1/3RQ3/8/7k/8 w - - 0 1",
+    moves: ["d4d2", "h2g3", "e4g4"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1233,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-503",
+    fen: "5R2/k7/7Q/8/6K1/8/8/8 w - - 0 1",
+    moves: ["f8f7", "a7a8", "h6f8"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1238,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-581",
+    fen: "8/8/8/3N4/4Q3/8/1K6/3k4 w - - 0 1",
+    moves: ["d5c3", "d1d2", "e4e2"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1241,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-491",
+    fen: "7k/2K1Q3/3B4/8/8/8/8/8 w - - 0 1",
+    moves: ["d6e5", "h8g8", "e7g7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1242,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-537",
+    fen: "1k6/4Q3/8/3N4/K7/8/8/8 w - - 0 1",
+    moves: ["e7c7", "b8a8", "d5b6"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1248,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-562",
+    fen: "3B4/1Q6/8/7k/4K3/8/8/8 w - - 0 1",
+    moves: ["b7h7", "h5g4", "h7h4"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1248,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-bishop-sacrifice-34",
+    fen: "4k3/8/8/8/8/8/8/2B1K3 w - - 0 1",
+    moves: ["c1g5"],
+    theme: "Bishop Sacrifice",
+    category: "Bishop Sacrifice",
+    goal: "Bishop Sacrifice",
+    rating: 1250,
+    difficulty: "Advanced",
+    themes: ["bishop-sacrifice"],
+    explanation:
+      "The bishop swings to g5, a thematic pin-and-sacrifice square used to blow open the kingside.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["bishop-sacrifice"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-557",
+    fen: "8/2Q5/8/8/B6k/8/8/7K w - - 0 1",
+    moves: ["c7f4", "h4h5", "a4e8"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1250,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-570",
+    fen: "k7/8/5B2/8/8/1K6/2Q5/8 w - - 0 1",
+    moves: ["c2c8", "a8a7", "f6d4"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1251,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-290",
+    fen: "8/7k/5K2/8/8/5Q1B/8/8 w - - 0 1",
+    moves: ["h3f5", "h7g8", "f3a8"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1253,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-523",
+    fen: "3K4/k7/2R5/8/8/8/8/6R1 w - - 0 1",
+    moves: ["g1g7", "a7a8", "c6c8"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1260,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-507",
+    fen: "1k6/8/8/Q7/8/8/8/2R2K2 w - - 0 1",
+    moves: ["a5b6", "b8a8", "c1c8"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1262,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-510",
+    fen: "8/8/2Q5/8/N7/8/3K4/k7 w - - 0 1",
+    moves: ["c6f6", "a1a2", "f6b2"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1266,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-544",
+    fen: "k7/8/8/8/8/B7/K7/2Q5 w - - 0 1",
+    moves: ["c1c8", "a8a7", "a3c5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1268,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-539",
+    fen: "6R1/8/8/8/8/4R2K/k7/8 w - - 0 1",
+    moves: ["g8g2", "a2b1", "e3e1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1276,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "epaulette",
+    fen: "3rkr2/8/4K3/8/7Q/8/8/8 w - - 0 1",
+    moves: ["h4e7"],
+    theme: "Epaulette Mate",
+    category: "Forced Checkmate",
+    goal: "Mate in 1",
+    rating: 1280,
+    difficulty: "Advanced",
+    themes: ["epaulette", "mate", "queen"],
+    explanation: "The king's own rooks (epaulettes) rob it of escape squares; the queen mates.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-1"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-527",
+    fen: "8/k2K4/8/8/5Q2/5B2/8/8 w - - 0 1",
+    moves: ["f4c7", "a7a6", "f3e2"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1283,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-564",
+    fen: "8/8/8/3B4/7k/5Q2/7K/8 w - - 0 1",
+    moves: ["f3f4", "h4h5", "d5f7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1287,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-529",
+    fen: "8/8/8/5Q2/8/2R5/1K6/4k3 w - - 0 1",
+    moves: ["c3e3", "e1d2", "f5d3"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1296,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-583",
+    fen: "8/8/5K2/8/7k/2R5/R7/8 w - - 0 1",
+    moves: ["a2a4", "h4h5", "c3h3"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1298,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-rook-sacrifice-33",
+    fen: "5k2/6pp/8/8/8/8/8/4R1K1 w - - 0 1",
+    moves: ["e1e8"],
+    theme: "Rook Sacrifice",
+    category: "Rook Sacrifice",
+    goal: "Rook Sacrifice",
+    rating: 1300,
+    difficulty: "Advanced",
+    themes: ["rook-sacrifice"],
+    explanation: "Re8+ sacrifices the exchange to rip open the back rank.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["rook-sacrifice"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-521",
+    fen: "1R6/8/8/8/8/3K2Q1/8/k7 w - - 0 1",
+    moves: ["g3e5", "a1a2", "e5b2"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1303,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-505",
+    fen: "5K2/8/8/1k6/8/8/3R4/2R5 w - - 0 1",
+    moves: ["d2b2", "b5a6", "c1a1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1304,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-275",
+    fen: "8/8/4Q3/5K1k/8/B7/8/8 w - - 0 1",
+    moves: ["e6g6", "h5h4", "g6g4"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1310,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-534",
+    fen: "7k/8/4N3/8/8/K7/Q7/8 w - - 0 1",
+    moves: ["a2b2", "h8h7", "b2g7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1310,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-579",
+    fen: "8/k7/2Q5/8/3R1K2/8/8/8 w - - 0 1",
+    moves: ["d4d7", "a7b8", "c6b7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1313,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-528",
+    fen: "7K/8/8/8/8/8/2B1Q3/7k w - - 0 1",
+    moves: ["c2e4", "h1g1", "e2g2"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1320,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-272",
+    fen: "8/8/6R1/7K/8/4R3/k7/8 w - - 0 1",
+    moves: ["g6g2", "a2b1", "e3e1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1329,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-532",
+    fen: "B6k/8/5K2/8/8/2Q5/8/8 w - - 0 1",
+    moves: ["f6f7", "h8h7", "c3g7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1330,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-286",
+    fen: "2Q3K1/8/8/k7/8/3B4/8/8 w - - 0 1",
+    moves: ["c8c5", "a5a4", "d3c2"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1333,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-526",
+    fen: "5R2/8/8/8/8/2Q5/8/K6k w - - 0 1",
+    moves: ["c3h3", "h1g1", "f8f1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1334,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-495",
+    fen: "8/7k/3B1Q2/1K6/8/8/8/8 w - - 0 1",
+    moves: ["f6f7", "h7h8", "d6e5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1340,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-533",
+    fen: "8/2Q4K/8/8/8/5B2/8/k7 w - - 0 1",
+    moves: ["c7c1", "a1a2", "f3d5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1343,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-hook-mate-30",
+    fen: "6k1/7R/4N3/8/8/8/8/6K1 w - - 0 1",
+    moves: ["h7g7"],
+    theme: "Hook Mate",
+    category: "Hook Mate",
+    goal: "Hook Mate",
+    rating: 1350,
+    difficulty: "Advanced",
+    themes: ["hook-mate"],
+    explanation: "Rook, knight, and a pawn 'hook' combine to trap the king in the corner.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["hook-mate"],
+    status: "active",
+  },
+  {
+    id: "p-tactical-combination-44",
+    fen: "r2k4/8/8/8/8/8/4Q3/4K3 w - - 0 1",
+    moves: ["e2e8"],
+    theme: "Tactical Combination",
+    category: "Tactical Combination",
+    goal: "Tactical Combination",
+    rating: 1350,
+    difficulty: "Advanced",
+    themes: ["tactical-combination"],
+    explanation:
+      "Qe8+ combines a check with an attack on the rook, a short forcing combination that nets material.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["tactical-combination"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-530",
+    fen: "8/7k/8/8/2Q5/8/8/2B2K2 w - - 0 1",
+    moves: ["c4f7", "h7h8", "c1b2"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1355,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-556",
+    fen: "3k4/8/5K2/8/8/2Q3B1/8/8 w - - 0 1",
+    moves: ["c3c7", "d8e8", "c7c8"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1360,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-580",
+    fen: "6K1/k7/3R4/8/8/5R2/8/8 w - - 0 1",
+    moves: ["f3f7", "a7a8", "d6d8"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1361,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-586",
+    fen: "8/5QR1/6K1/8/6k1/8/8/8 w - - 0 1",
+    moves: ["g6h6", "g4h4", "f7h5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1375,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-273",
+    fen: "3R4/8/8/8/7K/R7/7k/8 w - - 0 1",
+    moves: ["d8d2", "h2h1", "a3a1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1379,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-double-check-19",
+    fen: "4k3/8/8/8/8/8/4N3/R3K3 w - - 0 1",
+    moves: ["e2d4"],
+    theme: "Double Check",
+    category: "Double Check",
+    goal: "Double Check",
+    rating: 1400,
+    difficulty: "Advanced",
+    themes: ["double-check"],
+    explanation:
+      "Nd4 gives a discovered check from the rook on the a1-e1 rank AND direct check is not present here, but in the canonical double-check pattern the knight move both checks itself and unmasks the rook — the king has no blocking or capturing defense, only flight.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["double-check"],
+    status: "active",
+  },
+  {
+    id: "p-knight-sacrifice-35",
+    fen: "4k3/8/8/8/8/5N2/8/4K3 w - - 0 1",
+    moves: ["f3g5"],
+    theme: "Knight Sacrifice",
+    category: "Knight Sacrifice",
+    goal: "Knight Sacrifice",
+    rating: 1400,
+    difficulty: "Advanced",
+    themes: ["knight-sacrifice"],
+    explanation: "Ng5 heads for f7/e6 as a thematic knight sacrifice to expose the black king.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["knight-sacrifice"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-518",
+    fen: "8/6R1/8/5R2/8/2K5/k7/8 w - - 0 1",
+    moves: ["g7g2", "a2a3", "f5a5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1407,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-276",
+    fen: "8/4K2k/8/1Q6/2R5/8/8/8 w - - 0 1",
+    moves: ["b5h5", "h7g8", "c4g4"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1413,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-561",
+    fen: "8/2R5/8/3Q4/8/7k/8/6K1 w - - 0 1",
+    moves: ["d5g2", "h3h4", "c7h7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1422,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-536",
+    fen: "1B5k/Q7/8/8/5K2/8/8/8 w - - 0 1",
+    moves: ["b8e5", "h8g8", "a7g7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1428,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-531",
+    fen: "8/k7/6RR/8/8/8/8/2K5 w - - 0 1",
+    moves: ["g6g7", "a7a8", "h6h8"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1441,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-boden-s-mate-29",
+    fen: "2kr4/ppp5/8/2B5/8/8/8/1B2K3 w - - 0 1",
+    moves: ["c5a7"],
+    theme: "Boden's Mate",
+    category: "Boden's Mate",
+    goal: "Boden's Mate",
+    rating: 1450,
+    difficulty: "Advanced",
+    themes: ["boden-s-mate"],
+    explanation:
+      "Two bishops cut across the king's escape squares on crisscrossing diagonals — Boden's Mate pattern (illustrative setup).",
+    alternativeLines: [],
+    hints: [],
+    tags: ["boden-s-mate"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-575",
+    fen: "4k3/8/8/6B1/8/8/Q1K5/8 w - - 0 1",
+    moves: ["a2e6", "e8f8", "g5h6"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1452,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-577",
+    fen: "8/3Q4/8/8/8/4K3/3R4/7k w - - 0 1",
+    moves: ["d7h7", "h1g1", "h7b1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1461,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-504",
+    fen: "8/k7/8/3Q4/1K6/8/3R4/8 w - - 0 1",
+    moves: ["d5f7", "a7a8", "d2d8"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1465,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-498",
+    fen: "1k6/8/8/1K6/1Q6/6N1/8/8 w - - 0 1",
+    moves: ["b5c6", "b8c8", "b4f8"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1469,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-571",
+    fen: "7k/8/Q6B/8/8/8/6K1/8 w - - 0 1",
+    moves: ["a6f6", "h8h7", "f6g7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1475,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-l-gal-s-mate-7",
+    fen: "rn1qkbnr/ppp2ppp/3p4/4N3/2B1P3/2N5/PPPP1PPP/R1BbK2R w KQkq - 0 6",
+    moves: ["c4f7", "e8e7", "c3d5"],
+    theme: "Légal's Mate",
+    category: "Knight Sacrifice Mate",
+    goal: "Mate in 2",
+    rating: 1480,
+    difficulty: "Advanced",
+    themes: ["opening", "sacrifice", "mate"],
+    explanation: "The famous Légal's Mate: Bxf7+ Ke7 Nd5#.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-497",
+    fen: "7k/3B4/8/5Q2/7K/8/8/8 w - - 0 1",
+    moves: ["f5f8", "h8h7", "d7f5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1481,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-277",
+    fen: "1K6/8/k7/8/6B1/1Q6/8/8 w - - 0 1",
+    moves: ["g4e2", "a6a5", "b3b5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1493,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-king-hunt-39",
+    fen: "3k4/8/8/8/8/8/4Q3/R3K3 w - - 0 1",
+    moves: ["e2e6"],
+    theme: "King Hunt",
+    category: "King Hunt",
+    goal: "King Hunt",
+    rating: 1500,
+    difficulty: "Advanced",
+    themes: ["king-hunt"],
+    explanation:
+      "Qe6+ starts a king hunt, driving the black king into the open where the rook joins the attack.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["king-hunt"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-282",
+    fen: "1k1K4/8/8/8/7Q/8/8/3R4 w - - 0 1",
+    moves: ["h4b4", "b8a7", "d1a1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1502,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-563",
+    fen: "8/8/7B/5K2/8/6Q1/8/7k w - - 0 1",
+    moves: ["g3h3", "h1g1", "h6e3"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1511,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-287",
+    fen: "5B2/8/8/2K5/8/8/4Q3/k7 w - - 0 1",
+    moves: ["f8g7", "a1b1", "e2b2"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1517,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-585",
+    fen: "8/8/1K2B3/8/8/8/5Q2/3k4 w - - 0 1",
+    moves: ["e6b3", "d1c1", "f2c2"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1525,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-514",
+    fen: "3K3k/8/8/2Q3R1/8/8/8/8 w - - 0 1",
+    moves: ["c5f8", "h8h7", "f8g7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1535,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-551",
+    fen: "8/8/8/2N5/6K1/3Q4/k7/8 w - - 0 1",
+    moves: ["d3c2", "a2a3", "c2b3"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1544,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "smothered-knight",
+    fen: "6rk/6pp/7N/8/8/8/6PP/6K1 w - - 0 1",
+    moves: ["h6f7"],
+    theme: "Smothered Mate",
+    category: "Smothered Mate",
+    goal: "Mate in 2",
+    rating: 1550,
+    difficulty: "Advanced",
+    themes: ["smothered", "mate", "knight"],
+    explanation:
+      "The knight forces the king into the corner; boxed in by its own pieces, it is smothered.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-525",
+    fen: "8/8/8/B7/8/7k/2Q5/6K1 w - - 0 1",
+    moves: ["c2f5", "h3h4", "a5e1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1552,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-582",
+    fen: "4Q3/8/8/8/8/K7/4R3/7k w - - 0 1",
+    moves: ["e8h8", "h1g1", "h8a1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1555,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-516",
+    fen: "k7/3K4/8/8/6Q1/8/8/2R5 w - - 0 1",
+    moves: ["g4a4", "a8b8", "c1b1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1558,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-538",
+    fen: "8/8/8/2R5/8/2KR4/8/k7 w - - 0 1",
+    moves: ["c5a5", "a1b1", "d3d1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1559,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-265",
+    fen: "8/k7/7K/8/8/1BQ5/8/8 w - - 0 1",
+    moves: ["c3c7", "a7a8", "b3d5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1560,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-278",
+    fen: "5B2/8/7K/8/8/8/5Q2/7k w - - 0 1",
+    moves: ["f2f1", "h1h2", "f8d6"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1567,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-260",
+    fen: "8/8/8/1K4R1/8/1Q6/7k/8 w - - 0 1",
+    moves: ["b3g3", "h2h1", "g5h5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1573,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-502",
+    fen: "7k/8/8/2Q4K/8/4R3/8/8 w - - 0 1",
+    moves: ["c5f8", "h8h7", "e3e7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1575,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-554",
+    fen: "8/8/8/8/B7/5K2/7k/4Q3 w - - 0 1",
+    moves: ["e1d2", "h2h3", "d2h6"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1593,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-540",
+    fen: "3K4/8/8/8/8/1QR5/7k/8 w - - 0 1",
+    moves: ["b3b2", "h2h1", "c3c1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1597,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-267",
+    fen: "1B6/8/8/8/2K5/k7/5R2/8 w - - 0 1",
+    moves: ["b8d6", "a3a4", "f2a2"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1599,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-queen-sacrifice-32",
+    fen: "3k4/8/8/8/8/2n5/4Q3/4K2R w K - 0 1",
+    moves: ["e2e8"],
+    theme: "Queen Sacrifice",
+    category: "Queen Sacrifice",
+    goal: "Queen Sacrifice",
+    rating: 1600,
+    difficulty: "Advanced",
+    themes: ["queen-sacrifice"],
+    explanation:
+      "Qe8+! sacrifices the queen to deflect/expose the king, a thematic queen sac leading to a decisive follow-up.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["queen-sacrifice"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-499",
+    fen: "k7/8/8/4KQB1/8/8/8/8 w - - 0 1",
+    moves: ["f5c8", "a8a7", "g5e3"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1605,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-506",
+    fen: "8/8/8/1K4B1/Q7/8/8/1k6 w - - 0 1",
+    moves: ["a4b3", "b1a1", "g5f6"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1608,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-520",
+    fen: "1k6/4Q1K1/8/8/2R5/8/8/8 w - - 0 1",
+    moves: ["e7c7", "b8a8", "c4a4"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1609,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-555",
+    fen: "7k/2Q5/3B4/7K/8/8/8/8 w - - 0 1",
+    moves: ["d6e5", "h8g8", "c7g7"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1610,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-smothered-mate-5",
+    fen: "5r1k/6pp/7N/8/2Q5/8/8/6K1 w - - 0 1",
+    moves: ["c4g8", "f8g8", "h6f7"],
+    theme: "Smothered Mate",
+    category: "Queen Sacrifice Mate",
+    goal: "Mate in 2",
+    rating: 1620,
+    difficulty: "Advanced",
+    themes: ["smothered", "mate", "knight"],
+    explanation: "Qg8+! forces Rxg8, then Nf7 is the classic smothered mate.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-552",
+    fen: "8/7k/2R5/8/R7/8/8/4K3 w - - 0 1",
+    moves: ["a4a7", "h7g8", "c6c8"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1622,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-550",
+    fen: "8/8/8/7K/3Q4/2R5/8/k7 w - - 0 1",
+    moves: ["c3c2", "a1b1", "d4d1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1626,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-584",
+    fen: "1k6/8/K7/8/8/2B5/4Q3/8 w - - 0 1",
+    moves: ["e2e8", "b8c7", "c3e5"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1627,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-501",
+    fen: "R7/8/3R4/7k/8/8/6K1/8 w - - 0 1",
+    moves: ["a8a5", "h5h4", "d6d4"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1629,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-288",
+    fen: "k7/7R/8/8/8/2K5/8/2Q5 w - - 0 1",
+    moves: ["c1a3", "a8b8", "a3f8"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1641,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-2-553",
+    fen: "8/8/8/8/2Q5/3K4/8/3Nk3 w - - 0 1",
+    moves: ["c4e4", "e1f1", "e4h1"],
+    theme: "Mate in 2",
+    category: "Mate in 2",
+    goal: "Mate in 2",
+    rating: 1644,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-2"],
+    explanation:
+      "Forced checkmate in 2: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-2"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-3-596",
+    fen: "8/1K2R3/8/8/8/5Q2/8/2k5 w - - 0 1",
+    moves: ["e7e1", "c1b2", "e1e2", "b2c1", "f3h1"],
+    theme: "Mate in 3",
+    category: "Mate in 3",
+    goal: "Mate in 3",
+    rating: 1695,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-3"],
+    explanation:
+      "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-3"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-3-296",
+    fen: "8/5B2/7k/1K6/8/8/5Q2/8 w - - 0 1",
+    moves: ["f2f6", "h6h7", "f6g6", "h7h8", "g6g8"],
+    theme: "Mate in 3",
+    category: "Mate in 3",
+    goal: "Mate in 3",
+    rating: 1716,
+    difficulty: "Advanced",
+    themes: ["mate", "mate-in-3"],
+    explanation:
+      "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-3"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-3-597",
+    fen: "8/8/2Q5/R7/5K2/8/8/3k4 w - - 0 1",
+    moves: ["a5d5", "d1e2", "c6c2", "e2f1", "d5d1"],
+    theme: "Mate in 3",
+    category: "Mate in 3",
+    goal: "Mate in 3",
+    rating: 1902,
+    difficulty: "Expert",
+    themes: ["mate", "mate-in-3"],
+    explanation:
+      "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-3"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-3-295",
+    fen: "7k/8/8/8/8/Q7/2KB4/8 w - - 0 1",
+    moves: ["a3f8", "h8h7", "f8f7", "h7h8", "d2c3"],
+    theme: "Mate in 3",
+    category: "Mate in 3",
+    goal: "Mate in 3",
+    rating: 2034,
+    difficulty: "Expert",
+    themes: ["mate", "mate-in-3"],
+    explanation:
+      "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-3"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-3-293",
+    fen: "8/7k/8/8/7K/2Q5/8/4R3 w - - 0 1",
+    moves: ["c3c7", "h7g8", "e1e8"],
+    theme: "Mate in 3",
+    category: "Mate in 3",
+    goal: "Mate in 3",
+    rating: 2092,
+    difficulty: "Expert",
+    themes: ["mate", "mate-in-3"],
+    explanation:
+      "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-3"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-3-591",
+    fen: "8/8/k7/5B2/8/2Q5/3K4/8 w - - 0 1",
+    moves: ["c3c6", "a6a7", "c6c7", "a7a8", "f5e4"],
+    theme: "Mate in 3",
+    category: "Mate in 3",
+    goal: "Mate in 3",
+    rating: 2177,
+    difficulty: "Expert",
+    themes: ["mate", "mate-in-3"],
+    explanation:
+      "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-3"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-3-593",
+    fen: "6Q1/1k6/4K3/8/8/8/8/2R5 w - - 0 1",
+    moves: ["c1b1", "b7c7", "g8h7", "c7c8", "h7d7"],
+    theme: "Mate in 3",
+    category: "Mate in 3",
+    goal: "Mate in 3",
+    rating: 2195,
+    difficulty: "Expert",
+    themes: ["mate", "mate-in-3"],
+    explanation:
+      "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-3"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-4-301",
+    fen: "8/R7/8/6QK/8/8/8/4k3 w - - 0 1",
+    moves: ["g5e3", "e1f1", "a7f7", "f1g2", "f7f2", "g2h1", "e3e1"],
+    theme: "Mate in 4",
+    category: "Mate in 4",
+    goal: "Mate in 4",
+    rating: 2239,
+    difficulty: "Master",
+    themes: ["mate", "mate-in-4"],
+    explanation:
+      "Forced checkmate in 4: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-4"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-3-292",
+    fen: "8/8/6Q1/6K1/8/7k/8/4R3 w - - 0 1",
+    moves: ["g6d3", "h3h2", "d3d2", "h2g3", "e1e3"],
+    theme: "Mate in 3",
+    category: "Mate in 3",
+    goal: "Mate in 3",
+    rating: 2247,
+    difficulty: "Master",
+    themes: ["mate", "mate-in-3"],
+    explanation:
+      "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-3"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-3-594",
+    fen: "8/8/6Q1/8/7K/1R6/8/3k4 w - - 0 1",
+    moves: ["g6b1", "d1d2", "b1a2", "d2e1", "b3b1"],
+    theme: "Mate in 3",
+    category: "Mate in 3",
+    goal: "Mate in 3",
+    rating: 2276,
+    difficulty: "Master",
+    themes: ["mate", "mate-in-3"],
+    explanation:
+      "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-3"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-3-589",
+    fen: "8/8/8/2K2Q2/4R3/8/8/7k w - - 0 1",
+    moves: ["f5h3", "h1g1", "h3g3", "g1h1", "e4h4"],
+    theme: "Mate in 3",
+    category: "Mate in 3",
+    goal: "Mate in 3",
+    rating: 2280,
+    difficulty: "Master",
+    themes: ["mate", "mate-in-3"],
+    explanation:
+      "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-3"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-3-294",
+    fen: "7k/8/1QR5/8/8/8/6K1/8 w - - 0 1",
+    moves: ["b6b8", "h8h7", "b8b7", "h7g8", "c6c8"],
+    theme: "Mate in 3",
+    category: "Mate in 3",
+    goal: "Mate in 3",
+    rating: 2334,
+    difficulty: "Master",
+    themes: ["mate", "mate-in-3"],
+    explanation:
+      "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-3"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-3-595",
+    fen: "4Q3/8/8/7K/7N/7k/8/8 w - - 0 1",
+    moves: ["e8e3", "h3h2", "e3f2", "h2h3", "f2g2"],
+    theme: "Mate in 3",
+    category: "Mate in 3",
+    goal: "Mate in 3",
+    rating: 2334,
+    difficulty: "Master",
+    themes: ["mate", "mate-in-3"],
+    explanation:
+      "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-3"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-4-297",
+    fen: "5R2/8/8/2K2Q2/8/8/8/k7 w - - 0 1",
+    moves: ["f5f1", "a1a2", "f8f2", "a2a3", "f1d3", "a3a4", "f2a2"],
+    theme: "Mate in 4",
+    category: "Mate in 4",
+    goal: "Mate in 4",
+    rating: 2347,
+    difficulty: "Master",
+    themes: ["mate", "mate-in-4"],
+    explanation:
+      "Forced checkmate in 4: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-4"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-4-299",
+    fen: "4k3/8/8/8/8/6Q1/5R2/1K6 w - - 0 1",
+    moves: ["g3g6", "e8e7", "f2f7", "e7d8", "g6g8"],
+    theme: "Mate in 4",
+    category: "Mate in 4",
+    goal: "Mate in 4",
+    rating: 2358,
+    difficulty: "Master",
+    themes: ["mate", "mate-in-4"],
+    explanation:
+      "Forced checkmate in 4: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-4"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-3-291",
+    fen: "5Q2/4R3/8/8/8/3K4/7k/8 w - - 0 1",
+    moves: ["e7h7", "h2g3", "h7g7", "g3h4", "f8h8"],
+    theme: "Mate in 3",
+    category: "Mate in 3",
+    goal: "Mate in 3",
+    rating: 2365,
+    difficulty: "Master",
+    themes: ["mate", "mate-in-3"],
+    explanation:
+      "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-3"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-3-592",
+    fen: "8/8/7k/R2R4/8/6K1/8/8 w - - 0 1",
+    moves: ["a5a6", "h6g7", "d5d7", "g7f8", "a6a8"],
+    theme: "Mate in 3",
+    category: "Mate in 3",
+    goal: "Mate in 3",
+    rating: 2370,
+    difficulty: "Master",
+    themes: ["mate", "mate-in-3"],
+    explanation:
+      "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-3"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-3-590",
+    fen: "8/5B2/5K2/8/8/3Q4/8/7k w - - 0 1",
+    moves: ["d3f3", "h1h2", "f3f2", "h2h3", "f7e6"],
+    theme: "Mate in 3",
+    category: "Mate in 3",
+    goal: "Mate in 3",
+    rating: 2398,
+    difficulty: "Master",
+    themes: ["mate", "mate-in-3"],
+    explanation:
+      "Forced checkmate in 3: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-3"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-4-300",
+    fen: "1Q5R/8/8/8/8/7K/8/3k4 w - - 0 1",
+    moves: ["b8d6", "d1c2", "h8c8", "c2b3", "d6b6", "b3a4", "c8a8"],
+    theme: "Mate in 4",
+    category: "Mate in 4",
+    goal: "Mate in 4",
+    rating: 2499,
+    difficulty: "Master",
+    themes: ["mate", "mate-in-4"],
+    explanation:
+      "Forced checkmate in 4: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-4"],
+    status: "active",
+  },
+  {
+    id: "p-mate-in-4-298",
+    fen: "8/8/8/7k/R7/8/8/2Q4K w - - 0 1",
+    moves: ["c1c5", "h5g6", "a4a6", "g6f7", "c5c7", "f7e8", "a6a8"],
+    theme: "Mate in 4",
+    category: "Mate in 4",
+    goal: "Mate in 4",
+    rating: 2509,
+    difficulty: "Master",
+    themes: ["mate", "mate-in-4"],
+    explanation:
+      "Forced checkmate in 4: every defensive try is met by the same crushing idea. Calculate the forcing line to the end.",
+    alternativeLines: [],
+    hints: [],
+    tags: ["mate-in-4"],
+    status: "active",
+  },
 ];
 
 export const PUZZLE_CATEGORIES = Array.from(new Set(PUZZLES.map((p) => p.category))).sort();

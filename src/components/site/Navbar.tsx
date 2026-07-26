@@ -23,7 +23,6 @@ const COMMUNITY_ITEMS = [
   { to: "/leaderboards", label: "Leaderboard" },
   { to: "/seasons", label: "Seasons" },
   { to: "/events", label: "Events", isComingSoon: true },
-  { to: "/tournaments", label: "Tournaments" },
 ] as const;
 
 const MORE_ITEMS = [
@@ -81,7 +80,7 @@ export function Navbar() {
         >
           <img
             src="/chessox-icon.ico"
-            alt="ChessOx"
+            alt="ChessOx — play chess online"
             className="h-16 w-auto object-contain"
             draggable={false}
           />
@@ -132,7 +131,11 @@ export function Navbar() {
                   />
                 </button>
                 {communityMenu && (
-                  <DropdownMenu items={COMMUNITY_ITEMS} onClose={() => setCommunityMenu(false)} onComingSoon={() => setShowComingSoon(true)} />
+                  <DropdownMenu
+                    items={COMMUNITY_ITEMS}
+                    onClose={() => setCommunityMenu(false)}
+                    onComingSoon={() => setShowComingSoon(true)}
+                  />
                 )}
               </div>
 
@@ -173,6 +176,9 @@ export function Navbar() {
               return (
                 <Link
                   key={n.to}
+                  // Always link to the real public page. These three pages render
+                  // fine for signed-out visitors (each gates its own actions), and
+                  // MobileNav already links straight to them.
                   to={n.to}
                   className={`rounded-full px-4 py-2 text-sm transition-colors ${
                     active
@@ -346,7 +352,7 @@ export function Navbar() {
                 <div className="px-1 pt-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                   Community
                 </div>
-                {COMMUNITY_ITEMS.map((n) => (
+                {COMMUNITY_ITEMS.map((n) =>
                   (n as any).isComingSoon ? (
                     <button
                       key={n.to}
@@ -367,8 +373,8 @@ export function Navbar() {
                     >
                       {n.label}
                     </Link>
-                  )
-                ))}
+                  ),
+                )}
                 <Link
                   to="/notifications"
                   onClick={() => setMobileOpen(false)}
@@ -467,14 +473,20 @@ export function Navbar() {
       {showComingSoon && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm rounded-2xl border border-gold/20 bg-background p-6 shadow-2xl relative">
-            <button onClick={() => setShowComingSoon(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-white">
+            <button
+              onClick={() => setShowComingSoon(false)}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-white"
+            >
               <X className="h-5 w-5" />
             </button>
             <h3 className="font-display text-2xl text-gradient-gold mb-2">Coming Soon</h3>
             <p className="text-sm text-muted-foreground mb-6">
               This feature is currently under development and will be available soon.
             </p>
-            <button onClick={() => setShowComingSoon(false)} className="w-full rounded-xl gradient-gold py-2.5 font-medium text-background">
+            <button
+              onClick={() => setShowComingSoon(false)}
+              className="w-full rounded-xl gradient-gold py-2.5 font-medium text-background"
+            >
               OK
             </button>
           </div>
@@ -495,7 +507,7 @@ function DropdownMenu({
 }) {
   return (
     <div className="absolute left-0 mt-2 w-52 rounded-xl border border-gold/20 bg-background/95 p-1 shadow-xl backdrop-blur-xl">
-      {items.map((item) => (
+      {items.map((item) =>
         item.isComingSoon ? (
           <button
             key={item.to}
@@ -516,8 +528,8 @@ function DropdownMenu({
           >
             {item.label}
           </Link>
-        )
-      ))}
+        ),
+      )}
     </div>
   );
 }

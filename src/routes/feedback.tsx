@@ -5,9 +5,27 @@ import { toast } from "sonner";
 import { PageShell, Card, GoldButton } from "@/components/site/Primitives";
 import { useAuth } from "@/hooks/useAuth";
 import { submitFeedback } from "@/lib/api/feedbackClient";
+import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/feedback")({
-  head: () => ({ meta: [{ title: "Feedback — ChessOx" }] }),
+  head: () =>
+    seo({
+      title: "Send Feedback — ChessOx",
+      description:
+        "Share feedback with the ChessOx team. Tell us what works, what does not and which chess features you would like to see next on the platform.",
+      path: "/feedback",
+      jsonLd: [
+        webPageLd({
+          name: "Send Feedback — ChessOx",
+          description: "A form for sending product feedback and feature ideas to the ChessOx team.",
+          path: "/feedback",
+        }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Feedback", path: "/feedback" },
+        ]),
+      ],
+    }),
   component: FeedbackPage,
 });
 
@@ -24,7 +42,7 @@ function FeedbackPage() {
       toast.error("Please enter a message");
       return;
     }
-    
+
     setSubmitting(true);
     try {
       await submitFeedback(user?.id ?? null, rating, message.trim());
@@ -40,15 +58,18 @@ function FeedbackPage() {
   return (
     <PageShell title="Submit Feedback">
       <Card className="max-w-2xl mx-auto mt-12 p-8 text-center border-gold/20">
-        <h1 className="font-display text-4xl mb-4 text-gradient-gold">Submit Feedback</h1>
+        {/* h2 — PageShell renders this page's h1. */}
+        <h2 className="font-display text-4xl mb-4 text-gradient-gold">Submit Feedback</h2>
         <p className="text-muted-foreground text-lg mb-8 leading-relaxed">
           Your voice matters. Help us shape the future of ChessOx by sharing your ideas, feature
           requests, and feedback.
         </p>
-        
+
         <form onSubmit={handleSubmit} className="text-left mb-8 space-y-6">
           <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-            <label className="block text-sm font-medium text-ivory/90 mb-3">Rate your experience</label>
+            <label className="block text-sm font-medium text-ivory/90 mb-3">
+              Rate your experience
+            </label>
             <div className="flex gap-2 mb-2">
               {[1, 2, 3, 4, 5].map((star) => (
                 <button
@@ -57,8 +78,8 @@ function FeedbackPage() {
                   onClick={() => setRating(star)}
                   className="transition-transform hover:scale-110 focus:outline-none"
                 >
-                  <Star 
-                    className={`h-8 w-8 ${star <= rating ? "fill-gold text-gold" : "text-white/20"}`} 
+                  <Star
+                    className={`h-8 w-8 ${star <= rating ? "fill-gold text-gold" : "text-white/20"}`}
                   />
                 </button>
               ))}
@@ -85,7 +106,13 @@ function FeedbackPage() {
               Cancel
             </Link>
             <GoldButton type="submit" disabled={submitting}>
-              {submitting ? "Submitting..." : <><Send className="h-4 w-4 mr-2" /> Send Feedback</>}
+              {submitting ? (
+                "Submitting..."
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" /> Send Feedback
+                </>
+              )}
             </GoldButton>
           </div>
         </form>

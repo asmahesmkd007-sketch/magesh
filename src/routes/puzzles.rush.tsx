@@ -9,9 +9,37 @@ import { soundForChessMove } from "@/lib/audio/sounds";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/puzzles/rush")({
-  head: () => ({ meta: [{ title: "Puzzle Rush — ChessOx" }] }),
+  head: () =>
+    seo({
+      title: "Puzzle Rush — Timed Chess Tactics Challenge | ChessOx",
+      description:
+        "Puzzle Rush on ChessOx: solve as many chess puzzles as you can in three minutes. A fast, free chess tactics training drill that sharpens pattern recognition.",
+      keywords: [
+        "puzzle rush",
+        "chess puzzles",
+        "chess tactics training",
+        "online chess puzzles",
+        "chess improvement",
+      ],
+      path: "/puzzles/rush",
+      jsonLd: [
+        webPageLd({
+          name: "Puzzle Rush — ChessOx",
+          description:
+            "A three-minute timed chess puzzle challenge on ChessOx that scores how many tactics you solve before the clock runs out.",
+          path: "/puzzles/rush",
+          primaryTopic: "Chess tactics training",
+        }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Chess Puzzles", path: "/puzzles" },
+          { name: "Puzzle Rush", path: "/puzzles/rush" },
+        ]),
+      ],
+    }),
   component: Rush,
 });
 

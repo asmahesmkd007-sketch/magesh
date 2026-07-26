@@ -6,9 +6,35 @@ import { ArrowLeft, Hash, Users, LogIn, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { createRoom, joinRoom, joinRoomQueue, type ColorMode } from "@/lib/api/roomClient";
 import { toast } from "sonner";
+import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/room/")({
-  head: () => ({ meta: [{ title: "Public Room — ChessOx" }] }),
+  head: () =>
+    seo({
+      title: "Public Chess Rooms — Find an Opponent Online | ChessOx",
+      description:
+        "Create or join a public chess room on ChessOx to chat with other chess players, queue up and start a multiplayer chess game online.",
+      keywords: [
+        "multiplayer chess online",
+        "play chess online",
+        "online chess community",
+        "chess game online",
+      ],
+      path: "/room",
+      jsonLd: [
+        webPageLd({
+          name: "Public Chess Rooms — ChessOx",
+          description:
+            "Public chess rooms on ChessOx where players gather, chat and pair up for online chess games.",
+          path: "/room",
+          primaryTopic: "Multiplayer chess online",
+        }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Public Rooms", path: "/room" },
+        ]),
+      ],
+    }),
   component: Room,
 });
 

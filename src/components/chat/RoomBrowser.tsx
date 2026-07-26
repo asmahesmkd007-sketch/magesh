@@ -1,10 +1,11 @@
 // Column 2 content for the Global / Public Rooms / Private Rooms filter
 // tabs (ChatFilterTabs). Global lists the 14 permanent rooms (auto-join,
-// cannot be deleted/renamed). Public/Private show search + Room ID join.
+// cannot be deleted/renamed). Public/Private each get their own
+// "➕ Create Room" / "🔍 Join Room" toolbar plus a scrollable, newest-first
+// card list with full room metadata.
 import { useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Loader2, Lock, Search, Users } from "lucide-react";
-import { toast } from "sonner";
+import { Loader2, Lock, Plus, Search, Users } from "lucide-react";
 import { Card } from "@/components/site/Primitives";
 import {
   useChatActions,
@@ -13,6 +14,8 @@ import {
   usePermanentRooms,
 } from "@/hooks/useChat";
 import type { ChatChannel } from "@/lib/api/chatClient";
+import { CreateRoomModal } from "./CreateRoomModal";
+import { JoinRoomModal } from "./JoinRoomModal";
 
 function relTime(iso: string | null) {
   if (!iso) return "";
@@ -22,7 +25,9 @@ function relTime(iso: string | null) {
   if (m < 60) return `${m}m`;
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h`;
-  return `${Math.floor(h / 24)}d`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d`;
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function rowClass(active: boolean) {
@@ -32,7 +37,8 @@ function rowClass(active: boolean) {
 }
 
 export function GlobalRoomsList() {
-  const { data: rooms = [], isLoading } = usePermanentRooms();
+  const { data: allRooms = [], isLoading } = usePermanentRooms();
+  const rooms = allRooms.filter((r) => r.type === "global");
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   if (isLoading) {
@@ -90,7 +96,12 @@ export function GlobalRoomsList() {
             {content}
           </Link>
         ) : (
-          <Link key={r.id} to="/chat/room/$slug" params={{ slug: r.slug ?? r.id }} className={rowClass(pathname === `/chat/room/${r.slug}`)}>
+          <Link
+            key={r.id}
+            to="/chat/room/$slug"
+            params={{ slug: r.slug ?? r.id }}
+            className={rowClass(pathname === `/chat/room/${r.slug}`)}
+          >
             {content}
           </Link>
         );
@@ -105,7 +116,7 @@ function RoomCard({ room, isPrivate }: { room: ChatChannel; isPrivate: boolean }
   const [joining, setJoining] = useState(false);
 
   return (
-    <Card className="p-3.5">
+    <Card className="p-3.5 transition-colors hover:border-gold/20">
       <div className="flex items-start gap-3">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/5 text-base">
           {room.icon ?? (isPrivate ? "🔒" : "🌐")}
@@ -113,30 +124,44 @@ function RoomCard({ room, isPrivate }: { room: ChatChannel; isPrivate: boolean }
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             {room.is_member ? (
-              <Link to="/chat/room/$slug" params={{ slug: room.slug ?? room.id }} className="truncate font-medium hover:underline">
+              <Link
+                to="/chat/room/$slug"
+                params={{ slug: room.slug ?? room.id }}
+                className="truncate font-medium hover:underline"
+              >
                 {room.name}
               </Link>
             ) : (
               <span className="truncate font-medium">{room.name}</span>
             )}
-            <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${isPrivate ? "bg-rose-500/15 text-rose-300" : "bg-emerald/15 text-emerald"}`}>
+            <span
+              className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${isPrivate ? "bg-rose-500/15 text-rose-300" : "bg-emerald/15 text-emerald"}`}
+            >
               {isPrivate ? "Private" : "Public"}
             </span>
             {isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
           </div>
+          {room.description && (
+            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{room.description}</p>
+          )}
           <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
             ID: <span className="font-mono">{room.room_code ?? room.slug}</span>
-            {room.owner && <> · Owner @{room.owner.username}</>}
+            {room.owner && <> · by @{room.owner.username}</>}
+            {room.created_at && <> · {relTime(room.created_at)}</>}
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1">
               <Users className="h-3 w-3" /> {room.member_count}
             </span>
             <span>{room.online_count} online</span>
-            {room.last_message && <span className="truncate">· {relTime(room.last_message.created_at)}</span>}
+            {room.last_message && (
+              <span className="truncate">· {relTime(room.last_message.created_at)}</span>
+            )}
           </div>
           {room.last_message && (
-            <p className="mt-1 truncate text-xs text-muted-foreground">{room.last_message.content}</p>
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {room.last_message.content}
+            </p>
           )}
         </div>
         {room.unread_count > 0 && (
@@ -181,20 +206,51 @@ function RoomCard({ room, isPrivate }: { room: ChatChannel; isPrivate: boolean }
   );
 }
 
+function RoomToolbar({
+  mode,
+  onCreate,
+  onJoin,
+}: {
+  mode: "public" | "private";
+  onCreate: () => void;
+  onJoin: () => void;
+}) {
+  return (
+    <div className="flex gap-1.5">
+      <button
+        type="button"
+        onClick={onCreate}
+        className="flex flex-1 items-center justify-center gap-1.5 rounded-xl gradient-gold px-3 py-2 text-xs font-medium text-background transition hover:brightness-110"
+      >
+        <Plus className="h-3.5 w-3.5" /> Create Room
+      </button>
+      <button
+        type="button"
+        onClick={onJoin}
+        className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-gold/30 px-3 py-2 text-xs text-gold transition hover:bg-gold/10"
+      >
+        <Search className="h-3.5 w-3.5" /> Join Room
+      </button>
+    </div>
+  );
+}
+
 export function PublicRoomsList() {
   const [search, setSearch] = useState("");
-  const [roomIdInput, setRoomIdInput] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [joining, setJoining] = useState(false);
   const { data: rooms = [], isLoading } = useDiscoverRooms(search || undefined);
-  const { joinRoom } = useChatActions();
-
-  const joinById = () => {
-    const target = rooms.find((r) => r.room_code === roomIdInput.trim() || r.slug === roomIdInput.trim());
-    if (!target) return toast.error("Room ID not found");
-    joinRoom.mutate(target.id);
-  };
+  const sorted = [...rooms].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
 
   return (
     <div className="space-y-3">
+      <RoomToolbar
+        mode="public"
+        onCreate={() => setCreating(true)}
+        onJoin={() => setJoining(true)}
+      />
       <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-3 py-2">
         <Search className="h-3.5 w-3.5 text-muted-foreground" />
         <input
@@ -204,45 +260,42 @@ export function PublicRoomsList() {
           className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
         />
       </div>
-      <div className="flex items-center gap-1.5">
-        <input
-          value={roomIdInput}
-          onChange={(e) => setRoomIdInput(e.target.value.toUpperCase())}
-          placeholder="Have a Room ID? ROOM-XXXXXXXX"
-          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-1.5 text-xs font-mono outline-none focus:border-gold/40"
-        />
-        <button
-          type="button"
-          onClick={joinById}
-          disabled={!roomIdInput.trim() || joinRoom.isPending}
-          className="shrink-0 rounded-lg gradient-gold px-3 py-1.5 text-xs font-medium text-background disabled:opacity-40"
-        >
-          Join
-        </button>
-      </div>
       {isLoading ? (
         <div className="grid place-items-center py-8">
           <Loader2 className="h-5 w-5 animate-spin text-gold" />
         </div>
-      ) : rooms.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <p className="py-6 text-center text-xs text-muted-foreground">No public rooms found.</p>
       ) : (
         <div className="space-y-2">
-          {rooms.map((r) => (
+          {sorted.map((r) => (
             <RoomCard key={r.id} room={r} isPrivate={false} />
           ))}
         </div>
       )}
+
+      {creating && <CreateRoomModal mode="public" onClose={() => setCreating(false)} />}
+      {joining && <JoinRoomModal mode="public" onClose={() => setJoining(false)} />}
     </div>
   );
 }
 
 export function PrivateRoomsList() {
   const [search, setSearch] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [joining, setJoining] = useState(false);
   const { data: rooms = [], isLoading } = useDiscoverPrivateRooms(search || undefined);
+  const sorted = [...rooms].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
 
   return (
     <div className="space-y-3">
+      <RoomToolbar
+        mode="private"
+        onCreate={() => setCreating(true)}
+        onJoin={() => setJoining(true)}
+      />
       <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-3 py-2">
         <Search className="h-3.5 w-3.5 text-muted-foreground" />
         <input
@@ -253,21 +306,25 @@ export function PrivateRoomsList() {
         />
       </div>
       <p className="text-[11px] text-muted-foreground">
-        Enter the Room ID and password on a room card to join. Passwords are verified on the server and never shared with the app.
+        Enter the Room ID and password on a room card to join. Passwords are verified on the server
+        and never shared with the app.
       </p>
       {isLoading ? (
         <div className="grid place-items-center py-8">
           <Loader2 className="h-5 w-5 animate-spin text-gold" />
         </div>
-      ) : rooms.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <p className="py-6 text-center text-xs text-muted-foreground">No private rooms found.</p>
       ) : (
         <div className="space-y-2">
-          {rooms.map((r) => (
+          {sorted.map((r) => (
             <RoomCard key={r.id} room={r} isPrivate />
           ))}
         </div>
       )}
+
+      {creating && <CreateRoomModal mode="private" onClose={() => setCreating(false)} />}
+      {joining && <JoinRoomModal mode="private" onClose={() => setJoining(false)} />}
     </div>
   );
 }

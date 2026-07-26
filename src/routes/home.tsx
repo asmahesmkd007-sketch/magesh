@@ -27,9 +27,16 @@ import { useAuth, useProfile } from "@/hooks/useAuth";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import { StreakCard } from "@/components/site/StreakCard";
+import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/home")({
-  head: () => ({ meta: [{ title: "Home — ChessOx" }] }),
+  // Personalised dashboard — kept out of the index, but crawlers still follow
+  // its links through to the public play, puzzle and tournament pages.
+  head: () =>
+    noindexSeo(
+      "Your Chess Dashboard — ChessOx",
+      "Your ChessOx dashboard: ratings, recent games, daily streak and quick links to play chess online, solve puzzles and enter tournaments.",
+    ),
   component: HomePage,
 });
 

@@ -4,12 +4,7 @@
 // Infinite feeds, realtime invalidation, and optimistic interactions for
 // the ChessOX community. All server calls live in lib/api/communityClient.
 // =====================================================================
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,8 +52,16 @@ export function useCommunityRealtime() {
     };
     const channel = supabase
       .channel("community_v2")
-      .on("postgres_changes", { event: "*", schema: "public", table: "community_posts" }, invalidate)
-      .on("postgres_changes", { event: "*", schema: "public", table: "community_comments" }, invalidate)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "community_posts" },
+        invalidate,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "community_comments" },
+        invalidate,
+      )
       .subscribe();
     return () => {
       if (timer) clearTimeout(timer);
@@ -133,8 +136,9 @@ function patchPostEverywhere(
         }
       : old,
   );
-  queryClient.setQueriesData<CommunityPost | null>({ queryKey: ["community_post", postId] }, (old) =>
-    old ? patch(old) : old,
+  queryClient.setQueriesData<CommunityPost | null>(
+    { queryKey: ["community_post", postId] },
+    (old) => (old ? patch(old) : old),
   );
 }
 
@@ -285,14 +289,7 @@ export function useCommunityActions() {
       fen?: string | null;
       pgn?: string | null;
     }) =>
-      api.addComment(
-        requireAuth(),
-        args.postId,
-        args.content,
-        args.parentId,
-        args.fen,
-        args.pgn,
-      ),
+      api.addComment(requireAuth(), args.postId, args.content, args.parentId, args.fen, args.pgn),
     onSuccess: (_d, args) => {
       queryClient.invalidateQueries({ queryKey: ["community_comments", args.postId] });
       patchPostEverywhere(queryClient, args.postId, (p) => ({
@@ -338,7 +335,8 @@ export function useCommunityActions() {
       targetId: string;
       reason: api.ReportReason;
       details?: string;
-    }) => api.reportContent(requireAuth(), args.targetType, args.targetId, args.reason, args.details),
+    }) =>
+      api.reportContent(requireAuth(), args.targetType, args.targetId, args.reason, args.details),
     onSuccess: () => toast.success("Report submitted. Our moderators will review it."),
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to report"),
   });

@@ -9,10 +9,8 @@ export type FeedbackRow = {
 };
 
 export async function submitFeedback(userId: string | null, rating: number, message: string) {
-  const { error } = await supabase
-    .from("feedbacks")
-    .insert({ user_id: userId, rating, message });
-  
+  const { error } = await supabase.from("feedbacks").insert({ user_id: userId, rating, message });
+
   if (error) throw new Error(error.message);
 }
 

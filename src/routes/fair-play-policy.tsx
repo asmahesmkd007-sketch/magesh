@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { PolicyPage } from "@/components/policy/PolicyPage";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/fair-play-policy")({
-  head: () => ({ meta: [{ title: "Fair Play Policy — ChessOx" }] }),
-  component: () => <PolicyPage type="fair-play" />,
+  beforeLoad: () => {
+    throw redirect({ to: "/fair-play-anti-cheating-policy" });
+  },
 });

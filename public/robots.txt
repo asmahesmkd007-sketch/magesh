@@ -1,0 +1,113 @@
+# robots.txt for ChessOx — https://www.chessox.com
+# Public chess content (play, puzzles, learn, tournaments, leaderboards, news,
+# community, policies) is open to crawlers. Personal, transactional and admin
+# screens are disallowed because they hold no useful public content.
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /wallet
+Disallow: /settings
+Disallow: /profile
+Disallow: /notifications
+Disallow: /chat
+Disallow: /game/
+Disallow: /arena/
+Disallow: /room/$
+Disallow: /auth
+Disallow: /login
+Disallow: /signup
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /report
+Disallow: /search
+
+# ---------------------------------------------------------------------
+# AI answer engines and generative search crawlers are welcome to read the
+# public chess content. Each group repeats the disallow list because a
+# crawler that matches its own group ignores the "*" group entirely.
+# ---------------------------------------------------------------------
+
+User-agent: GPTBot
+Allow: /
+Disallow: /admin
+Disallow: /wallet
+Disallow: /settings
+Disallow: /profile
+Disallow: /notifications
+Disallow: /chat
+Disallow: /game/
+Disallow: /arena/
+Disallow: /auth
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /admin
+Disallow: /wallet
+Disallow: /settings
+Disallow: /profile
+Disallow: /notifications
+Disallow: /chat
+Disallow: /game/
+Disallow: /arena/
+Disallow: /auth
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /admin
+Disallow: /wallet
+Disallow: /settings
+Disallow: /profile
+Disallow: /notifications
+Disallow: /chat
+Disallow: /auth
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /admin
+Disallow: /wallet
+Disallow: /settings
+Disallow: /profile
+Disallow: /notifications
+Disallow: /chat
+Disallow: /game/
+Disallow: /arena/
+Disallow: /auth
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /admin
+Disallow: /wallet
+Disallow: /settings
+Disallow: /profile
+Disallow: /notifications
+Disallow: /chat
+Disallow: /game/
+Disallow: /arena/
+Disallow: /auth
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /admin
+Disallow: /wallet
+Disallow: /settings
+Disallow: /profile
+Disallow: /notifications
+Disallow: /chat
+Disallow: /game/
+Disallow: /arena/
+Disallow: /auth
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /admin
+Disallow: /wallet
+Disallow: /settings
+Disallow: /profile
+Disallow: /notifications
+Disallow: /chat
+Disallow: /game/
+Disallow: /arena/
+Disallow: /auth
+
+Sitemap: https://www.chessox.com/sitemap.xml

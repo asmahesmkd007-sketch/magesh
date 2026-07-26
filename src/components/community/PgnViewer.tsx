@@ -59,19 +59,43 @@ function ReplayControls({
     "grid h-8 w-8 place-items-center rounded-lg border border-white/10 text-muted-foreground hover:border-gold/40 hover:text-gold disabled:opacity-30 disabled:hover:border-white/10 disabled:hover:text-muted-foreground";
   return (
     <div className="mt-2 flex items-center justify-center gap-1.5">
-      <button type="button" className={btn} onClick={() => setPly(0)} disabled={ply === 0} aria-label="Start">
+      <button
+        type="button"
+        className={btn}
+        onClick={() => setPly(0)}
+        disabled={ply === 0}
+        aria-label="Start"
+      >
         <ChevronFirst className="h-4 w-4" />
       </button>
-      <button type="button" className={btn} onClick={() => setPly(ply - 1)} disabled={ply === 0} aria-label="Back">
+      <button
+        type="button"
+        className={btn}
+        onClick={() => setPly(ply - 1)}
+        disabled={ply === 0}
+        aria-label="Back"
+      >
         <ChevronLeft className="h-4 w-4" />
       </button>
       <span className="min-w-14 text-center text-xs text-muted-foreground">
         {ply}/{max}
       </span>
-      <button type="button" className={btn} onClick={() => setPly(ply + 1)} disabled={ply === max} aria-label="Next">
+      <button
+        type="button"
+        className={btn}
+        onClick={() => setPly(ply + 1)}
+        disabled={ply === max}
+        aria-label="Next"
+      >
         <ChevronRight className="h-4 w-4" />
       </button>
-      <button type="button" className={btn} onClick={() => setPly(max)} disabled={ply === max} aria-label="End">
+      <button
+        type="button"
+        className={btn}
+        onClick={() => setPly(max)}
+        disabled={ply === max}
+        aria-label="End"
+      >
         <ChevronLast className="h-4 w-4" />
       </button>
       <button type="button" className={btn} onClick={onFlip} aria-label="Flip board">

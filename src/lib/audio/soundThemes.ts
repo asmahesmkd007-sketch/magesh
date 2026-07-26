@@ -41,7 +41,13 @@ export type SoundThemeId =
   | "carbon"
   | "silent_mode";
 
-export type Tone = { freq: number; start: number; dur: number; type?: OscillatorType; gain?: number };
+export type Tone = {
+  freq: number;
+  start: number;
+  dur: number;
+  type?: OscillatorType;
+  gain?: number;
+};
 export type ThemeRecipes = Record<GameSound, Tone[]>;
 
 type Voice = {
@@ -206,7 +212,10 @@ export function isSoundThemeId(v: string): v is SoundThemeId {
 }
 
 // Base cue shapes — every theme is this same "score" reinterpreted through its voice.
-const BASE: Record<GameSound, { freq: number; start: number; dur: number; gain?: number; type?: OscillatorType }[]> = {
+const BASE: Record<
+  GameSound,
+  { freq: number; start: number; dur: number; gain?: number; type?: OscillatorType }[]
+> = {
   move: [{ freq: 320, start: 0, dur: 0.09, gain: 0.5 }],
   capture: [
     { freq: 200, start: 0, dur: 0.11, gain: 0.4, type: "square" },

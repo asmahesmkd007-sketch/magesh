@@ -6,7 +6,12 @@ import { Card } from "@/components/site/Primitives";
 import { getFeedbacks, type FeedbackRow } from "@/lib/api/feedbackClient";
 
 export const Route = createFileRoute("/admin/feedback")({
-  head: () => ({ meta: [{ title: "Admin — Feedback — ChessOx" }] }),
+  head: () => ({
+    meta: [
+      { title: "Admin — Feedback — ChessOx" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: () => (
     <AdminShell title="User Feedback">
       <AdminFeedback />
@@ -65,7 +70,8 @@ function AdminFeedback() {
           </div>
           <p className="text-sm text-ivory leading-relaxed whitespace-pre-wrap">{f.message}</p>
           <div className="text-xs text-muted-foreground pt-2 border-t border-white/5">
-            User ID: {f.user_id ? <span className="font-mono">{f.user_id}</span> : <em>Anonymous</em>}
+            User ID:{" "}
+            {f.user_id ? <span className="font-mono">{f.user_id}</span> : <em>Anonymous</em>}
           </div>
         </Card>
       ))}

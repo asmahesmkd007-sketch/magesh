@@ -45,7 +45,10 @@ function RoomChat() {
 
   return (
     <div className="flex h-full flex-col">
-      <Link to="/chat" className="flex shrink-0 items-center gap-1.5 border-b border-white/10 px-4 py-2 text-xs text-muted-foreground md:hidden">
+      <Link
+        to="/chat"
+        className="flex shrink-0 items-center gap-1.5 border-b border-white/10 px-4 py-2 text-xs text-muted-foreground md:hidden"
+      >
         <ArrowLeft className="h-3.5 w-3.5" /> All chats
       </Link>
       <div className="min-h-0 flex-1">

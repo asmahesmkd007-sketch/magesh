@@ -19,9 +19,15 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/notifications")({
-  head: () => ({ meta: [{ title: "Notifications — ChessOx" }] }),
+  head: () =>
+    noindexSeo(
+      "Notifications — ChessOx",
+      "Your ChessOx notifications: challenges, friend requests, tournament updates and community activity.",
+      "noindex, nofollow",
+    ),
   component: Notifs,
 });
 

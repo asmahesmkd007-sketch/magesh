@@ -16,7 +16,10 @@ function DiscoverRooms() {
 
   return (
     <div className="h-full overflow-y-auto p-4">
-      <Link to="/chat" className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-gold md:hidden">
+      <Link
+        to="/chat"
+        className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-gold md:hidden"
+      >
         <ArrowLeft className="h-3.5 w-3.5" /> All chats
       </Link>
       <h1 className="mb-3 text-lg font-medium">Discover rooms</h1>
@@ -34,7 +37,9 @@ function DiscoverRooms() {
           <Loader2 className="h-6 w-6 animate-spin text-gold" />
         </div>
       ) : rooms.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-muted-foreground">No public rooms yet — create the first one!</Card>
+        <Card className="p-8 text-center text-sm text-muted-foreground">
+          No public rooms yet — create the first one!
+        </Card>
       ) : (
         <div className="space-y-2">
           {rooms.map((r) => (
@@ -43,10 +48,16 @@ function DiscoverRooms() {
                 <Hash className="h-4 w-4" />
               </span>
               <div className="min-w-0 flex-1">
-                <Link to="/chat/room/$slug" params={{ slug: r.slug ?? r.id }} className="font-medium hover:underline">
+                <Link
+                  to="/chat/room/$slug"
+                  params={{ slug: r.slug ?? r.id }}
+                  className="font-medium hover:underline"
+                >
                   {r.name}
                 </Link>
-                {r.description && <p className="truncate text-xs text-muted-foreground">{r.description}</p>}
+                {r.description && (
+                  <p className="truncate text-xs text-muted-foreground">{r.description}</p>
+                )}
                 <p className="text-[11px] text-muted-foreground">
                   {r.member_count} member{r.member_count === 1 ? "" : "s"}
                 </p>

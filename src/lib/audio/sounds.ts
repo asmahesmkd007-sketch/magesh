@@ -42,7 +42,9 @@ let ctx: AudioContext | null = null;
 function audio(): AudioContext | null {
   if (typeof window === "undefined") return null;
   if (!ctx) {
-    const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    const AC =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AC) return null;
     ctx = new AC();
   }

@@ -52,7 +52,8 @@ export function Composer({
       {replyTo && (
         <div className="mb-2 flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-1.5 text-xs">
           <span className="truncate text-muted-foreground">
-            Replying to <span className="text-gold">{replyTo.author.full_name}</span>: {replyTo.content}
+            Replying to <span className="text-gold">{replyTo.author.full_name}</span>:{" "}
+            {replyTo.content}
           </span>
           <button type="button" onClick={onClearReply} aria-label="Cancel reply">
             <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
@@ -113,7 +114,11 @@ export function Composer({
             disabled={!text.trim() || send.isPending}
             className="grid h-10 w-10 shrink-0 place-items-center rounded-xl gradient-gold text-background disabled:opacity-40"
           >
-            {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {send.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </button>
         </div>
       )}

@@ -224,12 +224,16 @@ export const InteractiveBoard = React.memo(function InteractiveBoard({
   const pieceTransition = animate ? "transform 0.2s cubic-bezier(0.22, 1, 0.36, 1)" : "none";
 
   // Board size preset × zoom drives the max on-screen width (all boards, all modes).
-  const baseWidth = settings.board_size === "small" ? 480 : settings.board_size === "large" ? 720 : 600;
+  const baseWidth =
+    settings.board_size === "small" ? 480 : settings.board_size === "large" ? 720 : 600;
   const boardMaxWidth = Math.round(baseWidth * (settings.board_zoom / 100));
   const snapToSquare = settings.snap_to_square;
 
   // Centre of the square under a client point, for snap-to-square dragging.
-  const squareCenterFromPoint = (clientX: number, clientY: number): { x: number; y: number } | null => {
+  const squareCenterFromPoint = (
+    clientX: number,
+    clientY: number,
+  ): { x: number; y: number } | null => {
     const el = gridRef.current;
     if (!el) return null;
     const rect = el.getBoundingClientRect();
@@ -242,6 +246,14 @@ export const InteractiveBoard = React.memo(function InteractiveBoard({
   };
 
   const placements = useStablePieces(board, lastMove);
+
+  // O(1) occupancy lookup — avoids re-scanning all 64 cells (board.flat().some/.find)
+  // once per square, which was ~4,096 array visits per render just for hasPiece checks.
+  const pieceBySquare = useMemo(() => {
+    const m = new Map<string, { square: Square; type: PieceSymbol; color: Color }>();
+    for (const row of board) for (const cell of row) if (cell) m.set(cell.square, cell);
+    return m;
+  }, [board]);
 
   // Track the pixel size of a square so piece glyphs scale crisply to any layout.
   const gridRef = useRef<HTMLDivElement>(null);
@@ -258,7 +270,7 @@ export const InteractiveBoard = React.memo(function InteractiveBoard({
   const draggedRef = useRef(false);
   const suppressClickRef = useRef(false);
 
-  const hasPieceAt = (sq: string) => board.flat().some((cell) => cell && cell.square === sq);
+  const hasPieceAt = (sq: string) => pieceBySquare.has(sq);
 
   const squareFromPoint = (clientX: number, clientY: number): string | null => {
     const el = gridRef.current;
@@ -346,10 +358,7 @@ export const InteractiveBoard = React.memo(function InteractiveBoard({
   };
 
   return (
-    <div
-      className="cx-board-root relative mx-auto w-full"
-      style={{ maxWidth: boardMaxWidth }}
-    >
+    <div className="cx-board-root relative mx-auto w-full" style={{ maxWidth: boardMaxWidth }}>
       <div className="pointer-events-none absolute -inset-5 rounded-[2rem] bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.18),transparent_58%)] blur-2xl" />
       <div className="relative rounded-[30px] rosewood-sheen shadow-luxe p-3 md:p-4">
         <div className="rounded-[24px] border border-gold/50 bg-[linear-gradient(180deg,rgba(50,18,14,0.95),rgba(26,8,8,0.95))] p-3 md:p-4">
@@ -384,15 +393,19 @@ export const InteractiveBoard = React.memo(function InteractiveBoard({
                     const light = (r + c) % 2 === 0;
                     const isSelected = settings.show_move_highlights && selected === sq;
                     const isTarget = settings.show_legal_moves && targets.includes(sq);
-                    const isLast = settings.show_last_move && lastMove && (lastMove.from === sq || lastMove.to === sq);
-                    const hasPiece = board.flat().some((cell) => cell && cell.square === sq);
+                    const isLast =
+                      settings.show_last_move &&
+                      lastMove &&
+                      (lastMove.from === sq || lastMove.to === sq);
+                    const pieceHere = pieceBySquare.get(sq);
+                    const hasPiece = !!pieceHere;
 
-                    let isCheck = settings.show_check_highlight && checkSquare === sq;
+                    const isCheck = settings.show_check_highlight && checkSquare === sq;
                     let isWinnerKing = false;
                     let isLoserKing = false;
 
-                    if (endState && hasPiece) {
-                      const p = board.flat().find((c) => c?.square === sq)!;
+                    if (endState && pieceHere) {
+                      const p = pieceHere;
                       if (p.type === "k") {
                         if (endState.result === "white" && p.color === "w") isWinnerKing = true;
                         if (endState.result === "white" && p.color === "b") isLoserKing = true;
@@ -460,7 +473,7 @@ export const InteractiveBoard = React.memo(function InteractiveBoard({
                       </span>
                     );
                   })()}
-                
+
                 {/* Checkmate / End State Overlay */}
                 {endState && (
                   <div className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] tw-animate-fade-in tw-duration-500">

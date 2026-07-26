@@ -12,7 +12,10 @@ import { supabase } from "@/integrations/supabase/client";
 // The community tables/RPCs are newer than the generated types, so route
 // calls through a loosely-typed handle (same pattern as adminClient).
 const db = supabase as unknown as {
-  rpc: (fn: string, args?: Record<string, unknown>) => PromiseLike<{
+  rpc: (
+    fn: string,
+    args?: Record<string, unknown>,
+  ) => PromiseLike<{
     data: unknown;
     error: { message: string } | null;
   }>;
@@ -30,8 +33,20 @@ async function rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
 // Types
 // ---------------------------------------------------------------------
 export type PostType =
-  | "text" | "image" | "fen" | "pgn" | "puzzle" | "poll" | "analysis"
-  | "question" | "opening" | "tournament" | "news" | "meme" | "game" | "link";
+  | "text"
+  | "image"
+  | "fen"
+  | "pgn"
+  | "puzzle"
+  | "poll"
+  | "analysis"
+  | "question"
+  | "opening"
+  | "tournament"
+  | "news"
+  | "meme"
+  | "game"
+  | "link";
 
 export type CommunityAuthor = {
   id: string;
@@ -141,7 +156,13 @@ export type CommunityUserLite = {
 
 export type FeedMode = "following" | "foryou" | "trending" | "latest";
 export type ReportReason =
-  | "spam" | "abuse" | "harassment" | "copyright" | "duplicate" | "fake_information" | "other";
+  | "spam"
+  | "abuse"
+  | "harassment"
+  | "copyright"
+  | "duplicate"
+  | "fake_information"
+  | "other";
 
 export const ACHIEVEMENT_LABELS: Record<string, string> = {
   first_post: "First Post",
@@ -242,7 +263,11 @@ export async function deleteComment(id: string) {
 // ---------------------------------------------------------------------
 // Interactions (all toggle-style RPCs, server-authoritative)
 // ---------------------------------------------------------------------
-export const react = (targetType: "post" | "comment", targetId: string, reaction: "like" | "dislike") =>
+export const react = (
+  targetType: "post" | "comment",
+  targetId: string,
+  reaction: "like" | "dislike",
+) =>
   rpc<"like" | "dislike" | null>("community_react", {
     p_target_type: targetType,
     p_target_id: targetId,
@@ -320,7 +345,11 @@ export const fetchCommunityProfile = (username: string) =>
   rpc<CommunityProfile | null>("community_profile", { p_username: username });
 
 export const fetchFollowList = (userId: string, kind: "followers" | "following", limit = 50) =>
-  rpc<CommunityUserLite[]>("community_follow_list", { p_user: userId, p_kind: kind, p_limit: limit });
+  rpc<CommunityUserLite[]>("community_follow_list", {
+    p_user: userId,
+    p_kind: kind,
+    p_limit: limit,
+  });
 
 export const fetchLeaderboard = (kind: "score" | "posts" | "comments" | "followers", limit = 10) =>
   rpc<CommunityUserLite[]>("community_leaderboard", { p_kind: kind, p_limit: limit });

@@ -4,7 +4,13 @@ import { Loader2, Trash2, X } from "lucide-react";
 import { useChatActions } from "@/hooks/useChat";
 import type { ChatChannel } from "@/lib/api/chatClient";
 
-export function RoomSettingsModal({ channel, onClose }: { channel: ChatChannel; onClose: () => void }) {
+export function RoomSettingsModal({
+  channel,
+  onClose,
+}: {
+  channel: ChatChannel;
+  onClose: () => void;
+}) {
   const { updateRoom, deleteRoom } = useChatActions();
   const navigate = useNavigate();
   const [name, setName] = useState(channel.name ?? "");
@@ -59,7 +65,10 @@ export function RoomSettingsModal({ channel, onClose }: { channel: ChatChannel; 
             type="button"
             disabled={!name.trim() || updateRoom.isPending}
             onClick={() =>
-              updateRoom.mutate({ channelId: channel.id, name: name.trim(), description: description.trim() }, { onSuccess: onClose })
+              updateRoom.mutate(
+                { channelId: channel.id, name: name.trim(), description: description.trim() },
+                { onSuccess: onClose },
+              )
             }
             className="flex items-center gap-1.5 rounded-lg gradient-gold px-4 py-1.5 text-xs font-medium text-background disabled:opacity-50"
           >

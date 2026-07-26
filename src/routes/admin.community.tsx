@@ -17,7 +17,12 @@ import {
 } from "@/lib/api/communityClient";
 
 export const Route = createFileRoute("/admin/community")({
-  head: () => ({ meta: [{ title: "Admin — Community — ChessOx" }] }),
+  head: () => ({
+    meta: [
+      { title: "Admin — Community — ChessOx" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: () => (
     <AdminShell title="Community Moderation">
       <CommunityAdmin />
@@ -42,7 +47,9 @@ function CommunityAdmin() {
   const [stats, setStats] = useState<CommunityStats | null>(null);
 
   useEffect(() => {
-    fetchCommunityStats().then(setStats).catch(() => setStats(null));
+    fetchCommunityStats()
+      .then(setStats)
+      .catch(() => setStats(null));
   }, []);
 
   return (
@@ -135,14 +142,20 @@ function PostsPanel() {
             <div className="flex shrink-0 flex-col gap-1.5">
               <IconBtn
                 onClick={() =>
-                  act(() => moderatePost(p.id, !p.is_pinned, undefined), p.is_pinned ? "Unpinned" : "Pinned")
+                  act(
+                    () => moderatePost(p.id, !p.is_pinned, undefined),
+                    p.is_pinned ? "Unpinned" : "Pinned",
+                  )
                 }
               >
                 <Pin className="h-3.5 w-3.5" /> {p.is_pinned ? "Unpin" : "Pin"}
               </IconBtn>
               <IconBtn
                 onClick={() =>
-                  act(() => moderatePost(p.id, undefined, !p.is_hidden), p.is_hidden ? "Shown" : "Hidden")
+                  act(
+                    () => moderatePost(p.id, undefined, !p.is_hidden),
+                    p.is_hidden ? "Shown" : "Hidden",
+                  )
                 }
               >
                 {p.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}

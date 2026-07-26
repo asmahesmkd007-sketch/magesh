@@ -26,8 +26,16 @@ export const POLICY_META: Record<PolicyType, { label: string; route: string; ico
   refund: { label: "Refund Policy", route: "/refund-policy", icon: "💳" },
   withdrawal: { label: "Withdrawal Policy", route: "/withdrawal-policy", icon: "🏦" },
   community: { label: "Community Policy", route: "/community-policy", icon: "🤝" },
-  "fair-play": { label: "Fair Play Policy", route: "/fair-play-policy", icon: "⚖️" },
-  grievance: { label: "Contact & Grievance Policy", route: "/grievance-policy", icon: "📞" },
+  "fair-play": {
+    label: "Fair Play & Anti-Cheating Policy",
+    route: "/fair-play-anti-cheating-policy",
+    icon: "⚖️",
+  },
+  grievance: {
+    label: "Contact & Grievance Policy",
+    route: "/contact-grievance-policy",
+    icon: "📞",
+  },
 };
 
 export type Policy = {

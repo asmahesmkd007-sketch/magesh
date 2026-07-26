@@ -1,8 +1,14 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
+import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/chat")({
-  head: () => ({ meta: [{ title: "Chat — ChessOx" }] }),
+  head: () =>
+    noindexSeo(
+      "Chess Chat — ChessOx",
+      "Chat with other chess players on ChessOx in global chat, chess rooms and direct messages.",
+      "noindex, nofollow",
+    ),
   component: ChatShell,
 });
 

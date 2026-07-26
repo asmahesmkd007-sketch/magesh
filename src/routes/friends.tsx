@@ -1,66 +1,62 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Primitives";
-import { UserPlus, UserCheck, UserX, Loader2, Users, Swords } from "lucide-react";
+import { PageShell, Card, GoldButton } from "@/components/site/Primitives";
+import { Users, Inbox, Swords, Shield, UserPlus, Loader2, Activity } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useFriends } from "@/hooks/useFriends";
-import { supabase } from "@/integrations/supabase/client";
+import { useChallenges } from "@/hooks/useChallenges";
+import { useClanInvites } from "@/hooks/useClanInvites";
 import { toast } from "sonner";
-import { PremiumBadge } from "@/components/site/PremiumBadge";
-import { UserAvatar } from "@/components/site/UserAvatar";
+import { FriendTabs, type FriendTabDef } from "@/components/friends/Tabs";
+import { EmptyState } from "@/components/friends/EmptyState";
+import { FriendCard } from "@/components/friends/FriendCard";
+import { IncomingRequestCard, OutgoingRequestCard } from "@/components/friends/RequestCard";
+import { IncomingChallengeCard, OutgoingChallengeCard } from "@/components/friends/ChallengeCard";
+import { ClanInviteCard } from "@/components/friends/ClanInviteCard";
+import { AddFriendPanel } from "@/components/friends/AddFriendPanel";
+import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/friends")({
-  head: () => ({ meta: [{ title: "Friends — ChessOx" }] }),
+  head: () =>
+    noindexSeo(
+      "Chess Friends — ChessOx",
+      "Manage your chess friends on ChessOx: friend requests, challenges and club invites.",
+    ),
   component: FriendsPage,
 });
+
+type TabKey = "friends" | "requests" | "challenges" | "clan-invites" | "add";
 
 function FriendsPage() {
   const { user } = useAuth();
   const { friends, loading, sendRequest, acceptRequest, declineRequest, removeFriend } = useFriends(
     user?.id,
   );
-  const [search, setSearch] = useState("");
-  const [searchResults, setSearchResults] = useState<
-    {
-      id: string;
-      username: string;
-      full_name: string | null;
-      avatar_url?: string | null;
-      premium_active?: boolean;
-      premium_expires_at?: string | null;
-    }[]
-  >([]);
-  const [searching, setSearching] = useState(false);
+  const {
+    incoming: incomingChallenges,
+    outgoing: outgoingChallenges,
+    loading: challengesLoading,
+    sendChallenge,
+    respond: respondChallenge,
+    cancel: cancelChallenge,
+  } = useChallenges(user?.id);
+  const {
+    invites: clanInvites,
+    loading: clanInvitesLoading,
+    respond: respondClanInvite,
+  } = useClanInvites(user?.id);
+  const [tab, setTab] = useState<TabKey>("friends");
 
   const accepted = friends.filter((f) => f.status === "accepted");
-  const incoming = friends.filter((f) => f.status === "pending" && f.addressee_id === user?.id);
-  const outgoing = friends.filter((f) => f.status === "pending" && f.requester_id === user?.id);
-
-  async function doSearch() {
-    if (!search.trim()) return;
-    setSearching(true);
-    const { data } = await supabase
-      .from("profiles")
-      .select("id,username,full_name,avatar_url,premium_active,premium_expires_at")
-      .ilike("username", `%${search.trim()}%`)
-      .neq("id", user?.id ?? "")
-      .limit(10);
-    setSearchResults(
-      (data ?? []) as {
-        id: string;
-        username: string;
-        full_name: string | null;
-        avatar_url?: string | null;
-        premium_active?: boolean;
-        premium_expires_at?: string | null;
-      }[],
-    );
-    setSearching(false);
-  }
-
-  const knownIds = new Set(
-    friends.map((f) => (f.requester_id === user?.id ? f.addressee_id : f.requester_id)),
+  const incomingRequests = friends.filter(
+    (f) => f.status === "pending" && f.addressee_id === user?.id,
   );
+  const outgoingRequests = friends.filter(
+    (f) => f.status === "pending" && f.requester_id === user?.id,
+  );
+
+  const myFriendIds = new Set(accepted.map((f) => f.other_id));
+  const knownIds = new Set(friends.map((f) => f.other_id));
 
   if (!user) {
     return (
@@ -77,219 +73,197 @@ function FriendsPage() {
     );
   }
 
+  const tabs: FriendTabDef[] = [
+    { key: "friends", label: "My Friends", count: accepted.length, icon: Users },
+    { key: "requests", label: "Friend Requests", count: incomingRequests.length, icon: Inbox },
+    { key: "challenges", label: "Challenges", count: incomingChallenges.length, icon: Swords },
+    { key: "clan-invites", label: "Clan Invites", count: clanInvites.length, icon: Shield },
+    { key: "add", label: "Add Friend", count: 0, icon: UserPlus },
+  ];
+
   return (
     <PageShell
       eyebrow="Fellowship"
       title="Friends"
       subtitle="Challenge your allies, track their victories."
-    >
-      {/* Search to add */}
-      <Card className="mb-8 p-5">
-        <div className="mb-3 font-display text-lg">Add a Friend</div>
-        <div className="flex gap-2">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") doSearch();
-            }}
-            placeholder="Search by username…"
-            className="flex-1 rounded-full border border-gold/20 bg-white/[0.02] px-4 py-2 text-sm outline-none focus:border-gold/40"
-          />
-          <GoldButton onClick={doSearch} disabled={searching}>
-            {searching ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <UserPlus className="h-4 w-4" />
-            )}
-            Search
+      action={
+        <Link to="/friends/activity">
+          <GoldButton>
+            <Activity className="h-4 w-4" /> Activity
           </GoldButton>
-        </div>
-        {searchResults.length > 0 && (
-          <ul className="mt-3 space-y-2">
-            {searchResults.map((p) => {
-              const alreadyFriend = knownIds.has(p.id);
-              return (
-                <li
-                  key={p.id}
-                  className="flex items-center gap-3 rounded-xl border border-white/5 p-3 text-sm"
-                >
-                  <UserAvatar
-                    avatarUrl={p.avatar_url}
-                    displayName={p.full_name ?? p.username}
-                    size="sm"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center">
-                      {p.full_name ?? p.username}
-                      <PremiumBadge
-                        premiumActive={p.premium_active}
-                        premiumExpiresAt={p.premium_expires_at}
-                      />
-                    </div>
-                    <div className="text-xs text-muted-foreground">@{p.username}</div>
-                  </div>
-                  {alreadyFriend ? (
-                    <span className="text-xs text-muted-foreground">Already connected</span>
-                  ) : (
-                    <GoldButton
-                      onClick={async () => {
-                        await sendRequest(p.id);
-                        setSearchResults([]);
-                        toast.success(`Friend request sent to @${p.username}`);
-                      }}
-                    >
-                      <UserPlus className="h-4 w-4" /> Add
-                    </GoldButton>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Card>
+        </Link>
+      }
+    >
+      <FriendTabs tabs={tabs} active={tab} onChange={(k) => setTab(k as TabKey)} />
 
-      {loading ? (
-        <div className="grid place-items-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-gold" />
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {incoming.length > 0 && (
-            <div>
-              <div className="mb-3 font-display text-xl">
-                Incoming Requests{" "}
-                <span className="ml-2 rounded-full bg-gold/20 px-2 py-0.5 text-sm text-gold">
-                  {incoming.length}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {incoming.map((f) => (
-                  <Card key={f.id} className="flex items-center gap-3 p-4">
-                    <UserAvatar
-                      avatarUrl={f.other_avatar_url}
-                      displayName={f.other_display ?? f.other_username}
-                      size="sm"
-                    />
-                    <div className="flex-1">
-                      <div className="text-sm flex items-center">
-                        {f.other_display ?? f.other_username ?? "Unknown"}
-                        <PremiumBadge
-                          premiumActive={f.other_premium_active}
-                          premiumExpiresAt={f.other_premium_expires_at}
-                        />
-                      </div>
-                      <div className="text-xs text-muted-foreground">@{f.other_username}</div>
-                    </div>
-                    <div className="flex gap-2">
-                      <GoldButton
-                        onClick={() => {
-                          acceptRequest(f.id);
-                          toast.success("Friend accepted!");
-                        }}
-                      >
-                        <UserCheck className="h-4 w-4" /> Accept
-                      </GoldButton>
-                      <GhostButton onClick={() => declineRequest(f.id)}>
-                        <UserX className="h-4 w-4" /> Decline
-                      </GhostButton>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {outgoing.length > 0 && (
-            <div>
-              <div className="mb-3 font-display text-xl">Sent Requests</div>
-              <div className="space-y-2">
-                {outgoing.map((f) => (
-                  <Card key={f.id} className="flex items-center gap-3 p-4">
-                    <UserAvatar
-                      avatarUrl={f.other_avatar_url}
-                      displayName={f.other_display ?? f.other_username}
-                      size="sm"
-                    />
-                    <div className="flex-1">
-                      <div className="text-sm flex items-center">
-                        {f.other_display ?? f.other_username ?? "Unknown"}
-                        <PremiumBadge
-                          premiumActive={f.other_premium_active}
-                          premiumExpiresAt={f.other_premium_expires_at}
-                        />
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        @{f.other_username} · Pending
-                      </div>
-                    </div>
-                    <GhostButton onClick={() => declineRequest(f.id)}>Cancel</GhostButton>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div>
-            <div className="mb-3 font-display text-xl">
-              Friends{" "}
-              <span className="ml-2 text-muted-foreground text-base">({accepted.length})</span>
-            </div>
-            {accepted.length === 0 ? (
-              <Card className="p-8 text-center">
-                <Users className="mx-auto h-10 w-10 text-gold/30" />
-                <p className="mt-4 text-muted-foreground">
-                  No friends yet. Search for players above to connect!
-                </p>
-              </Card>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {accepted.map((f) => {
-                  const otherId = f.requester_id === user?.id ? f.addressee_id : f.requester_id;
-                  return (
-                    <Card key={f.id} className="flex items-center gap-3 p-4">
-                      <Link to="/profile" search={{ id: otherId }}>
-                        <UserAvatar
-                          avatarUrl={f.other_avatar_url}
-                          displayName={f.other_display ?? f.other_username}
-                          size="sm"
-                        />
-                      </Link>
-                      <div className="flex-1">
-                        <div className="text-sm flex items-center">
-                          <Link to="/profile" search={{ id: otherId }} className="hover:text-gold">
-                            {f.other_display ?? f.other_username ?? "Unknown"}
-                          </Link>
-                          <PremiumBadge
-                            premiumActive={f.other_premium_active}
-                            premiumExpiresAt={f.other_premium_expires_at}
-                          />
-                        </div>
-                        <div className="text-xs text-muted-foreground">@{f.other_username}</div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Link to="/play/friend">
-                          <GoldButton>
-                            <Swords className="h-4 w-4" />
-                          </GoldButton>
-                        </Link>
-                        <GhostButton
-                          onClick={() => {
-                            removeFriend(f.id);
-                            toast.success("Removed friend");
-                          }}
-                        >
-                          <UserX className="h-4 w-4" />
-                        </GhostButton>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
+      {tab === "friends" &&
+        (loading ? (
+          <Loading />
+        ) : accepted.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="No Friends Yet"
+            subtitle="Search for players in the Add Friend tab to start building your fellowship."
+            action={
+              <GoldButton onClick={() => setTab("add")}>
+                <UserPlus className="h-4 w-4" /> Add a Friend
+              </GoldButton>
+            }
+          />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {accepted.map((f) => (
+              <FriendCard
+                key={f.id}
+                friend={f}
+                onRemove={(id) => {
+                  removeFriend(id);
+                  toast.success("Removed friend");
+                }}
+                onChallenge={async (opponentId, opts) => {
+                  try {
+                    await sendChallenge(opponentId, opts);
+                    toast.success("Challenge sent!");
+                    setTab("challenges");
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Failed to send challenge");
+                  }
+                }}
+              />
+            ))}
           </div>
-        </div>
+        ))}
+
+      {tab === "requests" &&
+        (loading ? (
+          <Loading />
+        ) : incomingRequests.length === 0 && outgoingRequests.length === 0 ? (
+          <EmptyState
+            icon={Inbox}
+            title="No Requests"
+            subtitle="You're all caught up — no pending friend requests."
+          />
+        ) : (
+          <div className="space-y-8">
+            <div>
+              <div className="mb-3 font-display text-xl">Incoming Requests</div>
+              {incomingRequests.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No incoming requests.</p>
+              ) : (
+                <div className="space-y-2">
+                  {incomingRequests.map((r) => (
+                    <IncomingRequestCard
+                      key={r.id}
+                      request={r}
+                      myFriendIds={myFriendIds}
+                      onAccept={(id) => {
+                        acceptRequest(id);
+                        toast.success("Friend accepted!");
+                      }}
+                      onReject={(id) => declineRequest(id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="mb-3 font-display text-xl">Outgoing Requests</div>
+              {outgoingRequests.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No outgoing requests.</p>
+              ) : (
+                <div className="space-y-2">
+                  {outgoingRequests.map((r) => (
+                    <OutgoingRequestCard
+                      key={r.id}
+                      request={r}
+                      onCancel={(id) => declineRequest(id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
+      {tab === "challenges" &&
+        (challengesLoading ? (
+          <Loading />
+        ) : incomingChallenges.length === 0 && outgoingChallenges.length === 0 ? (
+          <EmptyState
+            icon={Swords}
+            title="No Challenges"
+            subtitle="Challenge a friend from My Friends to spar over the board."
+          />
+        ) : (
+          <div className="space-y-8">
+            <div>
+              <div className="mb-3 font-display text-xl">Incoming Challenges</div>
+              {incomingChallenges.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No incoming challenges.</p>
+              ) : (
+                <div className="space-y-2">
+                  {incomingChallenges.map((c) => (
+                    <IncomingChallengeCard key={c.id} challenge={c} onRespond={respondChallenge} />
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="mb-3 font-display text-xl">Outgoing Challenges</div>
+              {outgoingChallenges.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No outgoing challenges.</p>
+              ) : (
+                <div className="space-y-2">
+                  {outgoingChallenges.map((c) => (
+                    <OutgoingChallengeCard key={c.id} challenge={c} onCancel={cancelChallenge} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
+      {tab === "clan-invites" &&
+        (clanInvitesLoading ? (
+          <Loading />
+        ) : clanInvites.length === 0 ? (
+          <EmptyState
+            icon={Shield}
+            title="No Clan Invites"
+            subtitle="Invitations from clan leaders will show up here."
+          />
+        ) : (
+          <div className="space-y-2">
+            {clanInvites.map((inv) => (
+              <ClanInviteCard
+                key={inv.id}
+                invite={inv}
+                onRespond={async (id, accept) => {
+                  try {
+                    await respondClanInvite(id, accept);
+                    toast.success(
+                      accept ? `Joined ${inv.clan_name ?? "the clan"}!` : "Invite rejected",
+                    );
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Failed to respond to invite");
+                  }
+                }}
+              />
+            ))}
+          </div>
+        ))}
+
+      {tab === "add" && (
+        <AddFriendPanel userId={user.id} knownIds={knownIds} onSendRequest={sendRequest} />
       )}
     </PageShell>
+  );
+}
+
+function Loading() {
+  return (
+    <div className="grid place-items-center py-16">
+      <Loader2 className="h-8 w-8 animate-spin text-gold" />
+    </div>
   );
 }

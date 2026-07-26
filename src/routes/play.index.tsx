@@ -27,14 +27,37 @@ import {
   type PieceTheme,
 } from "@/hooks/useBoardSettings";
 import { PieceGlyph } from "@/lib/chess/pieceThemes";
+import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/play/")({
-  head: () => ({
-    meta: [
-      { title: "Play Chess — ChessOx" },
-      { name: "description", content: "Play live chess against friends or the ChessOx engine." },
-    ],
-  }),
+  head: () =>
+    seo({
+      title: "Play Chess Online — Free Multiplayer Chess Game | ChessOx",
+      description:
+        "Play chess online free: ranked quick match against players worldwide, private chess games with friends, five computer difficulty levels and public chess rooms.",
+      keywords: [
+        "play chess online",
+        "online chess game",
+        "multiplayer chess game",
+        "chess game online",
+        "free online chess",
+      ],
+      path: "/play",
+      jsonLd: [
+        webPageLd({
+          name: "Play Chess Online — ChessOx",
+          description:
+            "Ways to play chess online on ChessOx: ranked quick match, friend challenges over a private link, vs computer, local two-player chess and public rooms.",
+          path: "/play",
+          primaryTopic: "Online chess game",
+          about: ["Online chess game", "Multiplayer chess", "Play chess with friends"],
+        }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Play Chess", path: "/play" },
+        ]),
+      ],
+    }),
   component: Play,
 });
 
@@ -143,75 +166,92 @@ function Play() {
 
   return (
     <PageShell
-      eyebrow="The Arena"
-      title="Play Chess"
-      subtitle="Choose your battlefield and begin your reign."
+      eyebrow={tab === "modes" ? "The Arena" : undefined}
+      title={tab === "modes" ? "Play Chess" : undefined}
+      subtitle={tab === "modes" ? "Choose your battlefield and begin your reign." : undefined}
+      compact={true}
       action={
-        <div className="flex items-center gap-3">
-          <Link
-            to="/play/history"
-            className="flex items-center gap-2 rounded-full border border-white/10 px-5 py-2.5 text-sm text-muted-foreground transition hover:border-gold/30 hover:text-foreground"
-          >
-            <History className="h-4 w-4" />
-            Game History
-          </Link>
-          <button
-            onClick={() => setTab("settings")}
-            className="flex items-center gap-2 rounded-full border border-gold/30 bg-gold/5 px-5 py-2.5 text-sm text-gold transition hover:bg-gold/10 hover:text-gold"
-          >
-            Board Settings
-          </button>
-        </div>
+        tab === "modes" ? (
+          <div className="flex items-center gap-3">
+            <Link
+              to="/play/history"
+              className="flex items-center gap-2 rounded-full border border-white/10 px-5 py-2.5 text-sm text-muted-foreground transition hover:border-gold/30 hover:text-foreground"
+            >
+              <History className="h-4 w-4" />
+              Game History
+            </Link>
+            <button
+              onClick={() => setTab("settings")}
+              className="flex items-center gap-2 rounded-full border border-gold/30 bg-gold/5 px-5 py-2.5 text-sm text-gold transition hover:bg-gold/10 hover:text-gold"
+            >
+              Board Settings
+            </button>
+          </div>
+        ) : undefined
       }
     >
       {tab === "modes" && (
         <div className="mx-auto grid max-w-5xl gap-4 md:grid-cols-3">
-          {MODES.filter(m => m.id !== 'history').map((m, i) => {
+          {MODES.filter((m) => m.id !== "history").map((m, i) => {
             const isWide = i === 0 || i === 3;
             const Icon = m.icon;
-            
+
             const inner = (
               <Card
-                className={`group relative flex h-full cursor-pointer overflow-hidden p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-gold/10 ${m.gold
-                  ? "border-gold/40 bg-gradient-to-br from-gold/10 to-background/50"
-                  : "border-white/5 bg-white/[0.02] hover:border-gold/30 hover:bg-gold/[0.02]"
-                  } ${isWide ? "flex-col md:flex-row items-start md:items-center gap-6 md:gap-8" : "flex-col justify-between"}`}
+                className={`group relative flex h-full cursor-pointer overflow-hidden p-5 md:p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-gold/10 ${
+                  m.gold
+                    ? "border-gold/40 bg-gradient-to-br from-gold/10 to-background/50"
+                    : "border-white/5 bg-white/[0.02] hover:border-gold/30 hover:bg-gold/[0.02]"
+                } ${isWide ? "flex-col md:flex-row items-start md:items-center gap-5 md:gap-6" : "flex-col justify-between"}`}
               >
                 {/* Subtle glow effect on hover */}
-                <div className={`absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${m.gold ? "bg-gradient-to-tr from-gold/10 via-transparent to-transparent" : "bg-gradient-to-tr from-white/5 via-transparent to-transparent"}`} />
+                <div
+                  className={`absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${m.gold ? "bg-gradient-to-tr from-gold/10 via-transparent to-transparent" : "bg-gradient-to-tr from-white/5 via-transparent to-transparent"}`}
+                />
 
                 {isWide ? (
                   <>
                     <span
-                      className={`relative z-10 flex shrink-0 items-center justify-center rounded-3xl shadow-lg transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${m.gold ? "h-20 w-20 md:h-24 md:w-24 gradient-gold text-background shadow-gold/20" : "h-16 w-16 md:h-20 md:w-20 bg-gradient-to-br from-white/10 to-white/5 text-gold shadow-black/50 border border-white/5"}`}
+                      className={`relative z-10 flex shrink-0 items-center justify-center rounded-2xl md:rounded-3xl shadow-lg transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${m.gold ? "h-16 w-16 md:h-20 md:w-20 gradient-gold text-background shadow-gold/20" : "h-14 w-14 md:h-16 md:w-16 bg-gradient-to-br from-white/10 to-white/5 text-gold shadow-black/50 border border-white/5"}`}
                     >
-                      <Icon className={m.gold ? "h-10 w-10 md:h-12 md:w-12" : "h-8 w-8 md:h-10 md:w-10"} />
+                      <Icon
+                        className={m.gold ? "h-8 w-8 md:h-10 md:w-10" : "h-7 w-7 md:h-8 md:w-8"}
+                      />
                     </span>
-                    <div className="relative z-10 flex-1 w-full mt-4 md:mt-0">
-                      <div className={`font-display text-3xl md:text-4xl transition-colors ${m.gold ? "text-gold" : "group-hover:text-gold"}`}>{m.title}</div>
+                    <div className="relative z-10 flex-1 w-full mt-3 md:mt-0">
+                      <div
+                        className={`font-display text-3xl md:text-4xl transition-colors ${m.gold ? "text-gold" : "group-hover:text-gold"}`}
+                      >
+                        {m.title}
+                      </div>
                       <div className="mt-2 text-sm md:text-base text-muted-foreground">{m.sub}</div>
                     </div>
                     <div className="relative z-10 flex shrink-0 items-center gap-2 text-[10px] md:text-xs font-bold tracking-[0.2em] uppercase text-gold opacity-80 transition-all group-hover:opacity-100 group-hover:translate-x-1 mt-4 md:mt-0">
-                      {m.gold ? "Play now" : "Open"} <ChevronRight className="h-3 w-3 md:h-4 md:w-4" />
+                      {m.gold ? "Play now" : "Open"}{" "}
+                      <ChevronRight className="h-3 w-3 md:h-4 md:w-4" />
                     </div>
                   </>
                 ) : (
                   <>
                     <div className="flex items-start justify-between">
                       <span
-                        className={`relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-lg transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${m.gold ? "gradient-gold text-background shadow-gold/20" : "bg-gradient-to-br from-white/10 to-white/5 text-gold shadow-black/50 border border-white/5"}`}
+                        className={`relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl md:rounded-2xl shadow-lg transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${m.gold ? "gradient-gold text-background shadow-gold/20" : "bg-gradient-to-br from-white/10 to-white/5 text-gold shadow-black/50 border border-white/5"}`}
                       >
-                        <Icon className="h-7 w-7" />
+                        <Icon className="h-6 w-6" />
                       </span>
-                      
+
                       <div className="relative z-10 flex items-center gap-1.5 text-[10px] font-bold tracking-[0.2em] uppercase text-gold opacity-80 transition-all group-hover:opacity-100 group-hover:translate-x-1 mt-2">
                         {m.gold ? "Play now" : "Open"} <ChevronRight className="h-3 w-3" />
                       </div>
                     </div>
 
-                    <div className="relative z-10 mt-12">
-                      <div className={`font-display text-3xl transition-colors ${m.gold ? "text-gold" : "group-hover:text-gold"}`}>{m.title}</div>
-                      <div className="mt-2 text-sm text-muted-foreground">{m.sub}</div>
+                    <div className="relative z-10 mt-8">
+                      <div
+                        className={`font-display text-2xl md:text-3xl transition-colors ${m.gold ? "text-gold" : "group-hover:text-gold"}`}
+                      >
+                        {m.title}
+                      </div>
+                      <div className="mt-1.5 text-xs md:text-sm text-muted-foreground">{m.sub}</div>
                     </div>
                   </>
                 )}
@@ -237,8 +277,17 @@ function Play() {
       )}
 
       {tab === "quick" && (
-        <div className="mx-auto max-w-md">
-          <QuickMatch onPlayBot={() => setTab("bot")} />
+        <div className="relative w-full py-8 md:py-12 flex items-center justify-center">
+          {/* Background Watermark */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none select-none overflow-hidden">
+            <div className="font-display text-[5rem] md:text-[8rem] lg:text-[11rem] leading-none tracking-[0.15em] text-gold text-center whitespace-nowrap">
+              CHESS OX
+            </div>
+          </div>
+
+          <div className="relative z-10 w-full max-w-md">
+            <QuickMatch onPlayBot={() => setTab("bot")} />
+          </div>
         </div>
       )}
 
@@ -265,23 +314,29 @@ function Play() {
                 <div className="text-xs uppercase tracking-[0.22em] text-gold/80">
                   Appearance · Board Themes
                 </div>
-                <span className="text-[10px] text-muted-foreground">{BOARD_THEME_ORDER.length} themes</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {BOARD_THEME_ORDER.length} themes
+                </span>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {BOARD_THEME_ORDER.map((t) => (
                   <button
                     key={t}
                     onClick={() => setDraftBoard(t)}
-                    className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm transition ${draftBoard === t
-                      ? "border-gold bg-gold/10 text-gold"
-                      : "border-white/10 hover:border-gold/30"
-                      }`}
+                    className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm transition ${
+                      draftBoard === t
+                        ? "border-gold bg-gold/10 text-gold"
+                        : "border-white/10 hover:border-gold/30"
+                    }`}
                   >
                     <span
                       className="flex h-5 w-5 shrink-0 overflow-hidden rounded-sm border border-white/10"
                       aria-hidden
                     >
-                      <span className="h-full w-1/2" style={{ background: BOARD_THEMES[t].light }} />
+                      <span
+                        className="h-full w-1/2"
+                        style={{ background: BOARD_THEMES[t].light }}
+                      />
                       <span className="h-full w-1/2" style={{ background: BOARD_THEMES[t].dark }} />
                     </span>
                     <span className="truncate">{BOARD_THEME_LABELS[t]}</span>
@@ -296,17 +351,20 @@ function Play() {
                 <div className="text-xs uppercase tracking-[0.22em] text-gold/80">
                   Appearance · Piece Themes
                 </div>
-                <span className="text-[10px] text-muted-foreground">{PIECE_THEME_ORDER.length} sets</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {PIECE_THEME_ORDER.length} sets
+                </span>
               </div>
               <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
                 {PIECE_THEME_ORDER.map((t) => (
                   <button
                     key={t}
                     onClick={() => setDraftPiece(t)}
-                    className={`flex flex-col items-center justify-center gap-3 rounded-xl border p-4 text-sm transition hover:-translate-y-0.5 hover:shadow-lg ${draftPiece === t
-                      ? "border-gold bg-gold/10 text-gold shadow-gold/10"
-                      : "border-white/10 bg-white/[0.02] text-muted-foreground hover:border-gold/30 hover:bg-gold/[0.02]"
-                      }`}
+                    className={`flex flex-col items-center justify-center gap-3 rounded-xl border p-4 text-sm transition hover:-translate-y-0.5 hover:shadow-lg ${
+                      draftPiece === t
+                        ? "border-gold bg-gold/10 text-gold shadow-gold/10"
+                        : "border-white/10 bg-white/[0.02] text-muted-foreground hover:border-gold/30 hover:bg-gold/[0.02]"
+                    }`}
                   >
                     <span className="h-12 w-12 drop-shadow-md">
                       <PieceGlyph theme={t} color="w" type="n" />

@@ -5,11 +5,16 @@ import { toast } from "sonner";
 import { PageShell, Card, GoldButton } from "@/components/site/Primitives";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { noindexSeo } from "@/lib/seo";
 
 type Search = { type?: string; id?: string };
 
 export const Route = createFileRoute("/report")({
-  head: () => ({ meta: [{ title: "Report an Issue — ChessOx" }] }),
+  head: () =>
+    noindexSeo(
+      "Report an Issue — ChessOx",
+      "Report a bug, a player or a fair-play concern to the ChessOx moderation team.",
+    ),
   validateSearch: (s: Record<string, unknown>): Search => ({
     type: typeof s.type === "string" ? s.type : undefined,
     id: typeof s.id === "string" ? s.id : undefined,
@@ -63,7 +68,7 @@ function ReportPage() {
         .from("reports")
         .insert({
           reporter_id: user.id,
-          type: targetType === 'user' || targetType === 'game' ? 'player' : 'issue',
+          type: targetType === "user" || targetType === "game" ? "player" : "issue",
           issue_type: targetType,
           reported_user: initId ?? null,
           reason,
@@ -84,7 +89,8 @@ function ReportPage() {
         <div className="mb-6 grid h-16 w-16 place-items-center rounded-full bg-gold/10 text-gold">
           <Flag className="h-8 w-8" />
         </div>
-        <h1 className="mb-2 font-display text-3xl text-gradient-gold">Report an Issue</h1>
+        {/* h2 — PageShell renders this page's h1 ("Report Issue"). */}
+        <h2 className="mb-2 font-display text-3xl text-gradient-gold">Report an Issue</h2>
         <p className="mb-6 text-sm text-muted-foreground">
           Report a bug or a violation of our fair-play and conduct rules. Reports go straight to the
           moderation team.

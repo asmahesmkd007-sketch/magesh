@@ -27,9 +27,10 @@ import {
   LineChart,
   RotateCcw,
 } from "lucide-react";
+import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/game/$id")({
-  head: () => ({ meta: [{ title: "Live Game — ChessOx" }] }),
+  head: () => noindexSeo("Live Chess Game — ChessOx", "A live online chess game on ChessOx."),
   component: LiveGame,
 });
 
@@ -96,9 +97,13 @@ function LiveGame() {
   } | null>(null);
   // Optimistic local move — board updates instantly while the server write/realtime
   // round-trip completes, then is reconciled by the authoritative FEN.
-  const [optimistic, setOptimistic] = useState<{ fen: string; from: string; to: string; at: number; isCheckmate: boolean } | null>(
-    null,
-  );
+  const [optimistic, setOptimistic] = useState<{
+    fen: string;
+    from: string;
+    to: string;
+    at: number;
+    isCheckmate: boolean;
+  } | null>(null);
   const [showEndModal, setShowEndModal] = useState(false);
   const [hasShownEndModal, setHasShownEndModal] = useState(false);
 
@@ -255,8 +260,6 @@ function LiveGame() {
     timeoutClaimedRef.current = false;
   }, [game?.status, id]);
 
-
-
   const myColor: "w" | "b" | null =
     user && game?.white_id === user.id ? "w" : user && game?.black_id === user.id ? "b" : null;
   const baseOrientation = myColor ?? "w";
@@ -269,8 +272,12 @@ function LiveGame() {
   const currentMoveAt = optimistic ? optimistic.at : realLastMoveAt;
 
   // The base ms remaining for each player
-  const whiteMs = (game?.white_time_ms ?? 0) - (game?.turn === "w" && optimistic && realLastMoveAt ? optimistic.at - realLastMoveAt : 0);
-  const blackMs = (game?.black_time_ms ?? 0) - (game?.turn === "b" && optimistic && realLastMoveAt ? optimistic.at - realLastMoveAt : 0);
+  const whiteMs =
+    (game?.white_time_ms ?? 0) -
+    (game?.turn === "w" && optimistic && realLastMoveAt ? optimistic.at - realLastMoveAt : 0);
+  const blackMs =
+    (game?.black_time_ms ?? 0) -
+    (game?.turn === "b" && optimistic && realLastMoveAt ? optimistic.at - realLastMoveAt : 0);
 
   // Opponent timeout watcher — when it's NOT my turn and the opponent's displayed clock hits 0
   if (game?.status === "active" && myColor && user && !timeoutClaimedRef.current) {
@@ -285,24 +292,38 @@ function LiveGame() {
   }
 
   // Board cells
-  const board: BoardCell[][] = useMemo(() => chess
-    .board()
-    .map((row) => row.map((p) => (p ? { square: p.square, type: p.type, color: p.color } : null))), [chess]);
-  const lastMove = useMemo(() => optimistic
-    ? { from: optimistic.from, to: optimistic.to }
-    : moves.length
-      ? (() => {
-          const u = moves[moves.length - 1].uci;
-          return { from: u.slice(0, 2), to: u.slice(2, 4) };
-        })()
-      : null, [optimistic, moves]);
-  const inCheck = chess.inCheck();
-  const checkSquare = useMemo(() => inCheck
-    ? (chess
+  const board: BoardCell[][] = useMemo(
+    () =>
+      chess
         .board()
-        .flat()
-        .find((p) => p && p.type === "k" && p.color === chess.turn())?.square ?? null)
-    : null, [inCheck, chess]);
+        .map((row) =>
+          row.map((p) => (p ? { square: p.square, type: p.type, color: p.color } : null)),
+        ),
+    [chess],
+  );
+  const lastMove = useMemo(
+    () =>
+      optimistic
+        ? { from: optimistic.from, to: optimistic.to }
+        : moves.length
+          ? (() => {
+              const u = moves[moves.length - 1].uci;
+              return { from: u.slice(0, 2), to: u.slice(2, 4) };
+            })()
+          : null,
+    [optimistic, moves],
+  );
+  const inCheck = chess.inCheck();
+  const checkSquare = useMemo(
+    () =>
+      inCheck
+        ? (chess
+            .board()
+            .flat()
+            .find((p) => p && p.type === "k" && p.color === chess.turn())?.square ?? null)
+        : null,
+    [inCheck, chess],
+  );
 
   const endState = useMemo(() => {
     if (optimistic?.isCheckmate) {
@@ -316,61 +337,62 @@ function LiveGame() {
     return { result, reason: game.end_reason?.replace(/_/g, " ") ?? "Finished" };
   }, [game?.status, game?.result, game?.end_reason, game?.turn, optimistic?.isCheckmate]);
 
-  const handleSquare = useCallback(async (sq: string) => {
-    if (!isMyTurn || promotion || submittingRef.current) return;
-    const square = sq as Square;
-    if (selected) {
-      const moveList = chess.moves({ square: selected as Square, verbose: true });
-      const m = moveList.find((mv) => mv.to === square);
-      if (m) {
-        // Pawn reaches the back rank → promotion required (unless auto-queen).
-        if (m.piece === "p" && (m.to[1] === "8" || m.to[1] === "1")) {
-          if (settings.auto_queen) {
-            await commitMove(selected, square, "q");
-            setSelected(null);
-            setTargets([]);
-          } else {
-            setPromotion({ from: selected, to: square });
+  const handleSquare = useCallback(
+    (sq: string) => {
+      if (!isMyTurn || promotion || submittingRef.current) return;
+      const square = sq as Square;
+      if (selected) {
+        const moveList = chess.moves({ square: selected as Square, verbose: true });
+        const m = moveList.find((mv) => mv.to === square);
+        if (m) {
+          // Pawn reaches the back rank → promotion required (unless auto-queen).
+          if (m.piece === "p" && (m.to[1] === "8" || m.to[1] === "1")) {
+            if (settings.auto_queen) {
+              commitMove(selected, square, "q");
+            } else {
+              setPromotion({ from: selected, to: square });
+            }
+            return;
           }
+          commitMove(selected, square, undefined);
           return;
         }
-        await commitMove(selected, square, undefined);
+      }
+      const piece = chess.get(square);
+      if (piece && piece.color === game!.turn && piece.color === myColor) {
+        setSelected(sq);
+        setTargets(chess.moves({ square, verbose: true }).map((mv) => mv.to));
+      } else {
         setSelected(null);
         setTargets([]);
-        return;
       }
-    }
-    const piece = chess.get(square);
-    if (piece && piece.color === game!.turn && piece.color === myColor) {
-      setSelected(sq);
-      setTargets(chess.moves({ square, verbose: true }).map((mv) => mv.to));
-    } else {
-      setSelected(null);
-      setTargets([]);
-    }
-  }, [isMyTurn, promotion, selected, chess, settings.auto_queen, game, myColor]);
+    },
+    [isMyTurn, promotion, selected, chess, settings.auto_queen, game, myColor],
+  );
 
-  async function commitMove(from: string, to: string, promo?: "q" | "r" | "b" | "n") {
+  function commitMove(from: string, to: string, promo?: "q" | "r" | "b" | "n") {
     if (!game || !user || !myColor || submittingRef.current) return;
     submittingRef.current = true;
     setSelected(null);
     setTargets([]);
-    // Optimistically apply the move so the board updates instantly.
-    try {
-      const c = new Chess();
-      c.load(activeFen!);
-      const mv = c.move({ from, to, promotion: promo });
-      if (mv) {
-        setOptimistic({ fen: c.fen(), from, to, at: Date.now(), isCheckmate: c.isCheckmate() });
-        buzz();
-        soundForChessMove(mv, c);
-        if (c.isCheckmate()) {
-          setShowEndModal(true);
-        }
-      }
-    } catch {
-      /* invalid locally — let the server be the judge */
+    // Clone the already-loaded `chess` instance (not a fresh FEN reparse) and
+    // apply the move synchronously — the caller already validated it's legal
+    // via chess.moves(), so this cannot fail. The board updates in this same
+    // tick, before the network call below even starts.
+    const c = new Chess(chess.fen());
+    const mv = c.move({ from, to, promotion: promo });
+    setOptimistic({ fen: c.fen(), from, to, at: Date.now(), isCheckmate: c.isCheckmate() });
+    buzz();
+    soundForChessMove(mv, c);
+    if (c.isCheckmate()) {
+      setShowEndModal(true);
     }
+    // Fire the network request in the background — never block the UI thread
+    // or the optimistic render on it.
+    void submitMoveInBackground(from, to, promo);
+  }
+
+  async function submitMoveInBackground(from: string, to: string, promo?: "q" | "r" | "b" | "n") {
     try {
       const result = await submitMove({ gameId: id, from, to, promotion: promo });
       if (!result.ok) {
@@ -493,7 +515,15 @@ function LiveGame() {
           p_exp: blackProfile?.premium_expires_at,
           avatar: blackProfile?.avatar_url,
         }
-    : { name: "Spectator", rating: null, ms: 0, lastMoveAt: null, p_active: false, p_exp: null, avatar: null };
+    : {
+        name: "Spectator",
+        rating: null,
+        ms: 0,
+        lastMoveAt: null,
+        p_active: false,
+        p_exp: null,
+        avatar: null,
+      };
 
   const isWaiting = game.status === "waiting";
   const isFinished = game.status === "finished";
@@ -507,11 +537,7 @@ function LiveGame() {
     <PageShell>
       {showEndModal && game.status === "finished" && (
         <GameEndModal
-          result={
-            game.end_reason?.includes("resign")
-              ? "resigned"
-              : (game.result as GameEndResult)
-          }
+          result={game.end_reason?.includes("resign") ? "resigned" : (game.result as GameEndResult)}
           reason={game.end_reason?.replace(/_/g, " ") ?? "Finished"}
           onClose={() => setShowEndModal(false)}
           gameId={id}
@@ -673,13 +699,18 @@ function LiveGame() {
               </div>
               <div className="mt-3 flex gap-3">
                 <GoldButton onClick={offerOrAcceptDraw}>Accept</GoldButton>
-                <GhostButton onClick={offerOrAcceptDraw} className="border border-white/10">Decline</GhostButton>
+                <GhostButton onClick={offerOrAcceptDraw} className="border border-white/10">
+                  Decline
+                </GhostButton>
               </div>
             </div>
           )}
           {!isWaiting && !isFinished && myColor && (
             <div className="mt-4 flex flex-wrap justify-center gap-2">
-              <GhostButton onClick={offerOrAcceptDraw} disabled={!!(drawFromMe || drawFromOpponent)}>
+              <GhostButton
+                onClick={offerOrAcceptDraw}
+                disabled={!!(drawFromMe || drawFromOpponent)}
+              >
                 <Handshake className="h-4 w-4" />
                 {game.draw_offered_by && !drawFromMe
                   ? "Accept Draw"

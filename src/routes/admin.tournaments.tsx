@@ -9,7 +9,12 @@ import { forceStartTournament, forceEndTournament } from "@/lib/api/adminClient"
 import { cancelTournament } from "@/lib/api/walletClient";
 
 export const Route = createFileRoute("/admin/tournaments")({
-  head: () => ({ meta: [{ title: "Admin — Tournaments — ChessOx" }] }),
+  head: () => ({
+    meta: [
+      { title: "Admin — Tournaments — ChessOx" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: () => (
     <AdminShell title="Tournament Management">
       <TournamentsAdmin />

@@ -15,17 +15,12 @@ export function useIsAdmin(userId?: string | null) {
       return;
     }
     let isMounted = true;
-    supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", userId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (isMounted) {
-          setIsAdmin(!!data?.is_admin);
-          setLoading(false);
-        }
-      });
+    supabase.rpc("has_role", { _user_id: userId, _role: "admin" }).then(({ data }) => {
+      if (isMounted) {
+        setIsAdmin(!!data);
+        setLoading(false);
+      }
+    });
     return () => {
       isMounted = false;
     };

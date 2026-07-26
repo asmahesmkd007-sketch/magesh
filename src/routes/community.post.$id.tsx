@@ -5,9 +5,11 @@ import { Card } from "@/components/site/Primitives";
 import { PostCard } from "@/components/community/PostCard";
 import { CommentThread } from "@/components/community/CommentThread";
 import { useCommunityPost } from "@/hooks/useCommunity";
+import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/community/post/$id")({
-  head: () => ({ meta: [{ title: "Post — Community — ChessOx" }] }),
+  head: () =>
+    noindexSeo("Community Post — ChessOx", "A post from the ChessOx chess community feed."),
   component: PostDetail,
 });
 

@@ -92,7 +92,12 @@ export function useChannelRealtime(channelId: string | undefined) {
       .channel(`chat:${channelId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "chat_messages", filter: `channel_id=eq.${channelId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "chat_messages",
+          filter: `channel_id=eq.${channelId}`,
+        },
         () => queryClient.invalidateQueries({ queryKey: ["chat_feed", channelId] }),
       )
       .on("postgres_changes", { event: "*", schema: "public", table: "chat_reactions" }, () =>
@@ -121,7 +126,11 @@ export function useMyChannelsRealtime() {
     const ch = supabase
       .channel(`chat_channels:${user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "chat_messages" }, invalidate)
-      .on("postgres_changes", { event: "*", schema: "public", table: "chat_channel_members" }, invalidate)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "chat_channel_members" },
+        invalidate,
+      )
       .subscribe();
     return () => {
       if (timer) clearTimeout(timer);
@@ -139,7 +148,9 @@ export function useTypingIndicator(channelId: string | undefined) {
 
   useEffect(() => {
     if (!channelId) return;
-    const ch = supabase.channel(`chat_typing:${channelId}`, { config: { broadcast: { self: false } } });
+    const ch = supabase.channel(`chat_typing:${channelId}`, {
+      config: { broadcast: { self: false } },
+    });
     ch.on("broadcast", { event: "typing" }, ({ payload }) => {
       const name = payload?.name as string | undefined;
       const uid = payload?.uid as string | undefined;
@@ -163,7 +174,11 @@ export function useTypingIndicator(channelId: string | undefined) {
   }, [channelId, user?.id]);
 
   const sendTyping = (name: string) => {
-    channelRef.current?.send({ type: "broadcast", event: "typing", payload: { name, uid: user?.id } });
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "typing",
+      payload: { name, uid: user?.id },
+    });
   };
 
   return { typingNames, sendTyping };
@@ -179,7 +194,15 @@ export function useChatActions() {
   };
 
   const send = useMutation({
-    mutationFn: ({ channelId, content, replyToId }: { channelId: string; content: string; replyToId?: string | null }) => {
+    mutationFn: ({
+      channelId,
+      content,
+      replyToId,
+    }: {
+      channelId: string;
+      content: string;
+      replyToId?: string | null;
+    }) => {
       requireAuth();
       return api.sendMessage(channelId, content, replyToId);
     },
@@ -211,8 +234,14 @@ export function useChatActions() {
   });
 
   const pin = useMutation({
-    mutationFn: ({ messageId, pinned }: { messageId: string; pinned: boolean; channelId?: string }) =>
-      api.pinMessage(messageId, pinned),
+    mutationFn: ({
+      messageId,
+      pinned,
+    }: {
+      messageId: string;
+      pinned: boolean;
+      channelId?: string;
+    }) => api.pinMessage(messageId, pinned),
     onSuccess: (_d, { channelId }) => {
       queryClient.invalidateQueries({ queryKey: ["chat_feed"] });
       if (channelId) queryClient.invalidateQueries({ queryKey: ["chat_pinned", channelId] });
@@ -236,7 +265,17 @@ export function useChatActions() {
       icon?: string;
       maxMembers?: number | null;
       password?: string | null;
-    }) => api.createRoom(args.name, args.description, args.isPrivate, args.icon, args.maxMembers, args.password),
+      roomId?: string | null;
+    }) =>
+      api.createRoom(
+        args.name,
+        args.description,
+        args.isPrivate,
+        args.icon,
+        args.maxMembers,
+        args.password,
+        args.roomId,
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chat_my_channels"] });
       queryClient.invalidateQueries({ queryKey: ["chat_discover_rooms"] });
@@ -247,7 +286,8 @@ export function useChatActions() {
   });
 
   const joinPrivateRoom = useMutation({
-    mutationFn: (args: { roomCode: string; password: string }) => api.joinPrivateRoom(args.roomCode, args.password),
+    mutationFn: (args: { roomCode: string; password: string }) =>
+      api.joinPrivateRoom(args.roomCode, args.password),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chat_my_channels"] });
       queryClient.invalidateQueries({ queryKey: ["chat_discover_private_rooms"] });
@@ -287,6 +327,16 @@ export function useChatActions() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to join room"),
   });
 
+  const joinPublicRoomBySlug = useMutation({
+    mutationFn: (slug: string) => api.joinPublicRoomBySlug(slug),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chat_my_channels"] });
+      queryClient.invalidateQueries({ queryKey: ["chat_discover_rooms"] });
+      toast.success("Joined room");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to join room"),
+  });
+
   const leaveRoom = useMutation({
     mutationFn: (channelId: string) => api.leaveRoom(channelId),
     onSuccess: () => {
@@ -297,7 +347,8 @@ export function useChatActions() {
   });
 
   const invite = useMutation({
-    mutationFn: (args: { channelId: string; username: string }) => api.inviteUser(args.channelId, args.username),
+    mutationFn: (args: { channelId: string; username: string }) =>
+      api.inviteUser(args.channelId, args.username),
     onSuccess: (_d, { channelId }) => {
       queryClient.invalidateQueries({ queryKey: ["chat_channel_members", channelId] });
       toast.success("User invited");
@@ -360,6 +411,7 @@ export function useChatActions() {
     updateRoom,
     deleteRoom,
     joinRoom,
+    joinPublicRoomBySlug,
     joinPrivateRoom,
     leaveRoom,
     invite,

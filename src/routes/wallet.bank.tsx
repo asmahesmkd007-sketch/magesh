@@ -21,11 +21,15 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useBankDetails } from "@/hooks/useBankDetails";
 import { toast } from "sonner";
+import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/wallet/bank")({
-  head: () => ({
-    meta: [{ title: "Bank Details — ChessOx" }],
-  }),
+  head: () =>
+    noindexSeo(
+      "Bank Details — ChessOx",
+      "Manage the bank details used for ChessOx wallet withdrawals.",
+      "noindex, nofollow",
+    ),
   component: BankDetailsPage,
 });
 

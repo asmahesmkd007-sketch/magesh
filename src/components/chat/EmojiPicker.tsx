@@ -5,7 +5,13 @@ import { useEffect, useRef } from "react";
 
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥", "♟️", "🏆"];
 
-export function EmojiPicker({ onPick, onClose }: { onPick: (emoji: string) => void; onClose: () => void }) {
+export function EmojiPicker({
+  onPick,
+  onClose,
+}: {
+  onPick: (emoji: string) => void;
+  onClose: () => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

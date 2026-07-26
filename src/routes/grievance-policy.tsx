@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { PolicyPage } from "@/components/policy/PolicyPage";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/grievance-policy")({
-  head: () => ({ meta: [{ title: "Contact & Grievance Policy — ChessOx" }] }),
-  component: () => <PolicyPage type="grievance" />,
+  beforeLoad: () => {
+    throw redirect({ to: "/contact-grievance-policy" });
+  },
 });

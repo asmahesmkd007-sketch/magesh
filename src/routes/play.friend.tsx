@@ -5,9 +5,38 @@ import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Prim
 import { useAuth } from "@/hooks/useAuth";
 import { createChallenge, type TimeClass, type HostColor } from "@/lib/api/gameClient";
 import { Copy, Crown, Users } from "lucide-react";
+import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/play/friend")({
-  head: () => ({ meta: [{ title: "Play a Friend — ChessOx" }] }),
+  head: () =>
+    seo({
+      title: "Play Chess With Friends Online — Private Chess Game | ChessOx",
+      description:
+        "Play chess with friends online on ChessOx. Pick a time control, create a private chess game and share the invite link — no download and free to play.",
+      keywords: [
+        "play chess with friends online",
+        "chess with friends",
+        "online chess with friends",
+        "private chess game online",
+        "multiplayer chess game",
+      ],
+      path: "/play/friend",
+      jsonLd: [
+        webPageLd({
+          name: "Play Chess With Friends Online — ChessOx",
+          description:
+            "Create a private online chess game on ChessOx, choose bullet, blitz, rapid or classical time controls and invite a friend with a shareable link.",
+          path: "/play/friend",
+          primaryTopic: "Play chess with friends online",
+          about: ["Play chess with friends", "Private chess game", "Multiplayer chess game"],
+        }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Play Chess", path: "/play" },
+          { name: "Play With Friends", path: "/play/friend" },
+        ]),
+      ],
+    }),
   component: PlayFriend,
 });
 
@@ -35,7 +64,6 @@ function PlayFriend() {
   const navigate = useNavigate();
   const [pick, setPick] = useState(2);
   const [color, setColor] = useState<HostColor>("random");
-  const [rated, setRated] = useState(true);
   const [creating, setCreating] = useState(false);
   const [link, setLink] = useState<string | null>(null);
 
@@ -61,7 +89,7 @@ function PlayFriend() {
         timeControl: tc.tc,
         initialSeconds: tc.sec,
         incrementSeconds: tc.inc,
-        isRated: rated,
+        isRated: false,
         hostColor: color,
       });
       setLink(`${window.location.origin}/game/${gameId}`);
@@ -77,24 +105,40 @@ function PlayFriend() {
       eyebrow="Royal Challenge"
       title="Play a Friend"
       subtitle="Forge a private match and share the scroll with your opponent."
+      compact={true}
     >
       <div className="grid gap-6 lg:grid-cols-12">
         <Card className="p-6 lg:col-span-7">
           <div className="text-xs uppercase tracking-[0.22em] text-gold/80">Time Control</div>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {TIME_CONTROLS.map((t, i) => (
-              <button
-                key={t.tc + t.label}
-                onClick={() => setPick(i)}
-                className={`rounded-xl border px-3 py-2 text-sm transition ${
-                  i === pick
-                    ? "border-gold bg-gold/10 text-gold"
-                    : "border-white/10 hover:border-gold/40"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+          <div className="mt-3 space-y-3">
+            {["bullet", "blitz", "rapid", "classical"].map((category) => {
+              const controls = TIME_CONTROLS.map((t, i) => ({ t, i })).filter(
+                ({ t }) => t.class === category,
+              );
+              if (controls.length === 0) return null;
+              return (
+                <div key={category}>
+                  <div className="mb-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                    {category}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {controls.map(({ t, i }) => (
+                      <button
+                        key={t.tc + t.label}
+                        onClick={() => setPick(i)}
+                        className={`rounded-lg border px-2 py-1.5 text-xs transition ${
+                          i === pick
+                            ? "border-gold bg-gold/10 text-gold"
+                            : "border-white/10 hover:border-gold/40"
+                        }`}
+                      >
+                        {t.tc}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <div className="mt-6 text-xs uppercase tracking-[0.22em] text-gold/80">Your color</div>
@@ -112,19 +156,6 @@ function PlayFriend() {
                 {c === "w" ? "White" : c === "b" ? "Black" : "Random"}
               </button>
             ))}
-          </div>
-
-          <div className="mt-6 flex items-center gap-3">
-            <input
-              id="rated"
-              type="checkbox"
-              checked={rated}
-              onChange={(e) => setRated(e.target.checked)}
-              className="h-4 w-4 accent-[#D4AF37]"
-            />
-            <label htmlFor="rated" className="text-sm">
-              Rated match — affects your kingdom's Elo
-            </label>
           </div>
 
           <div className="mt-8 flex gap-3">

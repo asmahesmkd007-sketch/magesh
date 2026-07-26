@@ -126,7 +126,7 @@ export function VsComputer() {
   };
 
   useEffect(() => {
-    movesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    movesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [history]);
 
   // Clock countdown
@@ -386,38 +386,38 @@ export function VsComputer() {
       <div className="grid gap-6 lg:grid-cols-12">
         <Card className="p-6 lg:col-span-5">
           <SectionTitle kicker="Challenge" title="Face the Engine" />
-          <div className="mb-5">
-            <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          <div className="mb-4">
+            <div className="mb-1.5 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
               Strength
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {LEVELS.map((l) => (
                 <button
                   key={l.level}
                   onClick={() => setLevel(l.level)}
-                  className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+                  className={`flex w-full items-center gap-2.5 rounded-lg border p-2 text-left transition-colors ${
                     level === l.level
                       ? "border-gold/50 bg-gold/10"
                       : "border-white/5 bg-white/[0.02] hover:border-white/10"
                   }`}
                 >
                   <Bot
-                    className={`h-5 w-5 ${level === l.level ? "text-gold" : "text-muted-foreground"}`}
+                    className={`h-4 w-4 ${level === l.level ? "text-gold" : "text-muted-foreground"}`}
                   />
                   <div className="flex-1">
-                    <div className="font-display">
-                      {l.name} <span className="text-xs text-muted-foreground">{l.rating}</span>
+                    <div className="font-display text-sm">
+                      {l.name} <span className="text-[10px] text-muted-foreground">{l.rating}</span>
                     </div>
-                    <div className="text-xs text-muted-foreground">{l.desc}</div>
+                    <div className="text-[11px] text-muted-foreground">{l.desc}</div>
                   </div>
-                  {level === l.level && <span className="h-2 w-2 rounded-full bg-gold" />}
+                  {level === l.level && <span className="h-1.5 w-1.5 rounded-full bg-gold" />}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="mb-6">
-            <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          <div className="mb-5">
+            <div className="mb-1.5 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
               Your side
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -431,7 +431,7 @@ export function VsComputer() {
                 <button
                   key={value}
                   onClick={() => setSide(value)}
-                  className={`rounded-xl border px-3 py-2.5 text-sm transition-colors ${
+                  className={`rounded-lg border px-2 py-1.5 text-xs transition-colors ${
                     side === value
                       ? "border-gold/50 bg-gold/10 text-gold"
                       : "border-white/5 bg-white/[0.02] hover:border-white/10"

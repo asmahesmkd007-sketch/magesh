@@ -12,9 +12,37 @@ import { playGameSound, soundForChessMove } from "@/lib/audio/sounds";
 import { buzz } from "@/lib/haptics";
 import { useAuth } from "@/hooks/useAuth";
 import { saveLocalGame } from "@/lib/api/gameClient";
+import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/play/local")({
-  head: () => ({ meta: [{ title: "Local Play — ChessOx" }] }),
+  head: () =>
+    seo({
+      title: "Local Chess Game — Two Player Chess on One Device | ChessOx",
+      description:
+        "Play a two-player chess game locally on a single device. Full chess rules, move validation, clocks and captured pieces — free and no sign-up needed to start.",
+      keywords: [
+        "two player chess",
+        "local chess game",
+        "chess game online",
+        "play chess offline",
+        "how to play chess",
+      ],
+      path: "/play/local",
+      jsonLd: [
+        webPageLd({
+          name: "Local Two-Player Chess — ChessOx",
+          description:
+            "A local chess board on ChessOx for two players sharing one device, with full rule enforcement, clocks and captured-piece tracking.",
+          path: "/play/local",
+          primaryTopic: "Two player chess game",
+        }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Play Chess", path: "/play" },
+          { name: "Local Play", path: "/play/local" },
+        ]),
+      ],
+    }),
   component: LocalPlay,
 });
 
@@ -287,6 +315,7 @@ function LocalPlay() {
       eyebrow="Local Play"
       title="Two Player"
       subtitle="Both players on the same device — pass and play."
+      compact={true}
     >
       {showEndModal && result && (
         <GameEndModal

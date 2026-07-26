@@ -88,9 +88,37 @@ export const makeMove = createServerFn({ method: "POST" })
     // Recompute the clock from the server's own timestamps — never trust the client.
     const now = Date.now();
     const lastMoveAt = g.last_move_at ? new Date(g.last_move_at as string).getTime() : now;
-    const elapsed = Math.max(0, now - lastMoveAt);
+    let elapsed = Math.max(0, now - lastMoveAt);
     const myTimeBefore = (myColor === "w" ? g.white_time_ms : g.black_time_ms) as number;
-    const increment = (g.increment_seconds as number) * 1000;
+    let increment = (g.increment_seconds as number) * 1000;
+
+    // Tournament rule: clocks start when White plays move 1. White's think
+    // time before the first move is free (no deduction, no increment); the
+    // clock sweep settles 0-move boards as no-shows instead of a flag.
+    // Casual games keep the always-running clock.
+    if (((g.moves_count as number) ?? 0) === 0) {
+      const { data: tm } = await (
+        supabaseAdmin as unknown as {
+          from: (t: string) => {
+            select: (s: string) => {
+              eq: (
+                c: string,
+                v: string,
+              ) => { limit: (n: number) => { maybeSingle: () => Promise<{ data: unknown }> } };
+            };
+          };
+        }
+      )
+        .from("tournament_matches")
+        .select("id")
+        .eq("game_id", data.gameId)
+        .limit(1)
+        .maybeSingle();
+      if (tm) {
+        elapsed = 0;
+        increment = 0;
+      }
+    }
 
     // Flag fall: the mover ran out of time before moving → they lose.
     if (myTimeBefore - elapsed <= 0) {

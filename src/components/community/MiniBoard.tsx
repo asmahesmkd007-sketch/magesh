@@ -1,8 +1,18 @@
 // Compact read-only board rendered from any FEN. Used inside community
 // posts, comments, and the PGN viewer. Pure CSS grid — no drag logic.
 const GLYPHS: Record<string, string> = {
-  r: "♜", n: "♞", b: "♝", q: "♛", k: "♚", p: "♟",
-  R: "♖", N: "♘", B: "♗", Q: "♕", K: "♔", P: "♙",
+  r: "♜",
+  n: "♞",
+  b: "♝",
+  q: "♛",
+  k: "♚",
+  p: "♟",
+  R: "♖",
+  N: "♘",
+  B: "♗",
+  Q: "♕",
+  K: "♔",
+  P: "♙",
 };
 
 /** Expand the FEN placement field into an 8x8 char matrix ("." = empty). */
@@ -39,7 +49,9 @@ export function MiniBoard({
   const matrix = fenToMatrix(fen);
   if (!matrix) {
     return (
-      <div className={`rounded-xl border border-white/10 p-4 text-xs text-muted-foreground ${className}`}>
+      <div
+        className={`rounded-xl border border-white/10 p-4 text-xs text-muted-foreground ${className}`}
+      >
         Invalid position
       </div>
     );

@@ -14,21 +14,25 @@ export function PageShell({
   subtitle,
   eyebrow,
   action,
+  compact,
 }: {
   children: ReactNode;
   title?: string;
   subtitle?: string;
   eyebrow?: string;
   action?: ReactNode;
+  compact?: boolean;
 }) {
   return (
     <div className="relative min-h-screen overflow-hidden pb-28 lg:pb-16">
       <div className="pointer-events-none absolute inset-0 bg-page" />
       <div className="pointer-events-none absolute inset-0 opacity-50 royal-grid" />
       <div className="pointer-events-none absolute left-0 top-28 h-72 w-72 rounded-full hero-spotlight blur-3xl" />
-      <div className="relative mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
+      <div
+        className={`relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 ${compact ? "pt-2 md:pt-4" : "pt-10"}`}
+      >
         {(title || eyebrow) && (
-          <header className="mb-10 md:mb-12">
+          <header className={compact ? "mb-4 md:mb-5" : "mb-10 md:mb-12"}>
             <div className="flex flex-wrap items-end justify-between gap-6">
               <div className="max-w-3xl">
                 {eyebrow && (
@@ -37,19 +41,23 @@ export function PageShell({
                   </div>
                 )}
                 {title && (
-                  <h1 className="text-4xl tracking-tight text-gradient-gold md:text-6xl">
+                  <h1
+                    className={`tracking-tight text-gradient-gold ${compact ? "text-3xl md:text-5xl" : "text-4xl md:text-6xl"}`}
+                  >
                     {title}
                   </h1>
                 )}
                 {subtitle && (
-                  <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-muted-foreground md:text-base">
+                  <p
+                    className={`max-w-2xl text-muted-foreground ${compact ? "mt-3 text-sm md:text-[15px]" : "mt-4 text-[15px] leading-relaxed md:text-base"}`}
+                  >
                     {subtitle}
                   </p>
                 )}
               </div>
               {action}
             </div>
-            <div className="mt-8 royal-divider" />
+            <div className={`royal-divider ${compact ? "mt-4" : "mt-8"}`} />
           </header>
         )}
         {children}

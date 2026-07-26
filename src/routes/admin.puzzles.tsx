@@ -16,7 +16,12 @@ import {
 import { PUZZLES, DIFFICULTY_BANDS, difficultyOf } from "@/lib/chess/puzzles";
 
 export const Route = createFileRoute("/admin/puzzles")({
-  head: () => ({ meta: [{ title: "Admin — Puzzles — ChessOx" }] }),
+  head: () => ({
+    meta: [
+      { title: "Admin — Puzzles — ChessOx" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: () => (
     <AdminShell title="Puzzle Management">
       <PuzzlesAdmin />
@@ -51,7 +56,8 @@ function validatePuzzle(fen: string, moves: string): string | null {
   const list = moves.trim().split(/\s+/).filter(Boolean);
   if (list.length === 0) return "At least one move is required.";
   for (const m of list) {
-    if (!/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(m)) return `Move "${m}" is not valid UCI (e.g. e1e8).`;
+    if (!/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(m))
+      return `Move "${m}" is not valid UCI (e.g. e1e8).`;
     const made = chess.move({ from: m.slice(0, 2), to: m.slice(2, 4), promotion: m[4] as never });
     if (!made) return `Move "${m}" is illegal in the resulting position.`;
   }
@@ -266,13 +272,7 @@ function PuzzlesAdmin() {
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
       <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">

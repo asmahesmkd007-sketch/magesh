@@ -37,7 +37,12 @@ import {
 } from "@/lib/api/aboutClient";
 
 export const Route = createFileRoute("/admin/about-chess")({
-  head: () => ({ meta: [{ title: "Admin — About Chess — ChessOx" }] }),
+  head: () => ({
+    meta: [
+      { title: "Admin — About Chess — ChessOx" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: () => (
     <AdminShell title="About Chess CMS">
       <AboutChessAdmin />
@@ -182,9 +187,7 @@ function AboutChessAdmin() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <PencilLine className="h-5 w-5 text-gold" />
-            <h2 className="font-display text-lg">
-              {draft.id ? "Edit Article" : "New Article"}
-            </h2>
+            <h2 className="font-display text-lg">{draft.id ? "Edit Article" : "New Article"}</h2>
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             {draftSavedAt && <span>Draft auto-saved {draftSavedAt.toLocaleTimeString()}</span>}
@@ -215,13 +218,21 @@ function AboutChessAdmin() {
               onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))}
               className="rounded-lg border border-white/10 bg-background px-3 py-2 text-sm outline-none"
             >
-              {["general", "history", "rules", "openings", "strategy", "tactics", "players", "tournaments", "guides"].map(
-                (c) => (
-                  <option key={c} value={c}>
-                    {c[0].toUpperCase() + c.slice(1)}
-                  </option>
-                ),
-              )}
+              {[
+                "general",
+                "history",
+                "rules",
+                "openings",
+                "strategy",
+                "tactics",
+                "players",
+                "tournaments",
+                "guides",
+              ].map((c) => (
+                <option key={c} value={c}>
+                  {c[0].toUpperCase() + c.slice(1)}
+                </option>
+              ))}
             </select>
             <input
               value={draft.tags}
@@ -253,8 +264,8 @@ function AboutChessAdmin() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-xs text-muted-foreground">
               {lineCount} line{lineCount === 1 ? "" : "s"} · {words} words · ~
-              {readingTime(draft.content || " ")} min read — every line will be published exactly
-              as written
+              {readingTime(draft.content || " ")} min read — every line will be published exactly as
+              written
             </div>
             <div className="flex gap-2">
               {draft.id && (
@@ -280,7 +291,11 @@ function AboutChessAdmin() {
                 disabled={saving}
                 className="flex items-center gap-1.5 rounded-xl border border-gold/30 bg-gold/10 px-4 py-2 text-sm text-gold hover:bg-gold/20 disabled:opacity-50"
               >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
                 Publish
               </button>
             </div>
@@ -290,10 +305,10 @@ function AboutChessAdmin() {
         <p className="mt-4 rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs text-muted-foreground">
           Formatting: <code>#</code>–<code>######</code> headings · <code>-</code> bullets ·{" "}
           <code>1.</code> numbered lists · <code>&gt;</code> quotes · <code>|a|b|</code> tables ·{" "}
-          <code>```</code> code blocks · <code>![alt](url)</code> images ·{" "}
-          <code>@video(url)</code> or a bare YouTube link for videos · <code>[text](url)</code>{" "}
-          links · <code>**bold**</code> / <code>*italic*</code>. Plain lines render as paragraphs —
-          nothing is ever skipped, summarized, or shortened.
+          <code>```</code> code blocks · <code>![alt](url)</code> images · <code>@video(url)</code>{" "}
+          or a bare YouTube link for videos · <code>[text](url)</code> links · <code>**bold**</code>{" "}
+          / <code>*italic*</code>. Plain lines render as paragraphs — nothing is ever skipped,
+          summarized, or shortened.
         </p>
       </Card>
 

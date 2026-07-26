@@ -9,8 +9,36 @@ import { PostComposer } from "@/components/community/PostComposer";
 import { useAuth } from "@/hooks/useAuth";
 import { useCommunityFeed } from "@/hooks/useCommunity";
 import type { FeedMode } from "@/lib/api/communityClient";
+import { seo, breadcrumbLd, collectionPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/community/")({
+  head: () =>
+    seo({
+      title: "Chess Community Online — Chess Players Forum | ChessOx",
+      description:
+        "Join the ChessOx online chess community. Follow chess players, share games and ideas, discuss openings and tactics, and browse trending and latest posts from the chess community.",
+      keywords: [
+        "online chess community",
+        "chess players community",
+        "chess community online",
+        "chess discussion forum",
+        "chess social network",
+      ],
+      path: "/community",
+      jsonLd: [
+        collectionPageLd({
+          name: "Chess Community — ChessOx",
+          description:
+            "The ChessOx community feed where chess players post, follow each other and discuss the game across Following, For You, Trending and Latest tabs.",
+          path: "/community",
+          about: ["Online chess community", "Chess players community", "Chess discussion forum"],
+        }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Community", path: "/community" },
+        ]),
+      ],
+    }),
   component: CommunityHome,
 });
 

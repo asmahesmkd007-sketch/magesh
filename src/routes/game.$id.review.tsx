@@ -42,9 +42,14 @@ import {
   type ClassCounts,
 } from "@/lib/api/analysisClient";
 import type { MoveAnalysis } from "@/lib/chess/analysis.worker";
+import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/game/$id/review")({
-  head: () => ({ meta: [{ title: "Game Review — ChessOx" }] }),
+  head: () =>
+    noindexSeo(
+      "Chess Game Review — ChessOx",
+      "Move-by-move review of a finished chess game on ChessOx, with accuracy and key moments.",
+    ),
   component: GameReview,
 });
 

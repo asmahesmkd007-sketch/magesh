@@ -12,9 +12,47 @@ import { PageShell, Card } from "@/components/site/Primitives";
 import { ChessEncyclopedia } from "@/components/about/ChessEncyclopedia";
 import { ContentRenderer } from "@/components/about/ContentRenderer";
 import { listArticles, readingTime, type AboutArticle } from "@/lib/api/aboutClient";
+import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/about-chess")({
-  head: () => ({ meta: [{ title: "About Chess — ChessOx" }] }),
+  head: () =>
+    seo({
+      title: "What Is Chess? Rules, Openings & Complete Guide | ChessOx",
+      description:
+        "A complete chess encyclopedia: what chess is, the rules of chess, how every piece moves, check, checkmate and stalemate, castling and en passant, openings, strategy, tactics and endgames.",
+      keywords: [
+        "what is chess",
+        "chess rules",
+        "chess basics",
+        "learn chess",
+        "chess openings",
+        "chess strategy",
+        "chess endgame",
+      ],
+      path: "/about-chess",
+      type: "article",
+      jsonLd: [
+        webPageLd({
+          name: "Chess: The Complete Encyclopedia — ChessOx",
+          description:
+            "A free reference guide to chess covering its history, rules, piece movement, special moves, notation, openings, middlegame strategy, tactics and endgames.",
+          path: "/about-chess",
+          primaryTopic: "Chess",
+          about: [
+            "Chess",
+            "Chess rules",
+            "Chess openings",
+            "Chess strategy",
+            "Chess tactics",
+            "Chess endgame",
+          ],
+        }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "About Chess", path: "/about-chess" },
+        ]),
+      ],
+    }),
   component: AboutChessPage,
 });
 

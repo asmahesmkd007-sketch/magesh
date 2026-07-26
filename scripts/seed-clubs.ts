@@ -4,7 +4,7 @@ dotenv.config();
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
 async function main() {
@@ -15,7 +15,7 @@ async function main() {
     console.error("Could not find a user to own the clubs:", userError);
     return;
   }
-  
+
   const ownerId = users[0].id;
 
   const clubs = [
@@ -26,7 +26,7 @@ async function main() {
       owner_id: ownerId,
       member_count: 42,
       is_public: true,
-      cover_gradient: "from-amber-500 to-rose-700"
+      cover_gradient: "from-amber-500 to-rose-700",
     },
     {
       slug: "grandmaster-alliance-" + Date.now(),
@@ -35,7 +35,7 @@ async function main() {
       owner_id: ownerId,
       member_count: 12,
       is_public: true,
-      cover_gradient: "from-emerald-500 to-teal-700"
+      cover_gradient: "from-emerald-500 to-teal-700",
     },
     {
       slug: "pawn-pushers-" + Date.now(),
@@ -44,7 +44,7 @@ async function main() {
       owner_id: ownerId,
       member_count: 156,
       is_public: true,
-      cover_gradient: "from-violet-500 to-indigo-700"
+      cover_gradient: "from-violet-500 to-indigo-700",
     },
     {
       slug: "dragon-slayers-" + Date.now(),
@@ -53,12 +53,12 @@ async function main() {
       owner_id: ownerId,
       member_count: 88,
       is_public: true,
-      cover_gradient: "from-orange-500 to-red-700"
-    }
+      cover_gradient: "from-orange-500 to-red-700",
+    },
   ];
 
   const { error } = await supabase.from("clubs").insert(clubs);
-  
+
   if (error) {
     console.error("Failed to seed clubs:", error);
   } else {

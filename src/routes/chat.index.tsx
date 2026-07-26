@@ -27,7 +27,10 @@ function ChatIndex() {
       <div className="h-full overflow-y-auto p-3 md:hidden">
         <h1 className="mb-3 px-1 text-lg font-medium">Chat</h1>
         {global && (
-          <Link to="/chat/global" className="flex items-center gap-3 rounded-xl px-2.5 py-2.5 hover:bg-white/[0.04]">
+          <Link
+            to="/chat/global"
+            className="flex items-center gap-3 rounded-xl px-2.5 py-2.5 hover:bg-white/[0.04]"
+          >
             <span className="grid h-10 w-10 place-items-center rounded-full gradient-gold text-background">
               <Globe2 className="h-4 w-4" />
             </span>
@@ -45,11 +48,24 @@ function ChatIndex() {
           </Link>
         )}
         {dms.map((c) => (
-          <Link key={c.id} to="/chat/dm/$username" params={{ username: c.other_user?.username ?? "" }} className="flex items-center gap-3 rounded-xl px-2.5 py-2.5 hover:bg-white/[0.04]">
-            <UserAvatar avatarUrl={c.other_user?.avatar_url} displayName={c.other_user?.full_name} size="md" />
+          <Link
+            key={c.id}
+            to="/chat/dm/$username"
+            params={{ username: c.other_user?.username ?? "" }}
+            className="flex items-center gap-3 rounded-xl px-2.5 py-2.5 hover:bg-white/[0.04]"
+          >
+            <UserAvatar
+              avatarUrl={c.other_user?.avatar_url}
+              displayName={c.other_user?.full_name}
+              size="md"
+            />
             <div className="min-w-0 flex-1">
               <div className="font-medium">{c.other_user?.full_name}</div>
-              {c.last_message && <div className="truncate text-xs text-muted-foreground">{c.last_message.content}</div>}
+              {c.last_message && (
+                <div className="truncate text-xs text-muted-foreground">
+                  {c.last_message.content}
+                </div>
+              )}
             </div>
             {c.unread_count > 0 && (
               <span className="grid h-5 min-w-5 place-items-center rounded-full bg-gold px-1 text-[10px] text-background">
@@ -59,7 +75,12 @@ function ChatIndex() {
           </Link>
         ))}
         {rooms.map((c) => (
-          <Link key={c.id} to="/chat/room/$slug" params={{ slug: c.slug ?? c.id }} className="flex items-center gap-3 rounded-xl px-2.5 py-2.5 hover:bg-white/[0.04]">
+          <Link
+            key={c.id}
+            to="/chat/room/$slug"
+            params={{ slug: c.slug ?? c.id }}
+            className="flex items-center gap-3 rounded-xl px-2.5 py-2.5 hover:bg-white/[0.04]"
+          >
             <span className="grid h-10 w-10 place-items-center rounded-full bg-white/5 text-emerald">
               <Hash className="h-4 w-4" />
             </span>

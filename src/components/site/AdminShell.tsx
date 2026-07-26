@@ -28,6 +28,10 @@ import {
   Inbox,
   ListOrdered,
   CalendarClock,
+  Swords,
+  Shield,
+  IdCard,
+  LifeBuoy,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -38,11 +42,15 @@ const NAV: NavItem[] = [
   { to: "/admin", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
   { to: "/admin/users", label: "Users", icon: <Users className="h-4 w-4" /> },
   { to: "/admin/tournaments", label: "Tournaments", icon: <Trophy className="h-4 w-4" /> },
+  { to: "/admin/tr", label: "Tournament Room (TR)", icon: <Swords className="h-4 w-4" /> },
+  { to: "/admin/clans", label: "Clans", icon: <Shield className="h-4 w-4" /> },
   { to: "/admin/leaderboard", label: "Leaderboard", icon: <ListOrdered className="h-4 w-4" /> },
   { to: "/admin/seasons", label: "Seasons", icon: <CalendarClock className="h-4 w-4" /> },
   { to: "/admin/puzzles", label: "Puzzles", icon: <PuzzleIcon className="h-4 w-4" /> },
   { to: "/admin/wallet", label: "Wallet", icon: <Wallet className="h-4 w-4" /> },
   { to: "/admin/withdrawals", label: "Withdrawals", icon: <Banknote className="h-4 w-4" /> },
+  { to: "/admin/kyc", label: "KYC Review", icon: <IdCard className="h-4 w-4" /> },
+  { to: "/admin/support", label: "Support Tickets", icon: <LifeBuoy className="h-4 w-4" /> },
   { to: "/admin/community", label: "Community", icon: <MessagesSquare className="h-4 w-4" /> },
   { to: "/admin/chat", label: "Chat", icon: <MessageSquareWarning className="h-4 w-4" /> },
   { to: "/admin/premium", label: "Premium", icon: <Crown className="h-4 w-4" /> },

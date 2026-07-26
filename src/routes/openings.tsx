@@ -1,20 +1,52 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageShell, Card, SectionTitle } from "@/components/site/Primitives";
 import { Chessboard } from "@/components/site/Chessboard";
+import { seo, breadcrumbLd, collectionPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/openings")({
-  head: () => ({ meta: [{ title: "Opening Explorer — ChessOx" }] }),
+  head: () =>
+    seo({
+      title: "Chess Openings Explorer — Best Chess Openings | ChessOx",
+      description:
+        "Explore chess openings on ChessOx: first-move statistics, popular lines such as the Sicilian Defense, Ruy Lopez, Italian Game and Caro-Kann, and opening strategy for beginners.",
+      keywords: [
+        "chess openings",
+        "best chess openings",
+        "chess openings for beginners",
+        "chess opening strategy",
+        "learn chess openings",
+      ],
+      path: "/openings",
+      jsonLd: [
+        collectionPageLd({
+          name: "Chess Openings Explorer — ChessOx",
+          description:
+            "An opening explorer covering the most played first moves and popular chess openings, with win, draw and loss shares for each line.",
+          path: "/openings",
+          about: ["Chess openings", "Chess opening strategy", "Chess theory"],
+        }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Chess Openings", path: "/openings" },
+        ]),
+      ],
+    }),
   component: Openings,
 });
 
+// Approximate shares of each first move in master play, used here as a
+// teaching reference. These are not counts from a ChessOx game database —
+// the page states that, and no absolute game totals are claimed.
 const LINES = [
-  ["e4", "44%", "Open game", "1.2M games"],
-  ["d4", "38%", "Closed game", "980K games"],
-  ["c4", "8%", "English", "210K games"],
-  ["Nf3", "7%", "Réti", "180K games"],
-  ["g3", "2%", "King's Fianchetto", "32K games"],
+  ["e4", "≈44%", "Open game", "Fights for the centre at once"],
+  ["d4", "≈38%", "Closed game", "Slower, structure-first play"],
+  ["c4", "≈8%", "English", "Flank pressure on d5"],
+  ["Nf3", "≈7%", "Réti", "Flexible, delays committing"],
+  ["g3", "≈2%", "King's Fianchetto", "Bishop on the long diagonal"],
 ];
 
+// Approximate white win/draw/loss shares for each opening in master play,
+// shown as a study reference rather than as ChessOx match results.
 const POPULAR = [
   ["Sicilian Defense", "B20", 52, 28, 20],
   ["Ruy Lopez", "C60", 48, 32, 20],
@@ -29,7 +61,7 @@ function Openings() {
     <PageShell
       eyebrow="The Library"
       title="Opening Explorer"
-      subtitle="Explore millions of master games — one move at a time."
+      subtitle="A reference guide to the most played chess openings — one move at a time."
     >
       <div className="grid gap-6 lg:grid-cols-12">
         <div className="lg:col-span-5">
@@ -37,7 +69,7 @@ function Openings() {
         </div>
         <div className="space-y-4 lg:col-span-7">
           <Card className="p-5">
-            <SectionTitle kicker="Move" title="Database (1.e?)" />
+            <SectionTitle kicker="Move" title="Common First Moves" />
             <div className="space-y-2">
               {LINES.map(([m, w, n, g]) => (
                 <div
@@ -58,7 +90,7 @@ function Openings() {
           </Card>
 
           <Card className="p-5">
-            <SectionTitle kicker="Trending" title="Popular Lines" />
+            <SectionTitle kicker="Reference" title="Popular Lines" />
             <div className="space-y-3">
               {POPULAR.map(([n, c, w, d, l]) => (
                 <div

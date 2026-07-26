@@ -20,6 +20,16 @@ const THEME_MAPPING: Record<PieceTheme, string> = {
   professional: "club",
 };
 
+/** Readable alt text — "w"/"n" alone means nothing to a screen reader or crawler. */
+const PIECE_NAMES: Record<PieceSymbol, string> = {
+  p: "pawn",
+  n: "knight",
+  b: "bishop",
+  r: "rook",
+  q: "queen",
+  k: "king",
+};
+
 type GlyphProps = {
   theme: PieceTheme;
   color: "w" | "b";
@@ -30,7 +40,7 @@ type GlyphProps = {
 };
 
 /**
- * Renders a single chess piece. 
+ * Renders a single chess piece.
  * Now uses distinct image assets for each theme to ensure the actual shape and style changes,
  * not just the color/gradient.
  */
@@ -51,14 +61,13 @@ export const PieceGlyph = memo(function PieceGlyph({
       width={dim}
       height={dim}
       className={className}
-      style={{ 
-        display: "block", 
+      style={{
+        display: "block",
         filter: "drop-shadow(0 2px 2px rgba(0,0,0,0.3))",
-        objectFit: "contain"
+        objectFit: "contain",
       }}
-      alt={`${color} ${type}`}
+      alt={`${color === "w" ? "White" : "Black"} ${PIECE_NAMES[type] ?? type} chess piece`}
       draggable={false}
     />
   );
 });
-

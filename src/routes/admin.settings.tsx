@@ -7,7 +7,12 @@ import { Card } from "@/components/site/Primitives";
 import { broadcastNotification } from "@/lib/api/adminClient";
 
 export const Route = createFileRoute("/admin/settings")({
-  head: () => ({ meta: [{ title: "Admin — Settings — ChessOx" }] }),
+  head: () => ({
+    meta: [
+      { title: "Admin — Settings — ChessOx" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: () => (
     <AdminShell title="Settings & Notifications">
       <SettingsAdmin />

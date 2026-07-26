@@ -1,7 +1,10 @@
 {
-  "name": "ChessOx",
+  "name": "ChessOx — Play Chess Online",
   "short_name": "ChessOx",
-  "description": "ChessOx — Royal Indian Chess Experience",
+  "description": "Play chess online free, solve chess puzzles, learn chess, join online chess tournaments and climb the global chess rankings on ChessOx.",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["games", "education", "sports"],
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0B0D10",

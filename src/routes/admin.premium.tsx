@@ -8,7 +8,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { listUsers, grantPremium, removePremium, type AdminUser } from "@/lib/api/adminClient";
 
 export const Route = createFileRoute("/admin/premium")({
-  head: () => ({ meta: [{ title: "Admin — Premium — ChessOx" }] }),
+  head: () => ({
+    meta: [
+      { title: "Admin — Premium — ChessOx" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: () => (
     <AdminShell title="Premium Management">
       <PremiumAdmin />
@@ -110,18 +115,18 @@ function PremiumAdmin() {
                   <span>{u.username}</span>
                   <div className="flex gap-1.5">
                     <button
-                      onClick={() => act(() => grantPremium(u.id, "gold", 30), "Gold granted")}
+                      onClick={() => act(() => grantPremium(u.id, "pro", 30), "Pro granted")}
                       className="rounded border border-gold/30 bg-gold/10 px-2 py-0.5 text-xs text-gold"
                     >
-                      +30d Gold
+                      +30d Pro
                     </button>
                     <button
                       onClick={() =>
-                        act(() => grantPremium(u.id, "platinum", 30), "Platinum granted")
+                        act(() => grantPremium(u.id, "grandmaster", 30), "Grandmaster granted")
                       }
                       className="rounded border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-xs text-sky-400"
                     >
-                      +30d Platinum
+                      +30d Grandmaster
                     </button>
                   </div>
                 </div>
@@ -158,7 +163,17 @@ function PremiumAdmin() {
                   </span>
                   <button
                     onClick={() =>
-                      act(() => grantPremium(r.id, r.premium_tier, 30), "Extended 30 days")
+                      act(
+                        () =>
+                          grantPremium(
+                            r.id,
+                            (["basic", "pro", "grandmaster"].includes(r.premium_tier)
+                              ? r.premium_tier
+                              : "pro") as "basic" | "pro" | "grandmaster",
+                            30,
+                          ),
+                        "Extended 30 days",
+                      )
                     }
                     className="rounded border border-white/10 px-2 py-0.5 text-xs hover:text-gold"
                   >

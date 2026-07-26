@@ -131,13 +131,19 @@ export function PostComposer({ onPosted }: { onPosted?: () => void }) {
     });
   };
 
-  const toolBtn = (a: Attachment, Icon: React.ComponentType<{ className?: string }>, label: string) => (
+  const toolBtn = (
+    a: Attachment,
+    Icon: React.ComponentType<{ className?: string }>,
+    label: string,
+  ) => (
     <button
       type="button"
       title={label}
       onClick={() => pickAttachment(a)}
       className={`grid h-9 w-9 place-items-center rounded-full transition ${
-        attachment === a ? "bg-gold/20 text-gold" : "text-muted-foreground hover:bg-white/[0.05] hover:text-gold"
+        attachment === a
+          ? "bg-gold/20 text-gold"
+          : "text-muted-foreground hover:bg-white/[0.05] hover:text-gold"
       }`}
     >
       <Icon className="h-4.5 w-4.5" />
@@ -181,7 +187,11 @@ export function PostComposer({ onPosted }: { onPosted?: () => void }) {
             <div className="mt-3">
               {mediaUrl ? (
                 <div className="relative inline-block">
-                  <img src={mediaUrl} alt="" className="max-h-64 rounded-xl border border-white/10" />
+                  <img
+                    src={mediaUrl}
+                    alt=""
+                    className="max-h-64 rounded-xl border border-white/10"
+                  />
                   <button
                     type="button"
                     onClick={() => setMediaUrl(null)}
@@ -198,7 +208,11 @@ export function PostComposer({ onPosted }: { onPosted?: () => void }) {
                   onClick={() => fileRef.current?.click()}
                   className="flex items-center gap-2 rounded-xl border border-dashed border-white/15 px-4 py-3 text-xs text-muted-foreground hover:border-gold/40 hover:text-gold"
                 >
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                  {uploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ImagePlus className="h-4 w-4" />
+                  )}
                   {uploading ? "Uploading…" : "Choose image (max 5 MB)"}
                 </button>
               )}
@@ -240,7 +254,7 @@ export function PostComposer({ onPosted }: { onPosted?: () => void }) {
               <textarea
                 value={pgn}
                 onChange={(e) => setPgn(e.target.value)}
-                placeholder={'Paste PGN — e.g. 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 …'}
+                placeholder={"Paste PGN — e.g. 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 …"}
                 rows={4}
                 className="w-full rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 font-mono text-xs outline-none focus:border-gold/40"
               />

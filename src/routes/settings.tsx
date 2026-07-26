@@ -31,27 +31,24 @@ import {
 import { toast } from "sonner";
 import { useBankDetails } from "@/hooks/useBankDetails";
 import { useGameSettings } from "@/hooks/useGameSettings";
-import {
-  SETTINGS_CATEGORIES,
-  type SettingMeta,
-  type GameSettings,
-} from "@/lib/settings/schema";
+import { SETTINGS_CATEGORIES, type SettingMeta, type GameSettings } from "@/lib/settings/schema";
 import { BoardThemeSelector, PieceThemeSelector } from "@/components/settings/ThemeSelectors";
 import { SoundThemeSelector } from "@/components/settings/SoundThemeSelector";
 import { COUNTRIES, FAVORITE_OPENINGS, INDIA_DISTRICTS, INDIA_STATES_AND_UTS } from "@/data/geo";
 import { playGameSound } from "@/lib/audio/sounds";
+import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/settings")({
-  head: () => ({ meta: [{ title: "Settings — ChessOx" }] }),
+  head: () =>
+    noindexSeo(
+      "Settings — ChessOx",
+      "Manage your ChessOx account, board and piece themes, sound, and gameplay preferences.",
+      "noindex, nofollow",
+    ),
   component: Settings,
 });
 
-const TABS = [
-  "Profile",
-  "Game Settings",
-  "Security",
-  "Bank Account",
-] as const;
+const TABS = ["Profile", "Game Settings", "Security", "Bank Account"] as const;
 
 // ── Image processing helpers ─────────────────────────────────────────
 
@@ -874,7 +871,7 @@ const PASSWORD_REQUIREMENTS = [
   {
     key: "special",
     label: "At least one special character",
-    test: (p: string) => /[!@#$%^&*()\-_=+\[\]{};':"\\|,.<>/?`~]/.test(p),
+    test: (p: string) => /[!@#$%^&*()\-_=+[\]{};':"\\|,.<>/?`~]/.test(p),
   },
 ] as const;
 
@@ -1534,8 +1531,8 @@ function GameSettingsTab() {
       ))}
 
       <p className="text-center text-xs text-muted-foreground">
-        Settings marked “Syncs · soon” are saved to your account now and activate as their
-        features roll out.
+        Settings marked “Syncs · soon” are saved to your account now and activate as their features
+        roll out.
       </p>
     </div>
   );

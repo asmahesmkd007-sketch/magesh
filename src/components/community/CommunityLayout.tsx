@@ -2,16 +2,7 @@
 // profiles: left nav rail, center content, right discovery sidebar.
 import { Link, useRouterState } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import {
-  BadgeCheck,
-  Bell,
-  Bookmark,
-  Compass,
-  Home,
-  Mail,
-  TrendingUp,
-  User,
-} from "lucide-react";
+import { BadgeCheck, Bell, Bookmark, Compass, Home, Mail, TrendingUp, User } from "lucide-react";
 import { Card } from "@/components/site/Primitives";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import { useAuth, useProfile } from "@/hooks/useAuth";
@@ -55,7 +46,9 @@ function NavItem({
     <button type="button" onClick={onClick} className={`${cls} w-full`} disabled={disabled}>
       <Icon className="h-5 w-5" />
       <span className="hidden xl:inline">{label}</span>
-      {disabled && <span className="ml-auto hidden rounded bg-white/5 px-1.5 text-[9px] xl:inline">SOON</span>}
+      {disabled && (
+        <span className="ml-auto hidden rounded bg-white/5 px-1.5 text-[9px] xl:inline">SOON</span>
+      )}
     </button>
   );
 }
@@ -151,10 +144,16 @@ export function CommunityLayout({ children }: { children: ReactNode }) {
               params={{ username: profile.username }}
               className="mt-6 hidden items-center gap-2.5 rounded-full px-3 py-2 hover:bg-white/[0.05] xl:flex"
             >
-              <UserAvatar avatarUrl={profile.avatar_url} displayName={profile.full_name} size="sm" />
+              <UserAvatar
+                avatarUrl={profile.avatar_url}
+                displayName={profile.full_name}
+                size="sm"
+              />
               <div className="min-w-0">
                 <div className="truncate text-xs font-medium">{profile.full_name}</div>
-                <div className="truncate text-[11px] text-muted-foreground">@{profile.username}</div>
+                <div className="truncate text-[11px] text-muted-foreground">
+                  @{profile.username}
+                </div>
               </div>
             </Link>
           )}

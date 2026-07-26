@@ -8,11 +8,17 @@ const uci = (m) => m.from + m.to + (m.promotion || "");
 function attackerMate(chess, n) {
   for (const m of chess.moves({ verbose: true })) {
     chess.move(m);
-    if (chess.isCheckmate()) { chess.undo(); return [uci(m)]; }
+    if (chess.isCheckmate()) {
+      chess.undo();
+      return [uci(m)];
+    }
     // only pursue forcing (checking) continuations for speed + puzzle clarity
     if (n >= 2 && chess.isCheck() && !chess.isGameOver()) {
       const line = defenderAllMate(chess, n - 1);
-      if (line) { chess.undo(); return [uci(m), ...line]; }
+      if (line) {
+        chess.undo();
+        return [uci(m), ...line];
+      }
     }
     chess.undo();
   }
@@ -34,31 +40,55 @@ function defenderAllMate(chess, n) {
 // true if there is NO mate in (n-1) — ensures the puzzle is *exactly* mate-in-n
 function isExactMate(fen, n) {
   const c = new Chess(fen);
-  if (n > 1) { const shorter = attackerMate(new Chess(fen), n - 1); if (shorter) return null; }
+  if (n > 1) {
+    const shorter = attackerMate(new Chess(fen), n - 1);
+    if (shorter) return null;
+  }
   return attackerMate(c, n);
 }
 
 // ---- random legal position sampling ---------------------------------------
 const FILES = "abcdefgh";
-function sq(f, r) { return FILES[f] + (r + 1); }
-function rnd(n) { return Math.floor(Math.random() * n); }
-function randSquare() { return sq(rnd(8), rnd(8)); }
+function sq(f, r) {
+  return FILES[f] + (r + 1);
+}
+function rnd(n) {
+  return Math.floor(Math.random() * n);
+}
+function randSquare() {
+  return sq(rnd(8), rnd(8));
+}
 function adjacent(a, b) {
-  const ax = FILES.indexOf(a[0]), ay = +a[1] - 1, bx = FILES.indexOf(b[0]), by = +b[1] - 1;
+  const ax = FILES.indexOf(a[0]),
+    ay = +a[1] - 1,
+    bx = FILES.indexOf(b[0]),
+    by = +b[1] - 1;
   return Math.max(Math.abs(ax - bx), Math.abs(ay - by)) <= 1;
 }
 
 // Build a position: white to move, white king + pieces vs black king (+ maybe pawns)
 function randomPosition(pieceSet) {
   const used = new Set();
-  const place = () => { let s; do { s = randSquare(); } while (used.has(s)); used.add(s); return s; };
+  const place = () => {
+    let s;
+    do {
+      s = randSquare();
+    } while (used.has(s));
+    used.add(s);
+    return s;
+  };
   const board = {}; // square -> {c,t}
-  const wk = place(); board[wk] = { c: "w", t: "k" };
+  const wk = place();
+  board[wk] = { c: "w", t: "k" };
   // bias the black king toward an edge/corner — that's where mates live
   let bk;
   do {
-    let f = rnd(8), r = rnd(8);
-    if (Math.random() < 0.8) { if (Math.random() < 0.5) f = Math.random() < 0.5 ? 0 : 7; else r = Math.random() < 0.5 ? 0 : 7; }
+    let f = rnd(8),
+      r = rnd(8);
+    if (Math.random() < 0.8) {
+      if (Math.random() < 0.5) f = Math.random() < 0.5 ? 0 : 7;
+      else r = Math.random() < 0.5 ? 0 : 7;
+    }
     bk = sq(f, r);
   } while (bk === wk || adjacent(wk, bk) || used.has(bk));
   used.add(bk);
@@ -66,17 +96,28 @@ function randomPosition(pieceSet) {
   for (const p of pieceSet) {
     const s = place();
     // keep pawns off the back ranks
-    if (p.t === "p" && (s[1] === "1" || s[1] === "8")) { used.delete(s); return null; }
+    if (p.t === "p" && (s[1] === "1" || s[1] === "8")) {
+      used.delete(s);
+      return null;
+    }
     board[s] = { c: p.c, t: p.t };
   }
   // build FEN
   const rows = [];
   for (let r = 7; r >= 0; r--) {
-    let row = "", empty = 0;
+    let row = "",
+      empty = 0;
     for (let f = 0; f < 8; f++) {
-      const s = sq(f, r), pc = board[s];
-      if (!pc) { empty++; continue; }
-      if (empty) { row += empty; empty = 0; }
+      const s = sq(f, r),
+        pc = board[s];
+      if (!pc) {
+        empty++;
+        continue;
+      }
+      if (empty) {
+        row += empty;
+        empty = 0;
+      }
       const ch = pc.t === "p" ? "p" : pc.t;
       row += pc.c === "w" ? ch.toUpperCase() : ch;
     }
@@ -87,12 +128,20 @@ function randomPosition(pieceSet) {
   const chk = require("chess.js").validateFen(fen);
   if (!chk.ok) return null;
   const c = new Chess();
-  try { c.load(fen); } catch { return null; }
-  if (c.isCheck()) return null;       // side to move can't already be in check here (we want a quiet start)
+  try {
+    c.load(fen);
+  } catch {
+    return null;
+  }
+  if (c.isCheck()) return null; // side to move can't already be in check here (we want a quiet start)
   if (c.isGameOver()) return null;
   // The side NOT to move must not be in check — otherwise the position is illegal.
   const flip = new Chess();
-  try { flip.load(fen.replace(" w ", " b ")); } catch { return null; }
+  try {
+    flip.load(fen.replace(" w ", " b "));
+  } catch {
+    return null;
+  }
   if (flip.isCheck()) return null;
   return fen;
 }
@@ -100,33 +149,84 @@ function randomPosition(pieceSet) {
 const PIECE_MENUS = {
   KQ: [{ c: "w", t: "q" }],
   KR: [{ c: "w", t: "r" }],
-  KRR: [{ c: "w", t: "r" }, { c: "w", t: "r" }],
-  KQN: [{ c: "w", t: "q" }, { c: "w", t: "n" }],
-  KQB: [{ c: "w", t: "q" }, { c: "w", t: "b" }],
-  KQR: [{ c: "w", t: "q" }, { c: "w", t: "r" }],
-  KBB: [{ c: "w", t: "b" }, { c: "w", t: "b" }],
-  KRN: [{ c: "w", t: "r" }, { c: "w", t: "n" }],
-  KRB: [{ c: "w", t: "r" }, { c: "w", t: "b" }],
-  KRp: [{ c: "w", t: "r" }, { c: "b", t: "p" }],
-  KQp: [{ c: "w", t: "q" }, { c: "b", t: "p" }, { c: "b", t: "p" }],
-  KQRp: [{ c: "w", t: "q" }, { c: "w", t: "r" }, { c: "b", t: "p" }],
-  KQRR: [{ c: "w", t: "q" }, { c: "w", t: "r" }, { c: "w", t: "r" }],
-  KQRB: [{ c: "w", t: "q" }, { c: "w", t: "r" }, { c: "w", t: "b" }],
-  KQRN: [{ c: "w", t: "q" }, { c: "w", t: "r" }, { c: "w", t: "n" }],
-  KQQ: [{ c: "w", t: "q" }, { c: "w", t: "q" }],
+  KRR: [
+    { c: "w", t: "r" },
+    { c: "w", t: "r" },
+  ],
+  KQN: [
+    { c: "w", t: "q" },
+    { c: "w", t: "n" },
+  ],
+  KQB: [
+    { c: "w", t: "q" },
+    { c: "w", t: "b" },
+  ],
+  KQR: [
+    { c: "w", t: "q" },
+    { c: "w", t: "r" },
+  ],
+  KBB: [
+    { c: "w", t: "b" },
+    { c: "w", t: "b" },
+  ],
+  KRN: [
+    { c: "w", t: "r" },
+    { c: "w", t: "n" },
+  ],
+  KRB: [
+    { c: "w", t: "r" },
+    { c: "w", t: "b" },
+  ],
+  KRp: [
+    { c: "w", t: "r" },
+    { c: "b", t: "p" },
+  ],
+  KQp: [
+    { c: "w", t: "q" },
+    { c: "b", t: "p" },
+    { c: "b", t: "p" },
+  ],
+  KQRp: [
+    { c: "w", t: "q" },
+    { c: "w", t: "r" },
+    { c: "b", t: "p" },
+  ],
+  KQRR: [
+    { c: "w", t: "q" },
+    { c: "w", t: "r" },
+    { c: "w", t: "r" },
+  ],
+  KQRB: [
+    { c: "w", t: "q" },
+    { c: "w", t: "r" },
+    { c: "w", t: "b" },
+  ],
+  KQRN: [
+    { c: "w", t: "q" },
+    { c: "w", t: "r" },
+    { c: "w", t: "n" },
+  ],
+  KQQ: [
+    { c: "w", t: "q" },
+    { c: "w", t: "q" },
+  ],
 };
 
 function classify(fen, moves, n) {
-  const c = new Chess(fen); c.move({ from: moves[0].slice(0,2), to: moves[0].slice(2,4), promotion: moves[0][4] });
+  const c = new Chess(fen);
+  c.move({ from: moves[0].slice(0, 2), to: moves[0].slice(2, 4), promotion: moves[0][4] });
   const last = moves[moves.length - 1];
   const cc = new Chess(fen);
-  for (const m of moves) cc.move({ from: m.slice(0,2), to: m.slice(2,4), promotion: m[4] });
+  for (const m of moves) cc.move({ from: m.slice(0, 2), to: m.slice(2, 4), promotion: m[4] });
   // find mated king square
-  const board = cc.board(); let ksq = null;
-  for (const row of board) for (const cell of row) if (cell && cell.type === "k" && cell.color === cc.turn()) ksq = cell.square;
+  const board = cc.board();
+  let ksq = null;
+  for (const row of board)
+    for (const cell of row)
+      if (cell && cell.type === "k" && cell.color === cc.turn()) ksq = cell.square;
   const rank = ksq ? +ksq[1] : 0;
   const backRank = rank === 8 || rank === 1;
-  const piece = new Chess(fen).get(last.slice(0,2));
+  const piece = new Chess(fen).get(last.slice(0, 2));
   const pt = piece ? piece.type : "";
   if (n === 1 && backRank && (pt === "r" || pt === "q")) return "Back Rank Mate";
   if (n === 1 && pt === "n") return "Knight Mate";
@@ -136,7 +236,8 @@ function classify(fen, moves, n) {
 
 // ---- generation ------------------------------------------------------------
 function generate(target, n, menus, seen, out, tries, msBudget) {
-  let count = 0, t = 0;
+  let count = 0,
+    t = 0;
   const start = Date.now();
   while (count < target && t < tries) {
     t++;
@@ -150,7 +251,9 @@ function generate(target, n, menus, seen, out, tries, msBudget) {
     out.push({ fen, moves: line, n, theme: classify(fen, line, n) });
     count++;
   }
-  process.stderr.write(`  mate${n}: found ${count}/${target} in ${t} tries (${Date.now() - start}ms)\n`);
+  process.stderr.write(
+    `  mate${n}: found ${count}/${target} in ${t} tries (${Date.now() - start}ms)\n`,
+  );
   return count;
 }
 
@@ -160,9 +263,32 @@ const MS = process.argv[3] ? Number(process.argv[3]) : 1;
 const seen = new Set();
 const out = [];
 const dump = () => fs.writeFileSync(OUT, JSON.stringify(out));
-const c1 = generate(280 * MS, 1, ["KQ", "KR", "KRR", "KQN", "KQB", "KQR", "KRN", "KRB"], seen, out, 1400000, 150000); dump();
-const c2 = generate(140 * MS, 2, ["KQ", "KRR", "KQN", "KQB", "KQR", "KRN", "KRB"], seen, out, 1600000, 260000); dump();
-const c3 = generate(40 * MS, 3, ["KRR", "KQN", "KQR", "KQB", "KRN"], seen, out, 1800000, 240000); dump();
-const c4 = generate(10 * MS, 4, ["KQR", "KQN"], seen, out, 1200000, 180000); dump();
-const c5 = generate(6 * MS, 5, ["KQR"], seen, out, 900000, 150000); dump();
-process.stderr.write(`mate1=${c1} mate2=${c2} mate3=${c3} mate4=${c4} mate5=${c5} total=${out.length}\n`);
+const c1 = generate(
+  280 * MS,
+  1,
+  ["KQ", "KR", "KRR", "KQN", "KQB", "KQR", "KRN", "KRB"],
+  seen,
+  out,
+  1400000,
+  150000,
+);
+dump();
+const c2 = generate(
+  140 * MS,
+  2,
+  ["KQ", "KRR", "KQN", "KQB", "KQR", "KRN", "KRB"],
+  seen,
+  out,
+  1600000,
+  260000,
+);
+dump();
+const c3 = generate(40 * MS, 3, ["KRR", "KQN", "KQR", "KQB", "KRN"], seen, out, 1800000, 240000);
+dump();
+const c4 = generate(10 * MS, 4, ["KQR", "KQN"], seen, out, 1200000, 180000);
+dump();
+const c5 = generate(6 * MS, 5, ["KQR"], seen, out, 900000, 150000);
+dump();
+process.stderr.write(
+  `mate1=${c1} mate2=${c2} mate3=${c3} mate4=${c4} mate5=${c5} total=${out.length}\n`,
+);

@@ -60,9 +60,9 @@ type RpcMap = {
     args: { p_match_id: string };
     returns: null;
   };
-  ensure_tournament_slots: {
+  ensure_upcoming_tournaments: {
     args: Record<string, never>;
-    returns: { checked: number; created: number };
+    returns: null;
   };
 };
 
@@ -147,6 +147,6 @@ export function cancelTournament(tournamentId: string): Promise<null> {
  * Ensure every tournament category has at least one UPCOMING tournament.
  * Call on page load and periodically for auto-recovery.
  */
-export function ensureTournamentSlots(): Promise<{ checked: number; created: number }> {
-  return callRpc("ensure_tournament_slots", {});
+export function ensureTournamentSlots(): Promise<null> {
+  return callRpc("ensure_upcoming_tournaments", {});
 }

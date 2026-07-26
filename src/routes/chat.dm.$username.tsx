@@ -21,12 +21,20 @@ function DmChat() {
   const { data: otherId, isLoading: profileLoading } = useQuery({
     queryKey: ["dm_target_profile", username],
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id").eq("username", username).maybeSingle();
+      const { data } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", username)
+        .maybeSingle();
       return (data as { id: string } | null)?.id ?? null;
     },
   });
 
-  const { data: channel, isLoading: channelLoading, error } = useQuery({
+  const {
+    data: channel,
+    isLoading: channelLoading,
+    error,
+  } = useQuery({
     queryKey: ["chat_dm", otherId],
     queryFn: () => api.getOrCreateDm(otherId!),
     enabled: !!otherId && !!user,
@@ -67,7 +75,10 @@ function DmChat() {
 
   return (
     <div className="flex h-full flex-col">
-      <Link to="/chat" className="flex shrink-0 items-center gap-1.5 border-b border-white/10 px-4 py-2 text-xs text-muted-foreground md:hidden">
+      <Link
+        to="/chat"
+        className="flex shrink-0 items-center gap-1.5 border-b border-white/10 px-4 py-2 text-xs text-muted-foreground md:hidden"
+      >
         <ArrowLeft className="h-3.5 w-3.5" /> All chats
       </Link>
       <div className="min-h-0 flex-1">

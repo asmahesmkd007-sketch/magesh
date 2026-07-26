@@ -19,9 +19,37 @@ import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import { joinTournamentPaid } from "@/lib/api/walletClient";
 import { toast } from "sonner";
+import { seo, breadcrumbLd, collectionPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/tournaments")({
-  head: () => ({ meta: [{ title: "Tournaments — ChessOx" }] }),
+  head: () =>
+    seo({
+      title: "Online Chess Tournaments — Join Free Chess Events | ChessOx",
+      description:
+        "Join online chess tournaments on ChessOx. Browse upcoming, live and completed chess competitions with time controls, player counts and prize pools, and enter in one click.",
+      keywords: [
+        "online chess tournament",
+        "chess tournament online",
+        "free online chess tournament",
+        "chess competition online",
+        "online chess events",
+        "chess tournament India",
+      ],
+      path: "/tournaments",
+      jsonLd: [
+        collectionPageLd({
+          name: "Online Chess Tournaments — ChessOx",
+          description:
+            "A listing of upcoming, live and completed online chess tournaments on ChessOx, each with its format, time control, entry requirements and prize breakdown.",
+          path: "/tournaments",
+          about: ["Online chess tournament", "Chess competition online", "Online chess events"],
+        }),
+        breadcrumbLd([
+          { name: "Home", path: "/" },
+          { name: "Tournaments", path: "/tournaments" },
+        ]),
+      ],
+    }),
   component: Tournaments,
 });
 
@@ -31,7 +59,7 @@ type Tournament = {
   format: string;
   prize_pool: string | null;
   starts_at: string | null;
-  status: "upcoming" | "locked" | "live";
+  status: "upcoming" | "locked" | "live" | "completed";
   player_count: number;
   max_players: number;
   cover_gradient: string | null;
@@ -41,6 +69,7 @@ type Tournament = {
   prize_2nd: number;
   prize_3rd: number;
   created_at: string;
+  winner_display?: string | null;
 };
 
 const GRADIENTS = [
@@ -74,6 +103,10 @@ function Countdown({ startTime }: { startTime: string | null }) {
       const diff = new Date(startTime).getTime() - Date.now();
       if (diff <= 0) {
         setLabel("Starting now");
+        // Fallback: If pg_cron is disabled, the first player to hit 0 triggers the start
+        void import("@/lib/api/tournamentClient").then((m) =>
+          m.nudgeTournamentEngine().catch(() => {}),
+        );
         return;
       }
       const h = Math.floor(diff / 3600000);
@@ -104,10 +137,14 @@ function Tournaments() {
   const [error, setError] = useState<string | null>(null);
   const [joining, setJoining] = useState<string | null>(null);
   const [myEntries, setMyEntries] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<"live" | "upcoming">("upcoming");
+  const [completed, setCompleted] = useState<Tournament[]>([]);
 
   const loadTournaments = useCallback(async () => {
     setError(null);
     try {
+      await import("@/lib/api/walletClient").then((m) => m.ensureTournamentSlots().catch(() => {}));
+
       const { data, error: qErr } = await (
         supabase as unknown as {
           from: (t: string) => {
@@ -131,7 +168,7 @@ function Tournaments() {
       const unsorted = (data ?? []) as unknown as Tournament[];
 
       // Sort: upcoming -> locked -> live, then by created_at ascending
-      const statusOrder = { upcoming: 1, locked: 2, live: 3 };
+      const statusOrder = { upcoming: 1, locked: 2, live: 3, completed: 4 };
       unsorted.sort((a, b) => {
         if (statusOrder[a.status] !== statusOrder[b.status]) {
           return statusOrder[a.status] - statusOrder[b.status];
@@ -140,6 +177,33 @@ function Tournaments() {
       });
 
       setTournaments(unsorted);
+
+      // Recently finished events (shown on the Live tab with COMPLETED cards).
+      const { data: done } = await (
+        supabase as unknown as {
+          from: (t: string) => {
+            select: (s: string) => {
+              eq: (
+                col: string,
+                val: string,
+              ) => {
+                order: (
+                  col: string,
+                  o: object,
+                ) => { limit: (n: number) => Promise<{ data: unknown[] | null }> };
+              };
+            };
+          };
+        }
+      )
+        .from("tournaments")
+        .select(
+          "id,name,format,prize_pool,starts_at,status,player_count,max_players,cover_gradient,time_control,entry_fee_coins,prize_1st,prize_2nd,prize_3rd,created_at,winner_display",
+        )
+        .eq("status", "completed")
+        .order("ends_at", { ascending: false })
+        .limit(6);
+      setCompleted((done ?? []) as unknown as Tournament[]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load tournaments");
     } finally {
@@ -219,10 +283,13 @@ function Tournaments() {
     setJoining(null);
   }
 
-  const oneMin = tournaments.filter((t) => t.time_control.startsWith("1+"));
-  const threeMin = tournaments.filter((t) => t.time_control.startsWith("3+"));
-  const fiveMin = tournaments.filter((t) => t.time_control.startsWith("5+"));
-  const tenMin = tournaments.filter((t) => t.time_control.startsWith("10+"));
+  const filteredTournaments = tournaments.filter((t) =>
+    activeTab === "live" ? t.status === "live" || t.status === "locked" : t.status === "upcoming",
+  );
+
+  const oneMin = filteredTournaments.filter((t) => t.time_control.startsWith("1+"));
+  const threeMin = filteredTournaments.filter((t) => t.time_control.startsWith("3+"));
+  const fiveMin = filteredTournaments.filter((t) => t.time_control.startsWith("5+"));
 
   const renderSection = (title: string, data: Tournament[], indexOffset: number) => {
     if (data.length === 0) return null;
@@ -272,13 +339,25 @@ function Tournaments() {
                       <Lock className="h-3 w-3" /> LOCKED
                     </span>
                   )}
+                  {t.status === "completed" && (
+                    <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-muted-foreground backdrop-blur border border-white/15">
+                      <Trophy className="h-3 w-3" /> COMPLETED
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-1 flex-col gap-3 p-4">
                   <div>
                     <div className="font-display text-base leading-tight">{t.name}</div>
-                    <div className="mt-0.5 font-mono text-[10px] text-muted-foreground/60">
-                      {t.id.slice(0, 8)}
+                    <div className="mt-1 flex items-center gap-2">
+                      <div className="font-mono text-[10px] text-muted-foreground/60">
+                        {t.id.slice(0, 8)}
+                      </div>
+                      {pool > 0 && (
+                        <div className="rounded border border-gold/30 bg-gold/10 px-1.5 py-0.5 text-[9px] font-medium text-gold uppercase tracking-wider">
+                          Top 3 Win Prizes
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -325,6 +404,13 @@ function Tournaments() {
                           <span className="text-amber-400">
                             <Countdown startTime={t.starts_at} />
                           </span>
+                        ) : t.status === "completed" ? (
+                          <span
+                            className="truncate text-gold"
+                            title={t.winner_display ? `Winner: ${t.winner_display}` : undefined}
+                          >
+                            {t.winner_display ? `🏆 ${t.winner_display}` : "Finished"}
+                          </span>
                         ) : (
                           <span className="text-muted-foreground">Waiting...</span>
                         )}
@@ -354,18 +440,33 @@ function Tournaments() {
                     >
                       Details
                     </Link>
-                    {t.status === "live" ? (
+                    {t.status === "live" || t.status === "locked" ? (
+                      registered ? (
+                        // Joined → straight into the TR arena lobby.
+                        <Link
+                          to="/arena/$id"
+                          params={{ id: t.id }}
+                          className="flex w-full flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-500 py-2 text-xs font-bold text-black shadow-[0_0_18px_rgba(16,185,129,0.35)] transition hover:brightness-110"
+                        >
+                          <Swords className="h-3.5 w-3.5" /> ENTER ARENA
+                        </Link>
+                      ) : (
+                        // Not joined → locked out of the arena (spectate via Details).
+                        <span
+                          title="You didn't join this tournament."
+                          className="flex flex-1 cursor-not-allowed items-center justify-center gap-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-muted-foreground/70"
+                        >
+                          <Lock className="h-3.5 w-3.5" /> LOCKED
+                        </span>
+                      )
+                    ) : t.status === "completed" ? (
                       <Link
                         to="/tournament/$id"
                         params={{ id: t.id }}
-                        className="flex w-full flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 py-2 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/20"
+                        className="flex w-full flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.04] py-2 text-xs font-medium text-muted-foreground transition hover:border-gold/30 hover:text-gold"
                       >
-                        <Eye className="h-3.5 w-3.5" /> Watch
+                        <Eye className="h-3.5 w-3.5" /> Results
                       </Link>
-                    ) : t.status === "locked" ? (
-                      <span className="flex flex-1 items-center justify-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-500/70 cursor-not-allowed">
-                        <Lock className="h-3.5 w-3.5" /> Locked
-                      </span>
                     ) : registered ? (
                       <span className="flex flex-1 items-center justify-center gap-1 rounded-xl border border-gold/30 bg-gold/5 px-3 py-2 text-xs text-gold">
                         Registered ✓
@@ -442,21 +543,59 @@ function Tournaments() {
         </Card>
       )}
 
-      {!loading && !error && tournaments.length === 0 && (
+      {!loading && !error && (
+        <div className="mb-8 flex gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-1">
+          <button
+            onClick={() => setActiveTab("live")}
+            className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-all ${
+              activeTab === "live"
+                ? "bg-emerald-500/10 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                : "text-muted-foreground hover:bg-white/5"
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              {activeTab === "live" && (
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              )}
+              Live Tournaments
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab("upcoming")}
+            className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-all ${
+              activeTab === "upcoming"
+                ? "bg-gold/10 text-gold shadow-[0_0_15px_rgba(255,215,0,0.1)]"
+                : "text-muted-foreground hover:bg-white/5"
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              {activeTab === "upcoming" && <Clock className="h-3.5 w-3.5" />}
+              Upcoming & Locked
+            </div>
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && filteredTournaments.length === 0 && (
         <Card className="p-12 text-center">
           <Crown className="mx-auto mb-3 h-10 w-10 text-gold/30" />
-          <div className="text-muted-foreground">No tournaments right now.</div>
+          <div className="text-muted-foreground">No {activeTab} tournaments right now.</div>
         </Card>
       )}
 
-      {!loading && !error && (
+      {!loading && !error && filteredTournaments.length > 0 && (
         <>
           {renderSection("1 Min Tournaments", oneMin, 0)}
           {renderSection("3 Min Tournaments", threeMin, 10)}
           {renderSection("5 Min Tournaments", fiveMin, 20)}
-          {renderSection("10 Min Tournaments", tenMin, 30)}
         </>
       )}
+
+      {!loading &&
+        !error &&
+        activeTab === "live" &&
+        completed.length > 0 &&
+        renderSection("Recently Completed", completed, 30)}
     </PageShell>
   );
 }

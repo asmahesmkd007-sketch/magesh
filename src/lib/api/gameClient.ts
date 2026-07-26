@@ -72,6 +72,25 @@ type RpcMap = {
     };
     returns: string;
   };
+  send_challenge: {
+    args: {
+      p_opponent_id: string;
+      p_time_class: TimeClass;
+      p_time_control: string;
+      p_initial_seconds: number;
+      p_increment_seconds: number;
+      p_is_rated: boolean;
+    };
+    returns: string;
+  };
+  respond_challenge: {
+    args: { p_challenge_id: string; p_accept: boolean };
+    returns: string | null;
+  };
+  cancel_challenge: { args: { p_challenge_id: string }; returns: null };
+  send_friend_request: { args: { p_addressee_id: string }; returns: string };
+  accept_friend_request: { args: { p_friend_id: string }; returns: null };
+  respond_clan_invite: { args: { p_invite_id: string; p_accept: boolean }; returns: null };
 };
 
 export type MoveRecord = {
@@ -214,4 +233,41 @@ export async function submitMove(input: {
   promotion?: "q" | "r" | "b" | "n";
 }) {
   return makeMoveServerFn({ data: input });
+}
+
+/** Send an in-app challenge to a specific friend; notifies them. Returns the challenge id. */
+export function sendChallenge(opts: ChallengeOptions & { opponentId: string }): Promise<string> {
+  return callRpc("send_challenge", {
+    p_opponent_id: opts.opponentId,
+    p_time_class: opts.timeClass,
+    p_time_control: opts.timeControl,
+    p_initial_seconds: opts.initialSeconds,
+    p_increment_seconds: opts.incrementSeconds,
+    p_is_rated: opts.isRated,
+  });
+}
+
+/** Accept or decline an incoming challenge. Returns the new game id when accepted. */
+export function respondChallenge(challengeId: string, accept: boolean): Promise<string | null> {
+  return callRpc("respond_challenge", { p_challenge_id: challengeId, p_accept: accept });
+}
+
+/** Cancel an outgoing challenge that hasn't been answered yet. */
+export function cancelChallenge(challengeId: string): Promise<null> {
+  return callRpc("cancel_challenge", { p_challenge_id: challengeId });
+}
+
+/** Send a friend request; notifies the addressee. Returns the new friends-row id. */
+export function sendFriendRequest(addresseeId: string): Promise<string> {
+  return callRpc("send_friend_request", { p_addressee_id: addresseeId });
+}
+
+/** Accept an incoming friend request; notifies the original requester. */
+export function acceptFriendRequest(friendId: string): Promise<null> {
+  return callRpc("accept_friend_request", { p_friend_id: friendId });
+}
+
+/** Accept or reject an incoming clan invite. */
+export function respondClanInvite(inviteId: string, accept: boolean): Promise<null> {
+  return callRpc("respond_clan_invite", { p_invite_id: inviteId, p_accept: accept });
 }

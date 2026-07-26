@@ -7,6 +7,7 @@ export type Profile = {
   id: string;
   username: string;
   full_name: string;
+  created_at: string;
   bio: string | null;
   country: string | null;
   state: string | null;
@@ -65,7 +66,7 @@ export function useProfile(userId?: string | null) {
       .maybeSingle()
       .then(async ({ data }) => {
         let prof = data as Profile | null;
-        
+
         if (prof) {
           // Shim for local dev if migration hasn't run yet
           if (!(prof as any).full_name && (prof as any).display_name) {
@@ -80,10 +81,10 @@ export function useProfile(userId?: string | null) {
             // Get email prefix if possible
             const { data: userData } = await supabase.auth.getUser();
             const email = userData.user?.email || "";
-            newFullName = email.split('@')[0] || "User";
+            newFullName = email.split("@")[0] || "User";
             needsUpdate = true;
           }
-          
+
           if (!newUsername || newUsername.toLowerCase().startsWith("player")) {
             const { generateUsername } = await import("@/lib/utils/profile");
             newUsername = generateUsername(newFullName);
@@ -95,7 +96,7 @@ export function useProfile(userId?: string | null) {
               .from("profiles")
               .update({ full_name: newFullName, username: newUsername })
               .eq("id", userId);
-            
+
             // Fallback for unmigrated local database
             if (error && error.message.includes("full_name")) {
               const fallback = await supabase
@@ -104,13 +105,13 @@ export function useProfile(userId?: string | null) {
                 .eq("id", userId);
               error = fallback.error;
             }
-            
+
             if (!error) {
               prof = { ...prof, full_name: newFullName, username: newUsername };
             }
           }
         }
-        
+
         setProfile(prof);
         setLoading(false);
       });

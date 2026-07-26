@@ -84,10 +84,7 @@ function PollBlock({ post }: { post: CommunityPost }) {
             }`}
           >
             {voted && (
-              <span
-                className="absolute inset-y-0 left-0 bg-gold/15"
-                style={{ width: `${pct}%` }}
-              />
+              <span className="absolute inset-y-0 left-0 bg-gold/15" style={{ width: `${pct}%` }} />
             )}
             <span className="relative flex items-center justify-between gap-2">
               <span className={mine ? "text-gold" : ""}>{opt}</span>
@@ -207,7 +204,9 @@ export function PostCard({ post, detail = false }: { post: CommunityPost; detail
     "flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-xs text-muted-foreground hover:bg-white/[0.05] hover:text-foreground";
 
   return (
-    <Card className={`relative p-4 sm:p-5 ${detail ? "" : "cursor-pointer transition hover:border-gold/20"}`}>
+    <Card
+      className={`relative p-4 sm:p-5 ${detail ? "" : "cursor-pointer transition hover:border-gold/20"}`}
+    >
       {post.is_pinned && (
         <div className="mb-2 flex items-center gap-1.5 text-[11px] text-gold/80">
           <Pin className="h-3 w-3" /> Pinned
@@ -236,7 +235,9 @@ export function PostCard({ post, detail = false }: { post: CommunityPost; detail
             {a?.premium_tier && a.premium_tier !== "free" && (
               <BadgeCheck className="h-4 w-4 shrink-0 text-gold" aria-label="Premium" />
             )}
-            {a?.title && <span className="rounded bg-gold/15 px-1 text-[10px] text-gold">{a.title}</span>}
+            {a?.title && (
+              <span className="rounded bg-gold/15 px-1 text-[10px] text-gold">{a.title}</span>
+            )}
             <span className="truncate text-xs text-muted-foreground">@{a?.username}</span>
             <span className="text-xs text-muted-foreground">· {relTime(post.created_at)}</span>
             {TYPE_LABEL[post.post_type] && (
@@ -356,9 +357,7 @@ export function PostCard({ post, detail = false }: { post: CommunityPost; detail
               icon={MessageCircle}
               count={post.comments_count}
               label="Comments"
-              onClick={() =>
-                navigate({ to: "/community/post/$id", params: { id: post.id } })
-              }
+              onClick={() => navigate({ to: "/community/post/$id", params: { id: post.id } })}
             />
             <ActionButton
               icon={Share2}
@@ -394,29 +393,75 @@ export function PostCard({ post, detail = false }: { post: CommunityPost; detail
               className="absolute right-0 top-9 z-20 w-52 overflow-hidden rounded-xl border border-white/10 bg-[#101317] py-1 shadow-luxe"
               onClick={(e) => e.stopPropagation()}
             >
-              <button type="button" className={menuItem} onClick={() => { actions.share.mutate(post.id); setMenuOpen(false); }}>
+              <button
+                type="button"
+                className={menuItem}
+                onClick={() => {
+                  actions.share.mutate(post.id);
+                  setMenuOpen(false);
+                }}
+              >
                 <Link2 className="h-3.5 w-3.5" /> Copy link
               </button>
-              <button type="button" className={menuItem} onClick={requireLogin(() => { actions.bookmark.mutate({ postId: post.id }); setMenuOpen(false); })}>
+              <button
+                type="button"
+                className={menuItem}
+                onClick={requireLogin(() => {
+                  actions.bookmark.mutate({ postId: post.id });
+                  setMenuOpen(false);
+                })}
+              >
                 <Bookmark className="h-3.5 w-3.5" />
                 {post.is_bookmarked ? "Remove bookmark" : "Bookmark"}
               </button>
               {!isOwn && (
                 <>
-                  <button type="button" className={menuItem} onClick={requireLogin(() => { actions.follow.mutate(post.user_id); setMenuOpen(false); })}>
+                  <button
+                    type="button"
+                    className={menuItem}
+                    onClick={requireLogin(() => {
+                      actions.follow.mutate(post.user_id);
+                      setMenuOpen(false);
+                    })}
+                  >
                     {post.is_following_author ? (
-                      <><UserMinus className="h-3.5 w-3.5" /> Unfollow @{a?.username}</>
+                      <>
+                        <UserMinus className="h-3.5 w-3.5" /> Unfollow @{a?.username}
+                      </>
                     ) : (
-                      <><UserPlus className="h-3.5 w-3.5" /> Follow @{a?.username}</>
+                      <>
+                        <UserPlus className="h-3.5 w-3.5" /> Follow @{a?.username}
+                      </>
                     )}
                   </button>
-                  <button type="button" className={menuItem} onClick={requireLogin(() => { actions.mute.mutate({ targetId: post.user_id, muted: false }); setMenuOpen(false); })}>
+                  <button
+                    type="button"
+                    className={menuItem}
+                    onClick={requireLogin(() => {
+                      actions.mute.mutate({ targetId: post.user_id, muted: false });
+                      setMenuOpen(false);
+                    })}
+                  >
                     <VolumeX className="h-3.5 w-3.5" /> Mute @{a?.username}
                   </button>
-                  <button type="button" className={menuItem} onClick={requireLogin(() => { actions.hidePost.mutate(post.id); setMenuOpen(false); })}>
+                  <button
+                    type="button"
+                    className={menuItem}
+                    onClick={requireLogin(() => {
+                      actions.hidePost.mutate(post.id);
+                      setMenuOpen(false);
+                    })}
+                  >
                     <EyeOff className="h-3.5 w-3.5" /> Hide this post
                   </button>
-                  <button type="button" className={`${menuItem} text-rose-400`} onClick={requireLogin(() => { setReporting(true); setMenuOpen(false); })}>
+                  <button
+                    type="button"
+                    className={`${menuItem} text-rose-400`}
+                    onClick={requireLogin(() => {
+                      setReporting(true);
+                      setMenuOpen(false);
+                    })}
+                  >
                     <Flag className="h-3.5 w-3.5" /> Report
                   </button>
                 </>
@@ -496,7 +541,11 @@ export function ReportDialog({
           className="mt-3 w-full rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs outline-none focus:border-gold/40"
         />
         <div className="mt-4 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
             Cancel
           </button>
           <button

@@ -14,6 +14,16 @@ import { MobileNav } from "@/components/site/MobileNav";
 import { Navbar } from "@/components/site/Navbar";
 import { SettingsEffects } from "@/components/site/SettingsEffects";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import {
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_URL,
+  TWITTER_HANDLE,
+  absoluteUrl,
+  DEFAULT_OG_IMAGE,
+  organizationLd,
+  websiteLd,
+} from "@/lib/seo";
 import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 
@@ -78,31 +88,47 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
+    // Site-wide defaults. Any page that calls `seo()` overrides the entries
+    // below for its own route (deepest match wins per meta name/property).
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "ChessOx — Royal Indian Chess Experience" },
+      { title: "ChessOx — Play Chess Online Free, Puzzles & Tournaments" },
+      { name: "description", content: SITE_DESCRIPTION },
       {
-        name: "description",
+        name: "keywords",
         content:
-          "ChessOx is a premium frontend-only chess platform blending royal Indian heritage, luxury gaming, and modern competitive play.",
+          "play chess online, online chess game, free online chess, chess puzzles, online chess tournament, chess leaderboard, learn chess online, online chess India",
       },
-      { property: "og:title", content: "ChessOx — Royal Indian Chess Experience" },
       {
-        property: "og:description",
-        content:
-          "Enter a royal chess palace built in modern times — tournaments, puzzles, academy, and elite play screens.",
+        name: "robots",
+        content: "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1",
       },
+      { name: "application-name", content: SITE_NAME },
+      { name: "author", content: SITE_NAME },
+      { name: "publisher", content: SITE_NAME },
+      { property: "og:site_name", content: SITE_NAME },
+      { property: "og:locale", content: "en_IN" },
+      { property: "og:title", content: "ChessOx — Play Chess Online Free, Puzzles & Tournaments" },
+      { property: "og:description", content: SITE_DESCRIPTION },
       { property: "og:type", content: "website" },
-      { property: "og:image", content: "/chessox-icon.ico" },
-      { name: "theme-color", content: "#D4AF37" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:image", content: "/chessox-icon.ico" },
-      { name: "twitter:title", content: "ChessOx — Royal Indian Chess Experience" },
+      { property: "og:url", content: `${SITE_URL}/` },
+      { property: "og:image", content: absoluteUrl(DEFAULT_OG_IMAGE) },
       {
-        name: "twitter:description",
-        content: "A luxury royal chess kingdom inspired by the birthplace of chess.",
+        property: "og:image:alt",
+        content: "ChessOx — a hand-carved chess set with gold inlay",
       },
+      { name: "theme-color", content: "#D4AF37" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:site", content: TWITTER_HANDLE },
+      { name: "twitter:creator", content: TWITTER_HANDLE },
+      { name: "twitter:image", content: absoluteUrl(DEFAULT_OG_IMAGE) },
+      { name: "twitter:title", content: "ChessOx — Play Chess Online Free, Puzzles & Tournaments" },
+      { name: "twitter:description", content: SITE_DESCRIPTION },
+      // Entity graph for search engines and AI answer engines. Present on
+      // every page; individual routes add their own WebPage/Breadcrumb nodes.
+      { "script:ld+json": organizationLd() },
+      { "script:ld+json": websiteLd() },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -157,9 +183,7 @@ function RootComponent() {
           .catch(() => {});
 
         // Pull the user's saved game settings so they follow them across devices.
-        import("@/lib/settings/settings-sync")
-          .then((m) => m.loadSettingsOnce())
-          .catch(() => {});
+        import("@/lib/settings/settings-sync").then((m) => m.loadSettingsOnce()).catch(() => {});
 
         const { data } = supabase.auth.onAuthStateChange((event, session) => {
           if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;

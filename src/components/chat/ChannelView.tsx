@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import {
   Globe2,
   Hash,
+  Info,
   Loader2,
   Lock,
   LogOut,
@@ -21,15 +22,19 @@ import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
 import { MemberPanel } from "./MemberPanel";
 import { RoomSettingsModal } from "./RoomSettingsModal";
+import { RoomInfoPanel } from "./RoomInfoPanel";
 
 export function ChannelView({ channel }: { channel: ChatChannel }) {
   const { user } = useAuth();
   const actions = useChatActions();
-  const { data: members = [] } = useChannelMembers(channel.type === "room" ? channel.id : undefined);
+  const { data: members = [] } = useChannelMembers(
+    channel.type === "room" ? channel.id : undefined,
+  );
   const { typingNames } = useTypingIndicator(channel.id);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [showMembers, setShowMembers] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
 
   useEffect(() => {
     if (user && channel.is_member) actions.markRead.mutate(channel.id);
@@ -42,10 +47,12 @@ export function ChannelView({ channel }: { channel: ChatChannel }) {
   const muted = myMembership?.muted_until && new Date(myMembership.muted_until) > new Date();
 
   let disabledReason: string | null = null;
-  if (!user) disabledReason = null; // Composer shows its own sign-in prompt
+  if (!user)
+    disabledReason = null; // Composer shows its own sign-in prompt
   else if (channel.type === "room" && !channel.is_member && channel.is_private)
     disabledReason = "This is a private room — you need an invite to join.";
-  else if (muted) disabledReason = `You are muted until ${new Date(myMembership!.muted_until!).toLocaleTimeString("en-IN")}.`;
+  else if (muted)
+    disabledReason = `You are muted until ${new Date(myMembership!.muted_until!).toLocaleTimeString("en-IN")}.`;
 
   const title =
     channel.type === "global"
@@ -64,24 +71,32 @@ export function ChannelView({ channel }: { channel: ChatChannel }) {
         )}
         {channel.type === "room" && (
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/5 text-emerald text-base">
-            {channel.icon ?? (channel.is_private ? <Lock className="h-4 w-4" /> : <Hash className="h-4 w-4" />)}
+            {channel.icon ??
+              (channel.is_private ? <Lock className="h-4 w-4" /> : <Hash className="h-4 w-4" />)}
           </span>
         )}
         {channel.type === "dm" && channel.other_user && (
           <Link to="/u/$username" params={{ username: channel.other_user.username }}>
-            <UserAvatar avatarUrl={channel.other_user.avatar_url} displayName={channel.other_user.full_name} size="sm" />
+            <UserAvatar
+              avatarUrl={channel.other_user.avatar_url}
+              displayName={channel.other_user.full_name}
+              size="sm"
+            />
           </Link>
         )}
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">{title}</div>
           <div className="truncate text-[11px] text-muted-foreground">
             {channel.type === "global" && (
-              <>ID: {channel.slug} · {channel.member_count} members · {channel.online_count} online</>
+              <>
+                ID: {channel.slug} · {channel.member_count} members · {channel.online_count} online
+              </>
             )}
             {channel.type === "room" && (
               <>
                 {channel.room_code && <>ID: {channel.room_code} · </>}
-                {channel.member_count} member{channel.member_count === 1 ? "" : "s"} · {channel.online_count} online
+                {channel.member_count} member{channel.member_count === 1 ? "" : "s"} ·{" "}
+                {channel.online_count} online
               </>
             )}
             {channel.type === "dm" && `@${channel.other_user?.username}`}
@@ -89,6 +104,14 @@ export function ChannelView({ channel }: { channel: ChatChannel }) {
         </div>
         {channel.type === "room" && (
           <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setShowInfo(true)}
+              className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground hover:bg-white/[0.05] hover:text-gold"
+              aria-label="Room information"
+            >
+              <Info className="h-4 w-4" />
+            </button>
             <button
               type="button"
               onClick={() => setShowMembers(true)}
@@ -142,10 +165,18 @@ export function ChannelView({ channel }: { channel: ChatChannel }) {
           {typingNames.slice(0, 3).join(", ")} {typingNames.length === 1 ? "is" : "are"} typing…
         </div>
       )}
-      <Composer channelId={channel.id} replyTo={replyTo} onClearReply={() => setReplyTo(null)} disabledReason={disabledReason} />
+      <Composer
+        channelId={channel.id}
+        replyTo={replyTo}
+        onClearReply={() => setReplyTo(null)}
+        disabledReason={disabledReason}
+      />
 
       {showMembers && <MemberPanel channel={channel} onClose={() => setShowMembers(false)} />}
-      {showSettings && <RoomSettingsModal channel={channel} onClose={() => setShowSettings(false)} />}
+      {showSettings && (
+        <RoomSettingsModal channel={channel} onClose={() => setShowSettings(false)} />
+      )}
+      {showInfo && <RoomInfoPanel channel={channel} onClose={() => setShowInfo(false)} />}
     </div>
   );
 }

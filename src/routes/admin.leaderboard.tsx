@@ -8,7 +8,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { resetRatings, setUserStatus } from "@/lib/api/adminClient";
 
 export const Route = createFileRoute("/admin/leaderboard")({
-  head: () => ({ meta: [{ title: "Admin — Leaderboard — ChessOx" }] }),
+  head: () => ({
+    meta: [
+      { title: "Admin — Leaderboard — ChessOx" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: () => (
     <AdminShell title="Leaderboard">
       <LeaderboardAdmin />
@@ -43,9 +48,12 @@ function LeaderboardAdmin() {
     const t = setTimeout(() => {
       let query = (supabase as any)
         .from("profiles")
-        .select("id, username, full_name, country, state, iq_level, community_score, status, created_at", {
-          count: "exact",
-        })
+        .select(
+          "id, username, full_name, country, state, iq_level, community_score, status, created_at",
+          {
+            count: "exact",
+          },
+        )
         .order("iq_level", { ascending: false })
         .order("community_score", { ascending: false })
         .limit(PAGE_SIZE);
@@ -70,7 +78,11 @@ function LeaderboardAdmin() {
     if (!confirm("Ban this account? This is reversible from the Users page.")) return;
     setBusyId(userId);
     try {
-      await setUserStatus(userId, "banned", "Removed via Leaderboard admin (suspected fake account)");
+      await setUserStatus(
+        userId,
+        "banned",
+        "Removed via Leaderboard admin (suspected fake account)",
+      );
       toast.success("Account banned");
       setRows((prev) => prev.filter((r) => r.id !== userId));
     } catch (err) {
@@ -95,7 +107,8 @@ function LeaderboardAdmin() {
   }
 
   function exportCsv() {
-    const header = "Rank,Username,Display Name,Country,State,IQ Level,Community Score,Status,Joined\n";
+    const header =
+      "Rank,Username,Display Name,Country,State,IQ Level,Community Score,Status,Joined\n";
     const body = rows
       .map((r, i) =>
         [
@@ -179,7 +192,9 @@ function LeaderboardAdmin() {
                     {[r.state, r.country].filter(Boolean).join(", ") || "—"}
                   </td>
                   <td className="px-4 py-3 text-right font-display text-gold">{r.iq_level}</td>
-                  <td className="px-4 py-3 text-right text-muted-foreground">{r.community_score}</td>
+                  <td className="px-4 py-3 text-right text-muted-foreground">
+                    {r.community_score}
+                  </td>
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs ${

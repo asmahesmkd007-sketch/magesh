@@ -47,7 +47,7 @@ const CATEGORIES = [
 ];
 
 const ALL_OPTIONS = CATEGORIES.flatMap((c) =>
-  c.options.map((o) => ({ ...o, cls: c.cls, catName: c.name }))
+  c.options.map((o) => ({ ...o, cls: c.cls, catName: c.name })),
 );
 
 const POLL_MS = 2500;
@@ -108,7 +108,7 @@ export function QuickMatch({ onPlayBot }: { onPlayBot?: () => void } = {}) {
     [cleanup],
   );
 
-  async function attempt(opt: typeof ALL_OPTIONS[0]) {
+  async function attempt(opt: (typeof ALL_OPTIONS)[0]) {
     try {
       const gameId = await matchmake({
         timeClass: opt.cls,
@@ -157,7 +157,9 @@ export function QuickMatch({ onPlayBot }: { onPlayBot?: () => void } = {}) {
       <Card className="mx-auto max-w-md p-10 text-center border-gold/20 shadow-2xl shadow-gold/5">
         <Loader2 className="mx-auto h-12 w-12 animate-spin text-gold" />
         <h3 className="mt-6 font-display text-2xl text-gradient-gold">Seeking Opponent</h3>
-        <p className="mt-2 text-sm text-muted-foreground">{opt.label} {opt.catName} · Ranked</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {opt.label} {opt.catName} · Ranked
+        </p>
         <div className="mt-6 font-mono text-4xl text-foreground">
           {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}
         </div>
@@ -181,19 +183,21 @@ export function QuickMatch({ onPlayBot }: { onPlayBot?: () => void } = {}) {
   }
 
   return (
-    <Card className="p-6 md:p-8 border-gold/10 bg-gradient-to-b from-background to-white/[0.01]">
-      <div className="text-xs font-semibold uppercase tracking-[0.22em] text-gold/80 mb-2">Quick Match</div>
-      <p className="text-sm text-muted-foreground mb-8">
+    <Card className="p-5 md:p-6 border-gold/10 bg-gradient-to-b from-background to-white/[0.01]">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gold/80 mb-1.5">
+        Quick Match
+      </div>
+      <p className="text-xs text-muted-foreground mb-5">
         Pick a time control and we'll pair you with a player of similar standing.
       </p>
 
-      <div className="space-y-6">
+      <div className="space-y-3">
         {CATEGORIES.map((cat) => {
           const Icon = cat.icon;
           return (
             <div key={cat.name}>
-              <div className="flex items-center gap-2 text-sm font-semibold text-gold mb-3 opacity-90">
-                <Icon className="h-4 w-4" />
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gold mb-1.5 opacity-90">
+                <Icon className="h-3.5 w-3.5" />
                 {cat.name}
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-3">
@@ -201,7 +205,7 @@ export function QuickMatch({ onPlayBot }: { onPlayBot?: () => void } = {}) {
                   <button
                     key={o.tc}
                     onClick={() => setPickTc(o.tc)}
-                    className={`rounded-xl border px-3 py-3 text-sm transition-all duration-200 font-medium ${
+                    className={`rounded-lg border px-2 py-1.5 text-xs transition-all duration-200 font-medium ${
                       pickTc === o.tc
                         ? "border-gold bg-gold/15 text-gold shadow-[0_0_15px_rgba(212,175,55,0.15)] scale-[1.02]"
                         : "border-white/10 text-muted-foreground bg-white/[0.02] hover:border-gold/30 hover:bg-white/[0.04] hover:text-foreground"
@@ -216,9 +220,12 @@ export function QuickMatch({ onPlayBot }: { onPlayBot?: () => void } = {}) {
         })}
       </div>
 
-      <div className="mt-8 pt-6 border-t border-white/5">
-        <GoldButton onClick={startSearch} className="w-full justify-center py-6 text-lg shadow-xl shadow-gold/10">
-          <Swords className="h-5 w-5 mr-2" /> Find Match
+      <div className="mt-5 pt-4 border-t border-white/5">
+        <GoldButton
+          onClick={startSearch}
+          className="w-full justify-center py-3 text-sm shadow-xl shadow-gold/10"
+        >
+          <Swords className="h-4 w-4 mr-2" /> Find Match
         </GoldButton>
       </div>
     </Card>

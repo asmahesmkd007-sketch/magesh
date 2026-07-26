@@ -16,7 +16,10 @@ import { normalizeSettings, SETTING_KEYS, type GameSettings } from "@/lib/settin
 
 type LooseClient = {
   from: (t: string) => {
-    upsert: (v: Record<string, unknown>, o?: Record<string, unknown>) => Promise<{ error: unknown }>;
+    upsert: (
+      v: Record<string, unknown>,
+      o?: Record<string, unknown>,
+    ) => Promise<{ error: unknown }>;
     select: (c: string) => {
       eq: (
         c: string,

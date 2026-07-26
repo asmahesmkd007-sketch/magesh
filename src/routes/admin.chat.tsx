@@ -10,7 +10,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchChatStats, resolveChatReport, type ChatStats } from "@/lib/api/chatClient";
 
 export const Route = createFileRoute("/admin/chat")({
-  head: () => ({ meta: [{ title: "Admin — Chat — ChessOx" }] }),
+  head: () => ({
+    meta: [{ title: "Admin — Chat — ChessOx" }, { name: "robots", content: "noindex, nofollow" }],
+  }),
   component: () => (
     <AdminShell title="Chat Moderation">
       <ChatAdmin />
@@ -40,7 +42,11 @@ function ChatAdmin() {
       const [s, r] = await Promise.all([
         fetchChatStats(),
         (async () => {
-          let q = (supabase as any).from("chat_reports").select("*").order("created_at", { ascending: false }).limit(100);
+          let q = (supabase as any)
+            .from("chat_reports")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .limit(100);
           if (filter === "open") q = q.eq("status", "open");
           const { data } = await q;
           return (data ?? []) as Report[];
@@ -84,7 +90,9 @@ function ChatAdmin() {
             key={f}
             onClick={() => setFilter(f)}
             className={`rounded-full border px-4 py-1.5 text-xs capitalize ${
-              filter === f ? "border-gold/50 bg-gold/10 text-gold" : "border-white/10 text-muted-foreground"
+              filter === f
+                ? "border-gold/50 bg-gold/10 text-gold"
+                : "border-white/10 text-muted-foreground"
             }`}
           >
             {f}
@@ -109,15 +117,21 @@ function ChatAdmin() {
                     </span>
                     <span
                       className={`rounded px-2 py-0.5 capitalize ${
-                        r.status === "open" ? "bg-amber-500/15 text-amber-300" : "bg-white/5 text-muted-foreground"
+                        r.status === "open"
+                          ? "bg-amber-500/15 text-amber-300"
+                          : "bg-white/5 text-muted-foreground"
                       }`}
                     >
                       {r.status}
                     </span>
-                    <span className="text-muted-foreground">{new Date(r.created_at).toLocaleString("en-IN")}</span>
+                    <span className="text-muted-foreground">
+                      {new Date(r.created_at).toLocaleString("en-IN")}
+                    </span>
                   </div>
                   {r.details && <p className="mt-1.5 text-xs text-muted-foreground">{r.details}</p>}
-                  <p className="mt-1 text-[11px] text-muted-foreground">Message ID: {r.message_id}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Message ID: {r.message_id}
+                  </p>
                 </div>
                 {r.status === "open" && (
                   <div className="flex shrink-0 flex-col gap-1.5">

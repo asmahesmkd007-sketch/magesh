@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { DEFAULTS, normalizeSettings, type GameSettings, type SettingKey } from "@/lib/settings/schema";
+import {
+  DEFAULTS,
+  normalizeSettings,
+  type GameSettings,
+  type SettingKey,
+} from "@/lib/settings/schema";
 
 /**
  * Unified ChessOX settings store.
@@ -58,9 +63,7 @@ export function writeGameSettings(next: GameSettings) {
 export function patchGameSettings(patch: Partial<GameSettings>): GameSettings {
   const next = normalizeSettings({ ...load(), ...patch });
   writeGameSettings(next);
-  import("@/lib/settings/settings-sync")
-    .then((m) => m.persistSettingsToDb(patch))
-    .catch(() => {});
+  import("@/lib/settings/settings-sync").then((m) => m.persistSettingsToDb(patch)).catch(() => {});
   return next;
 }
 

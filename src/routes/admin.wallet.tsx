@@ -8,7 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { listUsers, adjustCoins, type AdminUser } from "@/lib/api/adminClient";
 
 export const Route = createFileRoute("/admin/wallet")({
-  head: () => ({ meta: [{ title: "Admin — Wallet — ChessOx" }] }),
+  head: () => ({
+    meta: [{ title: "Admin — Wallet — ChessOx" }, { name: "robots", content: "noindex, nofollow" }],
+  }),
   component: () => (
     <AdminShell title="Wallet Management">
       <WalletAdmin />

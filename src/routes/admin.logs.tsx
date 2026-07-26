@@ -6,7 +6,12 @@ import { Card } from "@/components/site/Primitives";
 import { getAuditLogs, type AdminAuditLog } from "@/lib/api/adminClient";
 
 export const Route = createFileRoute("/admin/logs")({
-  head: () => ({ meta: [{ title: "Admin — Audit Logs — ChessOx" }] }),
+  head: () => ({
+    meta: [
+      { title: "Admin — Audit Logs — ChessOx" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: () => (
     <AdminShell title="Audit Logs">
       <LogsAdmin />

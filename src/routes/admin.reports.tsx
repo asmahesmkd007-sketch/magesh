@@ -7,7 +7,12 @@ import { Card } from "@/components/site/Primitives";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/admin/reports")({
-  head: () => ({ meta: [{ title: "Admin — Reports — ChessOx" }] }),
+  head: () => ({
+    meta: [
+      { title: "Admin — Reports — ChessOx" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: () => (
     <AdminShell title="Report Center">
       <ReportsAdmin />
@@ -38,11 +43,11 @@ function ReportsAdmin() {
       .select("id,type,issue_type,reported_user,reason,description,status,created_at")
       .eq("status", filter)
       .order("created_at", { ascending: false });
-      
+
     if (error) {
       toast.error(error.message);
     }
-    
+
     setReports((data ?? []) as unknown as Report[]);
     setLoading(false);
   }, [filter]);
@@ -53,9 +58,9 @@ function ReportsAdmin() {
 
   async function act(id: string, action: "ignored" | "resolved") {
     try {
-      const { error } = await (supabase as any).rpc("admin_resolve_platform_report", { 
-        p_report_id: id, 
-        p_status: action 
+      const { error } = await (supabase as any).rpc("admin_resolve_platform_report", {
+        p_report_id: id,
+        p_status: action,
       });
       if (error) throw new Error(error.message);
       toast.success(`Report ${action}`);
@@ -100,7 +105,11 @@ function ReportsAdmin() {
                     <span className="capitalize text-muted-foreground">{r.issue_type}</span>
                     <span className="font-medium">{r.reason}</span>
                   </div>
-                  {r.description && <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">{r.description}</p>}
+                  {r.description && (
+                    <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">
+                      {r.description}
+                    </p>
+                  )}
                   <div className="mt-1 text-xs text-muted-foreground">
                     {new Date(r.created_at).toLocaleString("en-IN")}
                     {r.reported_user && ` · Target ID: ${r.reported_user}`}

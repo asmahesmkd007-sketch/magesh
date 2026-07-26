@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
 import {
   ShieldCheck,
@@ -9,31 +9,29 @@ import {
   BanknoteIcon,
   User,
   AlertCircle,
-  Filter,
   RefreshCw,
   ChevronDown,
-  Lock,
 } from "lucide-react";
-import { Card, GoldButton, SectionTitle } from "@/components/site/Primitives";
+import { toast } from "sonner";
+import { Card, SectionTitle } from "@/components/site/Primitives";
 import { AdminShell } from "@/components/site/AdminShell";
-import { useAuth } from "@/hooks/useAuth";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
 import {
-  adminApproveWithdrawal,
-  adminRejectWithdrawal,
-  adminGetWithdrawals,
-  type AdminWithdrawalRequest,
-  type WithdrawalStatus,
-} from "@/hooks/useWithdrawal";
+  getWithdrawalRequests,
+  approveWithdrawal,
+  rejectWithdrawal,
+  type AdminWithdrawal,
+} from "@/lib/api/adminClient";
 
 export const Route = createFileRoute("/admin/withdrawals")({
   head: () => ({
-    meta: [{ title: "Admin — Withdrawals — ChessOx" }],
+    meta: [
+      { title: "Admin — Withdrawals — ChessOx" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
   }),
   component: AdminWithdrawalsPage,
 });
 
-// ── Helpers ───────────────────────────────────────────────────────────
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-IN", {
     day: "numeric",
@@ -53,12 +51,16 @@ const STATUS_STYLES: Record<string, { cls: string; icon: React.ReactNode }> = {
     cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
     icon: <CheckCircle2 className="h-3.5 w-3.5" />,
   },
+  success: {
+    cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+    icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+  },
+  approved: {
+    cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+    icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+  },
   rejected: {
     cls: "border-rose-500/30 bg-rose-500/10 text-rose-400",
-    icon: <XCircle className="h-3.5 w-3.5" />,
-  },
-  cancelled: {
-    cls: "border-white/20 bg-white/5 text-muted-foreground",
     icon: <XCircle className="h-3.5 w-3.5" />,
   },
 };
@@ -78,13 +80,12 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// ── Reject modal ──────────────────────────────────────────────────────
 function RejectModal({
-  request,
+  req,
   onConfirm,
   onCancel,
 }: {
-  request: AdminWithdrawalRequest;
+  req: AdminWithdrawal;
   onConfirm: (reason: string) => void;
   onCancel: () => void;
 }) {
@@ -93,7 +94,7 @@ function RejectModal({
 
   async function handleConfirm() {
     setBusy(true);
-    onConfirm(reason.trim());
+    onConfirm(reason.trim() || "Rejected by admin");
   }
 
   return (
@@ -106,7 +107,7 @@ function RejectModal({
           <div>
             <h2 className="font-display text-xl text-rose-400">Reject Withdrawal</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              This will return ₹{request.amount} to {request.full_name}'s wallet.
+              This will return ₹{req.amount} to {req.username}'s wallet.
             </p>
           </div>
         </div>
@@ -114,12 +115,12 @@ function RejectModal({
         <div className="space-y-4">
           <div>
             <label className="text-xs uppercase tracking-widest text-muted-foreground mb-1.5 block">
-              Rejection Reason (optional)
+              Rejection Reason
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Suspicious activity, incorrect bank details…"
+              placeholder="e.g. Suspicious activity, invalid UPI ID…"
               className="w-full min-h-20 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none transition focus:border-gold/50 focus:ring-1 focus:ring-gold/50 resize-none"
             />
           </div>
@@ -150,59 +151,60 @@ function RejectModal({
   );
 }
 
-// ── Withdrawal Row ────────────────────────────────────────────────────
-function WithdrawalRow({
-  req,
-  onActionDone,
-}: {
-  req: AdminWithdrawalRequest;
-  onActionDone: () => void;
-}) {
+function WithdrawalRow({ req, onActionDone }: { req: AdminWithdrawal; onActionDone: () => void }) {
   const [isApproving, setIsApproving] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
   async function handleApprove() {
     setIsApproving(true);
-    const ok = await adminApproveWithdrawal(req.id);
+    try {
+      await approveWithdrawal(req.id);
+      toast.success("Withdrawal approved");
+      onActionDone();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Approve failed");
+    }
     setIsApproving(false);
-    if (ok) onActionDone();
   }
 
   async function handleRejectConfirm(reason: string) {
     setShowRejectModal(false);
-    const ok = await adminRejectWithdrawal(req.id, reason || undefined);
-    if (ok) onActionDone();
+    try {
+      await rejectWithdrawal(req.id, reason);
+      toast.success("Withdrawal rejected & refunded");
+      onActionDone();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Reject failed");
+    }
   }
 
   return (
     <>
       {showRejectModal && (
         <RejectModal
-          request={req}
+          req={req}
           onConfirm={handleRejectConfirm}
           onCancel={() => setShowRejectModal(false)}
         />
       )}
       <div className="border-b border-white/5 last:border-0">
-        {/* Main row */}
         <div
           className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-white/[0.02] transition"
           onClick={() => setExpanded((v) => !v)}
         >
-          {/* User info */}
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/5">
             <User className="h-4 w-4 text-muted-foreground" />
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">{req.full_name}</span>
+              <span className="text-sm font-medium">{req.full_name ?? req.username}</span>
               <span className="text-xs text-muted-foreground">@{req.username}</span>
               <StatusBadge status={req.status} />
             </div>
             <div className="mt-0.5 text-xs text-muted-foreground">
-              {fmtDate(req.created_at)} · {req.bank_name} ···{req.account_last4}
+              {fmtDate(req.created_at)} · UPI: {req.upi_id ?? "—"}
             </div>
           </div>
 
@@ -218,7 +220,6 @@ function WithdrawalRow({
           />
         </div>
 
-        {/* Expanded details */}
         {expanded && (
           <div className="px-5 pb-5 pt-0">
             <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
@@ -231,23 +232,17 @@ function WithdrawalRow({
                 </div>
                 <div>
                   <div className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">
-                    Bank Name
+                    UPI ID
                   </div>
-                  <div className="text-sm text-foreground">{req.bank_name}</div>
+                  <div className="font-mono text-sm text-foreground">{req.upi_id ?? "—"}</div>
                 </div>
                 <div>
                   <div className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">
-                    Account Number
+                    Amount / GST / Net
                   </div>
-                  <div className="font-mono text-sm text-foreground">
-                    XXXXXXXX{req.account_last4}
+                  <div className="text-sm text-foreground">
+                    ₹{req.amount} / ₹{req.gst_amount} / ₹{req.net_amount}
                   </div>
-                </div>
-                <div>
-                  <div className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">
-                    IFSC Code
-                  </div>
-                  <div className="font-mono text-sm text-foreground">{req.ifsc_code}</div>
                 </div>
                 <div>
                   <div className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">
@@ -263,27 +258,25 @@ function WithdrawalRow({
                     <div className="text-sm text-foreground">{fmtDate(req.processed_at)}</div>
                   </div>
                 )}
-                {req.reject_reason && (
+                {req.rejection_reason && (
                   <div className="sm:col-span-2 lg:col-span-3">
                     <div className="text-[11px] uppercase tracking-widest text-rose-400/70 mb-1">
                       Rejection Reason
                     </div>
-                    <div className="text-sm text-rose-400">{req.reject_reason}</div>
+                    <div className="text-sm text-rose-400">{req.rejection_reason}</div>
                   </div>
                 )}
               </div>
 
-              {/* Action buttons — only for pending */}
               {req.status === "pending" && (
                 <div className="flex flex-wrap gap-3 pt-4 border-t border-white/10">
                   <div className="flex-1 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-400">
                     <div className="font-medium mb-1">Before approving:</div>
                     <ul className="text-xs space-y-0.5 list-disc pl-4 text-amber-400/80">
-                      <li>Verify the user's identity</li>
+                      <li>Verify the user's KYC status</li>
                       <li>
-                        Transfer ₹{req.amount} to {req.bank_name} ···{req.account_last4}
+                        Transfer ₹{req.net_amount} via UPI to {req.upi_id}
                       </li>
-                      <li>IFSC: {req.ifsc_code}</li>
                       <li>Then click Approve to confirm transfer</li>
                     </ul>
                   </div>
@@ -317,33 +310,27 @@ function WithdrawalRow({
   );
 }
 
-// ── Main Admin Withdrawals Page ───────────────────────────────────────
-type StatusFilter = "all" | WithdrawalStatus;
+type StatusFilter = "all" | "pending" | "completed" | "rejected";
 
 const FILTER_TABS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "pending", label: "Pending" },
   { id: "completed", label: "Completed" },
   { id: "rejected", label: "Rejected" },
-  { id: "cancelled", label: "Cancelled" },
 ];
 
 function AdminWithdrawalsPage() {
-  const { user } = useAuth();
-  const { isAdmin } = useIsAdmin(user?.id);
-  const [requests, setRequests] = useState<AdminWithdrawalRequest[]>([]);
+  const [requests, setRequests] = useState<AdminWithdrawal[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const data = await adminGetWithdrawals(
-        filter === "all" ? undefined : (filter as WithdrawalStatus),
-      );
+      const data = await getWithdrawalRequests(filter === "all" ? undefined : filter);
       setRequests(data);
-    } catch {
-      // error handled in hook
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to load withdrawals");
     } finally {
       setLoading(false);
       setIsRefreshing(false);
@@ -351,10 +338,9 @@ function AdminWithdrawalsPage() {
   }, [filter]);
 
   useEffect(() => {
-    if (!isAdmin) return;
     setLoading(true);
     load();
-  }, [isAdmin, filter, load]);
+  }, [filter, load]);
 
   function handleRefresh() {
     setIsRefreshing(true);
@@ -362,22 +348,22 @@ function AdminWithdrawalsPage() {
   }
 
   const pending = requests.filter((r) => r.status === "pending").length;
-  const completed = requests.filter((r) => r.status === "completed").length;
+  const completed = requests.filter(
+    (r) => r.status === "completed" || r.status === "success",
+  ).length;
   const rejected = requests.filter((r) => r.status === "rejected").length;
   const totalAmt = requests.reduce((s, r) => s + (r.status === "pending" ? r.amount : 0), 0);
 
   return (
     <AdminShell title="Withdrawal Management">
-      {/* ── Admin notice ── */}
       <div className="mb-6 flex items-center gap-3 rounded-xl border border-gold/20 bg-gold/5 px-5 py-4">
         <ShieldCheck className="h-5 w-5 text-gold shrink-0" />
         <div className="text-sm text-gold/90">
           <strong>Admin Panel</strong> — Only admins can view this page. All actions are logged in
-          the audit trail.
+          the audit trail. Withdrawals are UPI-based.
         </div>
       </div>
 
-      {/* ── Stats row ── */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-8">
         {[
           { label: "Pending", value: pending, cls: "text-amber-400" },
@@ -394,10 +380,8 @@ function AdminWithdrawalsPage() {
         ))}
       </div>
 
-      {/* ── Requests table ── */}
       <SectionTitle kicker="Requests" title="Withdrawal Requests" />
 
-      {/* Filter + refresh */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
           {FILTER_TABS.map(({ id, label }) => (
@@ -443,10 +427,9 @@ function AdminWithdrawalsPage() {
           </div>
         ) : (
           <div>
-            {/* Table header */}
             <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 border-b border-white/5 bg-white/[0.02] px-5 py-3">
               <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                User / Bank
+                User / UPI
               </div>
               <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
                 Amount
@@ -463,25 +446,22 @@ function AdminWithdrawalsPage() {
         )}
       </Card>
 
-      {/* ── Instructions ── */}
       <Card className="mt-6 p-6 bg-white/[0.01]">
         <div className="flex items-start gap-3">
           <AlertCircle className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
           <div>
             <div className="text-sm font-medium mb-2">Admin Instructions</div>
             <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal pl-4">
-              <li>Click a request row to expand it and see full bank details.</li>
+              <li>Click a request row to expand it and see the UPI ID.</li>
+              <li>Manually transfer the net amount via UPI outside this system.</li>
               <li>
-                Manually transfer the exact amount to the user's bank account outside this system.
-              </li>
-              <li>
-                Only after the bank transfer is confirmed, click{" "}
+                Only after the transfer is confirmed, click{" "}
                 <strong className="text-foreground">Approve</strong> to mark it as completed.
               </li>
               <li>
                 If the request cannot be processed, click{" "}
-                <strong className="text-foreground">Reject</strong> — the amount will be
-                automatically returned to the user's wallet.
+                <strong className="text-foreground">Reject</strong> — the amount is automatically
+                returned to the user's wallet.
               </li>
               <li>All actions are recorded in the admin audit log.</li>
             </ol>

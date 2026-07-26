@@ -75,9 +75,7 @@ function MiniBoard({ theme }: { theme: BoardTheme }) {
       <span className="grid h-full w-full grid-cols-4 grid-rows-4">
         {Array.from({ length: 16 }).map((_, k) => {
           const dark = (k + Math.floor(k / 4)) % 2 === 1;
-          return (
-            <span key={k} style={{ background: dark ? c.dark : c.light }} />
-          );
+          return <span key={k} style={{ background: dark ? c.dark : c.light }} />;
         })}
       </span>
     </span>
@@ -135,13 +133,7 @@ function startingCell(fileIdx: number, rank: number): Cell {
   return null;
 }
 
-function PreviewBoard({
-  board,
-  piece,
-}: {
-  board: BoardTheme;
-  piece: PieceTheme;
-}) {
+function PreviewBoard({ board, piece }: { board: BoardTheme; piece: PieceTheme }) {
   const c = BOARD_THEMES[board];
   return (
     <div className="w-full max-w-sm">

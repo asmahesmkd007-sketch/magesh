@@ -43,6 +43,7 @@ import { UserAvatar } from "@/components/site/UserAvatar";
 import { toast } from "sonner";
 import type { Profile } from "@/hooks/useAuth";
 import { getSeasonHistoryForUser, type SeasonHistoryForUser } from "@/lib/api/seasonsClient";
+import { noindexSeo } from "@/lib/seo";
 
 const SEASON_REWARD_LABEL: Record<string, string> = {
   champion: "🏆 Champion",
@@ -51,7 +52,12 @@ const SEASON_REWARD_LABEL: Record<string, string> = {
 };
 
 export const Route = createFileRoute("/profile")({
-  head: () => ({ meta: [{ title: "Profile — ChessOx" }] }),
+  head: () =>
+    noindexSeo(
+      "Your Chess Profile — ChessOx",
+      "Your ChessOx profile: chess ratings, game stats, achievements and account details.",
+      "noindex, nofollow",
+    ),
   validateSearch: (search: Record<string, unknown>) => ({
     id: typeof search.id === "string" ? search.id : undefined,
   }),
@@ -272,10 +278,24 @@ function ProfilePage() {
         .eq("user_id", targetUid)
         .order("joined_at", { ascending: false })
         .limit(30),
-      (supabase as any).from("user_puzzle_stats").select("*").eq("user_id", targetUid).maybeSingle(),
-      (supabase as any).from("community_follows").select("*", { count: "exact", head: true }).eq("following_id", targetUid),
-      (supabase as any).from("community_follows").select("*", { count: "exact", head: true }).eq("follower_id", targetUid),
-      (supabase as any).from("clan_members").select("role, clans(name, tag, slug)").eq("user_id", targetUid).maybeSingle(),
+      (supabase as any)
+        .from("user_puzzle_stats")
+        .select("*")
+        .eq("user_id", targetUid)
+        .maybeSingle(),
+      (supabase as any)
+        .from("community_follows")
+        .select("*", { count: "exact", head: true })
+        .eq("following_id", targetUid),
+      (supabase as any)
+        .from("community_follows")
+        .select("*", { count: "exact", head: true })
+        .eq("follower_id", targetUid),
+      (supabase as any)
+        .from("clan_members")
+        .select("role, clans(name, tag, slug)")
+        .eq("user_id", targetUid)
+        .maybeSingle(),
     ]).then(([r, g, h, t, p, followers, following, clanData]) => {
       setRatings((r.data as unknown as Rating[]) ?? []);
       setGames((g.data as unknown as Game[]) ?? []);
@@ -559,7 +579,13 @@ function ProfilePage() {
                   <MapPin className="h-3.5 w-3.5" /> {profile.country ?? "India"}
                 </span>
                 <span>· @{profile.username}</span>
-                <span>· Joined {new Date(profile.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</span>
+                <span>
+                  · Joined{" "}
+                  {new Date(profile.created_at).toLocaleDateString(undefined, {
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </span>
                 {profile.title && (
                   <span className="rounded-full bg-gold/15 px-2 py-0.5 text-xs text-gold">
                     {profile.title}
@@ -571,7 +597,11 @@ function ProfilePage() {
                   </span>
                 )}
                 {userClan?.clans && (
-                  <Link to="/clan/$slug" params={{ slug: userClan.clans.slug }} className="hover:opacity-80 transition-opacity">
+                  <Link
+                    to="/clan/$slug"
+                    params={{ slug: userClan.clans.slug }}
+                    className="hover:opacity-80 transition-opacity"
+                  >
                     <span className="rounded-full border border-gold/30 bg-gold/10 px-2.5 py-0.5 text-xs font-medium text-gold flex items-center gap-1.5 shadow-[0_0_10px_rgba(212,175,55,0.2)]">
                       <Shield className="h-3 w-3" />
                       {userClan.clans.name} [{userClan.clans.tag}]
@@ -579,7 +609,7 @@ function ProfilePage() {
                   </Link>
                 )}
               </div>
-              
+
               <div className="mt-2 flex flex-wrap items-center gap-4 text-sm">
                 <div className="flex items-center gap-1.5 hover:text-white cursor-pointer transition-colors">
                   <span className="font-bold text-white">{followersCount}</span>
@@ -633,12 +663,20 @@ function ProfilePage() {
           {/* Rating chips */}
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-6">
             <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-              <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1.5"><Crown className="h-3.5 w-3.5 text-gold"/> IQ Rating</div>
-              <div className="font-display text-2xl text-gradient-gold">{(profile as any).iq_rating ?? 100}</div>
+              <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                <Crown className="h-3.5 w-3.5 text-gold" /> IQ Rating
+              </div>
+              <div className="font-display text-2xl text-gradient-gold">
+                {(profile as any).iq_rating ?? 100}
+              </div>
             </div>
             <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-              <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">Puzzle</div>
-              <div className="font-display text-2xl text-gradient-gold">{puzzleStats?.puzzle_rating ?? 100}</div>
+              <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                Puzzle
+              </div>
+              <div className="font-display text-2xl text-gradient-gold">
+                {puzzleStats?.puzzle_rating ?? 100}
+              </div>
             </div>
             {(["rapid", "blitz", "bullet", "classical"] as const).map((cls) => (
               <div key={cls} className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
@@ -986,15 +1024,46 @@ function ProfilePage() {
             <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
                 { label: "Current Rank", value: seasonHistory.current_season_rank ?? "—" },
-                { label: "Best Rank Ever", value: seasonHistory.best_rank_ever ?? "—" },
+                {
+                  label: "Season IQ",
+                  value: (seasonHistory.current_season_iq ?? 0).toLocaleString(),
+                },
+                { label: "Current Tier", value: seasonHistory.current_tier ?? "—" },
+                {
+                  label: "Career Highest IQ",
+                  value: `${(seasonHistory.career_highest_iq ?? seasonHistory.best_iq_level ?? 0).toLocaleString()}${
+                    seasonHistory.career_highest_iq_season
+                      ? ` · S${seasonHistory.career_highest_iq_season}`
+                      : ""
+                  }`,
+                },
+                {
+                  label: "Career Best Rank",
+                  value: seasonHistory.career_best_rank
+                    ? `#${seasonHistory.career_best_rank}${
+                        seasonHistory.career_best_rank_season
+                          ? ` · S${seasonHistory.career_best_rank_season}`
+                          : ""
+                      }`
+                    : (seasonHistory.best_rank_ever ?? "—"),
+                },
+                {
+                  label: "Best Season",
+                  value: seasonHistory.best_season_number
+                    ? `Season ${seasonHistory.best_season_number}`
+                    : "—",
+                },
                 { label: "Seasons Played", value: seasonHistory.seasons_played },
                 { label: "Seasons Won", value: seasonHistory.seasons_won },
                 { label: "Top 10 Finishes", value: seasonHistory.top_10_finishes },
                 { label: "Top 100 Finishes", value: seasonHistory.top_100_finishes },
-                { label: "Best IQ Level", value: seasonHistory.best_iq_level ?? "—" },
                 { label: "Best Rating", value: seasonHistory.best_rating ?? "—" },
+                { label: "Season Badges", value: seasonHistory.season_badges?.length ?? 0 },
               ].map((s) => (
-                <div key={s.label} className="rounded-lg border border-white/5 bg-white/[0.02] p-3 text-center">
+                <div
+                  key={s.label}
+                  className="rounded-lg border border-white/5 bg-white/[0.02] p-3 text-center"
+                >
                   <div className="font-display text-xl text-gold">{s.value}</div>
                   <div className="text-[11px] text-muted-foreground">{s.label}</div>
                 </div>

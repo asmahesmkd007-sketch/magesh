@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { ChessOxIcon } from "@/components/site/ChessOxLogo";
 
 // Social media icon components — inline SVGs for zero extra dependencies
@@ -71,6 +71,9 @@ const SOCIAL_LINKS = [
 ] as const;
 
 export function Footer() {
+  const location = useLocation();
+  const isLandingOrAuthPage = location.pathname === "/" || location.pathname === "/auth";
+
   return (
     <footer className="mt-12 border-t border-gold/12 bg-[linear-gradient(180deg,rgba(32,8,8,0.8),rgba(16,4,4,0.95))]">
       <div className="mx-auto grid max-w-7xl gap-6 px-6 py-8 md:grid-cols-[1.5fr_1fr_1fr_1fr] lg:gap-8">
@@ -79,7 +82,7 @@ export function Footer() {
           <div className="flex items-center gap-2.5">
             <img
               src="/chessox-icon.ico"
-              alt="ChessOx Logo"
+              alt="ChessOx logo — online chess platform"
               className="h-14 w-auto object-contain"
               draggable={false}
             />
@@ -114,51 +117,82 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Nav link groups */}
-        {[
-          {
-            title: "Platform",
-            links: [
-              ["Play", "/play"],
-              ["Puzzles", "/puzzles"],
-              ["Tournaments", "/tournaments"],
-              ["Leaderboards", "/leaderboards"],
-            ],
-          },
-          {
-            title: "Academy",
-            links: [
-              ["Masterclasses", "/learn"],
-              ["Openings", "/openings"],
-              ["Analysis", "/analysis"],
-              ["Premium", "/premium"],
-            ],
-          },
-          {
-            title: "World",
-            links: [
-              ["Community", "/community"],
-              ["Clubs", "/clans"],
-              ["News", "/news"],
-              ["Settings", "/settings"],
-            ],
-          },
-        ].map((group) => (
-          <div key={group.title}>
-            <div className="text-[10px] uppercase tracking-[0.24em] text-gold/75">
-              {group.title}
+        {/* Nav link groups or Big Watermark on landing page/auth */}
+        {isLandingOrAuthPage && (
+          <div className="hidden md:flex md:col-span-3 flex-col items-center justify-center opacity-10 pointer-events-none select-none">
+            <div className="font-display text-[5rem] lg:text-[7rem] leading-none tracking-[0.15em] text-gold text-center">
+              CHESS OX
             </div>
-            <ul className="mt-2.5 space-y-1.5 text-xs text-foreground/85">
-              {group.links.map(([label, to]) => (
-                <li key={label}>
-                  <Link to={to} className="transition-colors hover:text-gold">
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
           </div>
-        ))}
+        )}
+
+        {!isLandingOrAuthPage &&
+          [
+            {
+              title: "Platform",
+              links: [
+                ["Play", "/play"],
+                ["Puzzles", "/puzzles"],
+                ["Tournaments", "/tournaments"],
+                ["Leaderboards", "/leaderboards"],
+              ],
+            },
+            {
+              title: "Academy",
+              links: [
+                ["Masterclasses", "/learn"],
+                ["Openings", "/openings"],
+                ["Analysis", "/analysis"],
+                ["About Chess", "/about-chess"],
+                ["Premium", "/premium"],
+              ],
+            },
+            {
+              title: "World",
+              links: [
+                ["Community", "/community"],
+                ["Clubs", "/clans"],
+                ["News", "/news"],
+                ["About Us", "/about"],
+                ["Settings", "/settings"],
+              ],
+            },
+          ].map((group) => (
+            <div key={group.title}>
+              <div className="text-[10px] uppercase tracking-[0.24em] text-gold/75">
+                {group.title}
+              </div>
+              <ul className="mt-2.5 space-y-1.5 text-xs text-foreground/85">
+                {group.links.map(([label, to]) => (
+                  <li key={label}>
+                    <Link to={to} className="transition-colors hover:text-gold">
+                      {label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+      </div>
+
+      {/* Policies */}
+      <div className="border-t border-gold/10 px-6 py-3">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
+          <span className="text-[10px] uppercase tracking-[0.24em] text-gold/75">Policies</span>
+          {[
+            ["Privacy Policy", "/privacy-policy"],
+            ["Terms & Conditions", "/terms-and-conditions"],
+            ["Refund Policy", "/refund-policy"],
+            ["Withdrawal Policy", "/withdrawal-policy"],
+            ["Community Policy", "/community-policy"],
+            ["Fair Play & Anti-Cheating Policy", "/fair-play-anti-cheating-policy"],
+            ["Contact & Grievance Policy", "/contact-grievance-policy"],
+          ].map(([label, to]) => (
+            <Link key={to} to={to} className="transition-colors hover:text-gold">
+              {label}
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* Bottom bar */}

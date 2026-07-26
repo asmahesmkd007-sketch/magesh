@@ -14,11 +14,14 @@ import {
   grantPremium,
   removePremium,
   setRole,
+  setSuperAdmin,
   type AdminUser,
 } from "@/lib/api/adminClient";
 
 export const Route = createFileRoute("/admin/users")({
-  head: () => ({ meta: [{ title: "Admin — Users — ChessOx" }] }),
+  head: () => ({
+    meta: [{ title: "Admin — Users — ChessOx" }, { name: "robots", content: "noindex, nofollow" }],
+  }),
   component: () => (
     <AdminShell title="User Management">
       <UsersPage />
@@ -111,10 +114,12 @@ function UsersPage() {
                       <div className="font-medium">{u.username}</div>
                       <div className="text-xs text-muted-foreground">{u.full_name}</div>
                     </td>
-                    <td className={`px-4 py-3 capitalize ${STATUS_CLS[u.account_status] ?? ""}`}>
-                      {u.account_status}
+                    <td className={`px-4 py-3 capitalize ${STATUS_CLS[u.status] ?? ""}`}>
+                      {u.status}
                     </td>
-                    <td className="px-4 py-3 capitalize text-muted-foreground">{u.role}</td>
+                    <td className="px-4 py-3 capitalize text-muted-foreground">
+                      {u.is_super_admin ? "super admin" : (u.role ?? "user")}
+                    </td>
                     <td className="px-4 py-3 text-right text-gold">
                       {u.balance.toLocaleString("en-IN")}
                       {u.locked_balance > 0 && (
@@ -184,7 +189,8 @@ function ManageModal({
             <div>
               <div className="font-display text-xl">{user.username}</div>
               <div className="text-xs text-muted-foreground">
-                {user.full_name} · {user.role} · {user.account_status}
+                {user.full_name} · {user.is_super_admin ? "super admin" : (user.role ?? "user")} ·{" "}
+                {user.status}
               </div>
             </div>
             <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
@@ -270,12 +276,10 @@ function ManageModal({
               />
               <span className="text-xs text-muted-foreground">days</span>
               <ActBtn
-                onClick={() =>
-                  run(() => grantPremium(user.id, "gold", premDays), "Premium granted")
-                }
+                onClick={() => run(() => grantPremium(user.id, "pro", premDays), "Premium granted")}
                 tone="gold"
               >
-                Grant Gold
+                Grant Pro
               </ActBtn>
               <ActBtn
                 onClick={() => run(() => removePremium(user.id), "Premium removed")}
@@ -307,12 +311,10 @@ function ManageModal({
                   Make Admin
                 </ActBtn>
                 <ActBtn
-                  onClick={() =>
-                    run(() => setRole(user.id, "super_admin"), "Promoted to super admin")
-                  }
+                  onClick={() => run(() => setRole(user.id, "moderator"), "Set as moderator")}
                   tone="gold"
                 >
-                  Make Super Admin
+                  Make Moderator
                 </ActBtn>
                 <ActBtn
                   onClick={() => run(() => setRole(user.id, "user"), "Demoted to user")}
@@ -320,6 +322,23 @@ function ManageModal({
                 >
                   Remove Admin
                 </ActBtn>
+                {user.is_super_admin ? (
+                  <ActBtn
+                    onClick={() => run(() => setSuperAdmin(user.id, false), "Super admin removed")}
+                    tone="rose"
+                  >
+                    Revoke Super Admin
+                  </ActBtn>
+                ) : (
+                  <ActBtn
+                    onClick={() =>
+                      run(() => setSuperAdmin(user.id, true), "Promoted to super admin")
+                    }
+                    tone="gold"
+                  >
+                    Make Super Admin
+                  </ActBtn>
+                )}
               </div>
             </Section>
           )}

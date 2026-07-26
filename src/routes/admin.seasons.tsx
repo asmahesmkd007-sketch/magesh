@@ -16,7 +16,12 @@ import {
 } from "@/lib/api/seasonsClient";
 
 export const Route = createFileRoute("/admin/seasons")({
-  head: () => ({ meta: [{ title: "Admin — Seasons — ChessOx" }] }),
+  head: () => ({
+    meta: [
+      { title: "Admin — Seasons — ChessOx" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: () => (
     <AdminShell title="Seasons">
       <SeasonsAdmin />
@@ -199,9 +204,14 @@ function SeasonsAdmin() {
                       {(s.status === "live" || s.status === "paused") && (
                         <button
                           onClick={() => {
-                            if (!confirm(`End Season ${s.season_number}? This locks in final ranks.`))
+                            if (
+                              !confirm(`End Season ${s.season_number}? This locks in final ranks.`)
+                            )
                               return;
-                            run(() => adminEndSeason(s.id, true), "Season ended, next season started");
+                            run(
+                              () => adminEndSeason(s.id, true),
+                              "Season ended, next season started",
+                            );
                           }}
                           title="End season"
                           className="grid h-7 w-7 place-items-center rounded-full border border-white/10 text-muted-foreground hover:border-red-400/40 hover:text-red-400"

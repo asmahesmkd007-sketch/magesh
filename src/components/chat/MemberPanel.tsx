@@ -62,7 +62,10 @@ export function MemberPanel({ channel, onClose }: { channel: ChatChannel; onClos
             </div>
           ) : (
             members.map((m) => (
-              <div key={m.id} className="flex items-center gap-2.5 rounded-xl px-2 py-2 hover:bg-white/[0.03]">
+              <div
+                key={m.id}
+                className="flex items-center gap-2.5 rounded-xl px-2 py-2 hover:bg-white/[0.03]"
+              >
                 <UserAvatar avatarUrl={m.avatar_url} displayName={m.full_name} size="sm" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1 truncate text-sm">
@@ -82,7 +85,11 @@ export function MemberPanel({ channel, onClose }: { channel: ChatChannel; onClos
                         type="button"
                         title={m.role === "moderator" ? "Remove moderator" : "Make moderator"}
                         onClick={() =>
-                          actions.setModerator.mutate({ channelId: channel.id, userId: m.id, isMod: m.role !== "moderator" })
+                          actions.setModerator.mutate({
+                            channelId: channel.id,
+                            userId: m.id,
+                            isMod: m.role !== "moderator",
+                          })
                         }
                         className={`grid h-7 w-7 place-items-center rounded-full ${m.role === "moderator" ? "text-emerald" : "text-muted-foreground hover:text-emerald"}`}
                       >
@@ -92,7 +99,13 @@ export function MemberPanel({ channel, onClose }: { channel: ChatChannel; onClos
                     <button
                       type="button"
                       title="Mute 60 min"
-                      onClick={() => actions.muteMember.mutate({ channelId: channel.id, userId: m.id, minutes: 60 })}
+                      onClick={() =>
+                        actions.muteMember.mutate({
+                          channelId: channel.id,
+                          userId: m.id,
+                          minutes: 60,
+                        })
+                      }
                       className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:text-gold"
                     >
                       <VolumeX className="h-3.5 w-3.5" />
@@ -113,7 +126,11 @@ export function MemberPanel({ channel, onClose }: { channel: ChatChannel; onClos
                       title="Ban"
                       onClick={() => {
                         if (window.confirm(`Ban @${m.username} from the room?`))
-                          actions.removeMember.mutate({ channelId: channel.id, userId: m.id, ban: true });
+                          actions.removeMember.mutate({
+                            channelId: channel.id,
+                            userId: m.id,
+                            ban: true,
+                          });
                       }}
                       className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:text-rose-400"
                     >

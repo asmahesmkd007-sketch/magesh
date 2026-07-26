@@ -35,7 +35,13 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
     if (tok.startsWith("[")) {
       const mm = /\[([^\]]+)\]\(([^)]+)\)/.exec(tok)!;
       out.push(
-        <a key={key} href={mm[2]} className="text-gold underline underline-offset-2 hover:opacity-80" target="_blank" rel="noreferrer">
+        <a
+          key={key}
+          href={mm[2]}
+          className="text-gold underline underline-offset-2 hover:opacity-80"
+          target="_blank"
+          rel="noreferrer"
+        >
           {mm[1]}
         </a>,
       );
@@ -45,7 +51,13 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
       out.push(<em key={key}>{tok.slice(1, -1)}</em>);
     } else {
       out.push(
-        <a key={key} href={tok} className="text-gold underline underline-offset-2 hover:opacity-80" target="_blank" rel="noreferrer">
+        <a
+          key={key}
+          href={tok}
+          className="text-gold underline underline-offset-2 hover:opacity-80"
+          target="_blank"
+          rel="noreferrer"
+        >
           {tok}
         </a>,
       );
@@ -57,8 +69,7 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
 }
 
 function youTubeId(url: string): string | null {
-  const m =
-    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/.exec(url);
+  const m = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/.exec(url);
   return m ? m[1] : null;
 }
 
@@ -103,7 +114,10 @@ export function ContentRenderer({ content }: { content: string }) {
       while (i < lines.length && !lines[i].trim().startsWith("```")) buf.push(lines[i++]);
       i++; // closing fence
       blocks.push(
-        <pre key={key} className="my-4 overflow-x-auto rounded-xl border border-white/10 bg-black/40 p-4 text-sm">
+        <pre
+          key={key}
+          className="my-4 overflow-x-auto rounded-xl border border-white/10 bg-black/40 p-4 text-sm"
+        >
           <code>{buf.join("\n")}</code>
         </pre>,
       );
@@ -114,7 +128,11 @@ export function ContentRenderer({ content }: { content: string }) {
     if (/^\s*\|.*\|\s*$/.test(line)) {
       const rows: string[][] = [];
       while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
-        const cells = lines[i].trim().slice(1, -1).split("|").map((c) => c.trim());
+        const cells = lines[i]
+          .trim()
+          .slice(1, -1)
+          .split("|")
+          .map((c) => c.trim());
         // skip pure separator rows like |---|---|
         if (!cells.every((c) => /^:?-{2,}:?$/.test(c))) rows.push(cells);
         i++;
@@ -187,7 +205,10 @@ export function ContentRenderer({ content }: { content: string }) {
       while (i < lines.length && /^\s*>\s?/.test(lines[i]))
         buf.push(lines[i++].replace(/^\s*>\s?/, ""));
       blocks.push(
-        <blockquote key={key} className="my-4 border-l-2 border-gold/50 bg-gold/5 py-2 pl-4 pr-3 italic text-ivory/80">
+        <blockquote
+          key={key}
+          className="my-4 border-l-2 border-gold/50 bg-gold/5 py-2 pl-4 pr-3 italic text-ivory/80"
+        >
           {buf.map((b, bi) => (
             <p key={bi}>{renderInline(b, `${key}q${bi}`)}</p>
           ))}
@@ -225,7 +246,9 @@ export function ContentRenderer({ content }: { content: string }) {
       blocks.push(
         <figure key={key} className="my-4">
           <img src={img[2]} alt={img[1]} className="max-w-full rounded-xl border border-white/10" />
-          {img[1] && <figcaption className="mt-1.5 text-xs text-muted-foreground">{img[1]}</figcaption>}
+          {img[1] && (
+            <figcaption className="mt-1.5 text-xs text-muted-foreground">{img[1]}</figcaption>
+          )}
         </figure>,
       );
       continue;

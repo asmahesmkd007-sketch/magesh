@@ -260,7 +260,9 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
     items: [
       { ...toggle("show_coordinates", "Show coordinates", "wired") },
       { ...toggle("board_animation", "Board animation", "wired", "Slide pieces between squares.") },
-      { ...toggle("auto_flip", "Auto-flip board", "wired", "Local play: flip to the side to move.") },
+      {
+        ...toggle("auto_flip", "Auto-flip board", "wired", "Local play: flip to the side to move."),
+      },
       { ...toggle("show_legal_moves", "Show legal moves", "wired") },
       { ...toggle("show_last_move", "Show last move", "wired") },
       { ...toggle("show_move_highlights", "Show move highlights", "wired") },
@@ -301,7 +303,14 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
         step: 5,
         unit: "%",
       },
-      { ...toggle("snap_to_square", "Snap piece to square", "wired", "Dragged pieces snap to the square centre under the cursor.") },
+      {
+        ...toggle(
+          "snap_to_square",
+          "Snap piece to square",
+          "wired",
+          "Dragged pieces snap to the square centre under the cursor.",
+        ),
+      },
       {
         key: "piece_drag_style",
         label: "Piece drag style",
@@ -321,7 +330,14 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
     items: [
       { ...toggle("confirm_resign", "Confirm resign", "wired") },
       { ...toggle("confirm_draw_offer", "Confirm draw offer", "wired") },
-      { ...toggle("auto_queen", "Auto-queen promotion", "wired", "Skip the promotion picker and always queen.") },
+      {
+        ...toggle(
+          "auto_queen",
+          "Auto-queen promotion",
+          "wired",
+          "Skip the promotion picker and always queen.",
+        ),
+      },
       { ...toggle("confirm_move", "Confirm move", "pending") },
       { ...toggle("premoves", "Premoves", "pending") },
       { ...toggle("multiple_premoves", "Multiple premoves", "pending") },
@@ -534,7 +550,9 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
 export const SETTING_KEYS = Object.keys(DEFAULTS) as SettingKey[];
 
 /** Coerce an arbitrary partial (localStorage or DB row) into a valid, fully-typed settings object. */
-export function normalizeSettings(raw: Partial<Record<string, unknown>> | null | undefined): GameSettings {
+export function normalizeSettings(
+  raw: Partial<Record<string, unknown>> | null | undefined,
+): GameSettings {
   const out = { ...DEFAULTS };
   if (!raw) return out;
   for (const key of SETTING_KEYS) {

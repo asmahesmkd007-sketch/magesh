@@ -107,6 +107,46 @@ function generateOtp(): string {
 }
 
 async function sendOtpEmail(email: string, otp: string): Promise<void> {
+  const gmailUser = process.env.GMAIL_USER || process.env.SMTP_USER || process.env.VITE_GMAIL_USER;
+  const gmailAppPass = process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS || process.env.VITE_GMAIL_APP_PASSWORD;
+
+  const html = `
+    <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0f0505;color:#f5f0e6;border-radius:12px;border:1px solid rgba(212,175,55,0.25)">
+      <h1 style="font-size:20px;letter-spacing:0.05em;color:#d4af37;margin:0 0 24px">ChessOx</h1>
+      <p style="font-size:15px;line-height:1.6;margin:0 0 8px">Your verification code is:</p>
+      <p style="font-size:36px;font-weight:700;letter-spacing:0.15em;color:#d4af37;margin:8px 0 24px">${otp}</p>
+      <p style="font-size:13px;line-height:1.6;color:rgba(245,240,230,0.7);margin:0 0 16px">This code is valid for 10 minutes.</p>
+      <p style="font-size:13px;line-height:1.6;color:rgba(245,240,230,0.5);margin:0">If you did not request this account, you can safely ignore this email.</p>
+    </div>
+  `.trim();
+
+  if (gmailUser && gmailAppPass) {
+    logger.info("Sending verification email via Gmail SMTP", { to: email, from: gmailUser });
+    try {
+      const nodemailer = await import("nodemailer");
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: gmailUser,
+          pass: gmailAppPass.replace(/\s+/g, ""),
+        },
+      });
+
+      await transporter.sendMail({
+        from: `ChessOx <${gmailUser}>`,
+        to: email,
+        subject: "Verify Your Email Address — ChessOx",
+        html,
+      });
+
+      logger.info("Gmail SMTP verification email sent successfully", { to: email });
+      return;
+    } catch (err) {
+      logger.error("Gmail SMTP send failed", { to: email, error: err });
+      throw new Error(`Failed to send verification email via Gmail: ${err instanceof Error ? err.message : "SMTP Error"}`);
+    }
+  }
+
   const emailjsServiceId = process.env.EMAILJS_SERVICE_ID || process.env.VITE_EMAILJS_SERVICE_ID;
   const emailjsTemplateId = process.env.EMAILJS_TEMPLATE_ID || process.env.VITE_EMAILJS_TEMPLATE_ID;
   const emailjsPublicKey = process.env.EMAILJS_PUBLIC_KEY || process.env.VITE_EMAILJS_PUBLIC_KEY;
@@ -158,16 +198,6 @@ async function sendOtpEmail(email: string, otp: string): Promise<void> {
       "Email service is not configured. Set EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBLIC_KEY in .env.",
     );
   }
-
-  const html = `
-    <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0f0505;color:#f5f0e6;border-radius:12px;border:1px solid rgba(212,175,55,0.25)">
-      <h1 style="font-size:20px;letter-spacing:0.05em;color:#d4af37;margin:0 0 24px">ChessOx</h1>
-      <p style="font-size:15px;line-height:1.6;margin:0 0 8px">Your verification code is:</p>
-      <p style="font-size:36px;font-weight:700;letter-spacing:0.15em;color:#d4af37;margin:8px 0 24px">${otp}</p>
-      <p style="font-size:13px;line-height:1.6;color:rgba(245,240,230,0.7);margin:0 0 16px">This code is valid for 10 minutes.</p>
-      <p style="font-size:13px;line-height:1.6;color:rgba(245,240,230,0.5);margin:0">If you did not request this account, you can safely ignore this email.</p>
-    </div>
-  `.trim();
 
   logger.info("Sending verification email via Resend", { to: email, from });
 

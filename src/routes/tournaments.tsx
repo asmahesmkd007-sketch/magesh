@@ -287,9 +287,13 @@ function Tournaments() {
     activeTab === "live" ? t.status === "live" || t.status === "locked" : t.status === "upcoming",
   );
 
-  const oneMin = filteredTournaments.filter((t) => t.time_control.startsWith("1+"));
-  const threeMin = filteredTournaments.filter((t) => t.time_control.startsWith("3+"));
-  const fiveMin = filteredTournaments.filter((t) => t.time_control.startsWith("5+"));
+  const coinTournaments = filteredTournaments.filter(
+    (t) => (t.entry_fee_coins ?? 0) > 0 || prizePool(t) > 0,
+  );
+
+  const oneMin = coinTournaments.filter((t) => t.time_control.startsWith("1+"));
+  const threeMin = coinTournaments.filter((t) => t.time_control.startsWith("3+"));
+  const fiveMin = coinTournaments.filter((t) => t.time_control.startsWith("5+"));
 
   const renderSection = (title: string, data: Tournament[], indexOffset: number) => {
     if (data.length === 0) return null;

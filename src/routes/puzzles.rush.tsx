@@ -7,7 +7,6 @@ import { Chess, type Square } from "chess.js";
 import { PUZZLES, type Puzzle } from "@/lib/chess/puzzles";
 import { soundForChessMove } from "@/lib/audio/sounds";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 
@@ -57,7 +56,6 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 function Rush() {
-  const { user } = useAuth();
   const [allPuzzles, setAllPuzzles] = useState<Puzzle[]>([]);
   const [shuffled, setShuffled] = useState<Puzzle[]>([]);
   const [started, setStarted] = useState(false);
@@ -76,11 +74,13 @@ function Rush() {
   const timerInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     supabase
       .from("puzzles")
       .select("id,fen,moves,theme,goal,rating,themes")
       .limit(200)
       .then(({ data }) => {
+        if (cancelled) return;
         const base =
           data && data.length > 0
             ? (data as Record<string, unknown>[]).map((r) => ({
@@ -97,6 +97,9 @@ function Rush() {
             : PUZZLES;
         setAllPuzzles(base);
       });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const puzzle = shuffled[puzzleIdx];
@@ -127,15 +130,20 @@ function Rush() {
     timers.current = [];
     if (timerInterval.current) clearInterval(timerInterval.current);
     timerInterval.current = setInterval(() => {
-      setTimeLeft((t) => {
-        if (t <= 1) {
-          endRush();
-          return 0;
-        }
-        return t - 1;
-      });
+      // Pure updater — no side effects here. React may invoke a setState
+      // updater more than once (e.g. Strict Mode's dev double-invoke), and
+      // endRush() has side effects (clearInterval, clearing pending move
+      // timers, setDone(true)) that must run exactly once. The effect below
+      // reacts to timeLeft hitting 0 instead.
+      setTimeLeft((t) => Math.max(0, t - 1));
     }, 1000);
   }
+
+  useEffect(() => {
+    if (started && !done && timeLeft <= 0) {
+      endRush();
+    }
+  }, [timeLeft, started, done]);
 
   function endRush() {
     if (timerInterval.current) clearInterval(timerInterval.current);
@@ -174,32 +182,56 @@ function Rush() {
 
     const expected = puzzle.moves[step];
     if (selected + sq === expected.slice(0, 4)) {
-      const m = g.move({
-        from: selected,
-        to: sq,
-        promotion: expected[4] as "q" | "r" | "b" | "n" | undefined,
-      });
+      let m;
+      try {
+        m = g.move({
+          from: selected,
+          to: sq,
+          promotion: expected[4] as "q" | "r" | "b" | "n" | undefined,
+        });
+      } catch {
+        setSelected(null);
+        setTargets([]);
+        return;
+      }
       setLastMove({ from: m.from, to: m.to });
       soundForChessMove(m, g);
       setSelected(null);
       setTargets([]);
 
-      if (step + 1 >= puzzle.moves.length) {
-        const newCombo = combo + 1;
-        setCombo(newCombo);
-        setScore((s) => s + 1 + Math.floor(newCombo / 5));
-        timers.current.push(setTimeout(() => nextPuzzle(true), 400));
+      const isFinalMove = step + 1 >= puzzle.moves.length;
+      if (isFinalMove) {
+        // Only a real checkmate on the board completes the puzzle — guards
+        // against mislabeled/incomplete solution data awarding a false solve.
+        if (g.isCheckmate()) {
+          const newCombo = combo + 1;
+          setCombo(newCombo);
+          setScore((s) => s + 1 + Math.floor(newCombo / 5));
+          timers.current.push(setTimeout(() => nextPuzzle(true), 400));
+        } else {
+          setCombo(0);
+          toast.error("Not quite — that wasn't checkmate.");
+          timers.current.push(setTimeout(() => nextPuzzle(false), 600));
+        }
       } else {
         const reply = puzzle.moves[step + 1];
         setStep(step + 2);
         timers.current.push(
           setTimeout(() => {
             if (!gameRef.current) return;
-            const rm = gameRef.current.move({
-              from: reply.slice(0, 2),
-              to: reply.slice(2, 4),
-              promotion: reply[4] as "q" | undefined,
-            });
+            let rm;
+            try {
+              rm = gameRef.current.move({
+                from: reply.slice(0, 2),
+                to: reply.slice(2, 4),
+                promotion: reply[4] as "q" | undefined,
+              });
+            } catch {
+              setCombo(0);
+              toast.error("This puzzle's data is invalid — skipping.");
+              nextPuzzle(false);
+              return;
+            }
             setLastMove({ from: rm.from, to: rm.to });
             soundForChessMove(rm, gameRef.current);
             setSelected(null);
@@ -351,9 +383,6 @@ function Rush() {
             <div className="mt-1 text-sm text-muted-foreground">
               {history.filter((h) => h.solved).length} solved · {history.length} attempted
             </div>
-            {user && (
-              <div className="mt-2 text-xs text-muted-foreground">Score saved to your profile</div>
-            )}
             <div className="mt-6 flex justify-center gap-2">
               <GoldButton onClick={startRush}>
                 <RotateCw className="h-4 w-4" /> Run Again

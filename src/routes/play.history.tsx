@@ -5,6 +5,7 @@ import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Prim
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { UserAvatar } from "@/components/site/UserAvatar";
+import { FriendButton } from "@/components/friends/FriendButton";
 import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/play/history")({
@@ -267,6 +268,7 @@ function GameHistory() {
                 const outcome = getOutcome(g);
                 const iWasWhite = g.white_id === user?.id;
                 const oppName = iWasWhite ? g.black_username : g.white_username;
+                const oppId = iWasWhite ? g.black_id : g.white_id;
                 const myRating = iWasWhite ? g.white_rating : g.black_rating;
                 const oppRating = iWasWhite ? g.black_rating : g.white_rating;
                 const delta = deltas.get(g.id);
@@ -301,7 +303,15 @@ function GameHistory() {
                       <div className="flex items-center gap-2">
                         <UserAvatar displayName={oppName ?? "?"} size="sm" className="shrink-0" />
                         <div>
-                          <div>{oppName ?? "—"}</div>
+                          <div className="flex items-center gap-1.5">
+                            {oppName ?? "—"}
+                            <FriendButton
+                              targetUserId={oppId}
+                              targetName={oppName}
+                              className="h-5 w-5"
+                              compact
+                            />
+                          </div>
                           <div className="text-[11px] text-muted-foreground">
                             {myRating ?? "—"} vs {oppRating ?? "—"}
                           </div>

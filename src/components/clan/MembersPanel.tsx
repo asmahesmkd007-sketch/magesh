@@ -3,6 +3,7 @@ import { MoreVertical, Search, Shield, ShieldOff, UserX, Crown, Users } from "lu
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
+import { FriendButton } from "@/components/friends/FriendButton";
 import { MemberAvatar, RoleBadge, PanelEmpty } from "@/components/clan/ClanPrimitives";
 import {
   promoteMember,
@@ -151,6 +152,14 @@ export function MembersPanel({ members, myRole, clanId, onChanged }: Props) {
                         premiumActive={m.profiles?.premium_active}
                         premiumExpiresAt={m.profiles?.premium_expires_at}
                       />
+                      {!isMe && (
+                        <FriendButton
+                          targetUserId={m.user_id}
+                          targetName={m.profiles?.username}
+                          className="h-5 w-5"
+                          compact
+                        />
+                      )}
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-2">
                       <RoleBadge role={m.role} />

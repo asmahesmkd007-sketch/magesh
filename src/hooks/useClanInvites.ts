@@ -14,15 +14,12 @@ export function useClanInvites(userId?: string | null) {
       return;
     }
     setLoading(true);
-    // clan_invites isn't in the generated Supabase types yet (schema.sql vs
-    // live DB drift — see project memory), so query it loosely-typed.
-    const { data: rawData } = await (supabase as any)
+    const { data } = await supabase
       .from("clan_invites")
       .select("id,clan_id,inviter_id,invitee_id,status,created_at")
       .eq("invitee_id", userId)
       .eq("status", "pending")
       .order("created_at", { ascending: false });
-    const data: any[] | null = rawData;
 
     if (!data || data.length === 0) {
       setInvites([]);
@@ -30,14 +27,32 @@ export function useClanInvites(userId?: string | null) {
       return;
     }
 
-    const clanIds: string[] = [...new Set(data.map((r) => r.clan_id as string))];
-    const inviterIds: string[] = [...new Set(data.map((r) => r.inviter_id as string))];
-    const [{ data: clans }, { data: inviters }] = await Promise.all([
-      supabase.from("clans").select("id,name,tag,slug,logo_url").in("id", clanIds),
+    const clanIds = [...new Set(data.map((r) => r.clan_id))];
+    const inviterIds = [...new Set(data.map((r) => r.inviter_id))];
+    const [{ data: clans }, { data: inviters }, { data: leaders }] = await Promise.all([
+      supabase.from("clans").select("id,name,tag,slug,logo_url,member_count").in("id", clanIds),
       supabase.from("profiles").select("id,username,full_name").in("id", inviterIds),
+      supabase
+        .from("clan_members")
+        .select("clan_id,user_id")
+        .in("clan_id", clanIds)
+        .eq("role", "leader"),
     ]);
-    const clanMap = new Map((clans ?? []).map((c: any) => [c.id, c]));
-    const inviterMap = new Map((inviters ?? []).map((p: any) => [p.id, p]));
+    const clanMap = new Map((clans ?? []).map((c) => [c.id, c]));
+    const inviterMap = new Map((inviters ?? []).map((p) => [p.id, p]));
+
+    const leaderUserIds = [...new Set((leaders ?? []).map((l) => l.user_id))];
+    const { data: leaderProfiles } =
+      leaderUserIds.length > 0
+        ? await supabase.from("profiles").select("id,username,full_name").in("id", leaderUserIds)
+        : { data: [] };
+    const leaderProfileMap = new Map((leaderProfiles ?? []).map((p) => [p.id, p]));
+    const leaderMap = new Map(
+      (leaders ?? []).map((l) => {
+        const p = leaderProfileMap.get(l.user_id);
+        return [l.clan_id, p?.full_name ?? p?.username ?? null];
+      }),
+    );
 
     setInvites(
       data.map((r) => {
@@ -49,6 +64,8 @@ export function useClanInvites(userId?: string | null) {
           clan_tag: clan?.tag ?? null,
           clan_slug: clan?.slug ?? null,
           clan_logo_url: clan?.logo_url ?? null,
+          clan_member_count: clan?.member_count ?? null,
+          clan_leader_name: leaderMap.get(r.clan_id) ?? null,
           inviter_username: inviter?.username ?? null,
           inviter_display: inviter?.full_name ?? null,
         } as ClanInviteRow;

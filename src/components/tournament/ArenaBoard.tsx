@@ -5,6 +5,7 @@ import { Flag, Handshake, Loader2, OctagonX, Timer, WifiOff } from "lucide-react
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
 import { CapturedPieces } from "@/components/site/CapturedPieces";
+import { ClockTime } from "@/components/site/ClockTime";
 import { GoldButton, GhostButton } from "@/components/site/Primitives";
 import {
   Dialog,
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useGameSettings } from "@/hooks/useGameSettings";
+import { useClockAudio } from "@/hooks/useClockAudio";
 import { submitMove, resignGame, respondDraw, claimTimeout } from "@/lib/api/gameClient";
 import {
   abortGame,
@@ -179,6 +181,7 @@ function PlayerPanel({
   }, [active, lastMoveAt]);
   const elapsed = active && lastMoveAt ? Math.max(0, now - lastMoveAt) : 0;
   const ms = Math.max(0, clockMs - elapsed);
+  useClockAudio(Math.ceil(ms / 1000), active && !!me);
 
   const name = entry?.username ?? fallbackName;
   return (
@@ -213,7 +216,7 @@ function PlayerPanel({
         } ${ms < 20000 && active ? "!bg-rose-500 !text-white animate-pulse" : ""}`}
       >
         <Timer className="mr-1 inline h-3.5 w-3.5 opacity-70" />
-        {fmtClock(ms)}
+        <ClockTime ms={ms} active={active} />
       </div>
     </div>
   );
@@ -263,6 +266,25 @@ export const ArenaBoard = memo(function ArenaBoard({
   const submittingRef = useRef(false);
   const timeoutClaimedRef = useRef(false);
   const finishedRef = useRef(false);
+  // Mirrors `game`/`optimistic` for reading fresh values from async
+  // callbacks (setTimeout) without a stale-closure snapshot.
+  const gameRef = useRef<GameRow | null>(null);
+  const optimisticRef = useRef<{ fen: string; from: string; to: string } | null>(null);
+  // Pending fallback re-fetch, in case the post-move realtime UPDATE never
+  // arrives (dropped event / reconnect gap right after submitting).
+  const reconcileFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    gameRef.current = game;
+  }, [game]);
+  useEffect(() => {
+    optimisticRef.current = optimistic;
+  }, [optimistic]);
+  useEffect(
+    () => () => {
+      if (reconcileFallbackRef.current) clearTimeout(reconcileFallbackRef.current);
+    },
+    [],
+  );
 
   // 12s grace before declaring the opponent disconnected — page hops and
   // socket blips drop presence for a moment without the player leaving.
@@ -320,12 +342,21 @@ export const ArenaBoard = memo(function ArenaBoard({
       )
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
-          const { data: m } = await supabase
-            .from("game_moves")
-            .select("ply,san,uci,fen_after")
-            .eq("game_id", gameId)
-            .order("ply");
-          if (m && alive) setMoves(m as MoveRow[]);
+          // Recover from any gap while disconnected — re-fetching game_moves
+          // alone recovers missed moves but not a missed change to the games
+          // row itself (opponent resigned/timed out/a draw was accepted
+          // while this client was briefly offline); re-fetch both.
+          const [{ data: g }, { data: m }] = await Promise.all([
+            supabase.from("games").select("*").eq("id", gameId).maybeSingle(),
+            supabase
+              .from("game_moves")
+              .select("ply,san,uci,fen_after")
+              .eq("game_id", gameId)
+              .order("ply"),
+          ]);
+          if (!alive) return;
+          if (g) setGame(g as GameRow);
+          if (m) setMoves(m as MoveRow[]);
         }
       });
     return () => {
@@ -476,12 +507,14 @@ export const ArenaBoard = memo(function ArenaBoard({
       submittingRef.current = true;
       setSelected(null);
       setTargets([]);
+      let expectedFen: string | null = null;
       try {
         const c = new Chess();
         c.load(activeFen!);
         const mv = c.move({ from, to, promotion: promo });
         if (mv) {
-          setOptimistic({ fen: c.fen(), from, to, at: Date.now() });
+          expectedFen = c.fen();
+          setOptimistic({ fen: expectedFen, from, to, at: Date.now() });
           buzz();
           soundForChessMove(mv, c);
         }
@@ -493,6 +526,25 @@ export const ArenaBoard = memo(function ArenaBoard({
         if (!result.ok) {
           setOptimistic(null);
           toast.error("You ran out of time.");
+        } else if (expectedFen) {
+          // The server accepted the move — Realtime should update `game`
+          // shortly. If that specific UPDATE event is dropped, `optimistic`
+          // never clears and this player can't move again (isMyTurn
+          // requires !optimistic). Fall back to a direct re-fetch if
+          // reconciliation hasn't happened after a few seconds.
+          if (reconcileFallbackRef.current) clearTimeout(reconcileFallbackRef.current);
+          const fenToMatch = expectedFen;
+          reconcileFallbackRef.current = setTimeout(async () => {
+            reconcileFallbackRef.current = null;
+            if (optimisticRef.current?.from !== from || optimisticRef.current?.to !== to) return;
+            if (gameRef.current?.fen === fenToMatch) return;
+            const { data: g } = await supabase
+              .from("games")
+              .select("*")
+              .eq("id", gameId)
+              .maybeSingle();
+            if (g) setGame(g as GameRow);
+          }, 3500);
         }
       } catch (err) {
         setOptimistic(null);

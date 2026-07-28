@@ -1,4 +1,4 @@
-import { X, Play, LineChart } from "lucide-react";
+import { X, Play, LineChart, Users, Home } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { GoldButton, GhostButton } from "./Primitives";
 
@@ -10,9 +10,21 @@ type Props = {
   onClose: () => void;
   gameId?: string;
   isLocal?: boolean;
+  roomId?: string;
+  roomHostId?: string;
+  currentUserId?: string;
 };
 
-export function GameEndModal({ result, reason, onClose, gameId, isLocal }: Props) {
+export function GameEndModal({
+  result,
+  reason,
+  onClose,
+  gameId,
+  isLocal,
+  roomId,
+  roomHostId,
+  currentUserId,
+}: Props) {
   const isDraw = result === "draw";
   const title = isDraw
     ? "Draw"
@@ -47,11 +59,27 @@ export function GameEndModal({ result, reason, onClose, gameId, isLocal }: Props
               </GoldButton>
             </Link>
           )}
-          <Link to="/play">
-            <GhostButton className="w-full border border-white/10">
-              <Play className="mr-2 h-4 w-4" /> New Game
-            </GhostButton>
-          </Link>
+          {roomId ? (
+            roomHostId === currentUserId ? (
+              <Link to="/room/$roomId" params={{ roomId }}>
+                <GhostButton className="w-full border border-white/10">
+                  <Users className="mr-2 h-4 w-4" /> Next Player / Lobby
+                </GhostButton>
+              </Link>
+            ) : (
+              <Link to="/">
+                <GhostButton className="w-full border border-white/10">
+                  <Home className="mr-2 h-4 w-4" /> Back to Home
+                </GhostButton>
+              </Link>
+            )
+          ) : (
+            <Link to="/play">
+              <GhostButton className="w-full border border-white/10">
+                <Play className="mr-2 h-4 w-4" /> New Game
+              </GhostButton>
+            </Link>
+          )}
         </div>
       </div>
     </div>

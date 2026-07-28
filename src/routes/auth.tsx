@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Crown, Loader2, ChevronLeft, Mail, Lock, User, ShieldCheck, Check, X } from "lucide-react";
+import { Crown, Loader2, ChevronLeft, Mail, Lock, User, ShieldCheck, Check, X, Eye, EyeOff } from "lucide-react";
 import { GoldButton } from "@/components/site/Primitives";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -318,6 +318,7 @@ function AuthPage() {
                         placeholder="your@email.com"
                         required
                         disabled={otpSent}
+                        autoComplete="off"
                         className="w-full rounded-xl border border-gold/15 bg-black/40 py-3 pl-10 pr-4 text-sm text-ivory outline-none transition-all placeholder:text-foreground/30 focus:border-gold/40 focus:bg-black/60 focus:ring-1 focus:ring-gold/40 disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                     </div>
@@ -391,6 +392,7 @@ function AuthPage() {
               placeholder="••••••••"
               required
               minLength={8}
+              autoComplete="new-password"
             />
 
             {mode === "signup" && password.length > 0 && (
@@ -525,6 +527,7 @@ function Input({
   minLength,
   icon,
   disabled,
+  autoComplete = "off",
 }: {
   label: string;
   value: string;
@@ -535,7 +538,12 @@ function Input({
   minLength?: number;
   icon?: React.ReactNode;
   disabled?: boolean;
+  autoComplete?: string;
 }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === "password";
+  const actualType = isPassword ? (showPassword ? "text" : "password") : type;
+
   return (
     <div className="space-y-1.5">
       <label className="text-[11px] uppercase tracking-[0.1em] text-foreground/60 font-medium ml-1 block">
@@ -546,15 +554,29 @@ function Input({
           {icon}
         </div>
         <input
-          type={type}
+          type={actualType}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           required={required}
           minLength={minLength}
           disabled={disabled}
-          className="w-full rounded-xl border border-gold/15 bg-black/40 py-3 pl-10 pr-4 text-sm text-ivory outline-none transition-all placeholder:text-foreground/30 focus:border-gold/40 focus:bg-black/60 focus:ring-1 focus:ring-gold/40 disabled:opacity-60 disabled:cursor-not-allowed"
+          autoComplete={autoComplete}
+          className={`w-full rounded-xl border border-gold/15 bg-black/40 py-3 pl-10 ${
+            isPassword ? "pr-10" : "pr-4"
+          } text-sm text-ivory outline-none transition-all placeholder:text-foreground/30 focus:border-gold/40 focus:bg-black/60 focus:ring-1 focus:ring-gold/40 disabled:opacity-60 disabled:cursor-not-allowed`}
         />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-foreground/40 hover:text-gold transition-colors focus:outline-none"
+            tabIndex={-1}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        )}
       </div>
     </div>
   );

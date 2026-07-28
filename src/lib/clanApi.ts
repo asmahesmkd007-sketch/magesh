@@ -160,12 +160,21 @@ export async function getClanAwards(clanId: string): Promise<ClanAward[]> {
 export async function getJoinRequests(clanId: string): Promise<ClanJoinRequest[]> {
   const { data, error } = await clanDb
     .from("clan_join_requests")
-    .select("id,user_id,message,created_at,profiles(username,avatar_url)")
+    .select("id,user_id,created_at,profiles:user_id(username,avatar_url)")
     .eq("clan_id", clanId)
     .eq("status", "pending")
     .order("created_at", { ascending: false });
-  if (error) fail(error, "Failed to load join requests");
-  return (data ?? []) as ClanJoinRequest[];
+  if (error) {
+    console.error("getJoinRequests error:", error);
+    return [];
+  }
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    user_id: row.user_id,
+    message: null,
+    created_at: row.created_at,
+    profiles: Array.isArray(row.profiles) ? row.profiles[0] : (row.profiles ?? null),
+  })) as ClanJoinRequest[];
 }
 
 export async function getMyPendingRequest(clanId: string, userId: string): Promise<boolean> {
@@ -219,13 +228,21 @@ export async function searchClansByName(query: string, excludeClanId?: string) {
 export async function getChatMessages(clanId: string): Promise<ClanChatMessage[]> {
   const { data, error } = await clanDb
     .from("clan_messages")
-    .select("id,sender_id,content,content_type,reply_to,created_at,profiles(username,avatar_url)")
+    .select(
+      "id,sender_id,content,content_type,reply_to,created_at,profiles:sender_id(username,avatar_url)",
+    )
     .eq("clan_id", clanId)
     .is("deleted_at", null)
     .order("created_at", { ascending: true })
     .limit(150);
-  if (error) fail(error, "Failed to load chat");
-  return (data ?? []) as ClanChatMessage[];
+  if (error) {
+    console.error("getChatMessages error:", error);
+    return [];
+  }
+  return (data ?? []).map((row: any) => ({
+    ...row,
+    profiles: Array.isArray(row.profiles) ? row.profiles[0] : (row.profiles ?? null),
+  })) as ClanChatMessage[];
 }
 
 // ----------------------------------------------------------------- mutations

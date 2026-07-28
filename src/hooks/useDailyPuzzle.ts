@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { type Puzzle } from "@/lib/chess/puzzles";
@@ -48,6 +48,33 @@ type Rpc = (
 ) => Promise<{ data: unknown; error: { message: string } | null }>;
 const rpcClient = supabase as unknown as { rpc: Rpc };
 
+// Shape of the `puzzles` row as returned by row_to_json() in get_daily_puzzle
+// (see supabase/schema.sql) — moves comes back as either a Postgres array or
+// (depending on driver serialization) a space-separated string, and there is
+// no singular `theme` column, only `themes`.
+type RawPuzzleRow = Omit<Puzzle, "moves" | "themes" | "theme"> & {
+  moves: string[] | string;
+  themes?: string[];
+  theme?: string;
+};
+
+type GetDailyPuzzleResponse = {
+  locked: boolean;
+  remaining_today: number;
+  stats: PuzzleStats | null;
+  puzzle: RawPuzzleRow | null;
+  progress: PuzzleProgress | null;
+};
+
+type UpdateProgressResponse = {
+  progress: PuzzleProgress;
+  stats: PuzzleStats;
+};
+
+function errorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
+
 export function useDailyPuzzle() {
   const { user } = useAuth();
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
@@ -57,15 +84,24 @@ export function useDailyPuzzle() {
   const [remainingToday, setRemainingToday] = useState(3);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Guards against concurrent get_daily_puzzle calls — e.g. the "solved"
+  // auto-advance timer and a manual "Next Puzzle" click firing within
+  // moments of each other. Without it, two in-flight calls can each create
+  // a brand-new puzzle_progress row server-side (since the just-completed
+  // puzzle is already terminal), silently orphaning one and skipping ahead
+  // by an extra puzzle. A ref (not `loading` state) so it's read fresh even
+  // from stale timer/callback closures.
+  const fetchInFlight = useRef(false);
 
-  const fetchDailyPuzzle = async () => {
-    if (!user) return;
+  const fetchDailyPuzzle = useCallback(async () => {
+    if (!user || fetchInFlight.current) return;
+    fetchInFlight.current = true;
     setLoading(true);
     setError(null);
     try {
       const { data, error: rpcError } = await rpcClient.rpc("get_daily_puzzle");
 
-      let res: any;
+      let res: GetDailyPuzzleResponse;
       if (rpcError) {
         if (rpcError.message.includes("No more puzzles")) {
           // Gracefully handle the case where the backend has ran out of puzzles
@@ -80,34 +116,43 @@ export function useDailyPuzzle() {
           throw rpcError;
         }
       } else {
-        res = data as any;
+        res = data as GetDailyPuzzleResponse;
       }
 
       setLocked(res.locked);
       setStats(res.stats);
       setRemainingToday(res.remaining_today);
       if (!res.locked && res.puzzle) {
+        const themes = Array.isArray(res.puzzle.themes) ? res.puzzle.themes : [];
         setPuzzle({
           ...res.puzzle,
           moves: Array.isArray(res.puzzle.moves) ? res.puzzle.moves : res.puzzle.moves.split(" "),
-          themes: Array.isArray(res.puzzle.themes) ? res.puzzle.themes : [],
+          themes,
+          // public.puzzles only stores the `themes` text[] column (see
+          // supabase/schema.sql's PUZZLE LIBRARY EXPANSION section) — there
+          // is no singular `theme` column, so it's never present on
+          // res.puzzle. Derive it the same way puzzles.rush.tsx already
+          // does for its own puzzle fetch, otherwise every "· {theme}" /
+          // "Rated N · {theme}" spot in the trainer renders blank.
+          theme: res.puzzle.theme || themes[0] || "Tactics",
         });
         setProgress(res.progress);
       } else {
         setPuzzle(null);
         setProgress(null);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("fetchDailyPuzzle error", err);
-      setError(err.message || "Failed to fetch puzzle");
+      setError(errorMessage(err, "Failed to fetch puzzle"));
     } finally {
       setLoading(false);
+      fetchInFlight.current = false;
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     if (user) fetchDailyPuzzle();
-  }, [user]);
+  }, [user, fetchDailyPuzzle]);
 
   const updateProgress = async (payload: {
     status: PuzzleStatus;
@@ -133,7 +178,7 @@ export function useDailyPuzzle() {
 
       if (updateError) throw updateError;
 
-      const res = data as any;
+      const res = data as UpdateProgressResponse;
       setProgress(res.progress);
       setStats(res.stats);
 
@@ -146,7 +191,7 @@ export function useDailyPuzzle() {
           setRemainingToday(3 - res.stats.completed_today);
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("updateProgress error", err);
     }
   };

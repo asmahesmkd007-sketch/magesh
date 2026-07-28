@@ -22,6 +22,7 @@ import { InteractiveBoard } from "@/components/site/InteractiveBoard";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useGameSettings } from "@/hooks/useGameSettings";
 import {
   type Classification,
   CLASS_LABEL,
@@ -245,6 +246,7 @@ function fmtClock(ms: number | null | undefined): string {
 function GameReview() {
   const { id } = useParams({ from: "/game/$id/review" });
   const { user } = useAuth();
+  const { settings } = useGameSettings();
   const navigate = useNavigate();
 
   const [game, setGame] = useState<GameRow | null>(null);
@@ -305,9 +307,14 @@ function GameReview() {
         .from("profiles")
         .select("id, premium_active, premium_expires_at")
         .in("id", ids);
+      const rows = (data ?? []) as Array<{
+        id: string;
+        premium_active?: boolean;
+        premium_expires_at?: string | null;
+      }>;
       if (data) {
-        setWhiteProfile(data.find((d: any) => d.id === gameRow.white_id) || null);
-        setBlackProfile(data.find((d: any) => d.id === gameRow.black_id) || null);
+        setWhiteProfile(rows.find((d) => d.id === gameRow.white_id) || null);
+        setBlackProfile(rows.find((d) => d.id === gameRow.black_id) || null);
       }
     }
 
@@ -339,18 +346,49 @@ function GameReview() {
     };
   }, [load]);
 
+  // Shared step helpers — used by arrow keys, the transport buttons, and the
+  // swipe gesture below, so "go to previous/next move" only lives in one place.
+  const stepBack = useCallback(() => {
+    setPlaying(false);
+    setPly((p) => Math.max(0, p - 1));
+  }, []);
+  const stepForward = useCallback(() => {
+    setPlaying(false);
+    setPly((p) => Math.min(sans.length, p + 1));
+  }, [sans.length]);
+
+  // ── Swipe navigation (mobile_gestures) ───────────────────────────────────
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const onBoardTouchStart = (e: React.TouchEvent) => {
+    if (!settings.mobile_gestures) return;
+    const t = e.touches[0];
+    touchStart.current = t ? { x: t.clientX, y: t.clientY } : null;
+  };
+  const onBoardTouchEnd = (e: React.TouchEvent) => {
+    if (!settings.mobile_gestures || !touchStart.current) return;
+    const t = e.changedTouches[0];
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!t) return;
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    // Require a clearly horizontal swipe so it doesn't fire on vertical scroll.
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx > 0) stepBack();
+      else stepForward();
+    }
+  };
+
   // ── Arrow-key navigation ────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
       if (e.key === "ArrowLeft") {
         e.preventDefault();
-        setPlaying(false);
-        setPly((p) => Math.max(0, p - 1));
+        stepBack();
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
-        setPlaying(false);
-        setPly((p) => Math.min(sans.length, p + 1));
+        stepForward();
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setPlaying(false);
@@ -363,7 +401,7 @@ function GameReview() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [sans.length]);
+  }, [sans.length, stepBack, stepForward]);
 
   // ── Autoplay ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -624,16 +662,18 @@ function GameReview() {
             </span>
           </div>
 
-          <InteractiveBoard
-            board={current.board()}
-            orientation={orientation}
-            selected={null}
-            targets={[]}
-            lastMove={lastMove}
-            checkSquare={checkSquare ?? undefined}
-            onSquare={() => {}}
-            disabled
-          />
+          <div onTouchStart={onBoardTouchStart} onTouchEnd={onBoardTouchEnd}>
+            <InteractiveBoard
+              board={current.board()}
+              orientation={orientation}
+              selected={null}
+              targets={[]}
+              lastMove={lastMove}
+              checkSquare={checkSquare ?? undefined}
+              onSquare={() => {}}
+              disabled
+            />
+          </div>
 
           {/* Bottom player: clock + captured */}
           <div className="mt-1 flex items-center justify-between px-1">
@@ -672,13 +712,7 @@ function GameReview() {
             >
               <ChevronsLeft className="h-4 w-4" />
             </GhostButton>
-            <GhostButton
-              onClick={() => {
-                setPlaying(false);
-                setPly((p) => Math.max(0, p - 1));
-              }}
-              aria-label="Previous move"
-            >
+            <GhostButton onClick={stepBack} aria-label="Previous move">
               <ChevronLeft className="h-4 w-4" />
             </GhostButton>
             <GhostButton
@@ -693,13 +727,7 @@ function GameReview() {
             <span className="w-20 text-center text-sm tabular-nums text-muted-foreground">
               {ply} / {sans.length}
             </span>
-            <GhostButton
-              onClick={() => {
-                setPlaying(false);
-                setPly((p) => Math.min(sans.length, p + 1));
-              }}
-              aria-label="Next move"
-            >
+            <GhostButton onClick={stepForward} aria-label="Next move">
               <ChevronRight className="h-4 w-4" />
             </GhostButton>
             <GhostButton

@@ -5,9 +5,11 @@ import { RotateCcw, FlipVertical2, Flag, ArrowLeft } from "lucide-react";
 import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Primitives";
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
 import { CapturedPieces } from "@/components/site/CapturedPieces";
+import { ClockTime } from "@/components/site/ClockTime";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
 import { GameEndModal } from "@/components/site/GameEndModal";
 import { useGameSettings } from "@/hooks/useGameSettings";
+import { useClockAudio } from "@/hooks/useClockAudio";
 import { playGameSound, soundForChessMove } from "@/lib/audio/sounds";
 import { buzz } from "@/lib/haptics";
 import { useAuth } from "@/hooks/useAuth";
@@ -45,8 +47,6 @@ export const Route = createFileRoute("/play/local")({
     }),
   component: LocalPlay,
 });
-
-const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.max(0, s % 60)).padStart(2, "0")}`;
 
 const TIME_CONTROLS = [
   { label: "No timer", sec: 0 },
@@ -292,11 +292,11 @@ function LocalPlay() {
   const checkSquare = useMemo(() => {
     const g = gameRef.current;
     if (!g.inCheck()) return null;
+    // Reuse the already-computed boardState snapshot instead of calling
+    // g.board() again — also makes `boardState` a real dependency instead
+    // of a trigger-only one the linter can't see is intentional.
     return (
-      g
-        .board()
-        .flat()
-        .find((p) => p && p.type === "k" && p.color === g.turn())?.square ?? null
+      boardState.flat().find((p) => p && p.type === "k" && p.color === g.turn())?.square ?? null
     );
   }, [boardState]);
 
@@ -505,6 +505,9 @@ function PlayerCard({
   board: BoardCell[][];
   capturedColor: "w" | "b";
 }) {
+  // Hot-seat local play — whichever side is on the clock gets the audio
+  // cue, not just "me", since both players share this device.
+  useClockAudio(Math.ceil(time), active);
   return (
     <Card className={`p-4 ${active ? "ring-1 ring-gold/60" : ""}`}>
       <div className="flex items-center gap-3">
@@ -525,7 +528,7 @@ function PlayerCard({
           <div
             className={`rounded-lg px-3 py-1.5 font-mono text-sm tabular-nums ${active ? "bg-gold text-[#0B0D10]" : "bg-white/5"}`}
           >
-            {fmt(time)}
+            <ClockTime ms={time * 1000} active={active} />
           </div>
         )}
       </div>

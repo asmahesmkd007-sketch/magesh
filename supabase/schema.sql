@@ -71,12 +71,14 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   community_score INT NOT NULL DEFAULT 0,
   iq_level INT NOT NULL DEFAULT 100
 );
--- Board / piece appearance columns (idempotent for pre-existing databases).
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS board_theme TEXT NOT NULL DEFAULT 'royal';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS piece_theme TEXT NOT NULL DEFAULT 'classic';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS display_name TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS community_score INT NOT NULL DEFAULT 0;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS iq_level INT NOT NULL DEFAULT 100;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS state TEXT DEFAULT '';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS district TEXT DEFAULT '';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS favorite_opening TEXT DEFAULT '';
 GRANT SELECT ON public.profiles TO anon;
 GRANT SELECT, INSERT, UPDATE ON public.profiles TO authenticated;
 GRANT ALL ON public.profiles TO service_role;
@@ -128,6 +130,20 @@ RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
 $$;
 REVOKE EXECUTE ON FUNCTION public.has_role(UUID, public.app_role) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.has_role(UUID, public.app_role) TO authenticated, service_role;
+
+-- Zero-arg convenience wrapper: "is the CURRENT caller an admin". The clan
+-- system's RLS policies and admin_delete_clan() call this, but it was never
+-- defined anywhere in the schema — every query against a policy using it
+-- failed outright with "function public.is_admin() does not exist" (a hard
+-- parse-time error, not just an access-denied), and admin_delete_clan()
+-- could never be called. Defined here (immediately after has_role, which it
+-- wraps) so it exists before its first use further down this file.
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT public.has_role(auth.uid(), 'admin')
+$$;
+REVOKE EXECUTE ON FUNCTION public.is_admin() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated, service_role;
 
 -- =====================================================================
 -- SECTION 5: RATINGS
@@ -1427,7 +1443,7 @@ ALTER TABLE public.public_rooms ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Room members and open rooms are visible" ON public.public_rooms;
 CREATE POLICY "Room members and open rooms are visible"
   ON public.public_rooms FOR SELECT TO authenticated
-  USING (host_id = auth.uid() OR guest_id = auth.uid() OR status = 'waiting');
+  USING (true);
 
 -- =====================================================================
 -- SECTION 41: create_public_room RPC
@@ -3657,8 +3673,22 @@ ALTER TABLE public.user_puzzle_stats ADD COLUMN IF NOT EXISTS puzzle_rating INT 
 
 -- ── Admin RPCs for /admin/puzzles (were referenced by src/lib/api/adminClient.ts
 --    but never defined anywhere — added here rather than a new migration file) ──
+--
+-- p_id is TEXT, not UUID: public.puzzles.id is a TEXT primary key (e.g.
+-- "p-back-rank-mate-350"), not a UUID, and it has no DEFAULT — so creating a
+-- new puzzle also has to generate an id here. p_moves is TEXT (the admin UI
+-- edits it as one space-separated UCI string, per AdminPuzzle.moves) but
+-- public.puzzles.moves is TEXT[], so it's converted via string_to_array on
+-- the way in/out. These were previously typed against an older, incompatible
+-- generation of the puzzles table (UUID id, TEXT moves) that no longer
+-- exists after the DROP TABLE CASCADE further down this file — every one of
+-- these RPCs failed at runtime as a result.
+DROP FUNCTION IF EXISTS public.admin_upsert_puzzle(UUID, TEXT, TEXT, INT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT[], BOOLEAN);
+DROP FUNCTION IF EXISTS public.admin_set_puzzle_enabled(UUID, BOOLEAN);
+DROP FUNCTION IF EXISTS public.admin_delete_puzzle(UUID);
+
 CREATE OR REPLACE FUNCTION public.admin_upsert_puzzle(
-  p_id UUID,
+  p_id TEXT,
   p_fen TEXT,
   p_moves TEXT,
   p_rating INT,
@@ -3670,21 +3700,22 @@ CREATE OR REPLACE FUNCTION public.admin_upsert_puzzle(
   p_themes TEXT[],
   p_enabled BOOLEAN DEFAULT true
 )
-RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-  v_id UUID;
+  v_id TEXT;
 BEGIN
   IF NOT public.has_role(auth.uid(), 'admin') THEN
     RAISE EXCEPTION 'Admin only';
   END IF;
 
   IF p_id IS NULL THEN
-    INSERT INTO public.puzzles (fen, moves, rating, theme, category, goal, difficulty, explanation, themes, enabled)
-    VALUES (p_fen, p_moves, p_rating, p_theme, p_category, p_goal, p_difficulty, p_explanation, COALESCE(p_themes, '{}'), COALESCE(p_enabled, true))
+    v_id := 'p-' || replace(gen_random_uuid()::text, '-', '');
+    INSERT INTO public.puzzles (id, fen, moves, rating, theme, category, goal, difficulty, explanation, themes, enabled)
+    VALUES (v_id, p_fen, string_to_array(p_moves, ' '), p_rating, p_theme, p_category, p_goal, p_difficulty, p_explanation, COALESCE(p_themes, '{}'), COALESCE(p_enabled, true))
     RETURNING id INTO v_id;
   ELSE
     UPDATE public.puzzles
-    SET fen = p_fen, moves = p_moves, rating = p_rating, theme = p_theme, category = p_category,
+    SET fen = p_fen, moves = string_to_array(p_moves, ' '), rating = p_rating, theme = p_theme, category = p_category,
         goal = p_goal, difficulty = p_difficulty, explanation = p_explanation, themes = COALESCE(p_themes, '{}'),
         enabled = COALESCE(p_enabled, enabled)
     WHERE id = p_id
@@ -3694,10 +3725,10 @@ BEGIN
   RETURN v_id;
 END;
 $$;
-REVOKE EXECUTE ON FUNCTION public.admin_upsert_puzzle(UUID, TEXT, TEXT, INT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT[], BOOLEAN) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.admin_upsert_puzzle(UUID, TEXT, TEXT, INT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT[], BOOLEAN) TO authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.admin_upsert_puzzle(TEXT, TEXT, TEXT, INT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT[], BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_upsert_puzzle(TEXT, TEXT, TEXT, INT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT[], BOOLEAN) TO authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION public.admin_set_puzzle_enabled(p_id UUID, p_enabled BOOLEAN)
+CREATE OR REPLACE FUNCTION public.admin_set_puzzle_enabled(p_id TEXT, p_enabled BOOLEAN)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NOT public.has_role(auth.uid(), 'admin') THEN
@@ -3706,10 +3737,10 @@ BEGIN
   UPDATE public.puzzles SET enabled = p_enabled WHERE id = p_id;
 END;
 $$;
-REVOKE EXECUTE ON FUNCTION public.admin_set_puzzle_enabled(UUID, BOOLEAN) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.admin_set_puzzle_enabled(UUID, BOOLEAN) TO authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.admin_set_puzzle_enabled(TEXT, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_set_puzzle_enabled(TEXT, BOOLEAN) TO authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION public.admin_delete_puzzle(p_id UUID)
+CREATE OR REPLACE FUNCTION public.admin_delete_puzzle(p_id TEXT)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NOT public.has_role(auth.uid(), 'admin') THEN
@@ -3718,14 +3749,19 @@ BEGIN
   DELETE FROM public.puzzles WHERE id = p_id;
 END;
 $$;
-REVOKE EXECUTE ON FUNCTION public.admin_delete_puzzle(UUID) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.admin_delete_puzzle(UUID) TO authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.admin_delete_puzzle(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_delete_puzzle(TEXT) TO authenticated, service_role;
 
+-- Upserts on id (falling back to slug, then a generated id) so re-running
+-- "Seed Bundled" from the admin UI updates existing rows instead of erroring
+-- on the primary key — same idempotent pattern as the built-in seed INSERT
+-- further down this file.
 CREATE OR REPLACE FUNCTION public.admin_bulk_import_puzzles(p_items JSONB)
 RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_item JSONB;
   v_count INT := 0;
+  v_id TEXT;
 BEGIN
   IF NOT public.has_role(auth.uid(), 'admin') THEN
     RAISE EXCEPTION 'Admin only';
@@ -3733,10 +3769,16 @@ BEGIN
 
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
   LOOP
-    INSERT INTO public.puzzles (fen, moves, rating, theme, category, goal, difficulty, explanation, themes, enabled)
+    v_id := COALESCE(
+      NULLIF(v_item->>'id', ''),
+      NULLIF(v_item->>'slug', ''),
+      'p-' || replace(gen_random_uuid()::text, '-', '')
+    );
+    INSERT INTO public.puzzles (id, fen, moves, rating, theme, category, goal, difficulty, explanation, themes, enabled)
     VALUES (
+      v_id,
       v_item->>'fen',
-      v_item->>'moves',
+      string_to_array(v_item->>'moves', ' '),
       COALESCE((v_item->>'rating')::INT, 1500),
       COALESCE(v_item->>'theme', 'Tactics'),
       COALESCE(v_item->>'category', 'Tactics'),
@@ -3745,7 +3787,11 @@ BEGIN
       COALESCE(v_item->>'explanation', ''),
       CASE WHEN v_item ? 'themes' THEN ARRAY(SELECT jsonb_array_elements_text(v_item->'themes')) ELSE '{}' END,
       COALESCE((v_item->>'enabled')::BOOLEAN, true)
-    );
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      fen = EXCLUDED.fen, moves = EXCLUDED.moves, rating = EXCLUDED.rating, theme = EXCLUDED.theme,
+      category = EXCLUDED.category, goal = EXCLUDED.goal, difficulty = EXCLUDED.difficulty,
+      explanation = EXCLUDED.explanation, themes = EXCLUDED.themes, enabled = EXCLUDED.enabled;
     v_count := v_count + 1;
   END LOOP;
 
@@ -4160,17 +4206,28 @@ RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_id UUID;
 BEGIN
-  SELECT id INTO v_id FROM public.chat_channels WHERE type = 'global' AND slug = 'global' LIMIT 1;
+  SELECT id INTO v_id FROM public.chat_channels WHERE slug = 'global' LIMIT 1;
   IF v_id IS NULL THEN
     INSERT INTO public.chat_channels (type, slug, name, description, is_private)
     VALUES ('global', 'global', 'Global Chat', 'ChessOx community chat', false)
+    ON CONFLICT (slug) DO UPDATE SET type = 'global', is_private = false
     RETURNING id INTO v_id;
   END IF;
 
-  IF p_user IS NOT NULL THEN
-    INSERT INTO public.chat_channel_members (channel_id, user_id, role)
-    VALUES (v_id, p_user, 'member')
-    ON CONFLICT (channel_id, user_id) DO NOTHING;
+  IF v_id IS NULL THEN
+    SELECT id INTO v_id FROM public.chat_channels WHERE slug = 'global' LIMIT 1;
+  END IF;
+
+  IF v_id IS NOT NULL THEN
+    UPDATE public.chat_channels
+    SET type = 'global', is_private = false
+    WHERE id = v_id AND (type != 'global' OR is_private = true);
+
+    IF p_user IS NOT NULL THEN
+      INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+      VALUES (v_id, p_user, 'member')
+      ON CONFLICT (channel_id, user_id) DO NOTHING;
+    END IF;
   END IF;
 
   RETURN v_id;
@@ -4259,19 +4316,31 @@ GRANT EXECUTE ON FUNCTION public.chat_discover_rooms(TEXT, INT) TO anon, authent
 DROP FUNCTION IF EXISTS public.chat_get_channel(TEXT);
 CREATE OR REPLACE FUNCTION public.chat_get_channel(p_slug_or_id TEXT)
 RETURNS public.chat_channel_row
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_id UUID;
   v_row public.chat_channel_row;
 BEGIN
-  BEGIN
-    v_id := p_slug_or_id::UUID;
-  EXCEPTION WHEN OTHERS THEN
-    v_id := NULL;
-  END;
+  IF p_slug_or_id = 'global' THEN
+    v_id := public._chat_ensure_global(auth.uid());
+  ELSE
+    BEGIN
+      v_id := p_slug_or_id::UUID;
+    EXCEPTION WHEN OTHERS THEN
+      v_id := NULL;
+    END;
 
-  IF v_id IS NULL THEN
-    SELECT id INTO v_id FROM public.chat_channels WHERE slug = p_slug_or_id;
+    IF v_id IS NULL THEN
+      SELECT id INTO v_id FROM public.chat_channels WHERE slug = p_slug_or_id;
+    END IF;
+  END IF;
+
+  IF v_id IS NOT NULL AND auth.uid() IS NOT NULL THEN
+    IF EXISTS (SELECT 1 FROM public.chat_channels WHERE id = v_id AND (type = 'global' OR (type = 'room' AND is_private = false))) THEN
+      INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+      VALUES (v_id, auth.uid(), 'member')
+      ON CONFLICT (channel_id, user_id) DO NOTHING;
+    END IF;
   END IF;
   
   IF v_id IS NULL THEN RETURN NULL; END IF;
@@ -6004,7 +6073,7 @@ GRANT EXECUTE ON FUNCTION public.clan_create(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT,
 
 DROP FUNCTION IF EXISTS public.clan_request_join(UUID);
 CREATE OR REPLACE FUNCTION public.clan_request_join(p_clan_id UUID)
-RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_user_id UUID := auth.uid();
   v_privacy public.clan_privacy;
@@ -6025,10 +6094,12 @@ BEGIN
   IF v_privacy = 'public' THEN
     -- Join immediately
     INSERT INTO public.clan_members (clan_id, user_id, role) VALUES (p_clan_id, v_user_id, 'member');
+    RETURN 'joined';
   ELSE
     -- Private, create request
     INSERT INTO public.clan_join_requests (clan_id, user_id, status) VALUES (p_clan_id, v_user_id, 'pending')
     ON CONFLICT (clan_id, user_id) DO UPDATE SET status = 'pending';
+    RETURN 'requested';
   END IF;
 END;
 $$;
@@ -6147,6 +6218,38 @@ CREATE TABLE IF NOT EXISTS public.puzzles (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
+-- Metadata columns the admin puzzle-management UI depends on (theme,
+-- category, difficulty, explanation, enabled, slug). The DROP TABLE CASCADE
+-- above wipes any columns previously added by ALTER TABLE on the old
+-- `puzzles` table, so without re-adding these here, admin_upsert_puzzle /
+-- admin_bulk_import_puzzles / adminClient.ts's listPuzzles() all fail at
+-- runtime with "column does not exist".
+ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS theme TEXT NOT NULL DEFAULT 'Tactics';
+ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'Tactics';
+ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS difficulty TEXT NOT NULL DEFAULT 'Intermediate';
+ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS explanation TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS slug TEXT;
+ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS alternative_lines JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS hints JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+CREATE INDEX IF NOT EXISTS idx_puzzles_rating ON public.puzzles(rating);
+CREATE INDEX IF NOT EXISTS idx_puzzles_goal ON public.puzzles(goal);
+CREATE INDEX IF NOT EXISTS idx_puzzles_category ON public.puzzles(category);
+CREATE INDEX IF NOT EXISTS idx_puzzles_enabled ON public.puzzles(enabled);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_puzzles_slug ON public.puzzles(slug) WHERE slug IS NOT NULL;
+
+-- DROP TABLE ... CASCADE above also wipes RLS/grants on the old table.
+-- puzzles.rush.tsx and adminClient.ts's listPuzzles() both query this table
+-- directly (not through a SECURITY DEFINER RPC), so without this restored
+-- they get "permission denied for table puzzles" and Rush silently falls
+-- back to its bundled local puzzle set every time.
+ALTER TABLE public.puzzles ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.puzzles TO anon, authenticated;
+GRANT ALL ON public.puzzles TO service_role;
+DROP POLICY IF EXISTS "Puzzles public read" ON public.puzzles;
+CREATE POLICY "Puzzles public read" ON public.puzzles FOR SELECT USING (enabled = true);
+
 CREATE TABLE IF NOT EXISTS public.user_puzzle_stats (
     user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     completed_today INTEGER DEFAULT 0,
@@ -6162,6 +6265,16 @@ CREATE TABLE IF NOT EXISTS public.user_puzzle_stats (
     coins_earned INTEGER DEFAULT 0,
     last_active TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
+
+-- Restored after the CASCADE above wiped RLS/grants. profile.tsx reads
+-- *another* user's puzzle stats directly (public profile view, same as
+-- ratings/tournament_entries there), so this is a public read, not
+-- owner-only, to keep that existing feature working.
+ALTER TABLE public.user_puzzle_stats ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE ON public.user_puzzle_stats TO authenticated;
+GRANT ALL ON public.user_puzzle_stats TO service_role;
+DROP POLICY IF EXISTS "Puzzle stats public read" ON public.user_puzzle_stats;
+CREATE POLICY "Puzzle stats public read" ON public.user_puzzle_stats FOR SELECT USING (true);
 
 CREATE TABLE IF NOT EXISTS public.puzzle_progress (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -6180,6 +6293,17 @@ CREATE TABLE IF NOT EXISTS public.puzzle_progress (
     last_viewed_time TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
     UNIQUE(user_id, puzzle_id)
 );
+
+-- Restored after the CASCADE above wiped RLS/grants. Only ever read/written
+-- through the SECURITY DEFINER get_daily_puzzle()/update_puzzle_progress()
+-- RPCs today (which bypass grants), but every other user-owned table in
+-- this schema has RLS enabled — matching that here too as defense-in-depth
+-- and for any future direct query against this table.
+ALTER TABLE public.puzzle_progress ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE ON public.puzzle_progress TO authenticated;
+GRANT ALL ON public.puzzle_progress TO service_role;
+DROP POLICY IF EXISTS "Users can view own puzzle progress" ON public.puzzle_progress;
+CREATE POLICY "Users can view own puzzle progress" ON public.puzzle_progress FOR SELECT USING (auth.uid() = user_id);
 
 CREATE OR REPLACE FUNCTION public.get_daily_puzzle()
 RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -6236,10 +6360,12 @@ BEGIN
         SELECT * INTO v_puzzle FROM public.puzzles WHERE id = v_progress.puzzle_id;
     ELSE
         -- Find a new puzzle based on progress (1st: Mate in 1, 2nd: Mate in 2, 3rd: Mate in 3)
+        -- enabled = true so puzzles the admin has disabled are never served.
         SELECT p.* INTO v_puzzle
         FROM public.puzzles p
         LEFT JOIN public.puzzle_progress pp ON p.id = pp.puzzle_id AND pp.user_id = v_user_id
         WHERE pp.id IS NULL
+          AND p.enabled = true
           AND (
             (v_stats.completed_today = 0 AND p.goal = 'Mate in 1') OR
             (v_stats.completed_today = 1 AND p.goal = 'Mate in 2') OR
@@ -6254,7 +6380,7 @@ BEGIN
             SELECT p.* INTO v_puzzle
             FROM public.puzzles p
             LEFT JOIN public.puzzle_progress pp ON p.id = pp.puzzle_id AND pp.user_id = v_user_id
-            WHERE pp.id IS NULL
+            WHERE pp.id IS NULL AND p.enabled = true
             ORDER BY random()
             LIMIT 1;
         END IF;
@@ -6310,6 +6436,7 @@ DECLARE
     v_progress public.puzzle_progress;
     v_stats public.user_puzzle_stats;
     v_new_status TEXT;
+    v_old_status TEXT;
 BEGIN
     IF v_user_id IS NULL THEN
         RAISE EXCEPTION 'Not authenticated';
@@ -6319,6 +6446,16 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Progress not found';
     END IF;
+
+    -- Capture the pre-update status: v_progress gets overwritten by the
+    -- RETURNING clause below, so this is the only way to later tell whether
+    -- this call is the one that *newly* transitions the puzzle into a
+    -- terminal state (previously this was read off v_progress AFTER the
+    -- UPDATE, which made the "newly terminal" check compare v_new_status
+    -- against itself and always evaluate false — completed_today, streaks
+    -- and xp never incremented, and the daily lock / Mate-in-1→2→3 rotation
+    -- that reads completed_today never advanced).
+    v_old_status := v_progress.status;
 
     -- Don't allow changing status if already solved/skipped
     IF v_progress.status IN ('SOLVED', 'SKIPPED') THEN
@@ -6336,14 +6473,14 @@ BEGIN
         hint_used = p_hint_used,
         last_move_played = p_last_move,
         last_viewed_time = timezone('utc'::text, now()),
-        solved_at = CASE WHEN v_new_status = 'SOLVED' AND v_progress.status != 'SOLVED' THEN timezone('utc'::text, now()) ELSE solved_at END
+        solved_at = CASE WHEN v_new_status = 'SOLVED' AND v_old_status != 'SOLVED' THEN timezone('utc'::text, now()) ELSE solved_at END
     WHERE id = v_progress.id
     RETURNING * INTO v_progress;
 
     -- Update stats if newly solved
     SELECT * INTO v_stats FROM public.user_puzzle_stats WHERE user_id = v_user_id;
 
-    IF v_new_status IN ('SOLVED', 'FAILED', 'SKIPPED') AND v_progress.status NOT IN ('SOLVED', 'FAILED', 'SKIPPED') THEN
+    IF v_new_status IN ('SOLVED', 'FAILED', 'SKIPPED') AND v_old_status NOT IN ('SOLVED', 'FAILED', 'SKIPPED') THEN
         UPDATE public.user_puzzle_stats
         SET completed_today = completed_today + 1,
             total_solved = total_solved + CASE WHEN v_new_status = 'SOLVED' THEN 1 ELSE 0 END,
@@ -6463,6 +6600,13 @@ CREATE INDEX IF NOT EXISTS idx_clan_awards_clan_id ON public.clan_awards(clan_id
 ALTER TABLE public.clan_awards ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Clan awards viewable by everyone" ON public.clan_awards;
 CREATE POLICY "Clan awards viewable by everyone" ON public.clan_awards FOR SELECT USING (true);
+-- clan_awards was created after this file's blanket `GRANT ... ON ALL
+-- TABLES IN SCHEMA public` (see the PUBLIC ROOM / community grant further
+-- down), so it never got a table-level grant — the RLS policy above was
+-- unreachable (no baseline privilege to even attempt the query), breaking
+-- clanApi.ts's getClanAwards() with "Failed to load awards" for every clan.
+GRANT SELECT ON public.clan_awards TO anon, authenticated;
+GRANT ALL ON public.clan_awards TO service_role;
 
 -- Search/lookups.
 CREATE INDEX IF NOT EXISTS idx_clans_name_lower ON public.clans (LOWER(name));
@@ -8484,6 +8628,14 @@ CREATE POLICY "season_rankings_select_all" ON public.season_rankings
 DROP POLICY IF EXISTS "season_history_select_all" ON public.season_history;
 CREATE POLICY "season_history_select_all" ON public.season_history
   FOR SELECT USING (true);
+
+-- These three tables were created after this file's blanket `GRANT ... ON
+-- ALL TABLES IN SCHEMA public` and never got their own table-level grant —
+-- the "everyone can read" policies above were unreachable without it (no
+-- baseline privilege to even attempt the query, regardless of RLS).
+GRANT SELECT ON public.seasons, public.season_rankings, public.season_history
+  TO anon, authenticated;
+GRANT ALL ON public.seasons, public.season_rankings, public.season_history TO service_role;
 
 -- ── 2. Public read RPCs ───────────────────────────────────────────────
 
@@ -11851,6 +12003,10 @@ ALTER TABLE public.clan_join_requests ADD COLUMN IF NOT EXISTS resolved_by UUID 
 ALTER TABLE public.clan_join_requests ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_clan_join_requests_pending_clan ON public.clan_join_requests (clan_id) WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS idx_clan_join_requests_pending_user ON public.clan_join_requests (user_id) WHERE status = 'pending';
+
+ALTER TABLE public.clan_join_requests DROP CONSTRAINT IF EXISTS clan_join_requests_user_id_fkey;
+ALTER TABLE public.clan_join_requests
+  ADD CONSTRAINT clan_join_requests_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
 
 ALTER TABLE public.clan_invites DROP CONSTRAINT IF EXISTS clan_invites_inviter_id_fkey;
 ALTER TABLE public.clan_invites DROP CONSTRAINT IF EXISTS clan_invites_invitee_id_fkey;
@@ -17468,6 +17624,16 @@ GRANT EXECUTE ON FUNCTION public.is_email_registered(TEXT) TO service_role;
 -- so it's safe to run against the real database even if some of this
 -- already partially exists.
 
+CREATE TABLE IF NOT EXISTS public.game_challenges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  from_user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  to_user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  status TEXT DEFAULT 'pending',
+  timer INT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 ALTER TABLE public.game_challenges
   ADD COLUMN IF NOT EXISTS time_class        public.time_class NOT NULL DEFAULT 'blitz',
   ADD COLUMN IF NOT EXISTS time_control      TEXT NOT NULL DEFAULT '5+0',
@@ -17773,3 +17939,1127 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
   END IF;
 END $$;
+
+
+
+BEGIN;
+
+-- ---------------------------------------------------------------------
+-- public.policies
+-- ---------------------------------------------------------------------
+DROP POLICY IF EXISTS "Published policies are public, admins see all" ON public.policies;
+
+CREATE POLICY "Published policies are public"
+  ON public.policies FOR SELECT
+  TO anon, authenticated
+  USING (is_published);
+
+CREATE POLICY "Admins read all policies"
+  ON public.policies FOR SELECT
+  TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- ---------------------------------------------------------------------
+-- public.news_articles
+-- ---------------------------------------------------------------------
+DROP POLICY IF EXISTS "Published news public" ON public.news_articles;
+
+CREATE POLICY "Published news public"
+  ON public.news_articles FOR SELECT
+  TO anon, authenticated
+  USING (published);
+
+CREATE POLICY "Admins read all news"
+  ON public.news_articles FOR SELECT
+  TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- ---------------------------------------------------------------------
+-- public.about_articles
+-- ---------------------------------------------------------------------
+DROP POLICY IF EXISTS "Published articles are public, admins see all" ON public.about_articles;
+
+CREATE POLICY "Published about articles are public"
+  ON public.about_articles FOR SELECT
+  TO anon, authenticated
+  USING (is_published);
+
+CREATE POLICY "Admins read all about articles"
+  ON public.about_articles FOR SELECT
+  TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+COMMIT;
+
+
+
+
+
+BEGIN;
+
+-- ---------------------------------------------------------------------
+-- Bugfix: community_reports missing columns (see note above)
+-- ---------------------------------------------------------------------
+ALTER TABLE public.community_reports
+  ADD COLUMN IF NOT EXISTS resolved_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
+ALTER TABLE public.community_reports
+  ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
+
+-- ---------------------------------------------------------------------
+-- Bugfix: keep community_posts.bookmarks_count in sync
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.community_toggle_bookmark(p_post_id UUID, p_collection text DEFAULT 'Favorites')
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+    v_exists boolean;
+BEGIN
+    IF v_uid IS NULL THEN RETURN false; END IF;
+    SELECT EXISTS(SELECT 1 FROM public.community_bookmarks WHERE user_id = v_uid AND post_id = p_post_id) INTO v_exists;
+    IF v_exists THEN
+        DELETE FROM public.community_bookmarks WHERE user_id = v_uid AND post_id = p_post_id;
+        UPDATE public.community_posts SET bookmarks_count = GREATEST(bookmarks_count - 1, 0) WHERE id = p_post_id;
+        RETURN false;
+    ELSE
+        INSERT INTO public.community_bookmarks (user_id, post_id, collection) VALUES (v_uid, p_post_id, p_collection);
+        UPDATE public.community_posts SET bookmarks_count = bookmarks_count + 1 WHERE id = p_post_id;
+        RETURN true;
+    END IF;
+END;
+$$;
+
+-- ---------------------------------------------------------------------
+-- 1. community_get_post — single-post fetch for the detail page. Same
+--    row shape as community_feed's per-post object, plus real (not
+--    hardcoded) followers_count/is_following_author/poll_counts/
+--    my_poll_vote since a permalink view justifies the extra cost.
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.community_get_post(p_id UUID)
+RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+    v_result json;
+BEGIN
+    SELECT json_build_object(
+        'id', p.id,
+        'user_id', p.user_id,
+        'post_type', p.post_type,
+        'content', p.content,
+        'media_url', p.media_url,
+        'link_url', p.link_url,
+        'fen', p.fen,
+        'pgn', p.pgn,
+        'puzzle_solution', p.puzzle_solution,
+        'poll_options', p.poll_options,
+        'poll_ends_at', p.poll_ends_at,
+        'tags', p.tags,
+        'likes_count', p.likes_count,
+        'dislikes_count', p.dislikes_count,
+        'comments_count', p.comments_count,
+        'shares_count', p.shares_count,
+        'bookmarks_count', p.bookmarks_count,
+        'score', p.score,
+        'is_pinned', p.is_pinned,
+        'is_hidden', p.is_hidden,
+        'is_featured', p.is_featured,
+        'created_at', p.created_at,
+        'updated_at', p.updated_at,
+        'author', json_build_object(
+            'id', pr.id,
+            'username', pr.username,
+            'full_name', pr.full_name,
+            'avatar_url', pr.avatar_url,
+            'title', pr.title,
+            'country', pr.country,
+            'premium_tier', pr.premium_tier,
+            'community_score', pr.community_score,
+            'iq_level', pr.iq_rating,
+            'followers_count', (SELECT COUNT(*) FROM public.community_follows cf WHERE cf.following_id = pr.id)
+        ),
+        'my_reaction', (SELECT reaction_type FROM public.community_reactions cr WHERE cr.post_id = p.id AND cr.user_id = v_uid LIMIT 1),
+        'is_bookmarked', v_uid IS NOT NULL AND EXISTS(SELECT 1 FROM public.community_bookmarks cb WHERE cb.post_id = p.id AND cb.user_id = v_uid),
+        'is_following_author', v_uid IS NOT NULL AND EXISTS(SELECT 1 FROM public.community_follows cf WHERE cf.follower_id = v_uid AND cf.following_id = p.user_id),
+        'poll_counts', CASE WHEN p.poll_options IS NULL THEN NULL ELSE (
+            SELECT json_agg(cnt ORDER BY idx) FROM (
+                SELECT o.idx, COUNT(pv.user_id) AS cnt
+                FROM unnest(p.poll_options) WITH ORDINALITY AS o(opt, idx)
+                LEFT JOIN public.community_poll_votes pv ON pv.post_id = p.id AND pv.option_idx = o.idx - 1
+                GROUP BY o.idx
+            ) counts
+        ) END,
+        'my_poll_vote', (SELECT option_idx FROM public.community_poll_votes pv WHERE pv.post_id = p.id AND pv.user_id = v_uid)
+    ) INTO v_result
+    FROM public.community_posts p
+    JOIN public.profiles pr ON pr.id = p.user_id
+    WHERE p.id = p_id;
+
+    RETURN v_result;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.community_get_post(UUID) TO anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 2. community_get_comments — flat list (client nests by parent_id).
+--    Comment-level reactions aren't wired at the DB level yet
+--    (community_reactions only has post_id, no comment_id column) so
+--    my_reaction is always NULL here — a pre-existing limitation, not
+--    introduced or expanded by this migration.
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.community_get_comments(p_post_id UUID)
+RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    v_result json;
+BEGIN
+    SELECT COALESCE(json_agg(
+        json_build_object(
+            'id', c.id,
+            'post_id', c.post_id,
+            'user_id', c.user_id,
+            'parent_id', c.parent_id,
+            'content', c.content,
+            'fen', c.fen,
+            'pgn', c.pgn,
+            'likes_count', c.likes_count,
+            'dislikes_count', c.dislikes_count,
+            'replies_count', c.replies_count,
+            'created_at', c.created_at,
+            'author', json_build_object(
+                'id', pr.id,
+                'username', pr.username,
+                'full_name', pr.full_name,
+                'avatar_url', pr.avatar_url,
+                'premium_tier', pr.premium_tier,
+                'community_score', pr.community_score
+            ),
+            'my_reaction', NULL
+        )
+        ORDER BY c.created_at ASC
+    ), '[]'::json) INTO v_result
+    FROM public.community_comments c
+    JOIN public.profiles pr ON pr.id = c.user_id
+    WHERE c.post_id = p_post_id AND COALESCE(c.is_hidden, false) = false;
+
+    RETURN v_result;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.community_get_comments(UUID) TO anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 3. community_vote_poll — upsert into the existing community_poll_
+--    votes table (its own PK is (user_id, post_id), so this naturally
+--    allows changing your vote, matching the "Users can change poll
+--    votes" RLS policy already defined on that table).
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.community_vote_poll(p_post_id UUID, p_option INTEGER)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+    v_post RECORD;
+BEGIN
+    IF v_uid IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+    SELECT poll_options, poll_ends_at INTO v_post FROM public.community_posts WHERE id = p_post_id;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Post not found'; END IF;
+    IF v_post.poll_options IS NULL THEN RAISE EXCEPTION 'This post has no poll'; END IF;
+    IF p_option < 0 OR p_option >= array_length(v_post.poll_options, 1) THEN
+        RAISE EXCEPTION 'Invalid poll option';
+    END IF;
+    IF v_post.poll_ends_at IS NOT NULL AND v_post.poll_ends_at < now() THEN
+        RAISE EXCEPTION 'This poll has ended';
+    END IF;
+
+    INSERT INTO public.community_poll_votes (user_id, post_id, option_idx)
+    VALUES (v_uid, p_post_id, p_option)
+    ON CONFLICT (user_id, post_id) DO UPDATE SET option_idx = p_option;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.community_vote_poll(UUID, INTEGER) TO authenticated;
+
+-- ---------------------------------------------------------------------
+-- 4. community_share_post — simplest interpretation matching the
+--    client's void-returning, no-dedupe call site: increment the
+--    counter every time. No per-user "already shared" tracking exists
+--    (or was requested) for this feature.
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.community_share_post(p_post_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+    IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+    UPDATE public.community_posts SET shares_count = shares_count + 1 WHERE id = p_post_id;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Post not found'; END IF;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.community_share_post(UUID) TO authenticated;
+
+-- ---------------------------------------------------------------------
+-- 5. community_profile — social counts are computed live from
+--    community_follows/community_posts/community_comments rather than
+--    trusting profiles.followers_count/following_count/posts_count:
+--    those columns appear in the generated src/integrations/supabase/
+--    types.ts (live-DB drift) but do not exist anywhere in schema.sql,
+--    so schema.sql (this migration's source of truth) cannot rely on
+--    them being present or kept in sync.
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.community_profile(p_username text)
+RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+    v_target UUID;
+    v_result json;
+BEGIN
+    SELECT id INTO v_target FROM public.profiles WHERE username = p_username;
+    IF v_target IS NULL THEN RETURN NULL; END IF;
+
+    SELECT json_build_object(
+        'id', pr.id,
+        'username', pr.username,
+        'full_name', pr.full_name,
+        'bio', pr.bio,
+        'country', pr.country,
+        'avatar_url', pr.avatar_url,
+        'banner_url', pr.banner_url,
+        'website', pr.website,
+        'title', pr.title,
+        'youtube_url', pr.youtube_url,
+        'instagram_url', pr.instagram_url,
+        'facebook_url', pr.facebook_url,
+        'twitter_url', pr.twitter_url,
+        'premium_tier', pr.premium_tier,
+        'iq_level', pr.iq_rating,
+        'community_score', pr.community_score,
+        'created_at', pr.created_at,
+        'followers_count', (SELECT COUNT(*) FROM public.community_follows WHERE following_id = pr.id),
+        'following_count', (SELECT COUNT(*) FROM public.community_follows WHERE follower_id = pr.id),
+        'posts_count', (SELECT COUNT(*) FROM public.community_posts WHERE user_id = pr.id AND COALESCE(is_hidden, false) = false),
+        'comments_count', (SELECT COUNT(*) FROM public.community_comments WHERE user_id = pr.id),
+        'is_following', v_uid IS NOT NULL AND EXISTS(SELECT 1 FROM public.community_follows WHERE follower_id = v_uid AND following_id = pr.id),
+        'follows_me', v_uid IS NOT NULL AND EXISTS(SELECT 1 FROM public.community_follows WHERE follower_id = pr.id AND following_id = v_uid),
+        'is_muted', v_uid IS NOT NULL AND EXISTS(SELECT 1 FROM public.community_mutes WHERE user_id = v_uid AND muted_id = pr.id),
+        'is_blocked', v_uid IS NOT NULL AND EXISTS(SELECT 1 FROM public.community_blocks WHERE user_id = v_uid AND blocked_id = pr.id),
+        'mutual_followers', CASE WHEN v_uid IS NULL THEN 0 ELSE (
+            SELECT COUNT(*) FROM public.community_follows f
+            WHERE f.following_id = pr.id
+              AND f.follower_id IN (SELECT following_id FROM public.community_follows WHERE follower_id = v_uid)
+        ) END,
+        'achievements', COALESCE((
+            SELECT json_agg(json_build_object('code', ca.achievement_name, 'awarded_at', ca.earned_at) ORDER BY ca.earned_at DESC)
+            FROM public.community_achievements ca WHERE ca.user_id = pr.id
+        ), '[]'::json)
+    ) INTO v_result
+    FROM public.profiles pr
+    WHERE pr.id = v_target;
+
+    RETURN v_result;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.community_profile(text) TO anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 6. community_follow_list
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.community_follow_list(p_user UUID, p_kind text, p_limit integer DEFAULT 50)
+RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+    v_result json;
+BEGIN
+    IF p_kind NOT IN ('followers', 'following') THEN
+        RAISE EXCEPTION 'Invalid kind';
+    END IF;
+
+    IF p_kind = 'followers' THEN
+        SELECT COALESCE(json_agg(row), '[]'::json) INTO v_result FROM (
+            SELECT json_build_object(
+                'id', pr.id, 'username', pr.username, 'full_name', pr.full_name,
+                'avatar_url', pr.avatar_url, 'premium_tier', pr.premium_tier,
+                'community_score', pr.community_score,
+                'followers_count', (SELECT COUNT(*) FROM public.community_follows WHERE following_id = pr.id),
+                'is_following', v_uid IS NOT NULL AND EXISTS(SELECT 1 FROM public.community_follows WHERE follower_id = v_uid AND following_id = pr.id)
+            ) AS row
+            FROM public.community_follows cf
+            JOIN public.profiles pr ON pr.id = cf.follower_id
+            WHERE cf.following_id = p_user
+            ORDER BY cf.created_at DESC
+            LIMIT p_limit
+        ) t;
+    ELSE
+        SELECT COALESCE(json_agg(row), '[]'::json) INTO v_result FROM (
+            SELECT json_build_object(
+                'id', pr.id, 'username', pr.username, 'full_name', pr.full_name,
+                'avatar_url', pr.avatar_url, 'premium_tier', pr.premium_tier,
+                'community_score', pr.community_score,
+                'followers_count', (SELECT COUNT(*) FROM public.community_follows WHERE following_id = pr.id),
+                'is_following', v_uid IS NOT NULL AND EXISTS(SELECT 1 FROM public.community_follows WHERE follower_id = v_uid AND following_id = pr.id)
+            ) AS row
+            FROM public.community_follows cf
+            JOIN public.profiles pr ON pr.id = cf.following_id
+            WHERE cf.follower_id = p_user
+            ORDER BY cf.created_at DESC
+            LIMIT p_limit
+        ) t;
+    END IF;
+
+    RETURN v_result;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.community_follow_list(UUID, text, integer) TO anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 7. community_leaderboard
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.community_leaderboard(p_kind text, p_limit integer DEFAULT 10)
+RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+    v_result json;
+BEGIN
+    IF p_kind NOT IN ('score', 'posts', 'comments', 'followers') THEN
+        RAISE EXCEPTION 'Invalid kind';
+    END IF;
+
+    SELECT COALESCE(json_agg(
+        json_build_object(
+            'id', t.id, 'username', t.username, 'full_name', t.full_name,
+            'avatar_url', t.avatar_url, 'premium_tier', t.premium_tier,
+            'community_score', t.community_score, 'followers_count', t.followers_count,
+            'is_following', v_uid IS NOT NULL AND EXISTS(SELECT 1 FROM public.community_follows WHERE follower_id = v_uid AND following_id = t.id),
+            'metric', t.metric
+        ) ORDER BY t.metric DESC
+    ), '[]'::json) INTO v_result
+    FROM (
+        SELECT
+            pr.id, pr.username, pr.full_name, pr.avatar_url, pr.premium_tier, pr.community_score,
+            (SELECT COUNT(*) FROM public.community_follows cf2 WHERE cf2.following_id = pr.id) AS followers_count,
+            CASE p_kind
+                WHEN 'score' THEN pr.community_score
+                WHEN 'posts' THEN (SELECT COUNT(*) FROM public.community_posts cp WHERE cp.user_id = pr.id)::int
+                WHEN 'comments' THEN (SELECT COUNT(*) FROM public.community_comments cc WHERE cc.user_id = pr.id)::int
+                WHEN 'followers' THEN (SELECT COUNT(*) FROM public.community_follows cf3 WHERE cf3.following_id = pr.id)::int
+            END AS metric
+        FROM public.profiles pr
+        ORDER BY metric DESC
+        LIMIT p_limit
+    ) t;
+
+    RETURN v_result;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.community_leaderboard(text, integer) TO anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 8. community_suggested_users — popular users the viewer doesn't
+--    already follow and isn't blocked by/hasn't blocked.
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.community_suggested_users(p_limit integer DEFAULT 5)
+RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+    v_result json;
+BEGIN
+    IF v_uid IS NULL THEN RETURN '[]'::json; END IF;
+
+    SELECT COALESCE(json_agg(row), '[]'::json) INTO v_result FROM (
+        SELECT json_build_object(
+            'id', pr.id, 'username', pr.username, 'full_name', pr.full_name,
+            'avatar_url', pr.avatar_url, 'premium_tier', pr.premium_tier,
+            'community_score', pr.community_score,
+            'followers_count', (SELECT COUNT(*) FROM public.community_follows WHERE following_id = pr.id),
+            'is_following', false
+        ) AS row
+        FROM public.profiles pr
+        WHERE pr.id <> v_uid
+          AND NOT EXISTS (SELECT 1 FROM public.community_follows WHERE follower_id = v_uid AND following_id = pr.id)
+          AND NOT EXISTS (SELECT 1 FROM public.community_blocks WHERE user_id = v_uid AND blocked_id = pr.id)
+          AND NOT EXISTS (SELECT 1 FROM public.community_blocks WHERE user_id = pr.id AND blocked_id = v_uid)
+        ORDER BY pr.community_score DESC, pr.created_at DESC
+        LIMIT p_limit
+    ) t;
+
+    RETURN v_result;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.community_suggested_users(integer) TO authenticated;
+
+-- ---------------------------------------------------------------------
+-- 9. community_search_users
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.community_search_users(p_query text, p_limit integer DEFAULT 10)
+RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+    v_result json;
+BEGIN
+    IF p_query IS NULL OR length(trim(p_query)) = 0 THEN RETURN '[]'::json; END IF;
+
+    SELECT COALESCE(json_agg(row), '[]'::json) INTO v_result FROM (
+        SELECT json_build_object(
+            'id', pr.id, 'username', pr.username, 'full_name', pr.full_name,
+            'avatar_url', pr.avatar_url, 'premium_tier', pr.premium_tier,
+            'community_score', pr.community_score,
+            'followers_count', (SELECT COUNT(*) FROM public.community_follows WHERE following_id = pr.id),
+            'is_following', v_uid IS NOT NULL AND EXISTS(SELECT 1 FROM public.community_follows WHERE follower_id = v_uid AND following_id = pr.id)
+        ) AS row
+        FROM public.profiles pr
+        WHERE pr.username ILIKE '%' || p_query || '%' OR pr.full_name ILIKE '%' || p_query || '%'
+        ORDER BY pr.community_score DESC
+        LIMIT p_limit
+    ) t;
+
+    RETURN v_result;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.community_search_users(text, integer) TO anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 10. community_trending_tags — last 30 days, unnest via a FROM-clause
+--     set-returning function (not repeated in GROUP BY) so each tag
+--     lines up correctly with its source post.
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.community_trending_tags(p_limit integer DEFAULT 8)
+RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    v_result json;
+BEGIN
+    SELECT COALESCE(json_agg(json_build_object('tag', tag, 'count', cnt) ORDER BY cnt DESC), '[]'::json) INTO v_result
+    FROM (
+        SELECT tag, COUNT(*) AS cnt
+        FROM public.community_posts cp, unnest(cp.tags) AS tag
+        WHERE cp.created_at > now() - interval '30 days'
+          AND COALESCE(cp.is_hidden, false) = false
+        GROUP BY tag
+        ORDER BY cnt DESC
+        LIMIT p_limit
+    ) t;
+
+    RETURN v_result;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.community_trending_tags(integer) TO anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 11. admin_community_stats
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.admin_community_stats()
+RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    v_result json;
+BEGIN
+    IF auth.uid() IS NULL OR NOT public.has_role(auth.uid(), 'admin') THEN
+        RAISE EXCEPTION 'Admin access required';
+    END IF;
+
+    SELECT json_build_object(
+        'users', (SELECT COUNT(*) FROM public.profiles),
+        'online', (SELECT COUNT(*) FROM public.profiles WHERE is_online = true),
+        'posts', (SELECT COUNT(*) FROM public.community_posts),
+        'comments', (SELECT COUNT(*) FROM public.community_comments),
+        'likes', (SELECT COUNT(*) FROM public.community_reactions WHERE reaction_type = 'like'),
+        'follows', (SELECT COUNT(*) FROM public.community_follows),
+        'open_reports', (SELECT COUNT(*) FROM public.community_reports WHERE status = 'open'),
+        'posts_7d', (SELECT COUNT(*) FROM public.community_posts WHERE created_at > now() - interval '7 days')
+    ) INTO v_result;
+
+    RETURN v_result;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.admin_community_stats() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_community_stats() TO authenticated, service_role;
+
+COMMIT;
+
+-- =====================================================================
+-- SECTION 100: PUBLIC ROOM LIFECYCLE HARDENING
+-- ---------------------------------------------------------------------
+
+-- 100.1 Shared internal helpers (SECURITY DEFINER, not client-callable)
+CREATE OR REPLACE FUNCTION public._room_close(p_room_id TEXT)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  DELETE FROM public.room_queue WHERE room_id = p_room_id;
+  DELETE FROM public.room_presence WHERE room_id = p_room_id;
+  UPDATE public.public_rooms
+  SET status = 'closed', finished_at = now()
+  WHERE id = p_room_id AND status NOT IN ('closed', 'playing');
+END; $$;
+REVOKE ALL ON FUNCTION public._room_close(TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._room_close(TEXT) TO service_role;
+
+CREATE OR REPLACE FUNCTION public._room_promote_guest(p_room_id TEXT)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_next_uid UUID;
+BEGIN
+  SELECT user_id INTO v_next_uid
+  FROM public.room_queue WHERE room_id = p_room_id ORDER BY position ASC LIMIT 1;
+
+  IF FOUND THEN
+    DELETE FROM public.room_queue WHERE room_id = p_room_id AND user_id = v_next_uid;
+    UPDATE public.room_queue SET position = position - 1 WHERE room_id = p_room_id;
+    UPDATE public.public_rooms SET guest_id = v_next_uid, status = 'guest_joined' WHERE id = p_room_id;
+  ELSE
+    UPDATE public.public_rooms SET guest_id = NULL, status = 'waiting' WHERE id = p_room_id;
+  END IF;
+END; $$;
+REVOKE ALL ON FUNCTION public._room_promote_guest(TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._room_promote_guest(TEXT) TO service_role;
+
+CREATE OR REPLACE FUNCTION public._room_finish_and_promote(p_room_id TEXT)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_next_uid   UUID;
+  v_room       public.public_rooms;
+BEGIN
+  SELECT * INTO v_room FROM public.public_rooms WHERE id = p_room_id FOR UPDATE;
+  IF NOT FOUND THEN RETURN; END IF;
+
+  SELECT user_id INTO v_next_uid
+  FROM public.room_queue WHERE room_id = p_room_id ORDER BY position ASC LIMIT 1;
+
+  IF NOT FOUND THEN
+    -- Queue is empty. Keep the host, remove the guest, set to waiting.
+    UPDATE public.public_rooms SET
+      guest_id = NULL,
+      status = 'waiting',
+      game_id = NULL, started_at = NULL, finished_at = now()
+    WHERE id = p_room_id;
+    RETURN;
+  END IF;
+
+  -- Queue has at least one player.
+  -- 1. Remove the first player from queue.
+  DELETE FROM public.room_queue WHERE room_id = p_room_id AND user_id = v_next_uid;
+  UPDATE public.room_queue SET position = position - 1 WHERE room_id = p_room_id;
+
+  -- 2. Update the room: keep the same host, new player becomes guest
+  UPDATE public.public_rooms SET
+    guest_id = v_next_uid, 
+    status = 'guest_joined',
+    game_id = NULL, started_at = NULL, finished_at = now()
+  WHERE id = p_room_id;
+
+END; $$;
+REVOKE ALL ON FUNCTION public._room_finish_and_promote(TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._room_finish_and_promote(TEXT) TO service_role;
+
+CREATE OR REPLACE FUNCTION public._room_remove_participant(p_room_id TEXT, p_target UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_room public.public_rooms;
+  v_pos  INT;
+BEGIN
+  SELECT * INTO v_room FROM public.public_rooms WHERE id = p_room_id FOR UPDATE;
+  IF NOT FOUND THEN RETURN; END IF;
+
+  DELETE FROM public.room_presence WHERE room_id = p_room_id AND user_id = p_target;
+
+  IF v_room.host_id = p_target THEN
+    IF v_room.status IN ('waiting', 'guest_joined') THEN
+      PERFORM public._room_close(p_room_id);
+    END IF;
+  ELSIF v_room.guest_id = p_target THEN
+    IF v_room.status IN ('waiting', 'guest_joined') THEN
+      PERFORM public._room_promote_guest(p_room_id);
+    END IF;
+  ELSE
+    SELECT position INTO v_pos FROM public.room_queue WHERE room_id = p_room_id AND user_id = p_target;
+    IF FOUND THEN
+      DELETE FROM public.room_queue WHERE room_id = p_room_id AND user_id = p_target;
+      UPDATE public.room_queue SET position = position - 1 WHERE room_id = p_room_id AND position > v_pos;
+    END IF;
+  END IF;
+END; $$;
+REVOKE ALL ON FUNCTION public._room_remove_participant(TEXT, UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._room_remove_participant(TEXT, UUID) TO service_role;
+
+-- 100.2 leave_public_room v2
+CREATE OR REPLACE FUNCTION public.leave_public_room(
+  p_room_id TEXT
+) RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+BEGIN
+  IF v_uid IS NULL THEN RETURN; END IF;
+  PERFORM public._room_remove_participant(p_room_id, v_uid);
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.leave_public_room(TEXT) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.leave_public_room(TEXT) TO authenticated, service_role;
+
+-- 100.3 join_room_queue / leave_room_queue
+CREATE OR REPLACE FUNCTION public.join_room_queue(p_room_id TEXT)
+RETURNS INT
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid      UUID := auth.uid();
+  v_room     public.public_rooms;
+  v_position INT;
+  v_queue_count INT;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Authentication required'; END IF;
+
+  SELECT * INTO v_room FROM public.public_rooms WHERE id = p_room_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Room not found'; END IF;
+  IF v_room.status NOT IN ('waiting', 'guest_joined', 'playing', 'finished') THEN
+    RAISE EXCEPTION 'Room is not accepting queued players';
+  END IF;
+  IF v_room.host_id = v_uid THEN RAISE EXCEPTION 'Host cannot join the queue'; END IF;
+  IF v_room.guest_id = v_uid THEN RAISE EXCEPTION 'You are already in the room as guest'; END IF;
+
+  SELECT position INTO v_position
+  FROM public.room_queue WHERE room_id = p_room_id AND user_id = v_uid;
+  IF FOUND THEN RETURN v_position; END IF;
+
+  SELECT COUNT(*) INTO v_queue_count FROM public.room_queue WHERE room_id = p_room_id;
+  IF (CASE WHEN v_room.guest_id IS NOT NULL THEN 2 ELSE 1 END) + v_queue_count >= 10 THEN
+    RAISE EXCEPTION 'Room is full';
+  END IF;
+
+  SELECT COALESCE(MAX(position), 0) + 1 INTO v_position
+  FROM public.room_queue WHERE room_id = p_room_id;
+
+  INSERT INTO public.room_queue (room_id, user_id, position)
+  VALUES (p_room_id, v_uid, v_position);
+
+  RETURN v_position;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.join_room_queue(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.join_room_queue(TEXT) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.leave_room_queue(p_room_id TEXT)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_pos INT;
+BEGIN
+  IF v_uid IS NULL THEN RETURN; END IF;
+
+  PERFORM 1 FROM public.public_rooms WHERE id = p_room_id FOR UPDATE;
+
+  SELECT position INTO v_pos
+  FROM public.room_queue WHERE room_id = p_room_id AND user_id = v_uid;
+  IF NOT FOUND THEN RETURN; END IF;
+
+  DELETE FROM public.room_queue WHERE room_id = p_room_id AND user_id = v_uid;
+  UPDATE public.room_queue SET position = position - 1
+  WHERE room_id = p_room_id AND position > v_pos;
+
+  DELETE FROM public.room_presence WHERE room_id = p_room_id AND user_id = v_uid;
+END; $$;
+REVOKE ALL ON FUNCTION public.leave_room_queue(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.leave_room_queue(TEXT) TO authenticated;
+
+-- 100.4 THE CORE FIX
+CREATE OR REPLACE FUNCTION public.handle_public_room_game_finished()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_room_id TEXT;
+BEGIN
+  SELECT id INTO v_room_id
+  FROM public.public_rooms
+  WHERE game_id = NEW.id AND status = 'playing'
+  FOR UPDATE;
+
+  IF FOUND THEN
+    PERFORM public._room_finish_and_promote(v_room_id);
+  END IF;
+
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS trg_public_room_game_finished ON public.games;
+CREATE TRIGGER trg_public_room_game_finished
+  AFTER UPDATE ON public.games
+  FOR EACH ROW
+  WHEN (OLD.ended_at IS NULL AND NEW.ended_at IS NOT NULL)
+  EXECUTE FUNCTION public.handle_public_room_game_finished();
+
+-- 100.5 Presence / heartbeat
+CREATE TABLE IF NOT EXISTS public.room_presence (
+  room_id      TEXT NOT NULL REFERENCES public.public_rooms(id) ON DELETE CASCADE,
+  user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (room_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_room_presence_last_seen ON public.room_presence(last_seen_at);
+
+ALTER TABLE public.room_presence ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON public.room_presence TO service_role;
+
+CREATE OR REPLACE FUNCTION public.room_heartbeat(p_room_id TEXT)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+BEGIN
+  IF v_uid IS NULL THEN RETURN; END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.public_rooms
+    WHERE id = p_room_id AND (host_id = v_uid OR guest_id = v_uid)
+  ) AND NOT EXISTS (
+    SELECT 1 FROM public.room_queue WHERE room_id = p_room_id AND user_id = v_uid
+  ) THEN
+    RETURN;
+  END IF;
+
+  INSERT INTO public.room_presence (room_id, user_id, last_seen_at)
+  VALUES (p_room_id, v_uid, now())
+  ON CONFLICT (room_id, user_id) DO UPDATE SET last_seen_at = now();
+END; $$;
+REVOKE ALL ON FUNCTION public.room_heartbeat(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.room_heartbeat(TEXT) TO authenticated;
+
+-- 100.6 room_lifecycle_sweep
+CREATE OR REPLACE FUNCTION public.room_lifecycle_sweep()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_stale_before TIMESTAMPTZ := now() - interval '75 seconds';
+  v_min_age      TIMESTAMPTZ := now() - interval '60 seconds';
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT pr.id FROM public.public_rooms pr
+    WHERE pr.status = 'waiting' AND pr.guest_id IS NULL
+      AND EXISTS (SELECT 1 FROM public.room_queue WHERE room_id = pr.id)
+    FOR UPDATE SKIP LOCKED
+  LOOP
+    PERFORM public._room_promote_guest(r.id);
+  END LOOP;
+
+  FOR r IN
+    SELECT id FROM public.public_rooms
+    WHERE status IN ('waiting', 'guest_joined', 'starting') AND expires_at < now()
+    FOR UPDATE SKIP LOCKED
+  LOOP
+    PERFORM public._room_close(r.id);
+  END LOOP;
+
+  FOR r IN
+    SELECT pr.id, pr.host_id, pr.guest_id
+    FROM public.public_rooms pr
+    WHERE pr.status IN ('waiting', 'guest_joined') AND pr.created_at < v_min_age
+    FOR UPDATE SKIP LOCKED
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM public.room_presence
+      WHERE room_id = r.id AND user_id = r.host_id AND last_seen_at >= v_stale_before
+    ) THEN
+      PERFORM public._room_remove_participant(r.id, r.host_id);
+      CONTINUE; 
+    END IF;
+
+    IF r.guest_id IS NOT NULL AND NOT EXISTS (
+      SELECT 1 FROM public.room_presence
+      WHERE room_id = r.id AND user_id = r.guest_id AND last_seen_at >= v_stale_before
+    ) THEN
+      PERFORM public._room_remove_participant(r.id, r.guest_id);
+    END IF;
+  END LOOP;
+
+  FOR r IN
+    SELECT rq.room_id, rq.user_id
+    FROM public.room_queue rq
+    JOIN public.public_rooms pr ON pr.id = rq.room_id
+    WHERE pr.status IN ('waiting', 'guest_joined', 'playing')
+      AND rq.joined_at < v_min_age
+      AND NOT EXISTS (
+        SELECT 1 FROM public.room_presence p
+        WHERE p.room_id = rq.room_id AND p.user_id = rq.user_id AND p.last_seen_at >= v_stale_before
+      )
+    FOR UPDATE OF rq SKIP LOCKED
+  LOOP
+    PERFORM public._room_remove_participant(r.room_id, r.user_id);
+  END LOOP;
+
+  DELETE FROM public.public_rooms
+  WHERE status = 'closed' AND finished_at < now() - interval '24 hours';
+END; $$;
+REVOKE ALL ON FUNCTION public.room_lifecycle_sweep() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.room_lifecycle_sweep() TO authenticated, service_role;
+
+DO $$
+BEGIN
+  PERFORM cron.unschedule('room_lifecycle_sweep');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  PERFORM cron.schedule('room_lifecycle_sweep', '* * * * *', 'SELECT public.room_lifecycle_sweep();');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron not available';
+END $$;
+
+
+
+
+-- 1. Ensure global chat function creates/upserts global channel properly
+CREATE OR REPLACE FUNCTION public._chat_ensure_global(p_user UUID)
+RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+BEGIN
+  SELECT id INTO v_id FROM public.chat_channels WHERE slug = 'global' LIMIT 1;
+  IF v_id IS NULL THEN
+    INSERT INTO public.chat_channels (type, slug, name, description, is_private, is_permanent, icon, sort_order)
+    VALUES ('global', 'global', 'Global Chat', 'Every ChessOx player, one room', false, true, '🌍', 1)
+    ON CONFLICT (slug) DO UPDATE SET type = 'global', is_private = false, is_permanent = true
+    RETURNING id INTO v_id;
+  END IF;
+
+  IF v_id IS NULL THEN
+    SELECT id INTO v_id FROM public.chat_channels WHERE slug = 'global' LIMIT 1;
+  END IF;
+
+  IF v_id IS NOT NULL THEN
+    UPDATE public.chat_channels
+    SET type = 'global', is_private = false
+    WHERE id = v_id AND (type != 'global' OR is_private = true);
+
+    IF p_user IS NOT NULL THEN
+      INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+      VALUES (v_id, p_user, 'member')
+      ON CONFLICT (channel_id, user_id) DO NOTHING;
+    END IF;
+  END IF;
+
+  RETURN v_id;
+END; $$;
+
+-- 2. Update chat_get_channel to auto-create and auto-join caller
+CREATE OR REPLACE FUNCTION public.chat_get_channel(p_slug_or_id TEXT)
+RETURNS public.chat_channel_row
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_id UUID;
+  v_row public.chat_channel_row;
+BEGIN
+  IF p_slug_or_id = 'global' THEN
+    v_id := public._chat_ensure_global(auth.uid());
+  ELSE
+    BEGIN
+      v_id := p_slug_or_id::UUID;
+    EXCEPTION WHEN OTHERS THEN
+      v_id := NULL;
+    END;
+
+    IF v_id IS NULL THEN
+      SELECT id INTO v_id FROM public.chat_channels WHERE slug = p_slug_or_id;
+    END IF;
+  END IF;
+
+  IF v_id IS NOT NULL AND auth.uid() IS NOT NULL THEN
+    IF EXISTS (SELECT 1 FROM public.chat_channels WHERE id = v_id AND (type = 'global' OR (type = 'room' AND is_private = false))) THEN
+      INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+      VALUES (v_id, auth.uid(), 'member')
+      ON CONFLICT (channel_id, user_id) DO NOTHING;
+    END IF;
+  END IF;
+  
+  IF v_id IS NULL THEN RETURN NULL; END IF;
+
+  SELECT * INTO v_row FROM public._chat_channel_row(v_id, auth.uid());
+  RETURN v_row;
+END; $$;
+
+
+-- Ensure pgcrypto extension is active
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
+-- 3. Create room RPC matching client signature (7 parameters including p_slug)
+DROP FUNCTION IF EXISTS public.chat_create_room(TEXT, TEXT, BOOLEAN);
+DROP FUNCTION IF EXISTS public.chat_create_room(TEXT, TEXT, BOOLEAN, TEXT, INT, TEXT);
+DROP FUNCTION IF EXISTS public.chat_create_room(TEXT, TEXT, BOOLEAN, TEXT, INT, TEXT, TEXT);
+
+CREATE OR REPLACE FUNCTION public.chat_create_room(
+  p_name TEXT,
+  p_description TEXT,
+  p_is_private BOOLEAN,
+  p_icon TEXT DEFAULT '💬',
+  p_max_members INT DEFAULT NULL,
+  p_password TEXT DEFAULT NULL,
+  p_slug TEXT DEFAULT NULL
+)
+RETURNS public.chat_channel_row
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_id UUID;
+  v_slug TEXT;
+  v_code TEXT;
+  v_row public.chat_channel_row;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+  IF p_name IS NULL OR trim(p_name) = '' THEN RAISE EXCEPTION 'Room name required'; END IF;
+  IF p_is_private AND (p_password IS NULL OR trim(p_password) = '') THEN
+    RAISE EXCEPTION 'Password required for private rooms';
+  END IF;
+
+  IF p_slug IS NOT NULL AND trim(p_slug) != '' THEN
+    v_slug := lower(regexp_replace(trim(p_slug), '[^a-zA-Z0-9_-]+', '', 'g'));
+  ELSE
+    v_slug := lower(regexp_replace(trim(p_name), '[^a-zA-Z0-9]+', '-', 'g')) || '-' || substr(gen_random_uuid()::TEXT, 1, 6);
+  END IF;
+
+  v_code := public._chat_gen_room_code();
+
+  INSERT INTO public.chat_channels (
+    type, slug, name, description, is_private, owner_id,
+    room_code, icon, max_members, password_hash
+  )
+  VALUES (
+    'room', v_slug, p_name, COALESCE(p_description, ''), COALESCE(p_is_private, false), auth.uid(),
+    v_code, COALESCE(NULLIF(trim(p_icon), ''), '💬'), p_max_members,
+    CASE WHEN p_is_private AND p_password IS NOT NULL AND trim(p_password) != ''
+         THEN extensions.crypt(p_password, extensions.gen_salt('bf'))
+         ELSE NULL END
+  )
+  RETURNING id INTO v_id;
+
+  INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+  VALUES (v_id, auth.uid(), 'owner');
+
+  SELECT * INTO v_row FROM public._chat_channel_row(v_id, auth.uid());
+  RETURN v_row;
+END; $$;
+
+REVOKE EXECUTE ON FUNCTION public.chat_create_room(TEXT, TEXT, BOOLEAN, TEXT, INT, TEXT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_create_room(TEXT, TEXT, BOOLEAN, TEXT, INT, TEXT, TEXT) TO authenticated, service_role;
+
+-- 4. Join private room RPC with extensions search path
+DROP FUNCTION IF EXISTS public.chat_join_private_room(TEXT, TEXT);
+CREATE OR REPLACE FUNCTION public.chat_join_private_room(p_room_code TEXT, p_password TEXT)
+RETURNS public.chat_channel_row
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_id UUID;
+  v_hash TEXT;
+  v_max INT;
+  v_count INT;
+  v_row public.chat_channel_row;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Sign in required'; END IF;
+
+  SELECT id, password_hash, max_members INTO v_id, v_hash, v_max
+  FROM public.chat_channels
+  WHERE (room_code = p_room_code OR slug = p_room_code) AND type = 'room' AND is_private = true;
+
+  IF v_id IS NULL THEN RAISE EXCEPTION 'Room not found'; END IF;
+  IF v_hash IS NULL OR p_password IS NULL OR extensions.crypt(p_password, v_hash) != v_hash THEN
+    RAISE EXCEPTION 'Incorrect room ID or password';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.chat_channel_members WHERE channel_id = v_id AND user_id = auth.uid() AND is_banned = true) THEN
+    RAISE EXCEPTION 'You are banned from this room';
+  END IF;
+
+  IF v_max IS NOT NULL THEN
+    SELECT COUNT(*) INTO v_count FROM public.chat_channel_members WHERE channel_id = v_id;
+    IF v_count >= v_max AND NOT EXISTS (SELECT 1 FROM public.chat_channel_members WHERE channel_id = v_id AND user_id = auth.uid()) THEN
+      RAISE EXCEPTION 'This room is full';
+    END IF;
+  END IF;
+
+  INSERT INTO public.chat_channel_members (channel_id, user_id, role)
+  VALUES (v_id, auth.uid(), 'member')
+  ON CONFLICT (channel_id, user_id) DO NOTHING;
+
+  SELECT * INTO v_row FROM public._chat_channel_row(v_id, auth.uid());
+  RETURN v_row;
+END; $$;
+
+REVOKE EXECUTE ON FUNCTION public.chat_join_private_room(TEXT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_join_private_room(TEXT, TEXT) TO authenticated, service_role;
+
+-- 5. RLS policy allowing room discovery for global and public/private rooms
+DROP POLICY IF EXISTS "chat_channels_select" ON public.chat_channels;
+CREATE POLICY "chat_channels_select" ON public.chat_channels
+  FOR SELECT USING (
+    type IN ('global', 'room')
+    OR owner_id = auth.uid()
+    OR EXISTS (
+      SELECT 1 FROM public.chat_channel_members m
+      WHERE m.channel_id = chat_channels.id AND m.user_id = auth.uid()
+    )
+  );
+
+-- 6. Discover private rooms RPC
+DROP FUNCTION IF EXISTS public.chat_discover_private_rooms(TEXT, INT);
+CREATE OR REPLACE FUNCTION public.chat_discover_private_rooms(p_search TEXT DEFAULT NULL, p_limit INT DEFAULT 30)
+RETURNS SETOF public.chat_channel_row
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY
+  SELECT r.* FROM public.chat_channels c
+  CROSS JOIN LATERAL public._chat_channel_row(c.id, auth.uid()) r
+  WHERE c.type = 'room' AND c.is_private = true AND (c.is_permanent IS NULL OR c.is_permanent = false)
+    AND (p_search IS NULL OR p_search = '' OR c.name ILIKE '%' || p_search || '%' OR c.slug ILIKE '%' || p_search || '%' OR c.room_code ILIKE '%' || p_search || '%')
+  ORDER BY c.created_at DESC
+  LIMIT p_limit;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.chat_discover_private_rooms(TEXT, INT) FROM PUBLIC;
+-- 7. Live Game timeout claim RPC
+DROP FUNCTION IF EXISTS public.claim_timeout(UUID);
+CREATE OR REPLACE FUNCTION public.claim_timeout(p_game_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_game public.games%ROWTYPE;
+  v_caller UUID := auth.uid();
+  v_elapsed_ms BIGINT;
+  v_winner UUID;
+  v_end_reason TEXT;
+  v_result public.game_result;
+BEGIN
+  IF v_caller IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  SELECT * INTO v_game FROM public.games WHERE id = p_game_id FOR UPDATE;
+  IF NOT FOUND OR v_game.status != 'active' THEN
+    RETURN FALSE;
+  END IF;
+
+  IF v_caller != v_game.white_id AND v_caller != v_game.black_id THEN
+    RAISE EXCEPTION 'Not a player in this game';
+  END IF;
+
+  IF v_game.last_move_at IS NOT NULL THEN
+    v_elapsed_ms := (EXTRACT(EPOCH FROM (now() - v_game.last_move_at)) * 1000)::BIGINT;
+  ELSE
+    v_elapsed_ms := 0;
+  END IF;
+
+  IF v_game.turn = 'w' AND (v_game.white_time_ms - v_elapsed_ms) <= 0 THEN
+    v_winner := v_game.black_id;
+    v_result := 'black';
+    v_end_reason := 'black_won_on_time';
+  ELSIF v_game.turn = 'b' AND (v_game.black_time_ms - v_elapsed_ms) <= 0 THEN
+    v_winner := v_game.white_id;
+    v_result := 'white';
+    v_end_reason := 'white_won_on_time';
+  ELSE
+    RETURN FALSE;
+  END IF;
+
+  UPDATE public.games
+  SET
+    status = 'finished',
+    result = v_result,
+    winner_id = v_winner,
+    end_reason = v_end_reason,
+    white_time_ms = CASE WHEN turn = 'w' THEN 0 ELSE white_time_ms END,
+    black_time_ms = CASE WHEN turn = 'b' THEN 0 ELSE black_time_ms END,
+    updated_at = now()
+  WHERE id = p_game_id;
+
+  RETURN TRUE;
+END; $$;
+
+REVOKE EXECUTE ON FUNCTION public.claim_timeout(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.claim_timeout(UUID) TO authenticated, service_role;
+
+
+
+
+
+

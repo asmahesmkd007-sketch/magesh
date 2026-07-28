@@ -97,11 +97,31 @@ export type ChatReportReason = "spam" | "abuse" | "harassment" | "fake_informati
 // ---------------------------------------------------------------------
 export const fetchMyChannels = () => rpc<ChatChannel[]>("chat_my_channels");
 
-export const discoverRooms = (search?: string, limit = 30) =>
-  rpc<ChatChannel[]>("chat_discover_rooms", { p_search: search ?? null, p_limit: limit });
+export const discoverRooms = async (search?: string, limit = 30) => {
+  try {
+    const res = await rpc<ChatChannel[]>("chat_discover_rooms", {
+      p_search: search ?? null,
+      p_limit: limit,
+    });
+    return res ?? [];
+  } catch (err) {
+    console.error("discoverRooms error:", err);
+    return [];
+  }
+};
 
-export const discoverPrivateRooms = (search?: string, limit = 30) =>
-  rpc<ChatChannel[]>("chat_discover_private_rooms", { p_search: search ?? null, p_limit: limit });
+export const discoverPrivateRooms = async (search?: string, limit = 30) => {
+  try {
+    const res = await rpc<ChatChannel[]>("chat_discover_private_rooms", {
+      p_search: search ?? null,
+      p_limit: limit,
+    });
+    return res ?? [];
+  } catch (err) {
+    console.error("discoverPrivateRooms error:", err);
+    return [];
+  }
+};
 
 const MOCK_GLOBAL_ROOMS: ChatChannel[] = [
   {
@@ -441,8 +461,33 @@ export const fetchPermanentRooms = async () => {
   }
 };
 
-export const fetchChannel = (slugOrId: string) =>
-  rpc<ChatChannel | null>("chat_get_channel", { p_slug_or_id: slugOrId });
+export const fetchChannel = async (slugOrId: string): Promise<ChatChannel | null> => {
+  try {
+    const res = await rpc<ChatChannel | null>("chat_get_channel", { p_slug_or_id: slugOrId });
+    if (res) return res;
+  } catch (error) {
+    console.error("fetchChannel RPC error:", error);
+  }
+  const mock = MOCK_GLOBAL_ROOMS.find((r) => r.slug === slugOrId || r.id === slugOrId);
+  return mock ?? null;
+};
+
+async function resolveChannelId(channelId: string): Promise<string> {
+  if (!channelId) return channelId;
+  if (
+    channelId === "mock-global" ||
+    channelId === "global" ||
+    channelId.startsWith("mock-") ||
+    !channelId.includes("-")
+  ) {
+    const slug = channelId === "mock-global" ? "global" : channelId;
+    const ch = await fetchChannel(slug);
+    if (ch && ch.id && !ch.id.startsWith("mock-")) {
+      return ch.id;
+    }
+  }
+  return channelId;
+}
 
 /** True if no existing room already uses this Room ID (slug). Used for live validation in CreateRoomModal. */
 export const isRoomIdAvailable = async (roomId: string) => {
@@ -483,8 +528,10 @@ export const updateRoom = (channelId: string, name: string, description: string)
 export const deleteRoom = (channelId: string) =>
   rpc<void>("chat_delete_room", { p_channel: channelId });
 
-export const joinRoom = (channelId: string) =>
-  rpc<void>("chat_join_room", { p_channel: channelId });
+export const joinRoom = async (channelId: string) => {
+  const resolved = await resolveChannelId(channelId);
+  return rpc<void>("chat_join_room", { p_channel: resolved });
+};
 
 /** Join a public room by its Room ID (slug) — used by the "Join Room" modal. Throws if private or not found. */
 export const joinPublicRoomBySlug = async (slug: string) => {
@@ -516,40 +563,56 @@ export const setModerator = (channelId: string, userId: string, isMod: boolean) 
 export const getOrCreateDm = (otherUserId: string) =>
   rpc<ChatChannel>("chat_get_or_create_dm", { p_other: otherUserId });
 
-export const markRead = (channelId: string) =>
-  rpc<void>("chat_mark_read", { p_channel: channelId });
+export const markRead = async (channelId: string) => {
+  const resolved = await resolveChannelId(channelId);
+  return rpc<void>("chat_mark_read", { p_channel: resolved });
+};
 
-export const fetchChannelMembers = (channelId: string) =>
-  rpc<ChatMember[]>("chat_channel_members", { p_channel: channelId });
+export const fetchChannelMembers = async (channelId: string) => {
+  const resolved = await resolveChannelId(channelId);
+  return rpc<ChatMember[]>("chat_channel_members", { p_channel: resolved });
+};
 
 // ---------------------------------------------------------------------
 // Messages
 // ---------------------------------------------------------------------
 export const PAGE_SIZE = 40;
 
-export const fetchChannelFeed = (channelId: string, before?: string, limit = PAGE_SIZE) =>
-  rpc<ChatMessage[]>("chat_channel_feed", {
-    p_channel: channelId,
+export const fetchChannelFeed = async (channelId: string, before?: string, limit = PAGE_SIZE) => {
+  const resolved = await resolveChannelId(channelId);
+  return rpc<ChatMessage[]>("chat_channel_feed", {
+    p_channel: resolved,
     p_before: before ?? null,
     p_limit: limit,
   });
+};
 
-export const searchMessages = (channelId: string, query: string, limit = 30) =>
-  rpc<ChatMessage[]>("chat_search_messages", {
-    p_channel: channelId,
+export const searchMessages = async (channelId: string, query: string, limit = 30) => {
+  const resolved = await resolveChannelId(channelId);
+  return rpc<ChatMessage[]>("chat_search_messages", {
+    p_channel: resolved,
     p_query: query,
     p_limit: limit,
   });
+};
 
-export const fetchPinnedMessages = (channelId: string) =>
-  rpc<ChatMessage[]>("chat_pinned_messages", { p_channel: channelId });
+export const fetchPinnedMessages = async (channelId: string) => {
+  const resolved = await resolveChannelId(channelId);
+  return rpc<ChatMessage[]>("chat_pinned_messages", { p_channel: resolved });
+};
 
-export const sendMessage = (channelId: string, content: string, replyToId?: string | null) =>
-  rpc<ChatMessage>("chat_send_message", {
-    p_channel: channelId,
+export const sendMessage = async (
+  channelId: string,
+  content: string,
+  replyToId?: string | null,
+) => {
+  const resolved = await resolveChannelId(channelId);
+  return rpc<ChatMessage>("chat_send_message", {
+    p_channel: resolved,
     p_content: content,
     p_reply_to: replyToId ?? null,
   });
+};
 
 export const deleteMessage = (messageId: string) =>
   rpc<void>("chat_delete_message", { p_message: messageId });

@@ -48,6 +48,19 @@ export function useAuth() {
   return { session, user: session?.user ?? null, loading };
 }
 
+// useProfile() mounts independently in ~8 places (Navbar, page components,
+// etc.) and several are mounted simultaneously — e.g. Navbar + home.tsx both
+// on the Home page. For a user whose profile still has a default "Player…"
+// name, every simultaneously-mounted instance used to detect the same
+// needsUpdate and independently call generateUsername() (which is
+// Math.random()-based, so each call produces a *different* value), racing
+// to write to profiles.username — visible as username flicker, and any
+// write past the first could fail a uniqueness constraint with no retry.
+// This module-level set makes the repair single-flight per userId per page
+// load: only the first useProfile instance to reach the repair step for a
+// given userId performs it: everyone else just displays what they fetched.
+const profileRepairClaimed = new Set<string>();
+
 export function useProfile(userId?: string | null) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,9 +81,12 @@ export function useProfile(userId?: string | null) {
         let prof = data as Profile | null;
 
         if (prof) {
-          // Shim for local dev if migration hasn't run yet
-          if (!(prof as any).full_name && (prof as any).display_name) {
-            prof.full_name = (prof as any).display_name;
+          // Shim for local dev if migration hasn't run yet — some local DBs
+          // may still have the pre-rename `display_name` column instead of
+          // `full_name`.
+          const legacy = prof as unknown as { display_name?: string };
+          if (!prof.full_name && legacy.display_name) {
+            prof.full_name = legacy.display_name;
           }
 
           let needsUpdate = false;
@@ -91,17 +107,34 @@ export function useProfile(userId?: string | null) {
             needsUpdate = true;
           }
 
+          if (needsUpdate && profileRepairClaimed.has(userId)) {
+            // Another simultaneously-mounted instance already claimed this
+            // repair — don't race it with a second, differently-random write.
+            needsUpdate = false;
+          } else if (needsUpdate) {
+            profileRepairClaimed.add(userId);
+          }
+
           if (needsUpdate) {
             let { error } = await supabase
               .from("profiles")
               .update({ full_name: newFullName, username: newUsername })
               .eq("id", userId);
 
-            // Fallback for unmigrated local database
+            // Fallback for unmigrated local database — `display_name` isn't
+            // part of the generated Profile type, hence the loose client
+            // (same pattern as settings-sync.ts / adminClient.ts).
             if (error && error.message.includes("full_name")) {
-              const fallback = await supabase
+              const legacyDb = supabase as unknown as {
+                from: (t: string) => {
+                  update: (v: Record<string, unknown>) => {
+                    eq: (c: string, v: string) => Promise<{ error: typeof error }>;
+                  };
+                };
+              };
+              const fallback = await legacyDb
                 .from("profiles")
-                .update({ display_name: newFullName, username: newUsername } as any)
+                .update({ display_name: newFullName, username: newUsername })
                 .eq("id", userId);
               error = fallback.error;
             }

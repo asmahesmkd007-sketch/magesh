@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Swords, Loader2 } from "lucide-react";
 import { GoldButton, GhostButton } from "@/components/site/Primitives";
 import type { TimeClass } from "@/lib/api/gameClient";
@@ -32,6 +32,14 @@ export function ChallengeModal({
   const [rated, setRated] = useState(false);
   const [sending, setSending] = useState(false);
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   async function handleSend() {
     setSending(true);
     try {
@@ -55,6 +63,9 @@ export function ChallengeModal({
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Challenge ${opponentName}`}
         className="surface-card w-full max-w-sm rounded-[22px] p-6 animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
@@ -62,17 +73,28 @@ export function ChallengeModal({
           <div className="flex items-center gap-2 font-display text-lg">
             <Swords className="h-5 w-5 text-gold" /> Challenge {opponentName}
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button
+            onClick={onClose}
+            aria-label="Close challenge dialog"
+            className="text-muted-foreground hover:text-foreground"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="text-xs uppercase tracking-[0.2em] text-gold/70">Time control</div>
-        <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className="text-xs uppercase tracking-[0.2em] text-gold/70" id="time-control-label">
+          Time control
+        </div>
+        <div
+          className="mt-3 grid grid-cols-3 gap-2"
+          role="group"
+          aria-labelledby="time-control-label"
+        >
           {TIME_CONTROLS.map((t, i) => (
             <button
               key={t.tc + t.label}
               onClick={() => setPick(i)}
+              aria-pressed={i === pick}
               className={`rounded-lg border px-2 py-1.5 text-xs transition ${
                 i === pick
                   ? "border-gold bg-gold/10 text-gold"

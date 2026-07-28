@@ -11,9 +11,13 @@ const supabase = createClient(
 async function main() {
   console.log(`Found ${PUZZLES.length} puzzles to seed.`);
 
+  // public.puzzles.id is a TEXT primary key with no DEFAULT (must be
+  // supplied) and .moves is TEXT[] (must be an array, not a joined string)
+  // — see supabase/schema.sql's PUZZLE LIBRARY EXPANSION section.
   const items = PUZZLES.map((p) => ({
+    id: p.id,
     fen: p.fen,
-    moves: p.moves.join(" "),
+    moves: p.moves,
     rating: p.rating,
     theme: p.theme,
     category: p.category,
@@ -24,7 +28,7 @@ async function main() {
     enabled: true,
   }));
 
-  const { error } = await supabase.from("puzzles").insert(items);
+  const { error } = await supabase.from("puzzles").upsert(items, { onConflict: "id" });
 
   if (error) {
     console.error("Failed to seed puzzles:", error);

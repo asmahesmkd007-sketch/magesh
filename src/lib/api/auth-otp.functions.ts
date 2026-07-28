@@ -107,16 +107,55 @@ function generateOtp(): string {
 }
 
 async function sendOtpEmail(email: string, otp: string): Promise<void> {
+  const emailjsServiceId = process.env.EMAILJS_SERVICE_ID || process.env.VITE_EMAILJS_SERVICE_ID;
+  const emailjsTemplateId = process.env.EMAILJS_TEMPLATE_ID || process.env.VITE_EMAILJS_TEMPLATE_ID;
+  const emailjsPublicKey = process.env.EMAILJS_PUBLIC_KEY || process.env.VITE_EMAILJS_PUBLIC_KEY;
+  const emailjsPrivateKey = process.env.EMAILJS_PRIVATE_KEY || process.env.VITE_EMAILJS_PRIVATE_KEY;
+
+  if (emailjsServiceId && emailjsTemplateId && emailjsPublicKey) {
+    logger.info("Sending verification email via EmailJS", { to: email, serviceId: emailjsServiceId });
+    try {
+      const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_id: emailjsServiceId,
+          template_id: emailjsTemplateId,
+          user_id: emailjsPublicKey,
+          accessToken: emailjsPrivateKey || undefined,
+          template_params: {
+            to_email: email,
+            email: email,
+            otp: otp,
+            otp_code: otp,
+          },
+        }),
+      });
+
+      const body = await res.text().catch(() => "");
+      if (!res.ok) {
+        logger.error("EmailJS rejected the verification email", { to: email, status: res.status, body });
+        throw new Error(`EmailJS failed to send verification email: ${body || `HTTP ${res.status}`}`);
+      }
+
+      logger.info("EmailJS accepted the verification email", { to: email });
+      return;
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith("EmailJS failed")) {
+        throw err;
+      }
+      logger.error("EmailJS request failed (network error)", { to: email, error: err });
+      throw new Error("Failed to send verification email via EmailJS. Please try again.");
+    }
+  }
+
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM || "ChessOx <onboarding@resend.dev>";
 
   if (!apiKey) {
-    // Never report success without a real provider confirming delivery —
-    // logging-and-pretending-it-sent was indistinguishable from a real send
-    // in the UI, so no real email ever reached an inbox. Fail loudly instead.
-    logger.error("RESEND_API_KEY not configured — cannot send verification email", { email });
+    logger.error("Neither EmailJS nor Resend is configured — cannot send verification email", { email });
     throw new Error(
-      "Email service is not configured (RESEND_API_KEY is missing). No email was sent — contact support or set RESEND_API_KEY in .env.",
+      "Email service is not configured. Set EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBLIC_KEY in .env.",
     );
   }
 
@@ -155,14 +194,12 @@ async function sendOtpEmail(email: string, otp: string): Promise<void> {
   const body = await res.text().catch(() => "");
   if (!res.ok) {
     logger.error("Resend rejected the verification email", { to: email, status: res.status, body });
-    // Surface Resend's own reason (e.g. unverified domain, invalid recipient
-    // for a sandbox sender) instead of a generic message, per delivery spec.
     let reason = body;
     try {
       const parsed = JSON.parse(body) as { message?: string };
       if (parsed?.message) reason = parsed.message;
     } catch {
-      // body wasn't JSON — use it as-is
+      // body wasn't JSON
     }
     throw new Error(`Failed to send verification email: ${reason || `HTTP ${res.status}`}`);
   }

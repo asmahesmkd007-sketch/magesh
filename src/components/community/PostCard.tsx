@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import { Card } from "@/components/site/Primitives";
 import { UserAvatar } from "@/components/site/UserAvatar";
+import { FriendButton } from "@/components/friends/FriendButton";
 import type { CommunityPost, ReportReason } from "@/lib/api/communityClient";
 import { useCommunityActions } from "@/hooks/useCommunity";
 import { FenViewer, PgnViewer, PuzzleViewer } from "./PgnViewer";
@@ -244,6 +245,14 @@ export function PostCard({ post, detail = false }: { post: CommunityPost; detail
               <span className="rounded-full border border-emerald/30 bg-emerald/10 px-2 py-px text-[10px] text-emerald">
                 {TYPE_LABEL[post.post_type]}
               </span>
+            )}
+            {!isOwn && (
+              <FriendButton
+                targetUserId={post.user_id}
+                targetName={a?.full_name ?? a?.username}
+                className="h-5 w-5"
+                compact
+              />
             )}
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-[11px] text-muted-foreground">

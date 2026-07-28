@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
+import type { ComponentPropsWithoutRef, CSSProperties, ElementType, ReactNode } from "react";
 
 // Polymorphic button props: render as a <button> by default, or any element/
 // component via `as` (e.g. an anchor), forwarding that element's native props.
@@ -66,8 +66,22 @@ export function PageShell({
   );
 }
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`surface-card rounded-[22px] ${className}`}>{children}</div>;
+export function Card({
+  children,
+  className = "",
+  style,
+  onClick,
+}: {
+  children: ReactNode;
+  className?: string;
+  style?: CSSProperties;
+  onClick?: () => void;
+}) {
+  return (
+    <div className={`surface-card rounded-[22px] ${className}`} style={style} onClick={onClick}>
+      {children}
+    </div>
+  );
 }
 
 export function Stat({

@@ -34,6 +34,7 @@ const MORE_ITEMS = [
   { to: "/policies", label: "Policies" },
   { to: "/feedback", label: "Feedback" },
   { to: "/report", label: "Report" },
+  { to: "/friends", label: "👥 Friends" },
 ] as const;
 
 const NAV_GUEST = [
@@ -256,7 +257,6 @@ export function Navbar() {
               </button>
               {userMenu && (
                 <div className="absolute right-0 mt-2 w-52 rounded-xl border border-gold/20 bg-background/95 p-1 shadow-xl backdrop-blur-xl">
-                  <MenuLink to="/home" label="Home" onClick={() => setUserMenu(false)} />
                   <MenuLink to="/profile" label="Profile" onClick={() => setUserMenu(false)} />
                   <MenuLink to="/dashboard" label="Dashboard" onClick={() => setUserMenu(false)} />
                   <MenuLink
@@ -264,8 +264,6 @@ export function Navbar() {
                     label="Match History"
                     onClick={() => setUserMenu(false)}
                   />
-                  <MenuLink to="/premium" label="Premium" onClick={() => setUserMenu(false)} />
-                  <MenuLink to="/settings" label="Settings" onClick={() => setUserMenu(false)} />
                   <MenuLink
                     to="/notifications"
                     label="Notifications"

@@ -17,6 +17,7 @@ const AUTH_ITEMS = [
   { to: "/play", label: "Play", icon: Swords },
   { to: "/puzzles", label: "Puzzles", icon: Puzzle },
   { to: "/learn", label: "How To Use", icon: GraduationCap },
+  { to: "/friends", label: "Friends", icon: Users },
   { to: "/profile", label: "Profile", icon: User },
 ] as const;
 
@@ -35,7 +36,7 @@ export function MobileNav() {
   const ITEMS = user ? AUTH_ITEMS : GUEST_ITEMS;
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-gold/12 bg-background/88 backdrop-blur-xl lg:hidden">
-      <ul className="mx-auto grid max-w-md grid-cols-5 px-2 py-1">
+      <ul className={`mx-auto grid max-w-md px-2 py-1 ${user ? "grid-cols-6" : "grid-cols-5"}`}>
         {ITEMS.map((item) => {
           const active = item.to === "/" ? path === "/" : path.startsWith(item.to);
           const Icon = item.icon;

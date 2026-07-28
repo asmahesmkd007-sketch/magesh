@@ -14,6 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import { UserAvatar } from "@/components/site/UserAvatar";
+import { FriendButton } from "@/components/friends/FriendButton";
 import { GoldButton } from "@/components/site/Primitives";
 import { useAuth } from "@/hooks/useAuth";
 import { useChannelMembers, useChatActions, useTypingIndicator } from "@/hooks/useChat";
@@ -85,7 +86,27 @@ export function ChannelView({ channel }: { channel: ChatChannel }) {
           </Link>
         )}
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">{title}</div>
+          <div className="flex items-center gap-1.5">
+            <div className="truncate text-sm font-medium">{title}</div>
+            {channel.type === "room" && (
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium border ${
+                  channel.is_private
+                    ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
+                    : "bg-emerald/15 text-emerald border-emerald/30"
+                }`}
+              >
+                {channel.is_private ? "Private" : "Public"}
+              </span>
+            )}
+            {channel.type === "dm" && channel.other_user && (
+              <FriendButton
+                targetUserId={channel.other_user.id}
+                targetName={channel.other_user.full_name}
+                compact
+              />
+            )}
+          </div>
           <div className="truncate text-[11px] text-muted-foreground">
             {channel.type === "global" && (
               <>
@@ -96,7 +117,14 @@ export function ChannelView({ channel }: { channel: ChatChannel }) {
               <>
                 {channel.room_code && <>ID: {channel.room_code} · </>}
                 {channel.member_count} member{channel.member_count === 1 ? "" : "s"} ·{" "}
-                {channel.online_count} online
+                {channel.online_count} online ·{" "}
+                <span
+                  className={
+                    channel.is_private ? "font-medium text-rose-300" : "font-medium text-emerald"
+                  }
+                >
+                  {channel.is_private ? "Private Room" : "Public Room"}
+                </span>
               </>
             )}
             {channel.type === "dm" && `@${channel.other_user?.username}`}

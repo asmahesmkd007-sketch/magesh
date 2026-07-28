@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useGameSettings } from "@/hooks/useGameSettings";
+import { isNotificationKindEnabled } from "@/lib/notificationCategories";
 import { toast } from "sonner";
 import { noindexSeo } from "@/lib/seo";
 
@@ -86,8 +88,16 @@ function kindIcon(kind: string) {
 
 function Notifs() {
   const { user, loading: authLoading } = useAuth();
+  const { settings } = useGameSettings();
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const prefs = {
+    notify_tournament_starting: settings.notify_tournament_starting,
+    notify_challenge_received: settings.notify_challenge_received,
+    notify_community: settings.notify_community,
+  };
+  const visibleNotifs = notifs.filter((n) => isNotificationKindEnabled(n.kind, prefs));
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -118,15 +128,22 @@ function Notifs() {
           filter: `user_id=eq.${user.id}`,
         },
         (p) => {
-          setNotifs((prev) => [p.new as Notif, ...prev]);
-          toast.info((p.new as Notif).title);
+          const n = p.new as Notif;
+          setNotifs((prev) => [n, ...prev]);
+          if (isNotificationKindEnabled(n.kind, prefs)) toast.info(n.title);
         },
       )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    user,
+    settings.notify_tournament_starting,
+    settings.notify_challenge_received,
+    settings.notify_community,
+  ]);
 
   async function markRead(id: string) {
     setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
@@ -147,7 +164,7 @@ function Notifs() {
     toast.success("All marked as read");
   }
 
-  const unreadCount = notifs.filter((n) => !n.read).length;
+  const unreadCount = visibleNotifs.filter((n) => !n.read).length;
 
   if (!authLoading && !user) {
     return (
@@ -183,7 +200,7 @@ function Notifs() {
         <div className="grid place-items-center py-24">
           <Loader2 className="h-8 w-8 animate-spin text-gold" />
         </div>
-      ) : notifs.length === 0 ? (
+      ) : visibleNotifs.length === 0 ? (
         <Card className="p-10 text-center">
           <Bell className="mx-auto h-10 w-10 text-gold/30" />
           <p className="mt-4 text-muted-foreground">
@@ -192,7 +209,7 @@ function Notifs() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {notifs.map((n) => {
+          {visibleNotifs.map((n) => {
             const Icon = kindIcon(n.kind);
             const inner = (
               <div

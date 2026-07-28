@@ -177,31 +177,40 @@ function RootComponent() {
       ([{ supabase }, { startPresence }]) => {
         if (!mounted) return;
 
-        // Automatically seed daily tournaments if none are upcoming
-        (supabase as unknown as { rpc: (fn: string) => Promise<unknown> })
-          .rpc("seed_daily_tournaments")
-          .catch(() => {});
+        // Automatically seed daily tournaments if none are upcoming.
+        // Wrapped in Promise.resolve(): supabase-js's rpc() builder is
+        // thenable but doesn't implement the full Promise interface, so
+        // chaining .catch() straight onto it throws
+        // "supabase.rpc(...).catch is not a function" on every page load.
+        Promise.resolve(
+          (supabase as unknown as { rpc: (fn: string) => Promise<unknown> }).rpc(
+            "seed_daily_tournaments",
+          ),
+        ).catch(() => {});
 
         // Pull the user's saved game settings so they follow them across devices.
         import("@/lib/settings/settings-sync").then((m) => m.loadSettingsOnce()).catch(() => {});
 
         const { data } = supabase.auth.onAuthStateChange((event, session) => {
-          if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
           router.invalidate();
           if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
 
-          if (event === "SIGNED_IN" && session?.user) {
+          if (session?.user) {
             stopPresence?.();
             stopPresence = startPresence(supabase, session.user.id);
-            import("@/lib/settings/settings-sync")
-              .then((m) => m.loadSettingsFromDb(session.user.id))
-              .catch(() => {});
-            // Update login streak (idempotent per calendar day — safe to call on every sign-in)
-            (supabase as unknown as { rpc: (fn: string) => Promise<unknown> })
-              .rpc("update_login_streak")
-              .catch(() => {});
-          }
-          if (event === "SIGNED_OUT") {
+            if (event === "SIGNED_IN") {
+              import("@/lib/settings/settings-sync")
+                .then((m) => m.loadSettingsFromDb(session.user.id))
+                .catch(() => {});
+              // Update login streak (idempotent per calendar day — safe to call on every sign-in).
+              // Same Promise.resolve() wrap as above, for the same reason.
+              Promise.resolve(
+                (supabase as unknown as { rpc: (fn: string) => Promise<unknown> }).rpc(
+                  "update_login_streak",
+                ),
+              ).catch(() => {});
+            }
+          } else {
             stopPresence?.();
             stopPresence = null;
           }

@@ -1,9 +1,17 @@
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Swords, Check, X, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Card, GoldButton, GhostButton, Pill } from "@/components/site/Primitives";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import type { ChallengeRow } from "@/types/friend";
+
+const GAME_TYPE_LABELS: Record<string, string> = {
+  bullet: "Bullet",
+  blitz: "Blitz",
+  rapid: "Rapid",
+  classical: "Classical",
+  correspondence: "Correspondence",
+};
 
 function relTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -18,9 +26,11 @@ function relTime(iso: string) {
 export function IncomingChallengeCard({
   challenge,
   onRespond,
+  style,
 }: {
   challenge: ChallengeRow;
   onRespond: (id: string, accept: boolean) => Promise<string | null | void>;
+  style?: React.CSSProperties;
 }) {
   const navigate = useNavigate();
   const [busy, setBusy] = useState<"accept" | "decline" | null>(null);
@@ -37,12 +47,33 @@ export function IncomingChallengeCard({
   }
 
   return (
-    <Card className="flex items-center gap-3 p-4">
-      <UserAvatar avatarUrl={challenge.other_avatar_url} displayName={name} size="sm" />
+    <Card
+      style={style}
+      className="animate-rise-in relative flex flex-col gap-3 overflow-hidden p-4 transition-colors duration-200 hover:border-gold/25 sm:flex-row sm:items-center"
+    >
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-gold/60 to-transparent" />
+      <Link to="/profile" search={{ id: challenge.other_id }} className="shrink-0">
+        <UserAvatar avatarUrl={challenge.other_avatar_url} displayName={name} size="sm" />
+      </Link>
       <div className="min-w-0 flex-1">
-        <div className="text-sm">{name} challenged you</div>
+        <div className="text-sm">
+          <Link
+            to="/profile"
+            search={{ id: challenge.other_id }}
+            className="font-medium hover:text-gold"
+          >
+            {name}
+          </Link>{" "}
+          challenged you
+          {typeof challenge.other_rating === "number" && (
+            <span className="text-muted-foreground"> · {challenge.other_rating} rating</span>
+          )}
+        </div>
         <div className="mt-1 flex flex-wrap gap-1.5">
-          <Pill tone="gold">{challenge.time_control}</Pill>
+          <Pill tone="gold">
+            <Swords className="h-3 w-3" /> {challenge.time_control}
+          </Pill>
+          <Pill tone="muted">{GAME_TYPE_LABELS[challenge.time_class] ?? challenge.time_class}</Pill>
           <Pill tone={challenge.is_rated ? "emerald" : "muted"}>
             {challenge.is_rated ? "Rated" : "Casual"}
           </Pill>
@@ -50,7 +81,11 @@ export function IncomingChallengeCard({
         </div>
       </div>
       <div className="flex shrink-0 gap-2">
-        <GoldButton onClick={() => handle(true)} disabled={busy !== null}>
+        <GoldButton
+          onClick={() => handle(true)}
+          disabled={busy !== null}
+          className="flex-1 sm:flex-none"
+        >
           {busy === "accept" ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
@@ -58,7 +93,11 @@ export function IncomingChallengeCard({
           )}
           Accept
         </GoldButton>
-        <GhostButton onClick={() => handle(false)} disabled={busy !== null}>
+        <GhostButton
+          onClick={() => handle(false)}
+          disabled={busy !== null}
+          className="flex-1 sm:flex-none"
+        >
           {busy === "decline" ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
@@ -74,17 +113,26 @@ export function IncomingChallengeCard({
 export function OutgoingChallengeCard({
   challenge,
   onCancel,
+  style,
 }: {
   challenge: ChallengeRow;
   onCancel: (id: string) => void;
+  style?: React.CSSProperties;
 }) {
   const name = challenge.other_display ?? challenge.other_username ?? "Unknown";
   return (
-    <Card className="flex items-center gap-3 p-4">
+    <Card
+      style={style}
+      className="animate-rise-in flex items-center gap-3 p-4 transition-colors duration-200 hover:border-gold/20"
+    >
       <UserAvatar avatarUrl={challenge.other_avatar_url} displayName={name} size="sm" />
       <div className="min-w-0 flex-1">
-        <div className="text-sm flex items-center gap-2">
-          <Swords className="h-3.5 w-3.5 text-gold" /> {name} · Waiting…
+        <div className="flex items-center gap-2 text-sm">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-gold/60" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-gold" />
+          </span>
+          {name} · Waiting…
         </div>
         <div className="mt-1 flex flex-wrap gap-1.5">
           <Pill tone="gold">{challenge.time_control}</Pill>

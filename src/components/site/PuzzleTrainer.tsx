@@ -38,6 +38,14 @@ export function PuzzleTrainer() {
   const [hintUsed, setHintUsed] = useState(false);
   const startTime = useRef<number>(Date.now());
   const timers = useRef<number[]>([]);
+  // Tracks which puzzle.id the board/game state was last built for, so the
+  // init effect below only runs when a genuinely new puzzle loads — not on
+  // every `progress` update (updateProgress() calls setProgress() after
+  // every move, which would otherwise re-run this effect on each move and
+  // rebuild gameRef.current from scratch, wiping chess.js's move history —
+  // silently breaking g.undo() for the wrong-move revert — and racing local
+  // step/status state against the value it had before the move was made).
+  const initializedPuzzleId = useRef<string | null>(null);
 
   // Timer state for countdown
   const [timeLeft, setTimeLeft] = useState<string>("--");
@@ -73,23 +81,39 @@ export function PuzzleTrainer() {
   }, [locked, stats?.daily_reset_time, fetchDailyPuzzle]);
 
   useEffect(() => {
-    if (puzzle && progress) {
-      gameRef.current = new Chess(progress.board_fen || puzzle.fen);
-      setBoard(gameRef.current.board());
-      setStep(progress.step_index);
-      setLocalStatus(progress.status === "NOT_STARTED" ? "IN_PROGRESS" : progress.status);
-      setWrongMoves(progress.wrong_moves_count);
-      setHintUsed(progress.hint_used);
-      startTime.current = Date.now();
+    if (!puzzle || !progress) return;
+    // Guard: only (re)initialize when the puzzle actually changed. Without
+    // this, every updateProgress() response (fired after each move) would
+    // re-trigger this effect and stomp gameRef.current/step/wrongMoves/
+    // hintUsed mid-puzzle.
+    if (initializedPuzzleId.current === puzzle.id) return;
+    initializedPuzzleId.current = puzzle.id;
 
-      if (progress.last_move_played) {
-        setLastMove({
-          from: progress.last_move_played.slice(0, 2),
-          to: progress.last_move_played.slice(2, 4),
-        });
-      } else {
-        setLastMove(null);
-      }
+    // A new puzzle is replacing whatever was on screen — any timers still
+    // pending from the previous puzzle (bot-reply delay, wrong-move undo,
+    // flash reset, solution playback) must not fire against this puzzle's
+    // fresh Chess instance.
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+
+    gameRef.current = new Chess(progress.board_fen || puzzle.fen);
+    setBoard(gameRef.current.board());
+    setStep(progress.step_index);
+    setLocalStatus(progress.status === "NOT_STARTED" ? "IN_PROGRESS" : progress.status);
+    setWrongMoves(progress.wrong_moves_count);
+    setHintUsed(progress.hint_used);
+    setSelected(null);
+    setTargets([]);
+    setFlash(null);
+    startTime.current = Date.now();
+
+    if (progress.last_move_played) {
+      setLastMove({
+        from: progress.last_move_played.slice(0, 2),
+        to: progress.last_move_played.slice(2, 4),
+      });
+    } else {
+      setLastMove(null);
     }
   }, [puzzle, progress]);
 
@@ -136,17 +160,33 @@ export function PuzzleTrainer() {
 
   const applyUci = (u: string) => {
     if (!gameRef.current) return null;
-    const made = gameRef.current.move({
-      from: u.slice(0, 2),
-      to: u.slice(2, 4),
-      promotion: u.length > 4 ? u[4] : undefined,
-    });
+    let made;
+    try {
+      made = gameRef.current.move({
+        from: u.slice(0, 2),
+        to: u.slice(2, 4),
+        promotion: u.length > 4 ? u[4] : undefined,
+      });
+    } catch {
+      return null;
+    }
     setLastMove({ from: made.from, to: made.to });
     soundForChessMove(made, gameRef.current);
     return made;
   };
 
   const getTimeSpent = () => (progress?.time_spent_ms || 0) + (Date.now() - startTime.current);
+
+  // Advances to the next puzzle. Cancels any timers still pending for the
+  // puzzle being left (in particular the SOLVED auto-advance timeout below)
+  // so a manual "Next Puzzle" click can never race with it into firing two
+  // overlapping fetchDailyPuzzle() calls — fetchDailyPuzzle() itself also
+  // guards against concurrent in-flight calls as a second layer of safety.
+  const goToNextPuzzle = () => {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+    fetchDailyPuzzle();
+  };
 
   const checkSquare = (() => {
     const g = gameRef.current;
@@ -175,22 +215,49 @@ export function PuzzleTrainer() {
 
     const expected = puzzle.moves[step];
     if (selected + sq === expected.slice(0, 4)) {
-      applyUci(expected);
+      const playerMade = applyUci(expected);
+      if (!playerMade) {
+        toast.error("This puzzle's data is invalid — skipping.");
+        setLocalStatus("FAILED");
+        updateProgress({
+          status: "FAILED",
+          time_spent_ms: getTimeSpent(),
+          board_fen: g.fen(),
+          step_index: step,
+          wrong_moves_count: wrongMoves,
+          hint_used: hintUsed,
+          last_move_played: null,
+        });
+        return;
+      }
       sync();
-      doFlash("good");
 
       const newStep = step + 1;
+      const isFinalMove = newStep >= puzzle.moves.length;
       let nextStatus: PuzzleStatus = "IN_PROGRESS";
 
-      if (newStep >= puzzle.moves.length) {
-        nextStatus = "SOLVED";
-        setLocalStatus("SOLVED");
-        toast.success("Puzzle solved — brilliant! 👑");
-        timers.current.push(
-          window.setTimeout(() => {
-            fetchDailyPuzzle();
-          }, 1500),
-        );
+      if (isFinalMove) {
+        // The puzzle's own solution array is exhausted, but only a real
+        // checkmate on the board completes the puzzle — this guards against
+        // mislabeled/incomplete solution data silently marking a puzzle solved.
+        if (g.isCheckmate()) {
+          doFlash("good");
+          nextStatus = "SOLVED";
+          setLocalStatus("SOLVED");
+          toast.success("Puzzle solved — brilliant! 👑");
+          timers.current.push(
+            window.setTimeout(() => {
+              goToNextPuzzle();
+            }, 1500),
+          );
+        } else {
+          doFlash("bad");
+          nextStatus = "FAILED";
+          setLocalStatus("FAILED");
+          toast.error("Not quite — that wasn't checkmate.");
+        }
+      } else {
+        doFlash("good");
       }
 
       updateProgress({
@@ -208,7 +275,21 @@ export function PuzzleTrainer() {
         setStep(newStep + 1);
         timers.current.push(
           window.setTimeout(() => {
-            applyUci(reply);
+            const botMade = applyUci(reply);
+            if (!botMade) {
+              toast.error("This puzzle's data is invalid — skipping.");
+              setLocalStatus("FAILED");
+              updateProgress({
+                status: "FAILED",
+                time_spent_ms: getTimeSpent(),
+                board_fen: g.fen(),
+                step_index: newStep,
+                wrong_moves_count: wrongMoves,
+                hint_used: hintUsed,
+                last_move_played: null,
+              });
+              return;
+            }
             sync();
             updateProgress({
               status: "IN_PROGRESS",
@@ -225,25 +306,29 @@ export function PuzzleTrainer() {
       return;
     }
 
-    // Wrong attempt — if legal, flash red and take it back
+    // Wrong attempt — if legal, flash red and take it back, then let the
+    // player try again. A single mis-click shouldn't fail the whole puzzle
+    // (and burn one of the day's 3 attempts) — only a correct final move,
+    // "Show Solution", or genuinely broken puzzle data ends the attempt.
+    // wrong_moves_count is tracked precisely so multiple tries are expected.
     try {
       const made = g.move({ from: selected, to: sq, promotion: "q" });
       setLastMove({ from: made.from, to: made.to });
       sync();
       doFlash("bad");
-      setWrongMoves((w) => w + 1);
+      const newWrongMoves = wrongMoves + 1;
+      setWrongMoves(newWrongMoves);
       toast.error("Not the best move — try again.");
 
       updateProgress({
-        status: "FAILED",
+        status: "IN_PROGRESS",
         time_spent_ms: getTimeSpent(),
         board_fen: g.fen(),
         step_index: step,
-        wrong_moves_count: wrongMoves + 1,
+        wrong_moves_count: newWrongMoves,
         hint_used: hintUsed,
         last_move_played: made.from + made.to,
       });
-      setLocalStatus("FAILED");
 
       timers.current.push(
         window.setTimeout(() => {
@@ -292,13 +377,34 @@ export function PuzzleTrainer() {
     });
 
     let i = step;
+    const finish = () => {
+      setLocalStatus("SKIPPED");
+      // The board has now played out through the full solution locally —
+      // sync the final position back so a reload/resume (or the admin
+      // view) doesn't see the pre-playback board_fen/step_index that the
+      // call above recorded before any solution moves were applied.
+      if (!gameRef.current) return;
+      updateProgress({
+        status: "SKIPPED",
+        time_spent_ms: getTimeSpent(),
+        board_fen: gameRef.current.fen(),
+        step_index: i,
+        wrong_moves_count: wrongMoves,
+        hint_used: hintUsed,
+        last_move_played: i > step ? puzzle.moves[i - 1] : null,
+      });
+    };
     const playNext = () => {
       if (i >= puzzle.moves.length) {
-        setLocalStatus("SKIPPED");
+        finish();
         return;
       }
-      applyUci(puzzle.moves[i]);
+      const made = applyUci(puzzle.moves[i]);
       sync();
+      if (!made) {
+        finish();
+        return;
+      }
       i += 1;
       timers.current.push(window.setTimeout(playNext, 800));
     };
@@ -477,7 +583,7 @@ export function PuzzleTrainer() {
             <div className="mt-2 text-xs text-muted-foreground/70">
               Solution: {puzzle.moves.filter((_, i) => i % 2 === 0).join("  ")}
             </div>
-            <GoldButton className="mt-3 w-full" onClick={() => fetchDailyPuzzle()}>
+            <GoldButton className="mt-3 w-full" onClick={goToNextPuzzle}>
               Next Puzzle <ArrowRight className="h-4 w-4" />
             </GoldButton>
           </div>

@@ -50,6 +50,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      admin_audit_logs: {
+        Row: {
+          action: string;
+          admin_id: string | null;
+          created_at: string;
+          id: string;
+          metadata: Json;
+          new_status: string | null;
+          old_status: string | null;
+          target_id: string | null;
+          target_type: string;
+        };
+        Insert: {
+          action: string;
+          admin_id?: string | null;
+          created_at?: string;
+          id?: string;
+          metadata?: Json;
+          new_status?: string | null;
+          old_status?: string | null;
+          target_id?: string | null;
+          target_type: string;
+        };
+        Update: {
+          action?: string;
+          admin_id?: string | null;
+          created_at?: string;
+          id?: string;
+          metadata?: Json;
+          new_status?: string | null;
+          old_status?: string | null;
+          target_id?: string | null;
+          target_type?: string;
+        };
+        Relationships: [];
+      };
       bank_details: {
         Row: {
           account_holder_name: string;
@@ -334,32 +370,233 @@ export type Database = {
           },
         ];
       };
+      clan_activity: {
+        Row: {
+          actor_id: string | null;
+          clan_id: string;
+          created_at: string;
+          id: string;
+          meta: Json;
+          target_id: string | null;
+          type: string;
+        };
+        Insert: {
+          actor_id?: string | null;
+          clan_id: string;
+          created_at?: string;
+          id?: string;
+          meta?: Json;
+          target_id?: string | null;
+          type: string;
+        };
+        Update: {
+          actor_id?: string | null;
+          clan_id?: string;
+          created_at?: string;
+          id?: string;
+          meta?: Json;
+          target_id?: string | null;
+          type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clan_activity_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clan_activity_clan_id_fkey";
+            columns: ["clan_id"];
+            isOneToOne: false;
+            referencedRelation: "clan_leaderboard";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clan_activity_clan_id_fkey";
+            columns: ["clan_id"];
+            isOneToOne: false;
+            referencedRelation: "clans";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clan_activity_target_id_fkey";
+            columns: ["target_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      clan_awards: {
+        Row: {
+          awarded_at: string;
+          clan_id: string;
+          description: string | null;
+          icon: string | null;
+          id: string;
+          title: string;
+        };
+        Insert: {
+          awarded_at?: string;
+          clan_id: string;
+          description?: string | null;
+          icon?: string | null;
+          id?: string;
+          title: string;
+        };
+        Update: {
+          awarded_at?: string;
+          clan_id?: string;
+          description?: string | null;
+          icon?: string | null;
+          id?: string;
+          title?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clan_awards_clan_id_fkey";
+            columns: ["clan_id"];
+            isOneToOne: false;
+            referencedRelation: "clan_leaderboard";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clan_awards_clan_id_fkey";
+            columns: ["clan_id"];
+            isOneToOne: false;
+            referencedRelation: "clans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      clan_deletion_log: {
+        Row: {
+          clan_id: string;
+          created_at: string;
+          deleted_by: string | null;
+          id: string;
+          member_count: number;
+          name: string;
+          reason: string;
+          tag: string;
+        };
+        Insert: {
+          clan_id: string;
+          created_at?: string;
+          deleted_by?: string | null;
+          id?: string;
+          member_count?: number;
+          name: string;
+          reason?: string;
+          tag: string;
+        };
+        Update: {
+          clan_id?: string;
+          created_at?: string;
+          deleted_by?: string | null;
+          id?: string;
+          member_count?: number;
+          name?: string;
+          reason?: string;
+          tag?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clan_deletion_log_deleted_by_fkey";
+            columns: ["deleted_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      clan_invites: {
+        Row: {
+          clan_id: string;
+          created_at: string;
+          id: string;
+          invitee_id: string;
+          inviter_id: string;
+          status: Database["public"]["Enums"]["clan_request_status"];
+        };
+        Insert: {
+          clan_id: string;
+          created_at?: string;
+          id?: string;
+          invitee_id: string;
+          inviter_id: string;
+          status?: Database["public"]["Enums"]["clan_request_status"];
+        };
+        Update: {
+          clan_id?: string;
+          created_at?: string;
+          id?: string;
+          invitee_id?: string;
+          inviter_id?: string;
+          status?: Database["public"]["Enums"]["clan_request_status"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clan_invites_clan_id_fkey";
+            columns: ["clan_id"];
+            isOneToOne: false;
+            referencedRelation: "clan_leaderboard";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clan_invites_clan_id_fkey";
+            columns: ["clan_id"];
+            isOneToOne: false;
+            referencedRelation: "clans";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clan_invites_invitee_id_fkey";
+            columns: ["invitee_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clan_invites_inviter_id_fkey";
+            columns: ["inviter_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       clan_join_requests: {
         Row: {
           clan_id: string;
-          created_at: string | null;
+          created_at: string;
           id: string;
-          sender_type: string | null;
-          status: string | null;
-          updated_at: string | null;
+          message: string;
+          resolved_at: string | null;
+          resolved_by: string | null;
+          status: Database["public"]["Enums"]["clan_request_status"];
           user_id: string;
         };
         Insert: {
           clan_id: string;
-          created_at?: string | null;
+          created_at?: string;
           id?: string;
-          sender_type?: string | null;
-          status?: string | null;
-          updated_at?: string | null;
+          message?: string;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          status?: Database["public"]["Enums"]["clan_request_status"];
           user_id: string;
         };
         Update: {
           clan_id?: string;
-          created_at?: string | null;
+          created_at?: string;
           id?: string;
-          sender_type?: string | null;
-          status?: string | null;
-          updated_at?: string | null;
+          message?: string;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          status?: Database["public"]["Enums"]["clan_request_status"];
           user_id?: string;
         };
         Relationships: [
@@ -367,7 +604,21 @@ export type Database = {
             foreignKeyName: "clan_join_requests_clan_id_fkey";
             columns: ["clan_id"];
             isOneToOne: false;
+            referencedRelation: "clan_leaderboard";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clan_join_requests_clan_id_fkey";
+            columns: ["clan_id"];
+            isOneToOne: false;
             referencedRelation: "clans";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clan_join_requests_resolved_by_fkey";
+            columns: ["resolved_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
           {
@@ -383,28 +634,38 @@ export type Database = {
         Row: {
           clan_id: string;
           id: string;
-          joined_at: string | null;
-          role: string | null;
+          joined_at: string;
+          last_read_at: string;
+          role: Database["public"]["Enums"]["clan_role"];
           user_id: string;
-          war_points: number | null;
+          war_points: number;
         };
         Insert: {
           clan_id: string;
           id?: string;
-          joined_at?: string | null;
-          role?: string | null;
+          joined_at?: string;
+          last_read_at?: string;
+          role?: Database["public"]["Enums"]["clan_role"];
           user_id: string;
-          war_points?: number | null;
+          war_points?: number;
         };
         Update: {
           clan_id?: string;
           id?: string;
-          joined_at?: string | null;
-          role?: string | null;
+          joined_at?: string;
+          last_read_at?: string;
+          role?: Database["public"]["Enums"]["clan_role"];
           user_id?: string;
-          war_points?: number | null;
+          war_points?: number;
         };
         Relationships: [
+          {
+            foreignKeyName: "clan_members_clan_id_fkey";
+            columns: ["clan_id"];
+            isOneToOne: false;
+            referencedRelation: "clan_leaderboard";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "clan_members_clan_id_fkey";
             columns: ["clan_id"];
@@ -421,142 +682,146 @@ export type Database = {
           },
         ];
       };
-      clan_war_matches: {
+      clan_messages: {
         Row: {
-          created_at: string | null;
-          end_time: string | null;
+          clan_id: string;
+          content: string;
+          content_type: string;
+          created_at: string;
+          deleted_at: string | null;
+          deleted_by: string | null;
           id: string;
-          match_id: string | null;
-          move_count: number | null;
-          p1_points: number | null;
-          p2_points: number | null;
-          player1_id: string | null;
-          player2_id: string | null;
-          result: string | null;
-          slot_index: number;
-          start_time: string | null;
-          status: string | null;
-          war_id: string;
+          is_pinned: boolean;
+          reply_to: string | null;
+          sender_id: string;
         };
         Insert: {
-          created_at?: string | null;
-          end_time?: string | null;
+          clan_id: string;
+          content: string;
+          content_type?: string;
+          created_at?: string;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           id?: string;
-          match_id?: string | null;
-          move_count?: number | null;
-          p1_points?: number | null;
-          p2_points?: number | null;
-          player1_id?: string | null;
-          player2_id?: string | null;
-          result?: string | null;
-          slot_index: number;
-          start_time?: string | null;
-          status?: string | null;
-          war_id: string;
+          is_pinned?: boolean;
+          reply_to?: string | null;
+          sender_id: string;
         };
         Update: {
-          created_at?: string | null;
-          end_time?: string | null;
+          clan_id?: string;
+          content?: string;
+          content_type?: string;
+          created_at?: string;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           id?: string;
-          match_id?: string | null;
-          move_count?: number | null;
-          p1_points?: number | null;
-          p2_points?: number | null;
-          player1_id?: string | null;
-          player2_id?: string | null;
-          result?: string | null;
-          slot_index?: number;
-          start_time?: string | null;
-          status?: string | null;
-          war_id?: string;
+          is_pinned?: boolean;
+          reply_to?: string | null;
+          sender_id?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "clan_war_matches_match_id_fkey";
-            columns: ["match_id"];
+            foreignKeyName: "clan_messages_clan_id_fkey";
+            columns: ["clan_id"];
             isOneToOne: false;
-            referencedRelation: "matches";
+            referencedRelation: "clan_leaderboard";
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "clan_war_matches_player1_id_fkey";
-            columns: ["player1_id"];
+            foreignKeyName: "clan_messages_clan_id_fkey";
+            columns: ["clan_id"];
+            isOneToOne: false;
+            referencedRelation: "clans";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clan_messages_deleted_by_fkey";
+            columns: ["deleted_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "clan_war_matches_player2_id_fkey";
-            columns: ["player2_id"];
+            foreignKeyName: "clan_messages_reply_to_fkey";
+            columns: ["reply_to"];
             isOneToOne: false;
-            referencedRelation: "profiles";
+            referencedRelation: "clan_messages";
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "clan_war_matches_war_id_fkey";
-            columns: ["war_id"];
+            foreignKeyName: "clan_messages_sender_id_fkey";
+            columns: ["sender_id"];
             isOneToOne: false;
-            referencedRelation: "clan_wars";
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
       };
       clan_wars: {
         Row: {
-          clan_a_id: string;
-          clan_b_id: string;
-          created_at: string | null;
-          end_time: string;
+          challenger_clan_id: string;
+          created_at: string;
+          defender_clan_id: string;
+          ends_at: string | null;
           id: string;
-          lineup_a: string[] | null;
-          lineup_b: string[] | null;
-          score_a: number | null;
-          score_b: number | null;
-          start_time: string;
-          status: string | null;
+          starts_at: string | null;
+          status: Database["public"]["Enums"]["clan_war_status"];
           winner_clan_id: string | null;
         };
         Insert: {
-          clan_a_id: string;
-          clan_b_id: string;
-          created_at?: string | null;
-          end_time: string;
+          challenger_clan_id: string;
+          created_at?: string;
+          defender_clan_id: string;
+          ends_at?: string | null;
           id?: string;
-          lineup_a?: string[] | null;
-          lineup_b?: string[] | null;
-          score_a?: number | null;
-          score_b?: number | null;
-          start_time: string;
-          status?: string | null;
+          starts_at?: string | null;
+          status?: Database["public"]["Enums"]["clan_war_status"];
           winner_clan_id?: string | null;
         };
         Update: {
-          clan_a_id?: string;
-          clan_b_id?: string;
-          created_at?: string | null;
-          end_time?: string;
+          challenger_clan_id?: string;
+          created_at?: string;
+          defender_clan_id?: string;
+          ends_at?: string | null;
           id?: string;
-          lineup_a?: string[] | null;
-          lineup_b?: string[] | null;
-          score_a?: number | null;
-          score_b?: number | null;
-          start_time?: string;
-          status?: string | null;
+          starts_at?: string | null;
+          status?: Database["public"]["Enums"]["clan_war_status"];
           winner_clan_id?: string | null;
         };
         Relationships: [
           {
-            foreignKeyName: "clan_wars_clan_a_id_fkey";
-            columns: ["clan_a_id"];
+            foreignKeyName: "clan_wars_challenger_clan_id_fkey";
+            columns: ["challenger_clan_id"];
+            isOneToOne: false;
+            referencedRelation: "clan_leaderboard";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clan_wars_challenger_clan_id_fkey";
+            columns: ["challenger_clan_id"];
             isOneToOne: false;
             referencedRelation: "clans";
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "clan_wars_clan_b_id_fkey";
-            columns: ["clan_b_id"];
+            foreignKeyName: "clan_wars_defender_clan_id_fkey";
+            columns: ["defender_clan_id"];
+            isOneToOne: false;
+            referencedRelation: "clan_leaderboard";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clan_wars_defender_clan_id_fkey";
+            columns: ["defender_clan_id"];
             isOneToOne: false;
             referencedRelation: "clans";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clan_wars_winner_clan_id_fkey";
+            columns: ["winner_clan_id"];
+            isOneToOne: false;
+            referencedRelation: "clan_leaderboard";
             referencedColumns: ["id"];
           },
           {
@@ -570,48 +835,81 @@ export type Database = {
       };
       clans: {
         Row: {
-          created_at: string | null;
+          banner_url: string | null;
+          clan_level: number;
+          clan_rating: number;
+          clan_score: number;
+          clan_xp: number;
+          country: string | null;
+          created_at: string;
+          created_by: string | null;
           description: string | null;
           id: string;
-          leader_id: string;
+          language: string | null;
+          logo_url: string | null;
+          max_members: number;
+          member_count: number;
           name: string;
+          privacy: Database["public"]["Enums"]["clan_privacy"];
+          slug: string;
           tag: string;
-          total_members: number | null;
-          total_wars: number | null;
-          updated_at: string | null;
-          war_points: number | null;
-          war_wins: number | null;
+          total_wars: number;
+          war_draws: number;
+          war_losses: number;
+          war_wins: number;
         };
         Insert: {
-          created_at?: string | null;
+          banner_url?: string | null;
+          clan_level?: number;
+          clan_rating?: number;
+          clan_score?: number;
+          clan_xp?: number;
+          country?: string | null;
+          created_at?: string;
+          created_by?: string | null;
           description?: string | null;
           id?: string;
-          leader_id: string;
+          language?: string | null;
+          logo_url?: string | null;
+          max_members?: number;
+          member_count?: number;
           name: string;
+          privacy?: Database["public"]["Enums"]["clan_privacy"];
+          slug: string;
           tag: string;
-          total_members?: number | null;
-          total_wars?: number | null;
-          updated_at?: string | null;
-          war_points?: number | null;
-          war_wins?: number | null;
+          total_wars?: number;
+          war_draws?: number;
+          war_losses?: number;
+          war_wins?: number;
         };
         Update: {
-          created_at?: string | null;
+          banner_url?: string | null;
+          clan_level?: number;
+          clan_rating?: number;
+          clan_score?: number;
+          clan_xp?: number;
+          country?: string | null;
+          created_at?: string;
+          created_by?: string | null;
           description?: string | null;
           id?: string;
-          leader_id?: string;
+          language?: string | null;
+          logo_url?: string | null;
+          max_members?: number;
+          member_count?: number;
           name?: string;
+          privacy?: Database["public"]["Enums"]["clan_privacy"];
+          slug?: string;
           tag?: string;
-          total_members?: number | null;
-          total_wars?: number | null;
-          updated_at?: string | null;
-          war_points?: number | null;
-          war_wins?: number | null;
+          total_wars?: number;
+          war_draws?: number;
+          war_losses?: number;
+          war_wins?: number;
         };
         Relationships: [
           {
-            foreignKeyName: "clans_leader_id_fkey";
-            columns: ["leader_id"];
+            foreignKeyName: "clans_created_by_fkey";
+            columns: ["created_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -1160,6 +1458,27 @@ export type Database = {
           },
         ];
       };
+      favorite_friends: {
+        Row: {
+          created_at: string | null;
+          friend_id: string | null;
+          id: string;
+          user_id: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          friend_id?: string | null;
+          id?: string;
+          user_id?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          friend_id?: string | null;
+          id?: string;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
       feedbacks: {
         Row: {
           created_at: string | null;
@@ -1365,8 +1684,14 @@ export type Database = {
         Row: {
           created_at: string | null;
           from_user_id: string;
+          game_id: string | null;
           id: string;
+          increment_seconds: number;
+          is_rated: boolean;
+          responded_at: string | null;
           status: string | null;
+          time_class: Database["public"]["Enums"]["time_class"];
+          time_control: string;
           timer: number;
           to_user_id: string;
           updated_at: string | null;
@@ -1374,8 +1699,14 @@ export type Database = {
         Insert: {
           created_at?: string | null;
           from_user_id: string;
+          game_id?: string | null;
           id?: string;
+          increment_seconds?: number;
+          is_rated?: boolean;
+          responded_at?: string | null;
           status?: string | null;
+          time_class?: Database["public"]["Enums"]["time_class"];
+          time_control?: string;
           timer: number;
           to_user_id: string;
           updated_at?: string | null;
@@ -1383,8 +1714,14 @@ export type Database = {
         Update: {
           created_at?: string | null;
           from_user_id?: string;
+          game_id?: string | null;
           id?: string;
+          increment_seconds?: number;
+          is_rated?: boolean;
+          responded_at?: string | null;
           status?: string | null;
+          time_class?: Database["public"]["Enums"]["time_class"];
+          time_control?: string;
           timer?: number;
           to_user_id?: string;
           updated_at?: string | null;
@@ -1395,6 +1732,13 @@ export type Database = {
             columns: ["from_user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "game_challenges_game_id_fkey";
+            columns: ["game_id"];
+            isOneToOne: false;
+            referencedRelation: "games";
             referencedColumns: ["id"];
           },
           {
@@ -2250,24 +2594,26 @@ export type Database = {
           banner_url: string | null;
           best_streak: number | null;
           bio: string | null;
+          board_theme: string;
           community_score: number;
           country: string | null;
           country_code: string | null;
           country_name: string | null;
           created_at: string | null;
           current_streak: number | null;
-          display_name: string | null;
+          display_name: string;
           draws: number | null;
           facebook_url: string | null;
           followers_count: number;
           following_count: number;
-          full_name: string;
+          full_name: string | null;
           id: string;
           instagram_url: string | null;
           iq_level: number | null;
           is_admin: boolean | null;
           is_member: boolean | null;
           is_online: boolean | null;
+          is_super_admin: boolean;
           kyc_rejection_reason: string | null;
           kyc_status: string | null;
           kyc_verified: boolean | null;
@@ -2282,6 +2628,7 @@ export type Database = {
           membership_tier: string | null;
           payout_details: Json | null;
           phone: string | null;
+          piece_theme: string;
           player_id: string | null;
           posts_count: number;
           premium_active: boolean;
@@ -2312,24 +2659,26 @@ export type Database = {
           banner_url?: string | null;
           best_streak?: number | null;
           bio?: string | null;
+          board_theme?: string;
           community_score?: number;
           country?: string | null;
           country_code?: string | null;
           country_name?: string | null;
           created_at?: string | null;
           current_streak?: number | null;
-          display_name?: string | null;
+          display_name?: string;
           draws?: number | null;
           facebook_url?: string | null;
           followers_count?: number;
           following_count?: number;
-          full_name?: string;
+          full_name?: string | null;
           id: string;
           instagram_url?: string | null;
           iq_level?: number | null;
           is_admin?: boolean | null;
           is_member?: boolean | null;
           is_online?: boolean | null;
+          is_super_admin?: boolean;
           kyc_rejection_reason?: string | null;
           kyc_status?: string | null;
           kyc_verified?: boolean | null;
@@ -2344,6 +2693,7 @@ export type Database = {
           membership_tier?: string | null;
           payout_details?: Json | null;
           phone?: string | null;
+          piece_theme?: string;
           player_id?: string | null;
           posts_count?: number;
           premium_active?: boolean;
@@ -2374,24 +2724,26 @@ export type Database = {
           banner_url?: string | null;
           best_streak?: number | null;
           bio?: string | null;
+          board_theme?: string;
           community_score?: number;
           country?: string | null;
           country_code?: string | null;
           country_name?: string | null;
           created_at?: string | null;
           current_streak?: number | null;
-          display_name?: string | null;
+          display_name?: string;
           draws?: number | null;
           facebook_url?: string | null;
           followers_count?: number;
           following_count?: number;
-          full_name?: string;
+          full_name?: string | null;
           id?: string;
           instagram_url?: string | null;
           iq_level?: number | null;
           is_admin?: boolean | null;
           is_member?: boolean | null;
           is_online?: boolean | null;
+          is_super_admin?: boolean;
           kyc_rejection_reason?: string | null;
           kyc_status?: string | null;
           kyc_verified?: boolean | null;
@@ -2406,6 +2758,7 @@ export type Database = {
           membership_tier?: string | null;
           payout_details?: Json | null;
           phone?: string | null;
+          piece_theme?: string;
           player_id?: string | null;
           posts_count?: number;
           premium_active?: boolean;
@@ -2592,6 +2945,7 @@ export type Database = {
           category: string;
           created_at: string;
           difficulty: string;
+          enabled: boolean;
           explanation: string;
           fen: string;
           goal: string;
@@ -2607,6 +2961,7 @@ export type Database = {
           category?: string;
           created_at?: string;
           difficulty?: string;
+          enabled?: boolean;
           explanation?: string;
           fen: string;
           goal?: string;
@@ -2622,6 +2977,7 @@ export type Database = {
           category?: string;
           created_at?: string;
           difficulty?: string;
+          enabled?: boolean;
           explanation?: string;
           fen?: string;
           goal?: string;
@@ -2879,6 +3235,47 @@ export type Database = {
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      tournament_entries: {
+        Row: {
+          id: string;
+          joined_at: string;
+          payment_tx_id: string | null;
+          rank: number | null;
+          registered_at: string;
+          score: number;
+          tournament_id: string;
+          user_id: string;
+        };
+        Insert: {
+          id?: string;
+          joined_at?: string;
+          payment_tx_id?: string | null;
+          rank?: number | null;
+          registered_at?: string;
+          score?: number;
+          tournament_id: string;
+          user_id: string;
+        };
+        Update: {
+          id?: string;
+          joined_at?: string;
+          payment_tx_id?: string | null;
+          rank?: number | null;
+          registered_at?: string;
+          score?: number;
+          tournament_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tournament_entries_tournament_id_fkey";
+            columns: ["tournament_id"];
+            isOneToOne: false;
+            referencedRelation: "tournaments";
             referencedColumns: ["id"];
           },
         ];
@@ -3364,6 +3761,33 @@ export type Database = {
       };
     };
     Views: {
+      clan_leaderboard: {
+        Row: {
+          banner_url: string | null;
+          clan_level: number | null;
+          clan_rating: number | null;
+          clan_score: number | null;
+          clan_xp: number | null;
+          country: string | null;
+          created_at: string | null;
+          description: string | null;
+          global_rank: number | null;
+          id: string | null;
+          language: string | null;
+          logo_url: string | null;
+          max_members: number | null;
+          member_count: number | null;
+          name: string | null;
+          privacy: Database["public"]["Enums"]["clan_privacy"] | null;
+          slug: string | null;
+          tag: string | null;
+          total_wars: number | null;
+          war_draws: number | null;
+          war_losses: number | null;
+          war_wins: number | null;
+        };
+        Relationships: [];
+      };
       leaderboard: {
         Row: {
           draws: number | null;
@@ -3423,6 +3847,41 @@ export type Database = {
       };
     };
     Functions: {
+      _clan_log: {
+        Args: {
+          p_actor: string;
+          p_clan_id: string;
+          p_meta?: Json;
+          p_target: string;
+          p_type: string;
+        };
+        Returns: undefined;
+      };
+      _clan_notify: {
+        Args: {
+          p_body: string;
+          p_kind: string;
+          p_link: string;
+          p_title: string;
+          p_user_id: string;
+        };
+        Returns: undefined;
+      };
+      _clan_notify_officers: {
+        Args: {
+          p_body: string;
+          p_clan_id: string;
+          p_exclude?: string;
+          p_kind: string;
+          p_link: string;
+          p_title: string;
+        };
+        Returns: undefined;
+      };
+      _clan_system_message: {
+        Args: { p_actor: string; p_clan_id: string; p_text: string };
+        Returns: undefined;
+      };
       _tournament_distribute_prizes: {
         Args: { p_tournament_id: string };
         Returns: undefined;
@@ -3431,11 +3890,74 @@ export type Database = {
         Args: { p_tournament_id: string };
         Returns: Json;
       };
+      accept_friend_request: {
+        Args: { p_friend_id: string };
+        Returns: undefined;
+      };
+      admin_adjust_coins: {
+        Args: { p_amount: number; p_note?: string; p_user_id: string };
+        Returns: number;
+      };
+      admin_approve_withdrawal: {
+        Args: { p_id: string; p_note?: string };
+        Returns: undefined;
+      };
+      admin_broadcast_notification: {
+        Args: {
+          p_body: string;
+          p_link?: string;
+          p_segment?: string;
+          p_title: string;
+        };
+        Returns: number;
+      };
+      admin_bulk_import_puzzles: { Args: { p_items: Json }; Returns: number };
       admin_chat_stats: { Args: never; Returns: Json };
       admin_community_stats: { Args: never; Returns: Json };
+      admin_dashboard_stats: { Args: never; Returns: Json };
+      admin_delete_clan: {
+        Args: { p_clan_id: string; p_reason?: string };
+        Returns: undefined;
+      };
       admin_delete_post: { Args: { p_post_id: string }; Returns: undefined };
+      admin_delete_puzzle: { Args: { p_id: string }; Returns: undefined };
+      admin_force_end_tournament: {
+        Args: { p_tournament_id: string };
+        Returns: undefined;
+      };
+      admin_force_start_tournament: {
+        Args: { p_tournament_id: string };
+        Returns: undefined;
+      };
+      admin_get_withdrawal_requests: {
+        Args: { p_status?: string };
+        Returns: Json;
+      };
+      admin_grant_premium: {
+        Args: { p_days?: number; p_tier?: string; p_user_id: string };
+        Returns: undefined;
+      };
+      admin_list_kyc_requests: { Args: { p_status?: string }; Returns: Json };
+      admin_list_support_tickets: { Args: { p_status?: string }; Returns: Json };
+      admin_list_users: {
+        Args: { p_limit?: number; p_offset?: number; p_search?: string };
+        Returns: Json;
+      };
       admin_moderate_post: {
         Args: { p_hidden?: boolean; p_pinned?: boolean; p_post_id: string };
+        Returns: undefined;
+      };
+      admin_reject_withdrawal: {
+        Args: { p_id: string; p_reason: string };
+        Returns: undefined;
+      };
+      admin_remove_premium: { Args: { p_user_id: string }; Returns: undefined };
+      admin_reset_coins: {
+        Args: { p_to?: number; p_user_id: string };
+        Returns: undefined;
+      };
+      admin_reset_ratings: {
+        Args: { p_to?: number; p_user_id: string };
         Returns: undefined;
       };
       admin_resolve_chat_report: {
@@ -3446,7 +3968,56 @@ export type Database = {
         Args: { p_report_id: string; p_status: string };
         Returns: undefined;
       };
+      admin_review_kyc: {
+        Args: { p_approve: boolean; p_id: string; p_reason?: string };
+        Returns: undefined;
+      };
+      admin_set_puzzle_enabled: {
+        Args: { p_enabled: boolean; p_id: string };
+        Returns: undefined;
+      };
+      admin_set_role: {
+        Args: {
+          p_role: Database["public"]["Enums"]["app_role"];
+          p_user_id: string;
+        };
+        Returns: undefined;
+      };
+      admin_set_super_admin: {
+        Args: { p_user_id: string; p_value: boolean };
+        Returns: undefined;
+      };
+      admin_set_user_status: {
+        Args: {
+          p_reason?: string;
+          p_status: string;
+          p_until?: string;
+          p_user_id: string;
+        };
+        Returns: undefined;
+      };
+      admin_update_ticket_status: {
+        Args: { p_id: string; p_status: string };
+        Returns: undefined;
+      };
+      admin_upsert_puzzle: {
+        Args: {
+          p_category?: string;
+          p_difficulty?: string;
+          p_enabled?: boolean;
+          p_explanation?: string;
+          p_fen?: string;
+          p_goal?: string;
+          p_id?: string;
+          p_moves?: string;
+          p_rating?: number;
+          p_theme?: string;
+          p_themes?: string[];
+        };
+        Returns: string;
+      };
       apply_elo_change: { Args: { p_game_id: string }; Returns: undefined };
+      cancel_challenge: { Args: { p_challenge_id: string }; Returns: undefined };
       cancel_tournament_atomic: {
         Args: { p_admin_id: string; p_tournament_id: string };
         Returns: Json;
@@ -3541,6 +4112,70 @@ export type Database = {
       };
       check_password_change_rate_limit: { Args: never; Returns: Json };
       claim_timeout: { Args: { p_game_id: string }; Returns: boolean };
+      clan_approve_join: { Args: { p_request_id: string }; Returns: undefined };
+      clan_cancel_join_request: {
+        Args: { p_clan_id: string };
+        Returns: undefined;
+      };
+      clan_create: {
+        Args: {
+          p_banner_url: string;
+          p_country: string;
+          p_description: string;
+          p_language: string;
+          p_logo_url: string;
+          p_name: string;
+          p_privacy: string;
+          p_tag: string;
+        };
+        Returns: string;
+      };
+      clan_declare_war: {
+        Args: { p_defender_clan_id: string };
+        Returns: string;
+      };
+      clan_delete_message: {
+        Args: { p_message_id: string };
+        Returns: undefined;
+      };
+      clan_demote_member: {
+        Args: { p_clan_id: string; p_user_id: string };
+        Returns: undefined;
+      };
+      clan_disband: { Args: { p_clan_id: string }; Returns: undefined };
+      clan_kick_member: {
+        Args: { p_clan_id: string; p_user_id: string };
+        Returns: undefined;
+      };
+      clan_leave: { Args: { p_clan_id: string }; Returns: undefined };
+      clan_mark_read: { Args: { p_clan_id: string }; Returns: undefined };
+      clan_promote_member: {
+        Args: { p_clan_id: string; p_user_id: string };
+        Returns: undefined;
+      };
+      clan_reject_join: { Args: { p_request_id: string }; Returns: undefined };
+      clan_request_join: { Args: { p_clan_id: string }; Returns: string };
+      clan_respond_war: {
+        Args: { p_accept: boolean; p_war_id: string };
+        Returns: undefined;
+      };
+      clan_transfer_leadership: {
+        Args: { p_clan_id: string; p_new_leader_id: string };
+        Returns: undefined;
+      };
+      clan_update_details: {
+        Args: {
+          p_banner_url?: string;
+          p_clan_id: string;
+          p_country?: string;
+          p_description?: string;
+          p_language?: string;
+          p_logo_url?: string;
+          p_name?: string;
+          p_privacy?: string;
+        };
+        Returns: undefined;
+      };
       community_award: {
         Args: { p_code: string; p_label: string; p_user: string };
         Returns: undefined;
@@ -3670,10 +4305,6 @@ export type Database = {
         };
         Returns: boolean;
       };
-      increment_clan_wars: {
-        Args: { p_clan_id: string; p_won: boolean };
-        Returns: undefined;
-      };
       increment_profile_trophy: {
         Args: { p_trophy_type: string; p_user_id: string };
         Returns: undefined;
@@ -3694,6 +4325,7 @@ export type Database = {
         Returns: undefined;
       };
       is_admin: { Args: never; Returns: boolean };
+      is_super_admin: { Args: never; Returns: boolean };
       join_free_tournament_atomic: {
         Args: { p_tournament_id: string; p_user_id: string };
         Returns: Json;
@@ -3724,6 +4356,17 @@ export type Database = {
       lock_wallet_withdraw: {
         Args: { p_amount: number; p_upi_id: string; p_user_id: string };
         Returns: Json;
+      };
+      log_admin_action: {
+        Args: {
+          p_action: string;
+          p_metadata?: Json;
+          p_new_status?: string;
+          p_old_status?: string;
+          p_target_id?: string;
+          p_target_type: string;
+        };
+        Returns: undefined;
       };
       log_password_change_attempt: {
         Args: { p_reason?: string; p_success: boolean; p_user_agent?: string };
@@ -3787,6 +4430,14 @@ export type Database = {
         Returns: undefined;
       };
       resign_game: { Args: { p_game_id: string }; Returns: undefined };
+      respond_challenge: {
+        Args: { p_accept: boolean; p_challenge_id: string };
+        Returns: string;
+      };
+      respond_clan_invite: {
+        Args: { p_accept: boolean; p_invite_id: string };
+        Returns: undefined;
+      };
       respond_draw: { Args: { p_game_id: string }; Returns: string };
       review_kyc_atomic: {
         Args: {
@@ -3849,6 +4500,18 @@ export type Database = {
         };
         Returns: string;
       };
+      send_challenge: {
+        Args: {
+          p_increment_seconds: number;
+          p_initial_seconds: number;
+          p_is_rated: boolean;
+          p_opponent_id: string;
+          p_time_class: Database["public"]["Enums"]["time_class"];
+          p_time_control: string;
+        };
+        Returns: string;
+      };
+      send_friend_request: { Args: { p_addressee_id: string }; Returns: string };
       start_tournament_round: {
         Args: { p_tournament_id: string };
         Returns: Json;
@@ -3864,18 +4527,6 @@ export type Database = {
         };
         Returns: undefined;
       };
-      update_clan_member_count: {
-        Args: { p_clan_id: string; p_delta: number };
-        Returns: undefined;
-      };
-      update_clan_war_scores: {
-        Args: {
-          p_score_a_delta: number;
-          p_score_b_delta: number;
-          p_war_id: string;
-        };
-        Returns: undefined;
-      };
       update_login_streak: { Args: never; Returns: undefined };
       update_match_streak_for_user: {
         Args: { p_uid: string };
@@ -3884,6 +4535,10 @@ export type Database = {
     };
     Enums: {
       app_role: "admin" | "moderator" | "user";
+      clan_privacy: "public" | "private" | "invite_only";
+      clan_request_status: "pending" | "accepted" | "rejected";
+      clan_role: "leader" | "co_leader" | "member";
+      clan_war_status: "pending" | "accepted" | "active" | "finished";
       club_role: "owner" | "admin" | "member";
       friend_status: "pending" | "accepted" | "blocked";
       game_result: "white" | "black" | "draw" | "ongoing" | "aborted";
@@ -4016,6 +4671,10 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      clan_privacy: ["public", "private", "invite_only"],
+      clan_request_status: ["pending", "accepted", "rejected"],
+      clan_role: ["leader", "co_leader", "member"],
+      clan_war_status: ["pending", "accepted", "active", "finished"],
       club_role: ["owner", "admin", "member"],
       friend_status: ["pending", "accepted", "blocked"],
       game_result: ["white", "black", "draw", "ongoing", "aborted"],

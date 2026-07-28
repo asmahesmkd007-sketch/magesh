@@ -75,7 +75,7 @@ import { Route as PlayHistoryRouteImport } from './routes/play.history'
 import { Route as PlayFriendRouteImport } from './routes/play.friend'
 import { Route as NewsSlugRouteImport } from './routes/news.$slug'
 import { Route as GameIdRouteImport } from './routes/game.$id'
-import { Route as FriendsActivityRouteImport } from './routes/friends.activity'
+import { Route as FriendsActivityRouteImport } from './routes/friends_.activity'
 import { Route as CourseSlugRouteImport } from './routes/course.$slug'
 import { Route as CommunityExploreRouteImport } from './routes/community.explore'
 import { Route as CommunityBookmarksRouteImport } from './routes/community.bookmarks'
@@ -441,9 +441,9 @@ const GameIdRoute = GameIdRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const FriendsActivityRoute = FriendsActivityRouteImport.update({
-  id: '/activity',
-  path: '/activity',
-  getParentRoute: () => FriendsRoute,
+  id: '/friends_/activity',
+  path: '/friends/activity',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const CourseSlugRoute = CourseSlugRouteImport.update({
   id: '/course/$slug',
@@ -626,7 +626,7 @@ export interface FileRoutesByFullPath {
   '/fair-play-policy': typeof FairPlayPolicyRoute
   '/feedback': typeof FeedbackRoute
   '/forgot-password': typeof ForgotPasswordRoute
-  '/friends': typeof FriendsRouteWithChildren
+  '/friends': typeof FriendsRoute
   '/grievance-policy': typeof GrievancePolicyRoute
   '/home': typeof HomeRoute
   '/leaderboards': typeof LeaderboardsRoute
@@ -725,7 +725,7 @@ export interface FileRoutesByTo {
   '/fair-play-policy': typeof FairPlayPolicyRoute
   '/feedback': typeof FeedbackRoute
   '/forgot-password': typeof ForgotPasswordRoute
-  '/friends': typeof FriendsRouteWithChildren
+  '/friends': typeof FriendsRoute
   '/grievance-policy': typeof GrievancePolicyRoute
   '/home': typeof HomeRoute
   '/leaderboards': typeof LeaderboardsRoute
@@ -823,7 +823,7 @@ export interface FileRoutesById {
   '/fair-play-policy': typeof FairPlayPolicyRoute
   '/feedback': typeof FeedbackRoute
   '/forgot-password': typeof ForgotPasswordRoute
-  '/friends': typeof FriendsRouteWithChildren
+  '/friends': typeof FriendsRoute
   '/grievance-policy': typeof GrievancePolicyRoute
   '/home': typeof HomeRoute
   '/leaderboards': typeof LeaderboardsRoute
@@ -879,7 +879,7 @@ export interface FileRoutesById {
   '/community/bookmarks': typeof CommunityBookmarksRoute
   '/community/explore': typeof CommunityExploreRoute
   '/course/$slug': typeof CourseSlugRoute
-  '/friends/activity': typeof FriendsActivityRoute
+  '/friends_/activity': typeof FriendsActivityRoute
   '/game/$id': typeof GameIdRouteWithChildren
   '/news/$slug': typeof NewsSlugRoute
   '/play/friend': typeof PlayFriendRoute
@@ -1178,7 +1178,7 @@ export interface FileRouteTypes {
     | '/community/bookmarks'
     | '/community/explore'
     | '/course/$slug'
-    | '/friends/activity'
+    | '/friends_/activity'
     | '/game/$id'
     | '/news/$slug'
     | '/play/friend'
@@ -1224,7 +1224,7 @@ export interface RootRouteChildren {
   FairPlayPolicyRoute: typeof FairPlayPolicyRoute
   FeedbackRoute: typeof FeedbackRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
-  FriendsRoute: typeof FriendsRouteWithChildren
+  FriendsRoute: typeof FriendsRoute
   GrievancePolicyRoute: typeof GrievancePolicyRoute
   HomeRoute: typeof HomeRoute
   LeaderboardsRoute: typeof LeaderboardsRoute
@@ -1275,6 +1275,7 @@ export interface RootRouteChildren {
   AdminWithdrawalsRoute: typeof AdminWithdrawalsRoute
   ArenaIdRoute: typeof ArenaIdRoute
   CourseSlugRoute: typeof CourseSlugRoute
+  FriendsActivityRoute: typeof FriendsActivityRoute
   GameIdRoute: typeof GameIdRouteWithChildren
   UUsernameRoute: typeof UUsernameRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -1746,12 +1747,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GameIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/friends/activity': {
-      id: '/friends/activity'
-      path: '/activity'
+    '/friends_/activity': {
+      id: '/friends_/activity'
+      path: '/friends/activity'
       fullPath: '/friends/activity'
       preLoaderRoute: typeof FriendsActivityRouteImport
-      parentRoute: typeof FriendsRoute
+      parentRoute: typeof rootRouteImport
     }
     '/course/$slug': {
       id: '/course/$slug'
@@ -2026,17 +2027,6 @@ const CommunityRouteWithChildren = CommunityRoute._addFileChildren(
   CommunityRouteChildren,
 )
 
-interface FriendsRouteChildren {
-  FriendsActivityRoute: typeof FriendsActivityRoute
-}
-
-const FriendsRouteChildren: FriendsRouteChildren = {
-  FriendsActivityRoute: FriendsActivityRoute,
-}
-
-const FriendsRouteWithChildren =
-  FriendsRoute._addFileChildren(FriendsRouteChildren)
-
 interface NewsRouteChildren {
   NewsSlugRoute: typeof NewsSlugRoute
   NewsIndexRoute: typeof NewsIndexRoute
@@ -2144,7 +2134,7 @@ const rootRouteChildren: RootRouteChildren = {
   FairPlayPolicyRoute: FairPlayPolicyRoute,
   FeedbackRoute: FeedbackRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
-  FriendsRoute: FriendsRouteWithChildren,
+  FriendsRoute: FriendsRoute,
   GrievancePolicyRoute: GrievancePolicyRoute,
   HomeRoute: HomeRoute,
   LeaderboardsRoute: LeaderboardsRoute,
@@ -2195,6 +2185,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminWithdrawalsRoute: AdminWithdrawalsRoute,
   ArenaIdRoute: ArenaIdRoute,
   CourseSlugRoute: CourseSlugRoute,
+  FriendsActivityRoute: FriendsActivityRoute,
   GameIdRoute: GameIdRouteWithChildren,
   UUsernameRoute: UUsernameRoute,
   AdminIndexRoute: AdminIndexRoute,

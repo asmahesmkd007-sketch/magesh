@@ -6,6 +6,7 @@ import { Link } from "@tanstack/react-router";
 import { Copy, Flag, MoreHorizontal, Pin, PinOff, Reply, SmilePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { UserAvatar } from "@/components/site/UserAvatar";
+import { FriendButton } from "@/components/friends/FriendButton";
 import { useAuth } from "@/hooks/useAuth";
 import { useChatActions } from "@/hooks/useChat";
 import type { ChatMessage } from "@/lib/api/chatClient";
@@ -80,6 +81,14 @@ export function MessageBubble({
           </Link>
           <span className="text-[11px] text-muted-foreground">{relTime(message.created_at)}</span>
           {message.is_pinned && <Pin className="h-3 w-3 text-gold" />}
+          {!isOwn && (
+            <FriendButton
+              targetUserId={message.user_id}
+              targetName={message.author.full_name}
+              className="h-5 w-5"
+              compact
+            />
+          )}
         </div>
         {message.reply_to && (
           <div className="mt-0.5 truncate border-l-2 border-gold/30 pl-2 text-xs text-muted-foreground">

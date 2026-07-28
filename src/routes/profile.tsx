@@ -40,6 +40,7 @@ import { useAuth, useProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
 import { UserAvatar } from "@/components/site/UserAvatar";
+import { FriendButton } from "@/components/friends/FriendButton";
 import { toast } from "sonner";
 import type { Profile } from "@/hooks/useAuth";
 import { getSeasonHistoryForUser, type SeasonHistoryForUser } from "@/lib/api/seasonsClient";
@@ -366,6 +367,7 @@ function ProfilePage() {
   );
   const oppName = (g: Game) =>
     (g.white_id === uid ? g.black_username : g.white_username) ?? "Anonymous";
+  const oppId = (g: Game) => (g.white_id === uid ? g.black_id : g.white_id);
 
   // ── Image upload handlers (inline, same bucket logic as settings) ──
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -860,7 +862,15 @@ function ProfilePage() {
                   <div className="flex items-center gap-3">
                     <OutcomeIcon o={o} />
                     <div>
-                      <div>vs {oppName(g)}</div>
+                      <div className="flex items-center gap-1.5">
+                        vs {oppName(g)}
+                        <FriendButton
+                          targetUserId={oppId(g)}
+                          targetName={oppName(g)}
+                          className="h-5 w-5"
+                          compact
+                        />
+                      </div>
                       <div className="text-[11px] text-muted-foreground capitalize">
                         {g.time_class} · {g.ended_at ? fmtDate(g.ended_at) : ""}
                         {g.ended_at && ` · ${fmtDuration(g.created_at, g.ended_at)}`}

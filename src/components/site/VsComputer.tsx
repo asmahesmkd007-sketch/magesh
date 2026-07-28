@@ -6,8 +6,10 @@ import { Bot, Crown, Flag, Handshake, RotateCcw, Sparkles, Swords, LineChart } f
 import { Card, GoldButton, GhostButton, SectionTitle } from "@/components/site/Primitives";
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
 import { CapturedPieces } from "@/components/site/CapturedPieces";
+import { ClockTime } from "@/components/site/ClockTime";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
 import { useGameSettings } from "@/hooks/useGameSettings";
+import { useClockAudio } from "@/hooks/useClockAudio";
 import { playGameSound, soundForChessMove } from "@/lib/audio/sounds";
 import { buzz } from "@/lib/haptics";
 import type { Move } from "chess.js";
@@ -22,8 +24,6 @@ import { useAuth, useProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { saveComputerGame } from "@/lib/api/gameClient";
 import type { EngineMove } from "@/lib/chess/engine";
-
-const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.max(0, s % 60)).padStart(2, "0")}`;
 
 type Phase = "setup" | "playing" | "over";
 type SideChoice = "w" | "b" | "random";
@@ -468,56 +468,6 @@ export function VsComputer() {
   const isMyTurn = phase === "playing" && gameRef.current.turn() === myColor && !thinking;
   const isOppTurn = phase === "playing" && gameRef.current.turn() !== myColor;
 
-  const ProfileCard = ({
-    label,
-    name,
-    rating,
-    time,
-    active,
-    icon,
-    iconBg,
-    capturedColor,
-  }: {
-    label: string;
-    name: string;
-    rating: number;
-    time: number;
-    active: boolean;
-    icon: React.ReactNode;
-    iconBg: string;
-    capturedColor: "w" | "b";
-  }) => (
-    <Card className="p-5 text-center">
-      <div className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">{label}</div>
-      <div className="mx-auto mt-4 grid h-20 w-20 place-items-center rounded-full bg-[#1a0d10] ring-2 ring-gold/70 shadow-[0_0_24px_rgba(212,175,55,0.25)]">
-        <div
-          className={`grid h-16 w-16 place-items-center rounded-full ${iconBg} font-display text-2xl text-ivory`}
-        >
-          {icon}
-        </div>
-      </div>
-      <div className="mt-3 truncate font-display text-sm">{name}</div>
-      <div className="mt-1">
-        <span className="font-stat text-2xl text-gradient-gold">{rating}</span>
-        <span className="ml-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-          ELO
-        </span>
-      </div>
-      <div
-        className={`mx-auto mt-4 w-fit rounded-full border px-5 py-1.5 font-stat text-xl tabular-nums transition-colors ${
-          active
-            ? "border-gold/80 text-gold shadow-[0_0_18px_rgba(212,175,55,0.35)]"
-            : "border-gold/20 text-foreground/70"
-        }`}
-      >
-        {fmt(time)}
-      </div>
-      <div className="mt-3 flex justify-center">
-        <CapturedPieces board={board} player={capturedColor} />
-      </div>
-    </Card>
-  );
-
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)_280px]">
       {/* LEFT — Your profile */}
@@ -531,6 +481,7 @@ export function VsComputer() {
           icon={myInitial}
           iconBg="gradient-gold text-[#0B0D10]"
           capturedColor={myColor}
+          board={board}
         />
       </div>
 
@@ -635,6 +586,7 @@ export function VsComputer() {
           icon={<Bot className="h-7 w-7" />}
           iconBg="bg-emerald/25 text-emerald"
           capturedColor={myColor === "w" ? "b" : "w"}
+          board={board}
         />
 
         {thinking && (
@@ -683,5 +635,64 @@ export function VsComputer() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// Hoisted to module scope (was previously defined inline inside VsComputer's
+// render, which gave it a new function identity every render — React then
+// remounted it on every tick, discarding useClockAudio's internal refs and
+// re-firing the low-time warning repeatedly instead of once).
+function ProfileCard({
+  label,
+  name,
+  rating,
+  time,
+  active,
+  icon,
+  iconBg,
+  capturedColor,
+  board,
+}: {
+  label: string;
+  name: string;
+  rating: number;
+  time: number;
+  active: boolean;
+  icon: React.ReactNode;
+  iconBg: string;
+  capturedColor: "w" | "b";
+  board: BoardCell[][];
+}) {
+  useClockAudio(Math.ceil(time), active);
+  return (
+    <Card className="p-5 text-center">
+      <div className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">{label}</div>
+      <div className="mx-auto mt-4 grid h-20 w-20 place-items-center rounded-full bg-[#1a0d10] ring-2 ring-gold/70 shadow-[0_0_24px_rgba(212,175,55,0.25)]">
+        <div
+          className={`grid h-16 w-16 place-items-center rounded-full ${iconBg} font-display text-2xl text-ivory`}
+        >
+          {icon}
+        </div>
+      </div>
+      <div className="mt-3 truncate font-display text-sm">{name}</div>
+      <div className="mt-1">
+        <span className="font-stat text-2xl text-gradient-gold">{rating}</span>
+        <span className="ml-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          ELO
+        </span>
+      </div>
+      <div
+        className={`mx-auto mt-4 w-fit rounded-full border px-5 py-1.5 font-stat text-xl tabular-nums transition-colors ${
+          active
+            ? "border-gold/80 text-gold shadow-[0_0_18px_rgba(212,175,55,0.35)]"
+            : "border-gold/20 text-foreground/70"
+        }`}
+      >
+        <ClockTime ms={time * 1000} active={active} />
+      </div>
+      <div className="mt-3 flex justify-center">
+        <CapturedPieces board={board} player={capturedColor} />
+      </div>
+    </Card>
   );
 }

@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageShell, Card, GhostButton } from "@/components/site/Primitives";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import DOMPurify from "isomorphic-dompurify";
 import {
   seo,
   breadcrumbLd,
@@ -173,7 +174,13 @@ function ArticlePage() {
         {article.body ? (
           <div
             className="prose prose-invert max-w-none text-sm leading-relaxed text-foreground/90"
-            dangerouslySetInnerHTML={{ __html: article.body.replace(/\n/g, "<br/>") }}
+            // Article bodies are admin-authored (RLS restricts INSERT/UPDATE
+            // on news_articles to admins), but still sanitized before
+            // rendering as raw HTML — defense in depth against a compromised
+            // admin session or unsanitized paste from an external source.
+            dangerouslySetInnerHTML={{
+              __html: DOMPurify.sanitize(article.body.replace(/\n/g, "<br/>")),
+            }}
           />
         ) : (
           <Card className="p-8 text-center text-muted-foreground">

@@ -5,10 +5,13 @@ import { toast } from "sonner";
 import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Primitives";
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
 import { CapturedPieces } from "@/components/site/CapturedPieces";
+import { ClockTime } from "@/components/site/ClockTime";
+import { useClockAudio } from "@/hooks/useClockAudio";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import { GameEndModal, type GameEndResult } from "@/components/site/GameEndModal";
+import { FriendButton } from "@/components/friends/FriendButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameSettings } from "@/hooks/useGameSettings";
@@ -64,12 +67,18 @@ type GameRow = {
 type MoveRow = { ply: number; san: string; uci: string; fen_after: string };
 type ChatRow = { id: number; username: string; user_id: string; body: string; created_at: string };
 
-function fmtClock(ms: number) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}:${r.toString().padStart(2, "0")}`;
-}
+// public_rooms isn't in the generated Supabase types yet — same loose-cast
+// pattern used by src/lib/api/adminClient.ts and settings-sync.ts.
+type RoomLookupClient = {
+  from: (t: string) => {
+    select: (c: string) => {
+      eq: (
+        c: string,
+        v: string,
+      ) => { maybeSingle: () => Promise<{ data: { id: string; host_id: string } | null }> };
+    };
+  };
+};
 
 function LiveGame() {
   const { id } = useParams({ from: "/game/$id" });
@@ -105,11 +114,32 @@ function LiveGame() {
   } | null>(null);
   const [showEndModal, setShowEndModal] = useState(false);
   const [hasShownEndModal, setHasShownEndModal] = useState(false);
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [roomHostId, setRoomHostId] = useState<string | null>(null);
 
   // Prevent double-submission of moves
   const submittingRef = useRef(false);
   // Prevent claiming timeout more than once per active game
   const timeoutClaimedRef = useRef(false);
+  // Mirrors `game`/`optimistic` for reading fresh values from async callbacks
+  // (setTimeout, realtime handlers) without a stale-closure snapshot.
+  const gameRef = useRef<GameRow | null>(null);
+  const optimisticRef = useRef<{ fen: string; from: string; to: string } | null>(null);
+  // Pending fallback re-fetch, in case the post-move realtime UPDATE never
+  // arrives (dropped event / reconnect gap right after submitting).
+  const reconcileFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    gameRef.current = game;
+  }, [game]);
+  useEffect(() => {
+    optimisticRef.current = optimistic;
+  }, [optimistic]);
+  useEffect(
+    () => () => {
+      if (reconcileFallbackRef.current) clearTimeout(reconcileFallbackRef.current);
+    },
+    [],
+  );
 
   // Terminal audio cue when the game finishes (fires once per game).
   const finishedRef = useRef(false);
@@ -119,6 +149,11 @@ function LiveGame() {
     if (game.result === "draw") playGameSound("draw");
     else if (user && game.winner_id === user.id) playGameSound("victory");
     else if (user && game.winner_id) playGameSound("defeat");
+    // Deliberately depend on the primitive sub-fields actually read here
+    // (all present below) rather than the whole `game`/`user` objects, so
+    // this doesn't re-run on unrelated game/user field changes — every
+    // value the effect reads is already listed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game?.status, game?.result, game?.winner_id, user?.id]);
 
   useEffect(() => {
@@ -150,7 +185,7 @@ function LiveGame() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [{ data: g }, { data: m }, { data: c }] = await Promise.all([
+      const [{ data: g }, { data: m }, { data: c }, { data: r }] = await Promise.all([
         supabase.from("games").select("*").eq("id", id).maybeSingle(),
         supabase.from("game_moves").select("ply,san,uci,fen_after").eq("game_id", id).order("ply"),
         supabase
@@ -158,11 +193,20 @@ function LiveGame() {
           .select("id,user_id,username,body,created_at")
           .eq("game_id", id)
           .order("created_at"),
+        (supabase as unknown as RoomLookupClient)
+          .from("public_rooms")
+          .select("id, host_id")
+          .eq("game_id", id)
+          .maybeSingle(),
       ]);
       if (!alive) return;
       setGame(g as GameRow | null);
       setMoves((m ?? []) as MoveRow[]);
       setChat((c ?? []) as ChatRow[]);
+      if (r) {
+        setRoomId(r.id);
+        setRoomHostId(r.host_id);
+      }
     })();
     return () => {
       alive = false;
@@ -180,12 +224,23 @@ function LiveGame() {
         .from("profiles")
         .select("id, premium_active, premium_expires_at, avatar_url")
         .in("id", ids);
+      const rows = (data ?? []) as Array<{
+        id: string;
+        premium_active?: boolean;
+        premium_expires_at?: string | null;
+        avatar_url?: string | null;
+      }>;
       if (data) {
-        setWhiteProfile(data.find((d: any) => d.id === game.white_id) || null);
-        setBlackProfile(data.find((d: any) => d.id === game.black_id) || null);
+        setWhiteProfile(rows.find((d) => d.id === game.white_id) || null);
+        setBlackProfile(rows.find((d) => d.id === game.black_id) || null);
       }
     };
     fetchProfiles();
+    // Depend on the two ids actually used, not the whole `game` object —
+    // `game` gets a new identity on every move/clock update via realtime,
+    // and the two players don't change mid-game, so depending on the whole
+    // object would re-fetch these profiles on every single move for no reason.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game?.white_id, game?.black_id]);
 
   // Realtime — re-fetch move list on re-subscribe to recover any gaps during disconnect
@@ -214,11 +269,22 @@ function LiveGame() {
       )
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
-          const { data: m } = await supabase
-            .from("game_moves")
-            .select("ply,san,uci,fen_after")
-            .eq("game_id", id)
-            .order("ply");
+          // Recover from any gap while disconnected — a reconnect only
+          // guarantees the channel is live again, not that every event
+          // fired during the gap was delivered. Re-fetching game_moves
+          // alone (the previous behavior) recovers missed moves but not a
+          // missed change to the games row itself (an opponent resigning,
+          // a draw being accepted, or a timeout being claimed while this
+          // client was briefly offline) — re-fetch both.
+          const [{ data: g }, { data: m }] = await Promise.all([
+            supabase.from("games").select("*").eq("id", id).maybeSingle(),
+            supabase
+              .from("game_moves")
+              .select("ply,san,uci,fen_after")
+              .eq("game_id", id)
+              .order("ply"),
+          ]);
+          if (g) setGame(g as GameRow);
           if (m) setMoves(m as MoveRow[]);
         }
       });
@@ -265,30 +331,38 @@ function LiveGame() {
   const orientation: "w" | "b" = flipped ? (baseOrientation === "w" ? "b" : "w") : baseOrientation;
   const isMyTurn = !!myColor && myColor === game?.turn && game?.status === "active" && !optimistic;
 
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (game?.status !== "active") return;
+    const t = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(t);
+  }, [game?.status]);
+
   // Live clock values passed to PlayerCards
   const activeTurn = optimistic ? (game?.turn === "w" ? "b" : "w") : game?.turn;
   const realLastMoveAt = game?.last_move_at ? new Date(game.last_move_at).getTime() : null;
   const currentMoveAt = optimistic ? optimistic.at : realLastMoveAt;
 
+  const elapsedSinceLastMove =
+    game?.status === "active" && realLastMoveAt ? Math.max(0, now - realLastMoveAt) : 0;
+
   // The base ms remaining for each player
-  const whiteMs =
-    (game?.white_time_ms ?? 0) -
-    (game?.turn === "w" && optimistic && realLastMoveAt ? optimistic.at - realLastMoveAt : 0);
-  const blackMs =
-    (game?.black_time_ms ?? 0) -
-    (game?.turn === "b" && optimistic && realLastMoveAt ? optimistic.at - realLastMoveAt : 0);
+  const whiteMs = (game?.white_time_ms ?? 0) - (game?.turn === "w" ? elapsedSinceLastMove : 0);
+  const blackMs = (game?.black_time_ms ?? 0) - (game?.turn === "b" ? elapsedSinceLastMove : 0);
 
   // Opponent timeout watcher — when it's NOT my turn and the opponent's displayed clock hits 0
-  if (game?.status === "active" && myColor && user && !timeoutClaimedRef.current) {
+  useEffect(() => {
+    if (!game || game.status !== "active" || !myColor || !user || timeoutClaimedRef.current) return;
     const isOppTurn = game.turn !== myColor;
     const oppMs = myColor === "w" ? blackMs : whiteMs;
     if (isOppTurn && oppMs <= 0) {
       timeoutClaimedRef.current = true;
-      claimTimeout(id).catch(() => {
+      claimTimeout(id).catch((err) => {
+        console.error("Timeout claim error:", err);
         timeoutClaimedRef.current = false;
       });
     }
-  }
+  }, [game, myColor, user, blackMs, whiteMs, id]);
 
   // Board cells
   const board: BoardCell[][] = useMemo(
@@ -336,6 +410,73 @@ function LiveGame() {
     return { result, reason: game.end_reason?.replace(/_/g, " ") ?? "Finished" };
   }, [game?.status, game?.result, game?.end_reason, game?.turn, optimistic?.isCheckmate]);
 
+  const submitMoveInBackground = useCallback(
+    async (
+      from: string,
+      to: string,
+      promo: "q" | "r" | "b" | "n" | undefined,
+      expectedFen: string,
+    ) => {
+      try {
+        const result = await submitMove({ gameId: id, from, to, promotion: promo });
+        if (!result.ok) {
+          // Server flagged this move as a timeout loss for the mover
+          setOptimistic(null);
+          toast.error("You ran out of time.");
+          return;
+        }
+        // The server accepted the move — Realtime should update `game` from
+        // the DB write shortly. If that specific UPDATE event is dropped
+        // (packet loss, a reconnect gap landing right after this write), the
+        // optimistic state never clears and this player's board gets stuck
+        // unable to move again (isMyTurn requires !optimistic). Fall back to
+        // a direct re-fetch if reconciliation hasn't happened after a few
+        // seconds — but only if we're still waiting on *this* move (a newer
+        // move, or an error that already cleared optimistic, means there's
+        // nothing to reconcile).
+        if (reconcileFallbackRef.current) clearTimeout(reconcileFallbackRef.current);
+        reconcileFallbackRef.current = setTimeout(async () => {
+          reconcileFallbackRef.current = null;
+          if (optimisticRef.current?.from !== from || optimisticRef.current?.to !== to) return;
+          if (gameRef.current?.fen === expectedFen) return;
+          const { data: g } = await supabase.from("games").select("*").eq("id", id).maybeSingle();
+          if (g) setGame(g as GameRow);
+        }, 3500);
+      } catch (err) {
+        setOptimistic(null);
+        toast.error(err instanceof Error ? err.message : "Move failed — try again.");
+      } finally {
+        submittingRef.current = false;
+      }
+    },
+    [id],
+  );
+
+  const commitMove = useCallback(
+    (from: string, to: string, promo?: "q" | "r" | "b" | "n") => {
+      if (!game || !user || !myColor || submittingRef.current) return;
+      submittingRef.current = true;
+      setSelected(null);
+      setTargets([]);
+      // Clone the already-loaded `chess` instance (not a fresh FEN reparse) and
+      // apply the move synchronously — the caller already validated it's legal
+      // via chess.moves(), so this cannot fail. The board updates in this same
+      // tick, before the network call below even starts.
+      const c = new Chess(chess.fen());
+      const mv = c.move({ from, to, promotion: promo });
+      setOptimistic({ fen: c.fen(), from, to, at: Date.now(), isCheckmate: c.isCheckmate() });
+      buzz();
+      soundForChessMove(mv, c);
+      if (c.isCheckmate()) {
+        setShowEndModal(true);
+      }
+      // Fire the network request in the background — never block the UI thread
+      // or the optimistic render on it.
+      void submitMoveInBackground(from, to, promo, c.fen());
+    },
+    [game, user, myColor, chess, submitMoveInBackground],
+  );
+
   const handleSquare = useCallback(
     (sq: string) => {
       if (!isMyTurn || promotion || submittingRef.current) return;
@@ -366,47 +507,8 @@ function LiveGame() {
         setTargets([]);
       }
     },
-    [isMyTurn, promotion, selected, chess, settings.auto_queen, game, myColor],
+    [isMyTurn, promotion, selected, chess, settings.auto_queen, game, myColor, commitMove],
   );
-
-  function commitMove(from: string, to: string, promo?: "q" | "r" | "b" | "n") {
-    if (!game || !user || !myColor || submittingRef.current) return;
-    submittingRef.current = true;
-    setSelected(null);
-    setTargets([]);
-    // Clone the already-loaded `chess` instance (not a fresh FEN reparse) and
-    // apply the move synchronously — the caller already validated it's legal
-    // via chess.moves(), so this cannot fail. The board updates in this same
-    // tick, before the network call below even starts.
-    const c = new Chess(chess.fen());
-    const mv = c.move({ from, to, promotion: promo });
-    setOptimistic({ fen: c.fen(), from, to, at: Date.now(), isCheckmate: c.isCheckmate() });
-    buzz();
-    soundForChessMove(mv, c);
-    if (c.isCheckmate()) {
-      setShowEndModal(true);
-    }
-    // Fire the network request in the background — never block the UI thread
-    // or the optimistic render on it.
-    void submitMoveInBackground(from, to, promo);
-  }
-
-  async function submitMoveInBackground(from: string, to: string, promo?: "q" | "r" | "b" | "n") {
-    try {
-      const result = await submitMove({ gameId: id, from, to, promotion: promo });
-      if (!result.ok) {
-        // Server flagged this move as a timeout loss for the mover
-        setOptimistic(null);
-        toast.error("You ran out of time.");
-      }
-      // Realtime will update game state from the server's DB write
-    } catch (err) {
-      setOptimistic(null);
-      toast.error(err instanceof Error ? err.message : "Move failed — try again.");
-    } finally {
-      submittingRef.current = false;
-    }
-  }
 
   async function joinAsOpponent() {
     if (!user || !game || game.status !== "waiting") return;
@@ -477,6 +579,7 @@ function LiveGame() {
   const opp =
     myColor === "w"
       ? {
+          id: game.black_id,
           name: game.black_username ?? "Awaiting…",
           rating: game.black_rating,
           ms: blackMs,
@@ -486,6 +589,7 @@ function LiveGame() {
           avatar: blackProfile?.avatar_url,
         }
       : {
+          id: game.white_id,
           name: game.white_username ?? "Awaiting…",
           rating: game.white_rating,
           ms: whiteMs,
@@ -538,8 +642,11 @@ function LiveGame() {
         <GameEndModal
           result={game.end_reason?.includes("resign") ? "resigned" : (game.result as GameEndResult)}
           reason={game.end_reason?.replace(/_/g, " ") ?? "Finished"}
-          onClose={() => setShowEndModal(false)}
           gameId={id}
+          roomId={roomId ?? undefined}
+          roomHostId={roomHostId ?? undefined}
+          currentUserId={user?.id}
+          onClose={() => setShowEndModal(false)}
         />
       )}
       <div className="grid gap-6 lg:grid-cols-12">
@@ -555,6 +662,7 @@ function LiveGame() {
             active={!isWaiting && activeTurn !== myColor}
             board={board}
             player={orientation === "w" ? "b" : "w"}
+            friendUserId={opp.id}
           />
           <PlayerCard
             name={me.name}
@@ -786,6 +894,7 @@ function PlayerCard({
   me,
   board,
   player,
+  friendUserId,
 }: {
   name: string;
   rating: number | null;
@@ -798,6 +907,7 @@ function PlayerCard({
   me?: boolean;
   board: BoardCell[][];
   player: "w" | "b";
+  friendUserId?: string | null;
 }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -808,14 +918,16 @@ function PlayerCard({
 
   const elapsed = active && lastMoveAt ? Math.max(0, now - lastMoveAt) : 0;
   const currentMs = Math.max(0, baseMs - elapsed);
+  useClockAudio(Math.ceil(currentMs / 1000), !!active && !!me);
   return (
     <Card className={`p-4 ${active ? "ring-1 ring-gold/60" : ""}`}>
       <div className="flex items-center gap-3">
         <UserAvatar avatarUrl={avatar} displayName={name} size="md" />
         <div className="flex-1 min-w-0">
-          <div className="truncate text-sm flex items-center">
+          <div className="truncate text-sm flex items-center gap-1.5">
             {name}
             <PremiumBadge premiumActive={p_active} premiumExpiresAt={p_exp} />
+            {friendUserId && <FriendButton targetUserId={friendUserId} targetName={name} />}
           </div>
           <div className="text-xs text-muted-foreground">
             {rating ?? "—"} {me ? "· You" : ""}
@@ -825,7 +937,7 @@ function PlayerCard({
         <div
           className={`rounded-lg px-3 py-1.5 font-mono text-sm tabular-nums ${active ? "bg-gold text-[#0B0D10]" : "bg-white/5"}`}
         >
-          {fmtClock(currentMs)}
+          <ClockTime ms={currentMs} active={!!active} />
         </div>
       </div>
     </Card>

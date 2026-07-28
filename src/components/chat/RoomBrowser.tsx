@@ -4,7 +4,7 @@
 // "➕ Create Room" / "🔍 Join Room" toolbar plus a scrollable, newest-first
 // card list with full room metadata.
 import { useState } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Loader2, Lock, Plus, Search, Users } from "lucide-react";
 import { Card } from "@/components/site/Primitives";
 import {
@@ -112,11 +112,21 @@ export function GlobalRoomsList() {
 
 function RoomCard({ room, isPrivate }: { room: ChatChannel; isPrivate: boolean }) {
   const { joinRoom, joinPrivateRoom } = useChatActions();
+  const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [joining, setJoining] = useState(false);
 
+  const openRoom = () => {
+    navigate({ to: "/chat/room/$slug", params: { slug: room.slug ?? room.id } });
+  };
+
   return (
-    <Card className="p-3.5 transition-colors hover:border-gold/20">
+    <Card
+      className={`p-3.5 transition-colors hover:border-gold/20 ${room.is_member ? "cursor-pointer" : ""}`}
+      onClick={() => {
+        if (room.is_member) openRoom();
+      }}
+    >
       <div className="flex items-start gap-3">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/5 text-base">
           {room.icon ?? (isPrivate ? "🔒" : "🌐")}
@@ -128,6 +138,7 @@ function RoomCard({ room, isPrivate }: { room: ChatChannel; isPrivate: boolean }
                 to="/chat/room/$slug"
                 params={{ slug: room.slug ?? room.id }}
                 className="truncate font-medium hover:underline"
+                onClick={(e) => e.stopPropagation()}
               >
                 {room.name}
               </Link>
@@ -172,7 +183,7 @@ function RoomCard({ room, isPrivate }: { room: ChatChannel; isPrivate: boolean }
       </div>
 
       {!room.is_member && (
-        <div className="mt-2.5 flex items-center gap-1.5">
+        <div className="mt-2.5 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
           {isPrivate && (
             <input
               type="password"
@@ -190,10 +201,22 @@ function RoomCard({ room, isPrivate }: { room: ChatChannel; isPrivate: boolean }
               if (isPrivate) {
                 joinPrivateRoom.mutate(
                   { roomCode: room.room_code ?? room.slug ?? "", password: password.trim() },
-                  { onSettled: () => setJoining(false) },
+                  {
+                    onSuccess: () => {
+                      setJoining(false);
+                      openRoom();
+                    },
+                    onError: () => setJoining(false),
+                  },
                 );
               } else {
-                joinRoom.mutate(room.id, { onSettled: () => setJoining(false) });
+                joinRoom.mutate(room.id, {
+                  onSuccess: () => {
+                    setJoining(false);
+                    openRoom();
+                  },
+                  onError: () => setJoining(false),
+                });
               }
             }}
             className="shrink-0 rounded-lg border border-gold/30 px-3 py-1.5 text-xs text-gold hover:bg-gold/10 disabled:opacity-40"

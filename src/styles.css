@@ -481,6 +481,57 @@
   .animate-drift {
     animation: drift 7s ease-in-out infinite;
   }
+
+  /* ── Friends page redesign: additive, scoped utilities only ── */
+
+  @keyframes shimmer-sweep {
+    0% {
+      background-position: -300px 0;
+    }
+    100% {
+      background-position: 300px 0;
+    }
+  }
+
+  .skeleton-shimmer {
+    background-image: linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--card) 92%, black) 0%,
+      color-mix(in oklab, var(--gold) 8%, var(--card)) 50%,
+      color-mix(in oklab, var(--card) 92%, black) 100%
+    );
+    background-size: 600px 100%;
+    animation: shimmer-sweep 1.6s ease-in-out infinite;
+  }
+
+  @keyframes online-ring-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgba(15, 200, 140, 0.45);
+    }
+    50% {
+      box-shadow: 0 0 0 5px rgba(15, 200, 140, 0);
+    }
+  }
+
+  .online-ring {
+    animation: online-ring-pulse 2.4s ease-out infinite;
+  }
+
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-rise-in {
+    animation: rise-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
 }
 
 /* ── Accessibility & performance settings (applied to <html> by SettingsEffects) ── */
@@ -543,6 +594,22 @@
 }
 .cx-cb-tritanopia body {
   filter: saturate(1.2) hue-rotate(28deg);
+}
+
+/* Time-pressure clock cue — pulses the active clock red under 10s when the
+   `time_pressure_effects` setting is on. Automatically neutralised by the
+   .cx-reduced-motion rule above (animation-duration is forced to ~0). */
+@keyframes cx-time-pressure-pulse {
+  0%,
+  100% {
+    color: inherit;
+  }
+  50% {
+    color: #ff5c5c;
+  }
+}
+.cx-time-pressure {
+  animation: cx-time-pressure-pulse 1s ease-in-out infinite;
 }
 
 /* Mobile board scaling (phones only) — driven by the Mobile settings slider. */

@@ -3,9 +3,16 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Primitives";
 import { useAuth } from "@/hooks/useAuth";
-import { createChallenge, type TimeClass, type HostColor } from "@/lib/api/gameClient";
-import { Copy, Crown, Users } from "lucide-react";
+import {
+  createChallenge,
+  sendChallenge,
+  type TimeClass,
+  type HostColor,
+} from "@/lib/api/gameClient";
+import { Copy, Crown, Users, Swords } from "lucide-react";
 import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
+import { useFriends } from "@/hooks/useFriends";
+import { UserAvatar } from "@/components/site/UserAvatar";
 
 export const Route = createFileRoute("/play/friend")({
   head: () =>
@@ -65,7 +72,10 @@ function PlayFriend() {
   const [pick, setPick] = useState(2);
   const [color, setColor] = useState<HostColor>("random");
   const [creating, setCreating] = useState(false);
+  const [challengingId, setChallengingId] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
+
+  const { friends } = useFriends(user?.id);
 
   if (!loading && !user) {
     return (
@@ -82,8 +92,6 @@ function PlayFriend() {
     const tc = TIME_CONTROLS[pick];
     setCreating(true);
     try {
-      // create_challenge RPC creates the game row server-side with proper RLS bypass
-      // and sets the host's rating, username, and color atomically
       const gameId = await createChallenge({
         timeClass: tc.class,
         timeControl: tc.tc,
@@ -97,6 +105,28 @@ function PlayFriend() {
       toast.error(err instanceof Error ? err.message : "Failed to create challenge.");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleDirectChallenge(friendId: string) {
+    if (!user) return;
+    const tc = TIME_CONTROLS[pick];
+    setChallengingId(friendId);
+    try {
+      await sendChallenge({
+        opponentId: friendId,
+        timeClass: tc.class,
+        timeControl: tc.tc,
+        initialSeconds: tc.sec,
+        incrementSeconds: tc.inc,
+        hostColor: "random",
+        isRated: false,
+      });
+      toast.success("Challenge sent!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send challenge.");
+    } finally {
+      setChallengingId(null);
     }
   }
 
@@ -170,43 +200,97 @@ function PlayFriend() {
           </div>
         </Card>
 
-        <Card className="p-6 lg:col-span-5">
-          <div className="text-xs uppercase tracking-[0.22em] text-gold/80">Challenge Link</div>
-          {link ? (
-            <>
+        <div className="lg:col-span-5 space-y-6">
+          <Card className="p-6">
+            <div className="text-xs uppercase tracking-[0.22em] text-gold/80">Challenge Link</div>
+            {link ? (
+              <>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Share this scroll. The throne is empty until your opponent enters.
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <input
+                    readOnly
+                    value={link}
+                    className="flex-1 rounded-lg border border-gold/30 bg-white/[0.02] px-3 py-2 font-mono text-xs"
+                  />
+                  <button
+                    onClick={() => navigator.clipboard.writeText(link)}
+                    className="grid h-9 w-9 place-items-center rounded-lg gradient-gold text-[#0B0D10]"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="mt-5">
+                  <GoldButton
+                    onClick={() =>
+                      navigate({ to: "/game/$id", params: { id: link.split("/").pop()! } })
+                    }
+                  >
+                    Enter the Arena
+                  </GoldButton>
+                </div>
+              </>
+            ) : (
               <p className="mt-3 text-sm text-muted-foreground">
-                Share this scroll. The throne is empty until your opponent enters.
+                Choose a time control and create your challenge. We will mint a private link you can
+                share with anyone.
               </p>
-              <div className="mt-4 flex gap-2">
-                <input
-                  readOnly
-                  value={link}
-                  className="flex-1 rounded-lg border border-gold/30 bg-white/[0.02] px-3 py-2 font-mono text-xs"
-                />
-                <button
-                  onClick={() => navigator.clipboard.writeText(link)}
-                  className="grid h-9 w-9 place-items-center rounded-lg gradient-gold text-[#0B0D10]"
-                >
-                  <Copy className="h-4 w-4" />
-                </button>
+            )}
+          </Card>
+
+          {friends.length > 0 && (
+            <Card className="p-6">
+              <div className="text-xs uppercase tracking-[0.22em] text-gold/80 mb-4">
+                Your Friends
               </div>
-              <div className="mt-5">
-                <GoldButton
-                  onClick={() =>
-                    navigate({ to: "/game/$id", params: { id: link.split("/").pop()! } })
-                  }
-                >
-                  Enter the Arena
-                </GoldButton>
+              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {friends.map((friend) => (
+                  <div key={friend.id} className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <UserAvatar
+                          avatarUrl={friend.other_avatar_url}
+                          displayName={friend.other_display || friend.other_username || "Unknown"}
+                          size="md"
+                        />
+                        <div
+                          className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#121418] ${
+                            friend.other_activity === "online"
+                              ? "bg-emerald-500"
+                              : friend.other_activity === "playing"
+                                ? "bg-amber-500"
+                                : "bg-zinc-500"
+                          }`}
+                        />
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className="font-semibold leading-tight text-gold/90">
+                          {friend.other_display || friend.other_username || "Unknown"}
+                        </span>
+                        <span className="text-xs text-muted-foreground mt-0.5">
+                          {friend.other_activity === "playing"
+                            ? "Playing"
+                            : friend.other_activity === "online"
+                              ? "Online"
+                              : "Offline"}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDirectChallenge(friend.other_id!)}
+                      disabled={challengingId === friend.other_id}
+                      className="group flex h-8 items-center gap-1.5 rounded-full border border-gold/30 bg-gold/5 px-3 text-xs font-medium text-gold/80 transition hover:bg-gold hover:text-[#0B0D10] disabled:opacity-50"
+                    >
+                      <Swords className="h-3.5 w-3.5 transition group-hover:scale-110" />
+                      {challengingId === friend.other_id ? "Sending..." : "Play"}
+                    </button>
+                  </div>
+                ))}
               </div>
-            </>
-          ) : (
-            <p className="mt-3 text-sm text-muted-foreground">
-              Choose a time control and create your challenge. We will mint a private link you can
-              share with anyone.
-            </p>
+            </Card>
           )}
-        </Card>
+        </div>
       </div>
     </PageShell>
   );

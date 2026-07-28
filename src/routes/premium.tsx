@@ -233,13 +233,6 @@ function Premium() {
                 </div>
               </div>
 
-              <ul className="mt-5 space-y-2.5 text-sm">
-                {p.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald" /> {f}
-                  </li>
-                ))}
-              </ul>
               <GoldButton className="mt-8 w-full" onClick={() => handleChoose(p.name)}>
                 Choose {p.name}
               </GoldButton>

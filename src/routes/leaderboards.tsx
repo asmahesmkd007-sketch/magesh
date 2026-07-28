@@ -1,15 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageShell, Card, GoldButton } from "@/components/site/Primitives";
 import { useEffect, useMemo, useState, Fragment } from "react";
-import { Crown, Loader2, Medal, Search, Trophy, UserPlus } from "lucide-react";
+import { Crown, Loader2, Medal, Search, Trophy } from "lucide-react";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
 import { UserAvatar } from "@/components/site/UserAvatar";
+import { FriendButton } from "@/components/friends/FriendButton";
 import { COUNTRIES, INDIA_DISTRICTS, INDIA_STATES_AND_UTS } from "@/data/geo";
 import { useLeaderboard, type SortOption } from "@/hooks/useLeaderboard";
 import { useAuth } from "@/hooks/useAuth";
-import { useFriends } from "@/hooks/useFriends";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 import { seo, breadcrumbLd, collectionPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/leaderboards")({
@@ -79,7 +78,6 @@ function LB() {
   const { user } = useAuth();
   const [myRank, setMyRank] = useState<number | null>(null);
   const [myStats, setMyStats] = useState<any | null>(null);
-  const { sendRequest } = useFriends(user?.id);
 
   useEffect(() => {
     if (!user) return;
@@ -355,23 +353,12 @@ function LB() {
                                     premiumExpiresAt={e.premium_expires_at}
                                   />
                                 </Link>
-                                {user?.id !== e.id && (
-                                  <button
-                                    onClick={async (ev) => {
-                                      ev.stopPropagation();
-                                      try {
-                                        await sendRequest(e.id);
-                                        toast.success("Friend request sent!");
-                                      } catch (err: any) {
-                                        toast.error(err.message || "Failed to send request");
-                                      }
-                                    }}
-                                    title="Add Friend"
-                                    className="grid h-6 w-6 place-items-center rounded-full bg-white/5 text-muted-foreground transition-colors hover:bg-gold/20 hover:text-gold"
-                                  >
-                                    <UserPlus className="h-3.5 w-3.5" />
-                                  </button>
-                                )}
+                                <FriendButton
+                                  targetUserId={e.id}
+                                  targetName={e.full_name ?? e.display_name ?? e.username}
+                                  className="h-6 w-6"
+                                  compact
+                                />
                               </div>
                               <div className="text-xs text-muted-foreground md:hidden">
                                 {[e.country, e.state].filter(Boolean).join(", ")}

@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
   PageShell,
   Card,
@@ -21,6 +22,7 @@ import {
   Timer,
   Rocket,
   Hourglass,
+  Copy,
 } from "lucide-react";
 import { useAuth, useProfile } from "@/hooks/useAuth";
 import { UserAvatar } from "@/components/site/UserAvatar";
@@ -166,7 +168,21 @@ function HomePage() {
                   </span>
                 )}
               </h1>
-              {username && <div className="mt-1 text-sm text-muted-foreground">@{username}</div>}
+              {username && (
+                <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                  @{username}
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(username);
+                      toast.success("Username copied!");
+                    }}
+                    className="text-muted-foreground/60 hover:text-gold transition-colors"
+                    title="Copy Username"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex gap-2">

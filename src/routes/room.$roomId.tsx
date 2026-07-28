@@ -22,6 +22,7 @@ import {
   joinRoom,
   joinRoomQueue,
   getRoomQueue,
+  roomHeartbeat,
   type PublicRoom,
   type QueueEntry,
 } from "@/lib/api/roomClient";
@@ -176,6 +177,7 @@ function RoomWaiting() {
 
   // Track guest ID across realtime events to avoid redundant fetches
   const guestIdRef = useRef<string | null>(null);
+  const hostIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -274,6 +276,7 @@ function RoomWaiting() {
       if (!cancelled) {
         setRoom(currentRoom);
         guestIdRef.current = currentRoom.guest_id;
+        hostIdRef.current = currentRoom.host_id;
         setHostProfile(hp);
         setGuestProfile(gp);
         setQueueEntries(queue);
@@ -312,14 +315,32 @@ function RoomWaiting() {
           setRoom(updated);
 
           if (updated.status === "playing" && updated.game_id) {
-            navigate({ to: "/game/$id", params: { id: updated.game_id } });
-            return;
+            // Only redirect the two players who are actually playing.
+            // Queue players will stay in the room lobby waiting for their turn.
+            if (updated.host_id === user!.id || updated.guest_id === user!.id) {
+              navigate({ to: "/game/$id", params: { id: updated.game_id } });
+              return;
+            }
           }
 
           if (updated.status === "closed") {
             toast.error("The host closed the room.");
             navigate({ to: "/room" });
             return;
+          }
+
+          // Host changed (e.g. host left post-match, Queue #1 promoted)
+          if (updated.host_id && updated.host_id !== hostIdRef.current) {
+            hostIdRef.current = updated.host_id;
+            const hp = await fetchProfile(updated.host_id);
+            if (!cancelled) {
+              setHostProfile(hp);
+              if (updated.host_id === user!.id) {
+                setIsInQueue(false);
+                setQueuePosition(null);
+                toast.success("You have been promoted to Host!");
+              }
+            }
           }
 
           // New guest joined (or current user was promoted from queue)
@@ -374,7 +395,31 @@ function RoomWaiting() {
       cancelled = true;
       supabase.removeChannel(roomChannel);
       supabase.removeChannel(queueChannel);
+      // Clean up player on unmount. Note: the leave_public_room RPC safely ignores
+      // leave requests if the room is actively playing a match.
+      leaveRoom(roomId).catch(() => {});
     };
+  }, [roomId, user?.id, authLoading]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      leaveRoom(roomId).catch(() => {});
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [roomId]);
+
+  // Presence heartbeat — lets the backend distinguish a crashed tab /
+  // dropped connection from someone genuinely still here, so a stale
+  // host/guest/queue slot gets released instead of becoming a ghost.
+  // Purely backend plumbing: no UI, no visible state, nothing rendered.
+  useEffect(() => {
+    if (authLoading || !user) return;
+    roomHeartbeat(roomId).catch(() => {});
+    const interval = setInterval(() => {
+      roomHeartbeat(roomId).catch(() => {});
+    }, 20000);
+    return () => clearInterval(interval);
   }, [roomId, user?.id, authLoading]);
 
   async function handleStart() {

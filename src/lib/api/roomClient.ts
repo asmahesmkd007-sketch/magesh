@@ -68,6 +68,10 @@ type RpcMap = {
     args: { p_room_id: string };
     returns: null;
   };
+  room_heartbeat: {
+    args: { p_room_id: string };
+    returns: null;
+  };
 };
 
 async function callRpc<K extends keyof RpcMap>(
@@ -123,6 +127,17 @@ export function joinRoomQueue(roomId: string): Promise<number> {
 
 export function leaveRoomQueue(roomId: string): Promise<null> {
   return callRpc("leave_room_queue", { p_room_id: roomId });
+}
+
+/**
+ * Keep-alive ping while a client sits on the waiting room page. Lets the
+ * backend tell a crashed tab / dropped connection apart from someone who
+ * is still genuinely there, so a disconnected host/guest/queue slot gets
+ * cleaned up automatically instead of turning into a ghost. No-op if the
+ * caller isn't currently part of the room; safe to call on an interval.
+ */
+export function roomHeartbeat(roomId: string): Promise<null> {
+  return callRpc("room_heartbeat", { p_room_id: roomId });
 }
 
 /** Fetch all queue entries for a room (ordered by position). */

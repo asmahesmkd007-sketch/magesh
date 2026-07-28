@@ -355,7 +355,14 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
       { ...toggle("low_time_warning", "Low-time warning", "wired") },
       { ...toggle("countdown_beep", "Countdown beep", "wired") },
       { ...toggle("show_tenths", "Show tenths under 10s", "wired") },
-      { ...toggle("time_pressure_effects", "Time-pressure effects", "pending") },
+      {
+        ...toggle(
+          "time_pressure_effects",
+          "Time-pressure effects",
+          "wired",
+          "Pulses the clock red under 10 seconds.",
+        ),
+      },
       {
         key: "clock_position",
         label: "Clock position",
@@ -541,7 +548,14 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
         step: 5,
         unit: "%",
       },
-      { ...toggle("mobile_gestures", "Gesture controls", "pending") },
+      {
+        ...toggle(
+          "mobile_gestures",
+          "Gesture controls",
+          "wired",
+          "Swipe left/right on the board to step through moves in Replay.",
+        ),
+      },
     ],
   },
 ];

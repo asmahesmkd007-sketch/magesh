@@ -65,11 +65,11 @@ function PoliciesPage() {
                   <span className="text-2xl">{meta.icon}</span>
                   <div className="min-w-0 flex-1">
                     <div className="font-display text-lg">{meta.label}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {p
-                        ? `Version ${p.version} · Updated ${new Date(p.updated_at).toLocaleDateString()}`
-                        : "Coming soon"}
-                    </div>
+                    {p && (
+                      <div className="text-xs text-muted-foreground">
+                        Version {p.version} · Updated {new Date(p.updated_at).toLocaleDateString()}
+                      </div>
+                    )}
                   </div>
                   <ChevronRight className="h-4 w-4 shrink-0 text-gold" />
                 </Card>

@@ -288,7 +288,7 @@ function Tournaments() {
   );
 
   const coinTournaments = filteredTournaments.filter(
-    (t) => (t.entry_fee_coins ?? 0) > 0 || prizePool(t) > 0,
+    (t) => (t.entry_fee_coins ?? 0) > 0,
   );
 
   const oneMin = coinTournaments.filter((t) => t.time_control.startsWith("1+"));

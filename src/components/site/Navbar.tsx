@@ -11,18 +11,23 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 const NAV_AUTH = [
   { to: "/home", label: "Home" },
   { to: "/play", label: "Play" },
+  { to: "/watch", label: "Watch" },
   { to: "/puzzles", label: "Puzzles" },
   { to: "/tournaments", label: "Tournaments" },
 ] as const;
 
-const COMMUNITY_ITEMS = [
+/** Shape shared by every nav list (see NavList below). */
+type NavEntry = { to: string; label: string; isComingSoon?: boolean };
+
+const COMMUNITY_ITEMS: readonly NavEntry[] = [
   { to: "/community", label: "Community" },
   { to: "/chat", label: "Chat" },
   { to: "/clans", label: "Clans" },
+  { to: "/rankings", label: "Rankings" },
   { to: "/leaderboards", label: "Leaderboard" },
   { to: "/seasons", label: "Seasons" },
   { to: "/events", label: "Events", isComingSoon: true },
-] as const;
+];
 
 const MORE_ITEMS = [
   { to: "/news", label: "News" },
@@ -38,6 +43,7 @@ const MORE_ITEMS = [
 ] as const;
 
 const NAV_GUEST = [
+  { to: "/watch", label: "Watch" },
   { to: "/community", label: "Community" },
   { to: "/news", label: "News" },
   { to: "/tournaments", label: "Tournaments" },
@@ -350,7 +356,7 @@ export function Navbar() {
                   Community
                 </div>
                 {COMMUNITY_ITEMS.map((n) =>
-                  (n as any).isComingSoon ? (
+                  n.isComingSoon ? (
                     <button
                       key={n.to}
                       onClick={() => {

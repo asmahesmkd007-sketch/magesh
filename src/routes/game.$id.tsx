@@ -18,10 +18,15 @@ import { useGameSettings } from "@/hooks/useGameSettings";
 import { playGameSound, soundForChessMove } from "@/lib/audio/sounds";
 import { buzz } from "@/lib/haptics";
 import { submitMove, joinGame, resignGame, respondDraw, claimTimeout } from "@/lib/api/gameClient";
+import { fetchSpectatorDefault } from "@/lib/api/spectatorClient";
+import { SpectatorVisibilityControl } from "@/components/spectator/SpectatorVisibilityControl";
+import type { SpectatorVisibility } from "@/lib/spectator/types";
+import { useAntiCheatMonitor } from "@/lib/anticheat/useAntiCheatMonitor";
 import {
   Flag,
   Handshake,
   Copy,
+  Eye,
   Send,
   Crown,
   MessageCircle,
@@ -62,6 +67,11 @@ type GameRow = {
   end_reason: string | null;
   is_rated: boolean;
   time_class: "bullet" | "blitz" | "rapid" | "classical";
+  // Per-side spectator overrides; null/absent means "use my account
+  // default". Optional because the generated Supabase types predate
+  // SECTION 104 and every `as GameRow` cast here starts from them.
+  white_spectator_pref?: SpectatorVisibility | null;
+  black_spectator_pref?: SpectatorVisibility | null;
 };
 
 type MoveRow = { ply: number; san: string; uci: string; fen_after: string };
@@ -116,6 +126,14 @@ function LiveGame() {
   const [hasShownEndModal, setHasShownEndModal] = useState(false);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [roomHostId, setRoomHostId] = useState<string | null>(null);
+  // The game row came back empty — either it does not exist, or it is a
+  // live game this viewer is not seated in. Both are handled by offering
+  // the spectator feed rather than spinning forever.
+  const [unreadable, setUnreadable] = useState(false);
+  // This player's own spectator preference for this match. Seeded from
+  // the game row's per-side override, falling back to the account
+  // default when the player has not overridden it here.
+  const [myVisibility, setMyVisibility] = useState<SpectatorVisibility>("public");
 
   // Prevent double-submission of moves
   const submittingRef = useRef(false);
@@ -200,6 +218,11 @@ function LiveGame() {
           .maybeSingle(),
       ]);
       if (!alive) return;
+      // A missing row here is usually not a missing game: since spectator
+      // mode landed, an in-progress game is readable only by its two
+      // players (schema.sql SECTION 104), so anyone else lands on the
+      // delayed spectator feed instead of this board.
+      setUnreadable(!g);
       setGame(g as GameRow | null);
       setMoves((m ?? []) as MoveRow[]);
       setChat((c ?? []) as ChatRow[]);
@@ -243,8 +266,48 @@ function LiveGame() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game?.white_id, game?.black_id]);
 
+  const myColor: "w" | "b" | null =
+    user && game?.white_id === user.id ? "w" : user && game?.black_id === user.id ? "b" : null;
+
+  // Seed the spectator control: this match's override if the player set
+  // one, otherwise their account default.
+  useEffect(() => {
+    if (!myColor || !game || !user) return;
+    const override = myColor === "w" ? game.white_spectator_pref : game.black_spectator_pref;
+    if (override) {
+      setMyVisibility(override);
+      return;
+    }
+    let alive = true;
+    void fetchSpectatorDefault(user.id)
+      .then((v) => {
+        if (alive) setMyVisibility(v);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // Only re-seed when the seat or the stored override changes — not on
+    // every game-row update, which arrives on every move.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myColor, user?.id, game?.white_spectator_pref, game?.black_spectator_pref]);
+
+  // Fair-play monitor — records browser/connection signals for players in
+  // active games (evidence only, fully async; spectators are never observed).
+  const anticheat = useAntiCheatMonitor({
+    gameId: id,
+    status: game?.status,
+    myColor,
+    userId: user?.id ?? null,
+    movesCount: moves.length,
+  });
+  // Distinguishes real mid-game drops from the deliberate unsubscribe on unmount.
+  const leavingChannelRef = useRef(false);
+  const hadDropRef = useRef(false);
+
   // Realtime — re-fetch move list on re-subscribe to recover any gaps during disconnect
   useEffect(() => {
+    leavingChannelRef.current = false;
     const ch = supabase
       .channel(`game:${id}`)
       .on(
@@ -268,6 +331,20 @@ function LiveGame() {
         (p) => setChat((prev) => [...prev, p.new as ChatRow]),
       )
       .subscribe(async (status) => {
+        // Connection-quality evidence for the anti-cheat monitor (players
+        // in active games only; the unmount unsubscribe is not a "drop").
+        if (
+          (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") &&
+          !leavingChannelRef.current &&
+          gameRef.current?.status === "active"
+        ) {
+          hadDropRef.current = true;
+          anticheat.noteConnection("dropped");
+        }
+        if (status === "SUBSCRIBED" && hadDropRef.current) {
+          hadDropRef.current = false;
+          anticheat.noteConnection("restored");
+        }
         if (status === "SUBSCRIBED") {
           // Recover from any gap while disconnected — a reconnect only
           // guarantees the channel is live again, not that every event
@@ -289,8 +366,12 @@ function LiveGame() {
         }
       });
     return () => {
+      leavingChannelRef.current = true;
       supabase.removeChannel(ch);
     };
+    // anticheat.noteConnection is a stable useCallback — including the
+    // whole handle would re-subscribe the channel for no reason.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Move audio for moves that arrive over realtime — the mover's own move
@@ -325,8 +406,6 @@ function LiveGame() {
     timeoutClaimedRef.current = false;
   }, [game?.status, id]);
 
-  const myColor: "w" | "b" | null =
-    user && game?.white_id === user.id ? "w" : user && game?.black_id === user.id ? "b" : null;
   const baseOrientation = myColor ?? "w";
   const orientation: "w" | "b" = flipped ? (baseOrientation === "w" ? "b" : "w") : baseOrientation;
   const isMyTurn = !!myColor && myColor === game?.turn && game?.status === "active" && !optimistic;
@@ -465,6 +544,7 @@ function LiveGame() {
       const c = new Chess(chess.fen());
       const mv = c.move({ from, to, promotion: promo });
       setOptimistic({ fen: c.fen(), from, to, at: Date.now(), isCheckmate: c.isCheckmate() });
+      anticheat.noteOwnMove();
       buzz();
       soundForChessMove(mv, c);
       if (c.isCheckmate()) {
@@ -474,7 +554,7 @@ function LiveGame() {
       // or the optimistic render on it.
       void submitMoveInBackground(from, to, promo, c.fen());
     },
-    [game, user, myColor, chess, submitMoveInBackground],
+    [game, user, myColor, chess, submitMoveInBackground, anticheat],
   );
 
   const handleSquare = useCallback(
@@ -567,6 +647,22 @@ function LiveGame() {
       body,
     });
   }
+
+  if (!game && unreadable)
+    return (
+      <PageShell title="Watch this game" compact>
+        <Card className="mx-auto max-w-lg p-10 text-center">
+          <Eye className="mx-auto mb-4 h-8 w-8 text-gold/70" aria-hidden />
+          <p className="text-sm text-muted-foreground">
+            You are not playing in this game. Live boards are private to their two players — the
+            broadcast is available on the spectator feed, a short delay behind the players.
+          </p>
+          <Link to="/watch/$id" params={{ id }} className="mt-6 inline-block">
+            <GoldButton>Watch the broadcast</GoldButton>
+          </Link>
+        </Card>
+      </PageShell>
+    );
 
   if (!game)
     return (
@@ -677,6 +773,17 @@ function LiveGame() {
             player={orientation}
             me
           />
+
+          {myColor && (
+            <Card className="p-4">
+              <SpectatorVisibilityControl
+                scope="game"
+                gameId={id}
+                value={myVisibility}
+                onChange={setMyVisibility}
+              />
+            </Card>
+          )}
 
           {isHostWaiting && (
             <Card className="p-4">

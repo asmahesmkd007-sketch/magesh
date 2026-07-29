@@ -70,8 +70,18 @@ function HomePage() {
   const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate({ to: "/auth" });
-  }, [user, authLoading, navigate]);
+    if (!authLoading && !user) {
+      navigate({ to: "/auth" });
+      return;
+    }
+    if (user && !profileLoading) {
+      const metadataCompleted = !!user.user_metadata?.profile_completed;
+      const hasBasicProfile = !!profile?.full_name && profile?.username?.length === 11;
+      if (!metadataCompleted && !hasBasicProfile) {
+        navigate({ to: "/onboarding" });
+      }
+    }
+  }, [user, authLoading, profile, profileLoading, navigate]);
 
   useEffect(() => {
     if (!user) return;

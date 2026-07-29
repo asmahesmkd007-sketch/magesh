@@ -22,6 +22,7 @@ import { Route as RoomRouteImport } from './routes/room'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ReportRouteImport } from './routes/report'
 import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
+import { Route as RankingsRouteImport } from './routes/rankings'
 import { Route as PuzzlesRouteImport } from './routes/puzzles'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
@@ -29,6 +30,7 @@ import { Route as PremiumRouteImport } from './routes/premium'
 import { Route as PoliciesRouteImport } from './routes/policies'
 import { Route as PlayRouteImport } from './routes/play'
 import { Route as OpeningsRouteImport } from './routes/openings'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as NewsRouteImport } from './routes/news'
 import { Route as LoginRouteImport } from './routes/login'
@@ -44,6 +46,7 @@ import { Route as FairPlayAntiCheatingPolicyRouteImport } from './routes/fair-pl
 import { Route as EventsRouteImport } from './routes/events'
 import { Route as EditorialTeamRouteImport } from './routes/editorial-team'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as CreatePasswordRouteImport } from './routes/create-password'
 import { Route as ContactGrievancePolicyRouteImport } from './routes/contact-grievance-policy'
 import { Route as CommunityPolicyRouteImport } from './routes/community-policy'
 import { Route as CommunityGuidelinesRouteImport } from './routes/community-guidelines'
@@ -56,6 +59,7 @@ import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as AboutChessRouteImport } from './routes/about-chess'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WatchIndexRouteImport } from './routes/watch.index'
 import { Route as RoomIndexRouteImport } from './routes/room.index'
 import { Route as PuzzlesIndexRouteImport } from './routes/puzzles.index'
 import { Route as PlayIndexRouteImport } from './routes/play.index'
@@ -65,7 +69,9 @@ import { Route as CommunityIndexRouteImport } from './routes/community.index'
 import { Route as ClansIndexRouteImport } from './routes/clans.index'
 import { Route as ChatIndexRouteImport } from './routes/chat.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as WatchIdRouteImport } from './routes/watch.$id'
 import { Route as WalletBankRouteImport } from './routes/wallet.bank'
+import { Route as VerifyEmailTokenRouteImport } from './routes/verify-email.$token'
 import { Route as UUsernameRouteImport } from './routes/u.$username'
 import { Route as TournamentIdRouteImport } from './routes/tournament.$id'
 import { Route as RoomRoomIdRouteImport } from './routes/room.$roomId'
@@ -92,6 +98,7 @@ import { Route as AdminSupportRouteImport } from './routes/admin.support'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminSeasonsRouteImport } from './routes/admin.seasons'
 import { Route as AdminReportsRouteImport } from './routes/admin.reports'
+import { Route as AdminRankingRouteImport } from './routes/admin.ranking'
 import { Route as AdminPuzzlesRouteImport } from './routes/admin.puzzles'
 import { Route as AdminPremiumRouteImport } from './routes/admin.premium'
 import { Route as AdminPoliciesRouteImport } from './routes/admin.policies'
@@ -102,6 +109,7 @@ import { Route as AdminFeedbackRouteImport } from './routes/admin.feedback'
 import { Route as AdminCommunityRouteImport } from './routes/admin.community'
 import { Route as AdminClansRouteImport } from './routes/admin.clans'
 import { Route as AdminChatRouteImport } from './routes/admin.chat'
+import { Route as AdminAnticheatRouteImport } from './routes/admin.anticheat'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminAboutChessRouteImport } from './routes/admin.about-chess'
 import { Route as GameIdReviewRouteImport } from './routes/game.$id.review'
@@ -174,6 +182,11 @@ const RefundPolicyRoute = RefundPolicyRouteImport.update({
   path: '/refund-policy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RankingsRoute = RankingsRouteImport.update({
+  id: '/rankings',
+  path: '/rankings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PuzzlesRoute = PuzzlesRouteImport.update({
   id: '/puzzles',
   path: '/puzzles',
@@ -207,6 +220,11 @@ const PlayRoute = PlayRouteImport.update({
 const OpeningsRoute = OpeningsRouteImport.update({
   id: '/openings',
   path: '/openings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NotificationsRoute = NotificationsRouteImport.update({
@@ -285,6 +303,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CreatePasswordRoute = CreatePasswordRouteImport.update({
+  id: '/create-password',
+  path: '/create-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContactGrievancePolicyRoute = ContactGrievancePolicyRouteImport.update({
   id: '/contact-grievance-policy',
   path: '/contact-grievance-policy',
@@ -345,6 +368,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WatchIndexRoute = WatchIndexRouteImport.update({
+  id: '/watch/',
+  path: '/watch/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RoomIndexRoute = RoomIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -390,10 +418,20 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WatchIdRoute = WatchIdRouteImport.update({
+  id: '/watch/$id',
+  path: '/watch/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WalletBankRoute = WalletBankRouteImport.update({
   id: '/bank',
   path: '/bank',
   getParentRoute: () => WalletRoute,
+} as any)
+const VerifyEmailTokenRoute = VerifyEmailTokenRouteImport.update({
+  id: '/verify-email/$token',
+  path: '/verify-email/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const UUsernameRoute = UUsernameRouteImport.update({
   id: '/u/$username',
@@ -525,6 +563,11 @@ const AdminReportsRoute = AdminReportsRouteImport.update({
   path: '/admin/reports',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRankingRoute = AdminRankingRouteImport.update({
+  id: '/admin/ranking',
+  path: '/admin/ranking',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminPuzzlesRoute = AdminPuzzlesRouteImport.update({
   id: '/admin/puzzles',
   path: '/admin/puzzles',
@@ -575,6 +618,11 @@ const AdminChatRoute = AdminChatRouteImport.update({
   path: '/admin/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAnticheatRoute = AdminAnticheatRouteImport.update({
+  id: '/admin/anticheat',
+  path: '/admin/anticheat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
   id: '/admin/analytics',
   path: '/admin/analytics',
@@ -619,6 +667,7 @@ export interface FileRoutesByFullPath {
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/community-policy': typeof CommunityPolicyRoute
   '/contact-grievance-policy': typeof ContactGrievancePolicyRoute
+  '/create-password': typeof CreatePasswordRoute
   '/dashboard': typeof DashboardRoute
   '/editorial-team': typeof EditorialTeamRoute
   '/events': typeof EventsRoute
@@ -634,6 +683,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/news': typeof NewsRouteWithChildren
   '/notifications': typeof NotificationsRoute
+  '/onboarding': typeof OnboardingRoute
   '/openings': typeof OpeningsRoute
   '/play': typeof PlayRouteWithChildren
   '/policies': typeof PoliciesRoute
@@ -641,6 +691,7 @@ export interface FileRoutesByFullPath {
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
   '/puzzles': typeof PuzzlesRouteWithChildren
+  '/rankings': typeof RankingsRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/report': typeof ReportRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -656,6 +707,7 @@ export interface FileRoutesByFullPath {
   '/withdrawal-policy': typeof WithdrawalPolicyRoute
   '/admin/about-chess': typeof AdminAboutChessRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/anticheat': typeof AdminAnticheatRoute
   '/admin/chat': typeof AdminChatRoute
   '/admin/clans': typeof AdminClansRoute
   '/admin/community': typeof AdminCommunityRoute
@@ -666,6 +718,7 @@ export interface FileRoutesByFullPath {
   '/admin/policies': typeof AdminPoliciesRoute
   '/admin/premium': typeof AdminPremiumRoute
   '/admin/puzzles': typeof AdminPuzzlesRoute
+  '/admin/ranking': typeof AdminRankingRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/seasons': typeof AdminSeasonsRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -692,7 +745,9 @@ export interface FileRoutesByFullPath {
   '/room/$roomId': typeof RoomRoomIdRoute
   '/tournament/$id': typeof TournamentIdRoute
   '/u/$username': typeof UUsernameRoute
+  '/verify-email/$token': typeof VerifyEmailTokenRoute
   '/wallet/bank': typeof WalletBankRoute
+  '/watch/$id': typeof WatchIdRoute
   '/admin/': typeof AdminIndexRoute
   '/chat/': typeof ChatIndexRoute
   '/clans/': typeof ClansIndexRoute
@@ -702,6 +757,7 @@ export interface FileRoutesByFullPath {
   '/play/': typeof PlayIndexRoute
   '/puzzles/': typeof PuzzlesIndexRoute
   '/room/': typeof RoomIndexRoute
+  '/watch/': typeof WatchIndexRoute
   '/chat/dm/$username': typeof ChatDmUsernameRoute
   '/chat/room/$slug': typeof ChatRoomSlugRoute
   '/community/post/$id': typeof CommunityPostIdRoute
@@ -718,6 +774,7 @@ export interface FileRoutesByTo {
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/community-policy': typeof CommunityPolicyRoute
   '/contact-grievance-policy': typeof ContactGrievancePolicyRoute
+  '/create-password': typeof CreatePasswordRoute
   '/dashboard': typeof DashboardRoute
   '/editorial-team': typeof EditorialTeamRoute
   '/events': typeof EventsRoute
@@ -732,11 +789,13 @@ export interface FileRoutesByTo {
   '/learn': typeof LearnRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
+  '/onboarding': typeof OnboardingRoute
   '/openings': typeof OpeningsRoute
   '/policies': typeof PoliciesRoute
   '/premium': typeof PremiumRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
+  '/rankings': typeof RankingsRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/report': typeof ReportRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -751,6 +810,7 @@ export interface FileRoutesByTo {
   '/withdrawal-policy': typeof WithdrawalPolicyRoute
   '/admin/about-chess': typeof AdminAboutChessRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/anticheat': typeof AdminAnticheatRoute
   '/admin/chat': typeof AdminChatRoute
   '/admin/clans': typeof AdminClansRoute
   '/admin/community': typeof AdminCommunityRoute
@@ -761,6 +821,7 @@ export interface FileRoutesByTo {
   '/admin/policies': typeof AdminPoliciesRoute
   '/admin/premium': typeof AdminPremiumRoute
   '/admin/puzzles': typeof AdminPuzzlesRoute
+  '/admin/ranking': typeof AdminRankingRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/seasons': typeof AdminSeasonsRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -787,7 +848,9 @@ export interface FileRoutesByTo {
   '/room/$roomId': typeof RoomRoomIdRoute
   '/tournament/$id': typeof TournamentIdRoute
   '/u/$username': typeof UUsernameRoute
+  '/verify-email/$token': typeof VerifyEmailTokenRoute
   '/wallet/bank': typeof WalletBankRoute
+  '/watch/$id': typeof WatchIdRoute
   '/admin': typeof AdminIndexRoute
   '/chat': typeof ChatIndexRoute
   '/clans': typeof ClansIndexRoute
@@ -797,6 +860,7 @@ export interface FileRoutesByTo {
   '/play': typeof PlayIndexRoute
   '/puzzles': typeof PuzzlesIndexRoute
   '/room': typeof RoomIndexRoute
+  '/watch': typeof WatchIndexRoute
   '/chat/dm/$username': typeof ChatDmUsernameRoute
   '/chat/room/$slug': typeof ChatRoomSlugRoute
   '/community/post/$id': typeof CommunityPostIdRoute
@@ -816,6 +880,7 @@ export interface FileRoutesById {
   '/community-guidelines': typeof CommunityGuidelinesRoute
   '/community-policy': typeof CommunityPolicyRoute
   '/contact-grievance-policy': typeof ContactGrievancePolicyRoute
+  '/create-password': typeof CreatePasswordRoute
   '/dashboard': typeof DashboardRoute
   '/editorial-team': typeof EditorialTeamRoute
   '/events': typeof EventsRoute
@@ -831,6 +896,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/news': typeof NewsRouteWithChildren
   '/notifications': typeof NotificationsRoute
+  '/onboarding': typeof OnboardingRoute
   '/openings': typeof OpeningsRoute
   '/play': typeof PlayRouteWithChildren
   '/policies': typeof PoliciesRoute
@@ -838,6 +904,7 @@ export interface FileRoutesById {
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
   '/puzzles': typeof PuzzlesRouteWithChildren
+  '/rankings': typeof RankingsRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/report': typeof ReportRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -853,6 +920,7 @@ export interface FileRoutesById {
   '/withdrawal-policy': typeof WithdrawalPolicyRoute
   '/admin/about-chess': typeof AdminAboutChessRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/anticheat': typeof AdminAnticheatRoute
   '/admin/chat': typeof AdminChatRoute
   '/admin/clans': typeof AdminClansRoute
   '/admin/community': typeof AdminCommunityRoute
@@ -863,6 +931,7 @@ export interface FileRoutesById {
   '/admin/policies': typeof AdminPoliciesRoute
   '/admin/premium': typeof AdminPremiumRoute
   '/admin/puzzles': typeof AdminPuzzlesRoute
+  '/admin/ranking': typeof AdminRankingRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/seasons': typeof AdminSeasonsRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -889,7 +958,9 @@ export interface FileRoutesById {
   '/room/$roomId': typeof RoomRoomIdRoute
   '/tournament/$id': typeof TournamentIdRoute
   '/u/$username': typeof UUsernameRoute
+  '/verify-email/$token': typeof VerifyEmailTokenRoute
   '/wallet/bank': typeof WalletBankRoute
+  '/watch/$id': typeof WatchIdRoute
   '/admin/': typeof AdminIndexRoute
   '/chat/': typeof ChatIndexRoute
   '/clans/': typeof ClansIndexRoute
@@ -899,6 +970,7 @@ export interface FileRoutesById {
   '/play/': typeof PlayIndexRoute
   '/puzzles/': typeof PuzzlesIndexRoute
   '/room/': typeof RoomIndexRoute
+  '/watch/': typeof WatchIndexRoute
   '/chat/dm/$username': typeof ChatDmUsernameRoute
   '/chat/room/$slug': typeof ChatRoomSlugRoute
   '/community/post/$id': typeof CommunityPostIdRoute
@@ -919,6 +991,7 @@ export interface FileRouteTypes {
     | '/community-guidelines'
     | '/community-policy'
     | '/contact-grievance-policy'
+    | '/create-password'
     | '/dashboard'
     | '/editorial-team'
     | '/events'
@@ -934,6 +1007,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/news'
     | '/notifications'
+    | '/onboarding'
     | '/openings'
     | '/play'
     | '/policies'
@@ -941,6 +1015,7 @@ export interface FileRouteTypes {
     | '/privacy-policy'
     | '/profile'
     | '/puzzles'
+    | '/rankings'
     | '/refund-policy'
     | '/report'
     | '/reset-password'
@@ -956,6 +1031,7 @@ export interface FileRouteTypes {
     | '/withdrawal-policy'
     | '/admin/about-chess'
     | '/admin/analytics'
+    | '/admin/anticheat'
     | '/admin/chat'
     | '/admin/clans'
     | '/admin/community'
@@ -966,6 +1042,7 @@ export interface FileRouteTypes {
     | '/admin/policies'
     | '/admin/premium'
     | '/admin/puzzles'
+    | '/admin/ranking'
     | '/admin/reports'
     | '/admin/seasons'
     | '/admin/settings'
@@ -992,7 +1069,9 @@ export interface FileRouteTypes {
     | '/room/$roomId'
     | '/tournament/$id'
     | '/u/$username'
+    | '/verify-email/$token'
     | '/wallet/bank'
+    | '/watch/$id'
     | '/admin/'
     | '/chat/'
     | '/clans/'
@@ -1002,6 +1081,7 @@ export interface FileRouteTypes {
     | '/play/'
     | '/puzzles/'
     | '/room/'
+    | '/watch/'
     | '/chat/dm/$username'
     | '/chat/room/$slug'
     | '/community/post/$id'
@@ -1018,6 +1098,7 @@ export interface FileRouteTypes {
     | '/community-guidelines'
     | '/community-policy'
     | '/contact-grievance-policy'
+    | '/create-password'
     | '/dashboard'
     | '/editorial-team'
     | '/events'
@@ -1032,11 +1113,13 @@ export interface FileRouteTypes {
     | '/learn'
     | '/login'
     | '/notifications'
+    | '/onboarding'
     | '/openings'
     | '/policies'
     | '/premium'
     | '/privacy-policy'
     | '/profile'
+    | '/rankings'
     | '/refund-policy'
     | '/report'
     | '/reset-password'
@@ -1051,6 +1134,7 @@ export interface FileRouteTypes {
     | '/withdrawal-policy'
     | '/admin/about-chess'
     | '/admin/analytics'
+    | '/admin/anticheat'
     | '/admin/chat'
     | '/admin/clans'
     | '/admin/community'
@@ -1061,6 +1145,7 @@ export interface FileRouteTypes {
     | '/admin/policies'
     | '/admin/premium'
     | '/admin/puzzles'
+    | '/admin/ranking'
     | '/admin/reports'
     | '/admin/seasons'
     | '/admin/settings'
@@ -1087,7 +1172,9 @@ export interface FileRouteTypes {
     | '/room/$roomId'
     | '/tournament/$id'
     | '/u/$username'
+    | '/verify-email/$token'
     | '/wallet/bank'
+    | '/watch/$id'
     | '/admin'
     | '/chat'
     | '/clans'
@@ -1097,6 +1184,7 @@ export interface FileRouteTypes {
     | '/play'
     | '/puzzles'
     | '/room'
+    | '/watch'
     | '/chat/dm/$username'
     | '/chat/room/$slug'
     | '/community/post/$id'
@@ -1115,6 +1203,7 @@ export interface FileRouteTypes {
     | '/community-guidelines'
     | '/community-policy'
     | '/contact-grievance-policy'
+    | '/create-password'
     | '/dashboard'
     | '/editorial-team'
     | '/events'
@@ -1130,6 +1219,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/news'
     | '/notifications'
+    | '/onboarding'
     | '/openings'
     | '/play'
     | '/policies'
@@ -1137,6 +1227,7 @@ export interface FileRouteTypes {
     | '/privacy-policy'
     | '/profile'
     | '/puzzles'
+    | '/rankings'
     | '/refund-policy'
     | '/report'
     | '/reset-password'
@@ -1152,6 +1243,7 @@ export interface FileRouteTypes {
     | '/withdrawal-policy'
     | '/admin/about-chess'
     | '/admin/analytics'
+    | '/admin/anticheat'
     | '/admin/chat'
     | '/admin/clans'
     | '/admin/community'
@@ -1162,6 +1254,7 @@ export interface FileRouteTypes {
     | '/admin/policies'
     | '/admin/premium'
     | '/admin/puzzles'
+    | '/admin/ranking'
     | '/admin/reports'
     | '/admin/seasons'
     | '/admin/settings'
@@ -1188,7 +1281,9 @@ export interface FileRouteTypes {
     | '/room/$roomId'
     | '/tournament/$id'
     | '/u/$username'
+    | '/verify-email/$token'
     | '/wallet/bank'
+    | '/watch/$id'
     | '/admin/'
     | '/chat/'
     | '/clans/'
@@ -1198,6 +1293,7 @@ export interface FileRouteTypes {
     | '/play/'
     | '/puzzles/'
     | '/room/'
+    | '/watch/'
     | '/chat/dm/$username'
     | '/chat/room/$slug'
     | '/community/post/$id'
@@ -1217,6 +1313,7 @@ export interface RootRouteChildren {
   CommunityGuidelinesRoute: typeof CommunityGuidelinesRoute
   CommunityPolicyRoute: typeof CommunityPolicyRoute
   ContactGrievancePolicyRoute: typeof ContactGrievancePolicyRoute
+  CreatePasswordRoute: typeof CreatePasswordRoute
   DashboardRoute: typeof DashboardRoute
   EditorialTeamRoute: typeof EditorialTeamRoute
   EventsRoute: typeof EventsRoute
@@ -1232,6 +1329,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   NewsRoute: typeof NewsRouteWithChildren
   NotificationsRoute: typeof NotificationsRoute
+  OnboardingRoute: typeof OnboardingRoute
   OpeningsRoute: typeof OpeningsRoute
   PlayRoute: typeof PlayRouteWithChildren
   PoliciesRoute: typeof PoliciesRoute
@@ -1239,6 +1337,7 @@ export interface RootRouteChildren {
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ProfileRoute: typeof ProfileRoute
   PuzzlesRoute: typeof PuzzlesRouteWithChildren
+  RankingsRoute: typeof RankingsRoute
   RefundPolicyRoute: typeof RefundPolicyRoute
   ReportRoute: typeof ReportRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -1254,6 +1353,7 @@ export interface RootRouteChildren {
   WithdrawalPolicyRoute: typeof WithdrawalPolicyRoute
   AdminAboutChessRoute: typeof AdminAboutChessRoute
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
+  AdminAnticheatRoute: typeof AdminAnticheatRoute
   AdminChatRoute: typeof AdminChatRoute
   AdminClansRoute: typeof AdminClansRoute
   AdminCommunityRoute: typeof AdminCommunityRoute
@@ -1264,6 +1364,7 @@ export interface RootRouteChildren {
   AdminPoliciesRoute: typeof AdminPoliciesRoute
   AdminPremiumRoute: typeof AdminPremiumRoute
   AdminPuzzlesRoute: typeof AdminPuzzlesRoute
+  AdminRankingRoute: typeof AdminRankingRoute
   AdminReportsRoute: typeof AdminReportsRoute
   AdminSeasonsRoute: typeof AdminSeasonsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
@@ -1278,9 +1379,12 @@ export interface RootRouteChildren {
   FriendsActivityRoute: typeof FriendsActivityRoute
   GameIdRoute: typeof GameIdRouteWithChildren
   UUsernameRoute: typeof UUsernameRoute
+  VerifyEmailTokenRoute: typeof VerifyEmailTokenRoute
+  WatchIdRoute: typeof WatchIdRoute
   AdminIndexRoute: typeof AdminIndexRoute
   ClansIndexRoute: typeof ClansIndexRoute
   CourseIndexRoute: typeof CourseIndexRoute
+  WatchIndexRoute: typeof WatchIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1376,6 +1480,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RefundPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/rankings': {
+      id: '/rankings'
+      path: '/rankings'
+      fullPath: '/rankings'
+      preLoaderRoute: typeof RankingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/puzzles': {
       id: '/puzzles'
       path: '/puzzles'
@@ -1423,6 +1534,13 @@ declare module '@tanstack/react-router' {
       path: '/openings'
       fullPath: '/openings'
       preLoaderRoute: typeof OpeningsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notifications': {
@@ -1530,6 +1648,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/create-password': {
+      id: '/create-password'
+      path: '/create-password'
+      fullPath: '/create-password'
+      preLoaderRoute: typeof CreatePasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/contact-grievance-policy': {
       id: '/contact-grievance-policy'
       path: '/contact-grievance-policy'
@@ -1614,6 +1739,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/watch/': {
+      id: '/watch/'
+      path: '/watch'
+      fullPath: '/watch/'
+      preLoaderRoute: typeof WatchIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/room/': {
       id: '/room/'
       path: '/'
@@ -1677,12 +1809,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/watch/$id': {
+      id: '/watch/$id'
+      path: '/watch/$id'
+      fullPath: '/watch/$id'
+      preLoaderRoute: typeof WatchIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/wallet/bank': {
       id: '/wallet/bank'
       path: '/bank'
       fullPath: '/wallet/bank'
       preLoaderRoute: typeof WalletBankRouteImport
       parentRoute: typeof WalletRoute
+    }
+    '/verify-email/$token': {
+      id: '/verify-email/$token'
+      path: '/verify-email/$token'
+      fullPath: '/verify-email/$token'
+      preLoaderRoute: typeof VerifyEmailTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/u/$username': {
       id: '/u/$username'
@@ -1866,6 +2012,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/ranking': {
+      id: '/admin/ranking'
+      path: '/admin/ranking'
+      fullPath: '/admin/ranking'
+      preLoaderRoute: typeof AdminRankingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/puzzles': {
       id: '/admin/puzzles'
       path: '/admin/puzzles'
@@ -1934,6 +2087,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/chat'
       fullPath: '/admin/chat'
       preLoaderRoute: typeof AdminChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/anticheat': {
+      id: '/admin/anticheat'
+      path: '/admin/anticheat'
+      fullPath: '/admin/anticheat'
+      preLoaderRoute: typeof AdminAnticheatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/analytics': {
@@ -2127,6 +2287,7 @@ const rootRouteChildren: RootRouteChildren = {
   CommunityGuidelinesRoute: CommunityGuidelinesRoute,
   CommunityPolicyRoute: CommunityPolicyRoute,
   ContactGrievancePolicyRoute: ContactGrievancePolicyRoute,
+  CreatePasswordRoute: CreatePasswordRoute,
   DashboardRoute: DashboardRoute,
   EditorialTeamRoute: EditorialTeamRoute,
   EventsRoute: EventsRoute,
@@ -2142,6 +2303,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   NewsRoute: NewsRouteWithChildren,
   NotificationsRoute: NotificationsRoute,
+  OnboardingRoute: OnboardingRoute,
   OpeningsRoute: OpeningsRoute,
   PlayRoute: PlayRouteWithChildren,
   PoliciesRoute: PoliciesRoute,
@@ -2149,6 +2311,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   ProfileRoute: ProfileRoute,
   PuzzlesRoute: PuzzlesRouteWithChildren,
+  RankingsRoute: RankingsRoute,
   RefundPolicyRoute: RefundPolicyRoute,
   ReportRoute: ReportRoute,
   ResetPasswordRoute: ResetPasswordRoute,
@@ -2164,6 +2327,7 @@ const rootRouteChildren: RootRouteChildren = {
   WithdrawalPolicyRoute: WithdrawalPolicyRoute,
   AdminAboutChessRoute: AdminAboutChessRoute,
   AdminAnalyticsRoute: AdminAnalyticsRoute,
+  AdminAnticheatRoute: AdminAnticheatRoute,
   AdminChatRoute: AdminChatRoute,
   AdminClansRoute: AdminClansRoute,
   AdminCommunityRoute: AdminCommunityRoute,
@@ -2174,6 +2338,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminPoliciesRoute: AdminPoliciesRoute,
   AdminPremiumRoute: AdminPremiumRoute,
   AdminPuzzlesRoute: AdminPuzzlesRoute,
+  AdminRankingRoute: AdminRankingRoute,
   AdminReportsRoute: AdminReportsRoute,
   AdminSeasonsRoute: AdminSeasonsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
@@ -2188,9 +2353,12 @@ const rootRouteChildren: RootRouteChildren = {
   FriendsActivityRoute: FriendsActivityRoute,
   GameIdRoute: GameIdRouteWithChildren,
   UUsernameRoute: UUsernameRoute,
+  VerifyEmailTokenRoute: VerifyEmailTokenRoute,
+  WatchIdRoute: WatchIdRoute,
   AdminIndexRoute: AdminIndexRoute,
   ClansIndexRoute: ClansIndexRoute,
   CourseIndexRoute: CourseIndexRoute,
+  WatchIndexRoute: WatchIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -40,6 +40,7 @@ import {
   SEASON_REWARD_LABELS,
   SEASON_TIERS,
   nextTierOf,
+  tierDisplayName,
   tierOf,
   tierProgress,
 } from "@/lib/seasonTiers";
@@ -597,7 +598,7 @@ function SeasonsPage() {
             {/* Tier ladder */}
             <Card className="p-5">
               <div className="mb-3 flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-gold/80">
-                <Shield className="h-3.5 w-3.5" /> IQ Tier Ladder
+                <Shield className="h-3.5 w-3.5" /> Season Tier Ladder
               </div>
               <div className="space-y-1.5">
                 {[...SEASON_TIERS].reverse().map((tier) => {
@@ -616,7 +617,7 @@ function SeasonsPage() {
                       </span>
                       <span className="text-[10px] tabular-nums text-muted-foreground">
                         {tier.min.toLocaleString()}
-                        {tier.max ? `–${(tier.max - 1).toLocaleString()}` : "+"} IQ
+                        {tier.max ? `–${(tier.max - 1).toLocaleString()}` : "+"} SP
                       </span>
                     </div>
                   );
@@ -744,8 +745,8 @@ function SeasonsPage() {
                       </div>
                       <div className="mt-0.5 flex items-center justify-between text-[10px] text-muted-foreground">
                         <span>
-                          {(s.season_iq ?? s.iq_level).toLocaleString()} IQ ·{" "}
-                          {s.tier ?? tierOf(s.season_iq ?? s.iq_level).name}
+                          {(s.season_iq ?? s.iq_level).toLocaleString()} SP ·{" "}
+                          {tierDisplayName(s.tier, s.season_iq ?? s.iq_level)}
                         </span>
                         <span>{fmtDate(s.ended_at)}</span>
                       </div>

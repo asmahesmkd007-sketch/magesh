@@ -133,6 +133,7 @@ export function Footer() {
                 ["Play", "/play"],
                 ["Puzzles", "/puzzles"],
                 ["Tournaments", "/tournaments"],
+                ["Rankings", "/rankings"],
                 ["Leaderboards", "/leaderboards"],
               ],
             },

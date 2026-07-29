@@ -37,12 +37,12 @@ import {
   fetchReviewMoves,
   fetchGameAnalysis,
   saveGameAnalysis,
-  buildAnalysisReport,
   type ReviewMove,
   type GameAnalysis,
   type ClassCounts,
 } from "@/lib/api/analysisClient";
-import type { MoveAnalysis } from "@/lib/chess/analysis.worker";
+import { analyzeGame, type GameMoveInput } from "@/lib/analysis/gameAnalyzer";
+import { buildGameReview } from "@/lib/analysis/review";
 import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/game/$id/review")({
@@ -270,7 +270,7 @@ function GameReview() {
   const [reviewing, setReviewing] = useState(false);
   const [reviewProgress, setReviewProgress] = useState(0);
   const autoPlayRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const workerRef = useRef<Worker | null>(null);
+  const reviewAbortRef = useRef<AbortController | null>(null);
 
   // ── Load game + moves + analysis ───────────────────────────────────────
   const load = useCallback(async () => {
@@ -427,7 +427,7 @@ function GameReview() {
     };
   }, [playing, sans.length]);
 
-  useEffect(() => () => workerRef.current?.terminate(), []);
+  useEffect(() => () => reviewAbortRef.current?.abort(), []);
 
   const current = useMemo(() => {
     const chess = new Chess();
@@ -522,45 +522,74 @@ function GameReview() {
   const movePairs: [string, string | undefined][] = [];
   for (let i = 0; i < sans.length; i += 2) movePairs.push([sans[i], sans[i + 1]]);
 
-  // ── Run the engine review and persist it ────────────────────────────────
+  // ── Run the engine review (Stockfish pipeline) and persist it ───────────
   const runReview = useCallback(() => {
     if (reviewing || sans.length === 0) return;
     setReviewing(true);
     setReviewProgress(0);
-    const collected: MoveAnalysis[] = [];
     const opening = detectOpening(sans);
-    const w = new Worker(new URL("@/lib/chess/analysis.worker", import.meta.url), {
-      type: "module",
-    });
-    workerRef.current?.terminate();
-    workerRef.current = w;
-    w.onmessage = (e) => {
-      const msg = e.data as
-        | { type: "move"; data: MoveAnalysis }
-        | { type: "done"; evals: number[] };
-      if (msg.type === "move") {
-        collected.push(msg.data);
-        setReviewProgress(Math.round((collected.length / sans.length) * 100));
-      } else if (msg.type === "done") {
-        const report = buildAnalysisReport([...collected].sort((a, b) => a.ply - b.ply));
-        saveGameAnalysis({
+    reviewAbortRef.current?.abort();
+    const abort = new AbortController();
+    reviewAbortRef.current = abort;
+
+    // Rebuild per-move FENs from the SAN list for the analyzer.
+    const chess = new Chess();
+    const inputs: GameMoveInput[] = [];
+    for (const san of sans) {
+      const fenBefore = chess.fen();
+      let made;
+      try {
+        made = chess.move(san);
+      } catch {
+        break;
+      }
+      inputs.push({
+        ply: inputs.length + 1,
+        san: made.san,
+        uci: made.from + made.to + (made.promotion ?? ""),
+        color: made.color,
+        fenBefore,
+        fenAfter: chess.fen(),
+      });
+    }
+
+    const depth = 12;
+    analyzeGame(inputs, {
+      depth,
+      bookPlies: opening?.plies ?? 0,
+      signal: abort.signal,
+      onProgress: (p) => setReviewProgress(Math.round((p.done / p.total) * 100)),
+    })
+      .then((analyzed) => {
+        const review = buildGameReview(analyzed, { bookPlies: opening?.plies ?? 0, depth });
+        return saveGameAnalysis({
           gameId: id,
-          ...report,
+          accuracyWhite: review.accuracyWhite,
+          accuracyBlack: review.accuracyBlack,
+          acplWhite: review.acplWhite,
+          acplBlack: review.acplBlack,
+          classCountsWhite: review.classCountsWhite,
+          classCountsBlack: review.classCountsBlack,
           openingName: opening?.name ?? null,
           openingEco: opening?.eco ?? null,
-        })
-          .then(() => load())
-          .catch(() => {
-            /* persistence failed — surface nothing fatal */
-          })
-          .finally(() => {
-            setReviewing(false);
-            w.terminate();
-            if (workerRef.current === w) workerRef.current = null;
-          });
-      }
-    };
-    w.postMessage({ type: "analyze", sans, depth: 4, bookPlies: opening?.plies ?? 0 });
+          moveEvals: analyzed.map((m) => ({
+            ply: m.ply,
+            eval_before_cp: Math.round(m.evalBefore.cpWhite),
+            eval_after_cp: Math.round(m.evalAfter.cpWhite),
+            best_move_san: m.bestSan,
+            classification: m.classification,
+          })),
+        }).then(() => load());
+      })
+      .catch(() => {
+        /* aborted, or engine/persistence failed — nothing fatal to surface */
+      })
+      .finally(() => {
+        if (reviewAbortRef.current === abort) {
+          reviewAbortRef.current = null;
+          setReviewing(false);
+        }
+      });
   }, [reviewing, sans, id, load]);
 
   if (loading) {

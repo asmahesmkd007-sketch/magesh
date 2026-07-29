@@ -34,8 +34,10 @@ import { useGameSettings } from "@/hooks/useGameSettings";
 import { SETTINGS_CATEGORIES, type SettingMeta, type GameSettings } from "@/lib/settings/schema";
 import { BoardThemeSelector, PieceThemeSelector } from "@/components/settings/ThemeSelectors";
 import { SoundThemeSelector } from "@/components/settings/SoundThemeSelector";
+import { SpectatorDefaultSetting } from "@/components/spectator/SpectatorDefaultSetting";
 import { COUNTRIES, FAVORITE_OPENINGS, INDIA_DISTRICTS, INDIA_STATES_AND_UTS } from "@/data/geo";
 import { playGameSound } from "@/lib/audio/sounds";
+import { PASSWORD_RULES } from "@/lib/auth/password";
 import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/settings")({
@@ -862,17 +864,9 @@ function BankAccountTab({
 
 // ─── Password helpers ────────────────────────────────────────────────────────
 
-const PASSWORD_REQUIREMENTS = [
-  { key: "length", label: "Minimum 8 characters", test: (p: string) => p.length >= 8 },
-  { key: "upper", label: "At least one uppercase letter", test: (p: string) => /[A-Z]/.test(p) },
-  { key: "lower", label: "At least one lowercase letter", test: (p: string) => /[a-z]/.test(p) },
-  { key: "number", label: "At least one number", test: (p: string) => /\d/.test(p) },
-  {
-    key: "special",
-    label: "At least one special character",
-    test: (p: string) => /[!@#$%^&*()\-_=+[\]{};':"\\|,.<>/?`~]/.test(p),
-  },
-] as const;
+// The one policy definition, shared with registration and reset-password
+// (@/lib/auth/password) so a change lands on every screen at once.
+const PASSWORD_REQUIREMENTS = PASSWORD_RULES;
 
 function checkPassword(pw: string) {
   return PASSWORD_REQUIREMENTS.map((r) => ({ ...r, passing: r.test(pw) }));
@@ -1487,6 +1481,13 @@ function GameSettingsTab() {
       </Card>
       <Card className="p-5">
         <PieceThemeSelector />
+      </Card>
+
+      {/* Who may watch your games — stored server-side, not in the local
+          settings store, because it is a privacy control the database has
+          to enforce without trusting the client. */}
+      <Card className="p-5">
+        <SpectatorDefaultSetting />
       </Card>
 
       {/* All other categories, generated from the schema */}

@@ -19063,3 +19063,3288 @@ GRANT EXECUTE ON FUNCTION public.claim_timeout(UUID) TO authenticated, service_r
 
 
 
+
+-- =====================================================================
+-- SECTION: ANTI-CHEAT SYSTEM
+-- ---------------------------------------------------------------------
+-- Evidence-first fair-play infrastructure. Design rules:
+--   * Append-only evidence. anti_cheat_events / browser_events rows are
+--     never deleted by the system. game_id/user_id are plain UUIDs on
+--     purpose — a FK with ON DELETE CASCADE would silently destroy
+--     evidence when a game or account is removed.
+--   * Server-only writes. Clients cannot INSERT/UPDATE/DELETE any
+--     anti-cheat table; ingestion goes through server functions running
+--     with the service role. Players cannot read their own risk data
+--     (no tipping off); only admins can read, via has_role().
+--   * No auto-bans. Detection writes events and flags; enforcement is a
+--     separate, admin-driven step (anticheat server functions) with a
+--     multi-indicator requirement for suspension/ban.
+-- =====================================================================
+
+-- Profiles gain an account_status column (game.functions.ts already
+-- checks it defensively before accepting moves).
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS account_status TEXT NOT NULL DEFAULT 'active';
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'profiles_account_status_check'
+  ) THEN
+    ALTER TABLE public.profiles ADD CONSTRAINT profiles_account_status_check
+      CHECK (account_status IN ('active','restricted','suspended','banned'));
+  END IF;
+END $$;
+
+-- ── anti_cheat_events — the canonical evidence log ────────────────────
+CREATE TABLE IF NOT EXISTS public.anti_cheat_events (
+  id          BIGSERIAL PRIMARY KEY,
+  user_id     UUID,
+  game_id     UUID,
+  event_type  TEXT NOT NULL,
+  severity    TEXT NOT NULL DEFAULT 'info'
+    CHECK (severity IN ('info','low','medium','high','critical')),
+  source      TEXT NOT NULL DEFAULT 'client'
+    CHECK (source IN ('client','server','analysis','realtime')),
+  metadata    JSONB NOT NULL DEFAULT '{}'::jsonb,
+  client_ts   TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ace_user    ON public.anti_cheat_events(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ace_game    ON public.anti_cheat_events(game_id);
+CREATE INDEX IF NOT EXISTS idx_ace_type    ON public.anti_cheat_events(event_type, created_at DESC);
+-- One analysis run per game (concurrency guard for the post-game pipeline).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ace_analysis_once
+  ON public.anti_cheat_events(game_id, event_type)
+  WHERE event_type = 'analysis_started';
+GRANT SELECT ON public.anti_cheat_events TO authenticated;
+GRANT ALL ON public.anti_cheat_events TO service_role;
+ALTER TABLE public.anti_cheat_events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "ac events admin read" ON public.anti_cheat_events;
+CREATE POLICY "ac events admin read"
+  ON public.anti_cheat_events FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- ── browser_events — high-volume client telemetry (batched) ───────────
+CREATE TABLE IF NOT EXISTS public.browser_events (
+  id                 BIGSERIAL PRIMARY KEY,
+  user_id            UUID NOT NULL,
+  game_id            UUID,
+  event_type         TEXT NOT NULL,
+  count              INT NOT NULL DEFAULT 1 CHECK (count > 0),
+  metadata           JSONB NOT NULL DEFAULT '{}'::jsonb,
+  window_started_at  TIMESTAMPTZ,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_be_user ON public.browser_events(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_be_game ON public.browser_events(game_id);
+GRANT SELECT ON public.browser_events TO authenticated;
+GRANT ALL ON public.browser_events TO service_role;
+ALTER TABLE public.browser_events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "browser events admin read" ON public.browser_events;
+CREATE POLICY "browser events admin read"
+  ON public.browser_events FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- ── player_risk_scores — one row per user, updated by the server ──────
+-- raw_* columns are decayed accumulators; the display score/level is
+-- recomputed from them in src/lib/anticheat/risk.ts (single source of
+-- truth for the scoring formula — SQL never computes scores).
+CREATE TABLE IF NOT EXISTS public.player_risk_scores (
+  user_id           UUID PRIMARY KEY,
+  total_score       NUMERIC(5,2) NOT NULL DEFAULT 0,
+  risk_level        TEXT NOT NULL DEFAULT 'safe'
+    CHECK (risk_level IN ('safe','monitor','warning','review','high_risk')),
+  engine_score      NUMERIC(5,2) NOT NULL DEFAULT 0,
+  timing_score      NUMERIC(5,2) NOT NULL DEFAULT 0,
+  behavior_score    NUMERIC(5,2) NOT NULL DEFAULT 0,
+  connection_score  NUMERIC(5,2) NOT NULL DEFAULT 0,
+  account_score     NUMERIC(5,2) NOT NULL DEFAULT 0,
+  raw_engine        NUMERIC(10,4) NOT NULL DEFAULT 0,
+  raw_timing        NUMERIC(10,4) NOT NULL DEFAULT 0,
+  raw_behavior      NUMERIC(10,4) NOT NULL DEFAULT 0,
+  raw_connection    NUMERIC(10,4) NOT NULL DEFAULT 0,
+  raw_account       NUMERIC(10,4) NOT NULL DEFAULT 0,
+  flagged_games     INT NOT NULL DEFAULT 0,
+  last_event_at     TIMESTAMPTZ,
+  decayed_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_prs_score ON public.player_risk_scores(total_score DESC);
+GRANT SELECT ON public.player_risk_scores TO authenticated;
+GRANT ALL ON public.player_risk_scores TO service_role;
+ALTER TABLE public.player_risk_scores ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "risk scores admin read" ON public.player_risk_scores;
+CREATE POLICY "risk scores admin read"
+  ON public.player_risk_scores FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+DROP TRIGGER IF EXISTS trg_prs_updated_at ON public.player_risk_scores;
+CREATE TRIGGER trg_prs_updated_at
+  BEFORE UPDATE ON public.player_risk_scores
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- ── anti_cheat_flags — reviewable findings (a flag ≠ a ban) ───────────
+CREATE TABLE IF NOT EXISTS public.anti_cheat_flags (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id            UUID NOT NULL,
+  game_id            UUID,
+  flag_type          TEXT NOT NULL,
+  severity           TEXT NOT NULL DEFAULT 'medium'
+    CHECK (severity IN ('low','medium','high','critical')),
+  status             TEXT NOT NULL DEFAULT 'open'
+    CHECK (status IN ('open','under_review','confirmed','dismissed')),
+  risk_contribution  NUMERIC(6,2) NOT NULL DEFAULT 0,
+  summary            TEXT NOT NULL DEFAULT '',
+  details            JSONB NOT NULL DEFAULT '{}'::jsonb,
+  reviewed_by        UUID,
+  reviewed_at        TIMESTAMPTZ,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_acf_user   ON public.anti_cheat_flags(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_acf_status ON public.anti_cheat_flags(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_acf_game   ON public.anti_cheat_flags(game_id);
+GRANT SELECT ON public.anti_cheat_flags TO authenticated;
+GRANT ALL ON public.anti_cheat_flags TO service_role;
+ALTER TABLE public.anti_cheat_flags ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "ac flags admin read" ON public.anti_cheat_flags;
+CREATE POLICY "ac flags admin read"
+  ON public.anti_cheat_flags FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+DROP TRIGGER IF EXISTS trg_acf_updated_at ON public.anti_cheat_flags;
+CREATE TRIGGER trg_acf_updated_at
+  BEFORE UPDATE ON public.anti_cheat_flags
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- ── device_fingerprints — multi-account signals (flag, never auto-ban) ─
+CREATE TABLE IF NOT EXISTS public.device_fingerprints (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id           UUID NOT NULL,
+  fingerprint_hash  TEXT NOT NULL,
+  components        JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ip_hash           TEXT,
+  user_agent        TEXT,
+  times_seen        INT NOT NULL DEFAULT 1,
+  first_seen_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, fingerprint_hash)
+);
+CREATE INDEX IF NOT EXISTS idx_df_hash ON public.device_fingerprints(fingerprint_hash);
+CREATE INDEX IF NOT EXISTS idx_df_ip   ON public.device_fingerprints(ip_hash);
+GRANT SELECT ON public.device_fingerprints TO authenticated;
+GRANT ALL ON public.device_fingerprints TO service_role;
+ALTER TABLE public.device_fingerprints ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "fingerprints admin read" ON public.device_fingerprints;
+CREATE POLICY "fingerprints admin read"
+  ON public.device_fingerprints FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- ── admin_reviews — every human decision, permanently recorded ────────
+CREATE TABLE IF NOT EXISTS public.admin_reviews (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  flag_id    UUID,
+  user_id    UUID NOT NULL,
+  admin_id   UUID NOT NULL,
+  decision   TEXT NOT NULL
+    CHECK (decision IN ('confirm','dismiss','reset_risk','enforce','note')),
+  notes      TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ar_user ON public.admin_reviews(user_id, created_at DESC);
+GRANT SELECT ON public.admin_reviews TO authenticated;
+GRANT ALL ON public.admin_reviews TO service_role;
+ALTER TABLE public.admin_reviews ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "admin reviews admin read" ON public.admin_reviews;
+CREATE POLICY "admin reviews admin read"
+  ON public.admin_reviews FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- ── enforcement_actions — the only place bans/suspensions come from ───
+CREATE TABLE IF NOT EXISTS public.enforcement_actions (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id        UUID NOT NULL,
+  action         TEXT NOT NULL
+    CHECK (action IN ('warning','restriction','suspension','ban','unban','risk_reset')),
+  reason         TEXT NOT NULL,
+  duration_hours INT,
+  expires_at     TIMESTAMPTZ,
+  created_by     UUID NOT NULL,
+  revoked_at     TIMESTAMPTZ,
+  revoked_by     UUID,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ea_user ON public.enforcement_actions(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ea_expiry
+  ON public.enforcement_actions(expires_at)
+  WHERE expires_at IS NOT NULL AND revoked_at IS NULL;
+GRANT SELECT ON public.enforcement_actions TO authenticated;
+GRANT ALL ON public.enforcement_actions TO service_role;
+ALTER TABLE public.enforcement_actions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "enforcement admin read" ON public.enforcement_actions;
+CREATE POLICY "enforcement admin read"
+  ON public.enforcement_actions FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- ── Admin read RPCs (SECURITY DEFINER, admin-gated) ───────────────────
+-- Reads are SQL for efficient joins; every mutation goes through the
+-- anticheat server functions (service role) so scoring stays in one
+-- place (src/lib/anticheat/risk.ts).
+
+CREATE OR REPLACE FUNCTION public.anticheat_overview()
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v JSONB;
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'admin') THEN RAISE EXCEPTION 'Admin only'; END IF;
+  SELECT jsonb_build_object(
+    'open_flags',        (SELECT count(*) FROM anti_cheat_flags WHERE status = 'open'),
+    'under_review',      (SELECT count(*) FROM anti_cheat_flags WHERE status = 'under_review'),
+    'confirmed_flags',   (SELECT count(*) FROM anti_cheat_flags WHERE status = 'confirmed'),
+    'high_risk_players', (SELECT count(*) FROM player_risk_scores WHERE risk_level = 'high_risk'),
+    'review_players',    (SELECT count(*) FROM player_risk_scores WHERE risk_level = 'review'),
+    'events_24h',        (SELECT count(*) FROM anti_cheat_events WHERE created_at > now() - interval '24 hours'),
+    'browser_events_24h',(SELECT coalesce(sum(count),0) FROM browser_events WHERE created_at > now() - interval '24 hours'),
+    'actions_30d',       (SELECT count(*) FROM enforcement_actions WHERE created_at > now() - interval '30 days'),
+    'live_flagged_games',(
+      SELECT coalesce(jsonb_agg(fg), '[]'::jsonb) FROM (
+        SELECT DISTINCT ON (f.game_id)
+          f.game_id, f.flag_type, f.severity, f.created_at,
+          g.white_username, g.black_username, g.status AS game_status,
+          p.username
+        FROM anti_cheat_flags f
+        LEFT JOIN games g ON g.id = f.game_id
+        LEFT JOIN profiles p ON p.id = f.user_id
+        WHERE f.status IN ('open','under_review') AND f.game_id IS NOT NULL
+        ORDER BY f.game_id, f.created_at DESC
+        LIMIT 25
+      ) fg
+    )
+  ) INTO v;
+  RETURN v;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.anticheat_overview() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.anticheat_overview() TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.anticheat_list_players(
+  p_min_score NUMERIC DEFAULT 0, p_limit INT DEFAULT 50
+) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'admin') THEN RAISE EXCEPTION 'Admin only'; END IF;
+  RETURN (
+    SELECT coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) FROM (
+      SELECT r.user_id, r.total_score, r.risk_level,
+             r.engine_score, r.timing_score, r.behavior_score,
+             r.connection_score, r.account_score,
+             r.flagged_games, r.last_event_at, r.updated_at,
+             p.username, p.avatar_url, p.account_status,
+             (SELECT count(*) FROM anti_cheat_flags f
+               WHERE f.user_id = r.user_id AND f.status IN ('open','under_review')) AS open_flags
+      FROM player_risk_scores r
+      LEFT JOIN profiles p ON p.id = r.user_id
+      WHERE r.total_score >= p_min_score
+      ORDER BY r.total_score DESC
+      LIMIT least(greatest(p_limit, 1), 200)
+    ) t
+  );
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.anticheat_list_players(NUMERIC, INT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.anticheat_list_players(NUMERIC, INT) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.anticheat_list_flags(
+  p_status TEXT DEFAULT NULL, p_limit INT DEFAULT 100
+) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'admin') THEN RAISE EXCEPTION 'Admin only'; END IF;
+  RETURN (
+    SELECT coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) FROM (
+      SELECT f.id, f.user_id, f.game_id, f.flag_type, f.severity, f.status,
+             f.risk_contribution, f.summary, f.details, f.created_at,
+             f.reviewed_by, f.reviewed_at,
+             p.username, p.avatar_url,
+             g.white_username, g.black_username, g.time_control, g.status AS game_status
+      FROM anti_cheat_flags f
+      LEFT JOIN profiles p ON p.id = f.user_id
+      LEFT JOIN games g ON g.id = f.game_id
+      WHERE (p_status IS NULL OR f.status = p_status)
+      ORDER BY f.created_at DESC
+      LIMIT least(greatest(p_limit, 1), 500)
+    ) t
+  );
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.anticheat_list_flags(TEXT, INT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.anticheat_list_flags(TEXT, INT) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.anticheat_player_detail(p_user_id UUID)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'admin') THEN RAISE EXCEPTION 'Admin only'; END IF;
+  RETURN jsonb_build_object(
+    'profile', (
+      SELECT row_to_json(t) FROM (
+        SELECT id, username, avatar_url, account_status, created_at
+        FROM profiles WHERE id = p_user_id
+      ) t
+    ),
+    'risk', (
+      SELECT row_to_json(t) FROM (
+        SELECT * FROM player_risk_scores WHERE user_id = p_user_id
+      ) t
+    ),
+    'flags', (
+      SELECT coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) FROM (
+        SELECT f.*, g.white_username, g.black_username, g.time_control
+        FROM anti_cheat_flags f LEFT JOIN games g ON g.id = f.game_id
+        WHERE f.user_id = p_user_id ORDER BY f.created_at DESC LIMIT 100
+      ) t
+    ),
+    'events', (
+      SELECT coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) FROM (
+        SELECT id, game_id, event_type, severity, source, metadata, created_at
+        FROM anti_cheat_events WHERE user_id = p_user_id
+        ORDER BY created_at DESC LIMIT 300
+      ) t
+    ),
+    'browser_events', (
+      SELECT coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) FROM (
+        SELECT id, game_id, event_type, count, metadata, window_started_at, created_at
+        FROM browser_events WHERE user_id = p_user_id
+        ORDER BY created_at DESC LIMIT 300
+      ) t
+    ),
+    'fingerprints', (
+      SELECT coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) FROM (
+        SELECT * FROM device_fingerprints WHERE user_id = p_user_id
+        ORDER BY last_seen_at DESC LIMIT 50
+      ) t
+    ),
+    'shared_devices', (
+      SELECT coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) FROM (
+        SELECT d2.user_id, p2.username, d2.fingerprint_hash, d2.last_seen_at,
+               (d1.ip_hash IS NOT NULL AND d1.ip_hash = d2.ip_hash) AS same_ip
+        FROM device_fingerprints d1
+        JOIN device_fingerprints d2
+          ON (d2.fingerprint_hash = d1.fingerprint_hash
+              OR (d1.ip_hash IS NOT NULL AND d2.ip_hash = d1.ip_hash))
+         AND d2.user_id <> d1.user_id
+        LEFT JOIN profiles p2 ON p2.id = d2.user_id
+        WHERE d1.user_id = p_user_id
+        ORDER BY d2.last_seen_at DESC LIMIT 50
+      ) t
+    ),
+    'reviews', (
+      SELECT coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) FROM (
+        SELECT r.*, p.username AS admin_username
+        FROM admin_reviews r LEFT JOIN profiles p ON p.id = r.admin_id
+        WHERE r.user_id = p_user_id ORDER BY r.created_at DESC LIMIT 100
+      ) t
+    ),
+    'actions', (
+      SELECT coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) FROM (
+        SELECT a.*, p.username AS admin_username
+        FROM enforcement_actions a LEFT JOIN profiles p ON p.id = a.created_by
+        WHERE a.user_id = p_user_id ORDER BY a.created_at DESC LIMIT 100
+      ) t
+    ),
+    'reports', (
+      SELECT coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) FROM (
+        SELECT id, reporter_id, reason, description, status, created_at
+        FROM reports WHERE reported_user = p_user_id
+        ORDER BY created_at DESC LIMIT 50
+      ) t
+    )
+  );
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.anticheat_player_detail(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.anticheat_player_detail(UUID) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.anticheat_game_evidence(p_game_id UUID)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'admin') THEN RAISE EXCEPTION 'Admin only'; END IF;
+  RETURN jsonb_build_object(
+    'game', (
+      SELECT row_to_json(t) FROM (
+        SELECT id, white_id, black_id, white_username, black_username,
+               time_control, time_class, is_rated, status, result, end_reason,
+               moves_count, created_at, ended_at
+        FROM games WHERE id = p_game_id
+      ) t
+    ),
+    'moves', (
+      SELECT coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) FROM (
+        SELECT ply, san, uci, by_user, time_left_ms, created_at
+        FROM game_moves WHERE game_id = p_game_id ORDER BY ply LIMIT 500
+      ) t
+    ),
+    'flags', (
+      SELECT coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) FROM (
+        SELECT f.*, p.username FROM anti_cheat_flags f
+        LEFT JOIN profiles p ON p.id = f.user_id
+        WHERE f.game_id = p_game_id ORDER BY f.created_at DESC
+      ) t
+    ),
+    'events', (
+      SELECT coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) FROM (
+        SELECT id, user_id, event_type, severity, source, metadata, created_at
+        FROM anti_cheat_events WHERE game_id = p_game_id
+        ORDER BY created_at DESC LIMIT 300
+      ) t
+    ),
+    'browser_events', (
+      SELECT coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) FROM (
+        SELECT user_id, event_type, count, metadata, created_at
+        FROM browser_events WHERE game_id = p_game_id
+        ORDER BY created_at DESC LIMIT 300
+      ) t
+    )
+  );
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.anticheat_game_evidence(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.anticheat_game_evidence(UUID) TO authenticated, service_role;
+
+-- ── Service helpers (service_role only) ───────────────────────────────
+
+-- Fan a fair-play alert out to every admin's notification feed.
+CREATE OR REPLACE FUNCTION public.anticheat_notify_admins(
+  p_title TEXT, p_body TEXT, p_link TEXT DEFAULT NULL
+) RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_count INT; v_has_legacy BOOLEAN;
+BEGIN
+  -- Some deployments carry legacy NOT NULL type/message columns on
+  -- notifications; fill them when present so the insert works everywhere.
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'notifications'
+      AND column_name = 'message'
+  ) INTO v_has_legacy;
+  IF v_has_legacy THEN
+    EXECUTE 'INSERT INTO public.notifications (user_id, type, message, kind, title, body, link)
+             SELECT ur.user_id, ''anticheat'', $2, ''anticheat'', $1, $2, $3
+             FROM public.user_roles ur WHERE ur.role = ''admin'''
+      USING p_title, p_body, p_link;
+  ELSE
+    INSERT INTO notifications (user_id, kind, title, body, link)
+    SELECT ur.user_id, 'anticheat', p_title, p_body, p_link
+    FROM user_roles ur WHERE ur.role = 'admin';
+  END IF;
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.anticheat_notify_admins(TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.anticheat_notify_admins(TEXT, TEXT, TEXT) TO service_role;
+
+-- Lift expired temporary restrictions/suspensions. Called opportunistically
+-- from the ingestion path (cheap no-op when nothing is due).
+CREATE OR REPLACE FUNCTION public.anticheat_expire_enforcements()
+RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_row RECORD; v_count INT := 0;
+BEGIN
+  FOR v_row IN
+    SELECT DISTINCT ON (user_id) id, user_id
+    FROM enforcement_actions
+    WHERE expires_at IS NOT NULL AND expires_at < now() AND revoked_at IS NULL
+      AND action IN ('restriction','suspension')
+    ORDER BY user_id, created_at DESC
+  LOOP
+    -- Only clear status if no later, still-active enforcement exists.
+    IF NOT EXISTS (
+      SELECT 1 FROM enforcement_actions e
+      WHERE e.user_id = v_row.user_id AND e.revoked_at IS NULL
+        AND e.action IN ('restriction','suspension','ban')
+        AND (e.expires_at IS NULL OR e.expires_at > now())
+    ) THEN
+      UPDATE profiles SET account_status = 'active'
+      WHERE id = v_row.user_id AND account_status IN ('restricted','suspended');
+      v_count := v_count + 1;
+    END IF;
+    UPDATE enforcement_actions SET revoked_at = now() WHERE id = v_row.id;
+  END LOOP;
+  RETURN v_count;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.anticheat_expire_enforcements() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.anticheat_expire_enforcements() TO service_role;
+
+-- =====================================================================
+-- SECTION 101: ANALYSIS MODULE — ENGINE ROOM V2 (2026-07-28)
+-- ---------------------------------------------------------------------
+-- 1. Widens game_moves.classification to the full review vocabulary
+--    (the old 6-value CHECK rejected 'brilliant'/'great'/'book'/'miss'
+--    rows that save_game_analysis was already trying to write).
+-- 2. saved_analyses — user-owned analysis workspaces (PGN + review
+--    summary), owner-only RLS.
+-- 3. opening_explorer RPC + expression index — continuation statistics
+--    for any position (EPD-keyed) drawn from finished ChessOX games.
+-- =====================================================================
+
+-- 1. Full classification vocabulary ----------------------------------
+ALTER TABLE public.game_moves DROP CONSTRAINT IF EXISTS game_moves_classification_check;
+ALTER TABLE public.game_moves ADD CONSTRAINT game_moves_classification_check
+  CHECK (classification IS NULL OR classification IN (
+    'brilliant','great','best','excellent','good','book','forced',
+    'interesting','dubious','inaccuracy','mistake','blunder','miss',
+    'missedWin','missedDraw','missedTactic','missedMate'));
+
+-- 2. Saved analyses ---------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.saved_analyses (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id        UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title          TEXT NOT NULL CHECK (char_length(title) BETWEEN 1 AND 120),
+  pgn            TEXT NOT NULL DEFAULT '' CHECK (char_length(pgn) <= 200000),
+  root_fen       TEXT NOT NULL DEFAULT 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+  game_id        UUID REFERENCES public.games(id) ON DELETE SET NULL,
+  opening_name   TEXT,
+  opening_eco    TEXT,
+  accuracy_white NUMERIC(5,1),
+  accuracy_black NUMERIC(5,1),
+  review         JSONB,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS saved_analyses_user_idx
+  ON public.saved_analyses (user_id, updated_at DESC);
+
+DROP TRIGGER IF EXISTS trg_saved_analyses_updated ON public.saved_analyses;
+CREATE TRIGGER trg_saved_analyses_updated
+  BEFORE UPDATE ON public.saved_analyses
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+ALTER TABLE public.saved_analyses ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.saved_analyses TO authenticated;
+GRANT ALL ON public.saved_analyses TO service_role;
+
+DROP POLICY IF EXISTS "own saved analyses: select" ON public.saved_analyses;
+CREATE POLICY "own saved analyses: select" ON public.saved_analyses
+  FOR SELECT TO authenticated USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "own saved analyses: insert" ON public.saved_analyses;
+CREATE POLICY "own saved analyses: insert" ON public.saved_analyses
+  FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "own saved analyses: update" ON public.saved_analyses;
+CREATE POLICY "own saved analyses: update" ON public.saved_analyses
+  FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "own saved analyses: delete" ON public.saved_analyses;
+CREATE POLICY "own saved analyses: delete" ON public.saved_analyses
+  FOR DELETE TO authenticated USING (user_id = auth.uid());
+
+-- 3. Opening explorer -------------------------------------------------
+CREATE INDEX IF NOT EXISTS game_moves_epd_idx ON public.game_moves ((
+  split_part(fen_before, ' ', 1) || ' ' || split_part(fen_before, ' ', 2) || ' ' ||
+  split_part(fen_before, ' ', 3) || ' ' || split_part(fen_before, ' ', 4)
+)) WHERE fen_before IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION public.opening_explorer(
+  p_epd        TEXT,
+  p_user       UUID DEFAULT NULL,
+  p_color      TEXT DEFAULT NULL,
+  p_time_class public.time_class DEFAULT NULL,
+  p_min_rating INT  DEFAULT NULL,
+  p_since      TIMESTAMPTZ DEFAULT NULL
+)
+RETURNS TABLE (
+  san        TEXT,
+  games      BIGINT,
+  white_wins BIGINT,
+  draws      BIGINT,
+  black_wins BIGINT,
+  avg_rating INT
+)
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $fn$
+  SELECT
+    gm.san,
+    count(*)                                   AS games,
+    count(*) FILTER (WHERE g.result = 'white') AS white_wins,
+    count(*) FILTER (WHERE g.result = 'draw')  AS draws,
+    count(*) FILTER (WHERE g.result = 'black') AS black_wins,
+    CAST(avg((coalesce(g.white_rating, 0) + coalesce(g.black_rating, 0)) / 2.0)
+         FILTER (WHERE g.white_rating IS NOT NULL AND g.black_rating IS NOT NULL) AS INT)
+      AS avg_rating
+  FROM public.game_moves gm
+  JOIN public.games g ON g.id = gm.game_id
+  WHERE (split_part(gm.fen_before, ' ', 1) || ' ' || split_part(gm.fen_before, ' ', 2) || ' ' ||
+         split_part(gm.fen_before, ' ', 3) || ' ' || split_part(gm.fen_before, ' ', 4)) = p_epd
+    AND g.result IN ('white', 'black', 'draw')
+    AND (p_user IS NULL OR g.white_id = p_user OR g.black_id = p_user)
+    AND (p_user IS NULL OR p_color IS NULL
+         OR (p_color = 'w' AND g.white_id = p_user)
+         OR (p_color = 'b' AND g.black_id = p_user))
+    AND (p_time_class IS NULL OR g.time_class = p_time_class)
+    AND (p_min_rating IS NULL
+         OR ((coalesce(g.white_rating, 0) + coalesce(g.black_rating, 0)) / 2) >= p_min_rating)
+    AND (p_since IS NULL OR g.created_at >= p_since)
+  GROUP BY gm.san
+  ORDER BY count(*) DESC
+  LIMIT 12;
+$fn$;
+
+GRANT EXECUTE ON FUNCTION
+  public.opening_explorer(TEXT, UUID, TEXT, public.time_class, INT, TIMESTAMPTZ)
+  TO anon, authenticated;
+
+-- =====================================================================
+-- SECTION 102: RANKING SYSTEM V2 — PERMANENT ELO + SEASON POINTS (2026-07-29)
+-- ---------------------------------------------------------------------
+-- Replaces the SECTION 77 "Season IQ" earn model with a two-system
+-- competitive ecosystem:
+--
+--   1. PERMANENT ELO  — never resets, per time class, drives matchmaking
+--      and answers "who is the strongest player?". Adds a K-factor
+--      schedule (provisional players move fast, elite players slowly).
+--
+--   2. SEASON POINTS  — reset every season, earned per rated game at
+--      TIER-DEPENDENT rates, and answers "who is the best this season?".
+--      Ladder: Bronze -> Grandmaster, three divisions each (21 rungs).
+--      Climbing is progressively harder: Bronze pays +30/win and -8/loss,
+--      Grandmaster pays +18/win and -20/loss.
+--
+-- Storage note: season_rankings.season_iq is the physical column that
+-- holds Season Points (the name is historical, from SECTION 77). Every
+-- RPC in this section exposes it as season_points. There is deliberately
+-- no second column — one number, one source of truth.
+--
+-- Everything configurable lives in public.season_config (a singleton row
+-- of JSONB), editable from the admin panel; the functions below read it
+-- on every call so changes take effect without a redeploy.
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 102.1 Configuration singleton
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.season_config (
+  id          BOOLEAN PRIMARY KEY DEFAULT true CHECK (id),
+  -- Per-tier SP rates: { "bronze": {"win":30,"draw":10,"loss":-8}, ... }
+  sp_rates    JSONB NOT NULL,
+  -- Upset bonus by tier gap: { "1":3, "2":5, "3":8 }
+  upset_bonus JSONB NOT NULL,
+  -- Conduct penalties: { "disconnect":-20, "timeout":-15, ... }
+  penalties   JSONB NOT NULL,
+  -- Ladder thresholds, ascending: [{"id":"bronze_3","min":0}, ...]
+  ladder      JSONB NOT NULL,
+  -- Anti-abuse knobs.
+  demotion_grace_sp     INT NOT NULL DEFAULT 50,
+  min_moves_for_sp      INT NOT NULL DEFAULT 6,
+  daily_sp_cap          INT NOT NULL DEFAULT 600,
+  -- After this many games vs the SAME opponent in a season, wins pay
+  -- only repeat_opponent_pct% of normal SP (farming guard). 0 disables.
+  repeat_opponent_limit INT NOT NULL DEFAULT 5,
+  repeat_opponent_pct   INT NOT NULL DEFAULT 25,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by  UUID REFERENCES auth.users(id) ON DELETE SET NULL
+);
+
+INSERT INTO public.season_config (id, sp_rates, upset_bonus, penalties, ladder)
+VALUES (
+  true,
+  '{"bronze":{"win":30,"draw":10,"loss":-8},
+    "silver":{"win":28,"draw":9,"loss":-10},
+    "gold":{"win":26,"draw":8,"loss":-12},
+    "platinum":{"win":24,"draw":7,"loss":-14},
+    "diamond":{"win":22,"draw":6,"loss":-16},
+    "master":{"win":20,"draw":5,"loss":-18},
+    "grandmaster":{"win":18,"draw":4,"loss":-20}}'::jsonb,
+  '{"1":3,"2":5,"3":8}'::jsonb,
+  '{"disconnect":-20,"timeout":-15,"afk":-20,"cheating":-100}'::jsonb,
+  '[{"id":"bronze_3","min":0},{"id":"bronze_2","min":150},{"id":"bronze_1","min":300},
+    {"id":"silver_3","min":500},{"id":"silver_2","min":700},{"id":"silver_1","min":900},
+    {"id":"gold_3","min":1150},{"id":"gold_2","min":1400},{"id":"gold_1","min":1650},
+    {"id":"platinum_3","min":1950},{"id":"platinum_2","min":2250},{"id":"platinum_1","min":2550},
+    {"id":"diamond_3","min":2900},{"id":"diamond_2","min":3250},{"id":"diamond_1","min":3600},
+    {"id":"master_3","min":4000},{"id":"master_2","min":4400},{"id":"master_1","min":4800},
+    {"id":"grandmaster_3","min":5300},{"id":"grandmaster_2","min":5800},{"id":"grandmaster_1","min":6300}]'::jsonb
+)
+ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE public.season_config ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.season_config TO anon, authenticated;
+GRANT ALL ON public.season_config TO service_role;
+DROP POLICY IF EXISTS "season config public read" ON public.season_config;
+CREATE POLICY "season config public read"
+  ON public.season_config FOR SELECT TO anon, authenticated USING (true);
+-- Writes only through admin_update_season_config (SECURITY DEFINER).
+
+-- ---------------------------------------------------------------------
+-- 102.2 Ladder columns + farming-guard ledger
+-- ---------------------------------------------------------------------
+ALTER TABLE public.season_rankings
+  -- `tier` exists on season_history from SECTION 77 but never on
+  -- season_rankings (the old leaderboard computed it on the fly).
+  ADD COLUMN IF NOT EXISTS tier             TEXT NOT NULL DEFAULT 'bronze',
+  ADD COLUMN IF NOT EXISTS rung_id          TEXT NOT NULL DEFAULT 'bronze_3',
+  ADD COLUMN IF NOT EXISTS rung_index       INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS peak_sp          INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS peak_rung_index  INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS best_rank        INT,
+  ADD COLUMN IF NOT EXISTS sp_penalty_total INT  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS banned           BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS ban_reason       TEXT,
+  ADD COLUMN IF NOT EXISTS daily_sp_date    DATE,
+  ADD COLUMN IF NOT EXISTS daily_sp_total   INT  NOT NULL DEFAULT 0;
+
+ALTER TABLE public.season_history
+  ADD COLUMN IF NOT EXISTS rung_id    TEXT,
+  ADD COLUMN IF NOT EXISTS rung_index INT,
+  ADD COLUMN IF NOT EXISTS peak_sp    INT NOT NULL DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_season_rankings_sp
+  ON public.season_rankings(season_id, season_iq DESC)
+  WHERE banned = false;
+
+-- Per-season head-to-head counter powering the farming guard.
+CREATE TABLE IF NOT EXISTS public.season_opponent_counts (
+  season_id   UUID NOT NULL REFERENCES public.seasons(id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  opponent_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  games       INT  NOT NULL DEFAULT 0,
+  PRIMARY KEY (season_id, user_id, opponent_id)
+);
+GRANT SELECT ON public.season_opponent_counts TO authenticated;
+GRANT ALL ON public.season_opponent_counts TO service_role;
+ALTER TABLE public.season_opponent_counts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "own opponent counts" ON public.season_opponent_counts;
+CREATE POLICY "own opponent counts"
+  ON public.season_opponent_counts FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------
+-- 102.3 Ladder helpers
+-- ---------------------------------------------------------------------
+-- The rung a raw SP total sits on: configured id plus ladder index.
+-- Both are stored on season_rankings so leaderboards never recompute.
+CREATE OR REPLACE FUNCTION public.sp_rung(p_sp INT)
+RETURNS TABLE (rung_id TEXT, rung_index INT, tier_code TEXT, division INT)
+LANGUAGE sql STABLE SET search_path = public AS $fn$
+  WITH rungs AS (
+    SELECT e.value->>'id'          AS id,
+           (e.value->>'min')::INT  AS min_sp,
+           (e.ordinality - 1)::INT AS idx
+    FROM public.season_config c,
+         jsonb_array_elements(c.ladder) WITH ORDINALITY AS e(value, ordinality)
+    WHERE c.id
+  )
+  SELECT r.id,
+         r.idx,
+         split_part(r.id, '_', 1),
+         split_part(r.id, '_', 2)::INT
+  FROM rungs r
+  WHERE GREATEST(COALESCE(p_sp, 0), 0) >= r.min_sp
+  ORDER BY r.min_sp DESC
+  LIMIT 1;
+$fn$;
+GRANT EXECUTE ON FUNCTION public.sp_rung(INT) TO anon, authenticated, service_role;
+
+-- Tier code only — the common case.
+CREATE OR REPLACE FUNCTION public.sp_tier_code(p_sp INT)
+RETURNS TEXT LANGUAGE sql STABLE SET search_path = public AS $fn$
+  SELECT tier_code FROM public.sp_rung(p_sp);
+$fn$;
+GRANT EXECUTE ON FUNCTION public.sp_tier_code(INT) TO anon, authenticated, service_role;
+
+-- Minimum SP required to stand on a rung index (for demotion checks).
+CREATE OR REPLACE FUNCTION public.sp_rung_min(p_index INT)
+RETURNS INT LANGUAGE sql STABLE SET search_path = public AS $fn$
+  SELECT COALESCE((
+    SELECT (e.value->>'min')::INT
+    FROM public.season_config c,
+         jsonb_array_elements(c.ladder) WITH ORDINALITY AS e(value, ordinality)
+    WHERE c.id AND (e.ordinality - 1) = p_index
+  ), 0);
+$fn$;
+GRANT EXECUTE ON FUNCTION public.sp_rung_min(INT) TO anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 102.4 The SP award primitive
+-- ---------------------------------------------------------------------
+-- Books Season Points into the CURRENT LIVE season, keeps the player's
+-- rung in sync, and emits promotion/demotion notifications. Idempotent
+-- per (kind, ref) via season_iq_events, so triggers are safe to retry.
+--
+-- Rules enforced here (not by callers):
+--   • no live season, or player season-banned -> no-op
+--   • daily SP cap (positive awards only; penalties always land)
+--   • promotion when SP crosses the next rung's threshold
+--   • demotion when SP falls demotion_grace_sp BELOW the current rung
+--   • SP floors at 0 and can never go negative
+CREATE OR REPLACE FUNCTION public._season_award_sp(
+  p_user   UUID,
+  p_kind   TEXT,
+  p_points INT,
+  p_ref    TEXT,
+  p_meta   JSONB DEFAULT '{}'::jsonb
+) RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+DECLARE
+  v_season   UUID;
+  v_cfg      RECORD;
+  v_row      RECORD;
+  v_points   INT := COALESCE(p_points, 0);
+  v_today    DATE := (now() AT TIME ZONE 'UTC')::date;
+  v_headroom INT;
+  v_new_sp   INT;
+  v_old_idx  INT;
+  v_new_idx  INT;
+  v_new_rung RECORD;
+  v_username TEXT;
+BEGIN
+  IF p_user IS NULL OR v_points = 0 THEN RETURN 0; END IF;
+
+  SELECT id INTO v_season FROM public.seasons
+  WHERE status = 'live' ORDER BY season_number DESC LIMIT 1;
+  IF v_season IS NULL THEN RETURN 0; END IF;
+
+  SELECT * INTO v_cfg FROM public.season_config WHERE id;
+
+  INSERT INTO public.season_rankings (season_id, user_id)
+  VALUES (v_season, p_user)
+  ON CONFLICT (season_id, user_id) DO NOTHING;
+
+  SELECT * INTO v_row FROM public.season_rankings
+  WHERE season_id = v_season AND user_id = p_user FOR UPDATE;
+
+  -- Season-banned players stop earning entirely.
+  IF v_row.banned THEN RETURN 0; END IF;
+
+  -- Daily cap applies to gains only; penalties must always be felt.
+  IF v_points > 0 AND COALESCE(v_cfg.daily_sp_cap, 0) > 0 THEN
+    IF v_row.daily_sp_date IS DISTINCT FROM v_today THEN
+      UPDATE public.season_rankings
+      SET daily_sp_date = v_today, daily_sp_total = 0
+      WHERE season_id = v_season AND user_id = p_user;
+      v_row.daily_sp_total := 0;
+    END IF;
+    v_headroom := GREATEST(0, v_cfg.daily_sp_cap - v_row.daily_sp_total);
+    v_points := LEAST(v_points, v_headroom);
+    IF v_points = 0 THEN RETURN 0; END IF;
+  END IF;
+
+  -- Idempotency guard: the same (season, user, kind, ref) pays once.
+  INSERT INTO public.season_iq_events (season_id, user_id, kind, ref, points, meta)
+  VALUES (v_season, p_user, p_kind, COALESCE(p_ref, 'x'), v_points, COALESCE(p_meta, '{}'::jsonb))
+  ON CONFLICT (season_id, user_id, kind, ref) DO NOTHING;
+  IF NOT FOUND THEN RETURN 0; END IF;
+
+  v_old_idx := v_row.rung_index;
+  v_new_sp  := GREATEST(0, v_row.season_iq + v_points);
+
+  -- Resolve the rung the new total belongs on, with demotion grace: a
+  -- player only drops a rung once they are grace points below its floor.
+  SELECT * INTO v_new_rung FROM public.sp_rung(v_new_sp);
+  v_new_idx := v_new_rung.rung_index;
+
+  IF v_new_idx < v_old_idx
+     AND v_new_sp > public.sp_rung_min(v_old_idx) - COALESCE(v_cfg.demotion_grace_sp, 0) THEN
+    -- Inside the grace band: hold the current rung.
+    v_new_idx := v_old_idx;
+    SELECT * INTO v_new_rung FROM public.sp_rung(public.sp_rung_min(v_old_idx));
+  END IF;
+
+  UPDATE public.season_rankings SET
+    season_iq        = v_new_sp,
+    iq_level         = v_new_sp,                       -- legacy mirror
+    rung_id          = v_new_rung.rung_id,
+    rung_index       = v_new_idx,
+    tier             = v_new_rung.tier_code,
+    peak_sp          = GREATEST(peak_sp, v_new_sp),
+    peak_rung_index  = GREATEST(peak_rung_index, v_new_idx),
+    sp_penalty_total = sp_penalty_total + CASE WHEN v_points < 0 THEN -v_points ELSE 0 END,
+    daily_sp_total   = daily_sp_total + CASE WHEN v_points > 0 THEN v_points ELSE 0 END,
+    daily_sp_date    = CASE WHEN v_points > 0 THEN v_today ELSE daily_sp_date END,
+    updated_at       = now()
+  WHERE season_id = v_season AND user_id = p_user;
+
+  -- Promotion / demotion notifications.
+  IF v_new_idx <> v_old_idx THEN
+    SELECT username INTO v_username FROM public.profiles WHERE id = p_user;
+    INSERT INTO public.notifications (user_id, kind, title, body, link)
+    VALUES (
+      p_user,
+      CASE WHEN v_new_idx > v_old_idx THEN 'rank_promotion' ELSE 'rank_demotion' END,
+      CASE WHEN v_new_idx > v_old_idx
+        THEN 'Promoted to ' || initcap(v_new_rung.tier_code) || ' ' || v_new_rung.division
+        ELSE 'Demoted to ' || initcap(v_new_rung.tier_code) || ' ' || v_new_rung.division END,
+      CASE WHEN v_new_idx > v_old_idx
+        THEN 'You climbed the season ladder. Keep the run going!'
+        ELSE 'You have been demoted. Improve your performance to climb again.' END,
+      '/seasons'
+    );
+  END IF;
+
+  RETURN v_points;
+END; $fn$;
+REVOKE ALL ON FUNCTION public._season_award_sp(UUID, TEXT, INT, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._season_award_sp(UUID, TEXT, INT, TEXT, JSONB) TO service_role;
+
+-- Legacy shim: SECTION 77 callers (puzzles, tournaments, accuracy
+-- bonuses) keep working and now route through the v2 engine.
+CREATE OR REPLACE FUNCTION public._season_award_iq(
+  p_user UUID, p_kind TEXT, p_points INT, p_ref TEXT, p_meta JSONB DEFAULT '{}'::jsonb
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+BEGIN
+  PERFORM public._season_award_sp(p_user, p_kind, p_points, p_ref, p_meta);
+END; $fn$;
+REVOKE ALL ON FUNCTION public._season_award_iq(UUID, TEXT, INT, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._season_award_iq(UUID, TEXT, INT, TEXT, JSONB) TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 102.5 SP for finished games (replaces the SECTION 77 earn model)
+-- ---------------------------------------------------------------------
+-- Tier-dependent rates, upset bonus for beating a higher tier, conduct
+-- penalties, and a repeat-opponent farming guard. Unrated, aborted,
+-- vs-computer and sub-threshold games earn nothing.
+CREATE OR REPLACE FUNCTION public.handle_season_game_finished()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+DECLARE
+  v_season   UUID;
+  v_cfg      RECORD;
+  v_winner   UUID;
+  v_loser    UUID;
+  v_u        UUID;
+  v_opp      UUID;
+  v_sp       INT;
+  v_opp_sp   INT;
+  v_tier     TEXT;
+  v_opp_tier TEXT;
+  v_gap      INT;
+  v_base     INT;
+  v_bonus    INT;
+  v_pts      INT;
+  v_reps     INT;
+  v_outcome  TEXT;
+  v_penalty  INT;
+BEGIN
+  IF NEW.white_id IS NULL OR NEW.black_id IS NULL THEN RETURN NEW; END IF;
+  IF NEW.result NOT IN ('white', 'black', 'draw') THEN RETURN NEW; END IF;
+  IF COALESCE(NEW.vs_computer, false) THEN RETURN NEW; END IF;
+  IF NOT COALESCE(NEW.is_rated, true) THEN RETURN NEW; END IF;
+  IF COALESCE(NEW.end_reason, '') IN ('aborted', 'no_show', 'tournament_cancelled') THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT id INTO v_season FROM public.seasons
+  WHERE status = 'live' ORDER BY season_number DESC LIMIT 1;
+  IF v_season IS NULL THEN RETURN NEW; END IF;
+
+  SELECT * INTO v_cfg FROM public.season_config WHERE id;
+  IF COALESCE(NEW.moves_count, 0) < COALESCE(v_cfg.min_moves_for_sp, 6) THEN
+    RETURN NEW;  -- too short to be a real game; no SP, no stats
+  END IF;
+
+  INSERT INTO public.season_rankings (season_id, user_id)
+  SELECT v_season, u FROM unnest(ARRAY[NEW.white_id, NEW.black_id]) AS u
+  ON CONFLICT (season_id, user_id) DO NOTHING;
+
+  -- Head-to-head counters (both directions) drive the farming guard.
+  INSERT INTO public.season_opponent_counts (season_id, user_id, opponent_id, games)
+  VALUES (v_season, NEW.white_id, NEW.black_id, 1),
+         (v_season, NEW.black_id, NEW.white_id, 1)
+  ON CONFLICT (season_id, user_id, opponent_id)
+  DO UPDATE SET games = public.season_opponent_counts.games + 1;
+
+  FOR v_u, v_opp IN
+    SELECT NEW.white_id, NEW.black_id
+    UNION ALL
+    SELECT NEW.black_id, NEW.white_id
+  LOOP
+    v_outcome := CASE
+      WHEN NEW.result = 'draw' THEN 'draw'
+      WHEN (NEW.result = 'white' AND v_u = NEW.white_id)
+        OR (NEW.result = 'black' AND v_u = NEW.black_id) THEN 'win'
+      ELSE 'loss' END;
+
+    SELECT season_iq INTO v_sp     FROM public.season_rankings
+      WHERE season_id = v_season AND user_id = v_u;
+    SELECT season_iq INTO v_opp_sp FROM public.season_rankings
+      WHERE season_id = v_season AND user_id = v_opp;
+
+    v_tier     := public.sp_tier_code(COALESCE(v_sp, 0));
+    v_opp_tier := public.sp_tier_code(COALESCE(v_opp_sp, 0));
+    v_base     := COALESCE((v_cfg.sp_rates -> v_tier ->> v_outcome)::INT, 0);
+
+    -- Upset bonus: only for wins, only against a higher tier.
+    v_bonus := 0;
+    IF v_outcome = 'win' THEN
+      SELECT (SELECT rung_index FROM public.sp_rung(GREATEST(COALESCE(v_opp_sp, 0), 0))) / 3
+           - (SELECT rung_index FROM public.sp_rung(GREATEST(COALESCE(v_sp, 0), 0))) / 3
+        INTO v_gap;
+      IF COALESCE(v_gap, 0) > 0 THEN
+        v_bonus := COALESCE((v_cfg.upset_bonus ->> LEAST(v_gap, 3)::text)::INT, 0);
+      END IF;
+    END IF;
+
+    v_pts := v_base + v_bonus;
+
+    -- Farming guard: repeated wins over the same opponent pay a fraction.
+    IF v_pts > 0 AND COALESCE(v_cfg.repeat_opponent_limit, 0) > 0 THEN
+      SELECT games INTO v_reps FROM public.season_opponent_counts
+      WHERE season_id = v_season AND user_id = v_u AND opponent_id = v_opp;
+      IF COALESCE(v_reps, 0) > v_cfg.repeat_opponent_limit THEN
+        v_pts := GREATEST(1, (v_pts * COALESCE(v_cfg.repeat_opponent_pct, 25)) / 100);
+      END IF;
+    END IF;
+
+    -- Conduct penalties stack on top of the result.
+    v_penalty := 0;
+    IF v_outcome = 'loss' THEN
+      IF NEW.end_reason = 'timeout' THEN
+        v_penalty := COALESCE((v_cfg.penalties ->> 'timeout')::INT, 0);
+      ELSIF NEW.end_reason IN ('disconnect', 'abandoned') THEN
+        v_penalty := COALESCE((v_cfg.penalties ->> 'disconnect')::INT, 0);
+      END IF;
+    END IF;
+
+    -- Per-game stats.
+    IF v_outcome = 'win' THEN
+      UPDATE public.season_rankings SET
+        games_played    = games_played + 1,
+        wins            = wins + 1,
+        cur_win_streak  = cur_win_streak + 1,
+        best_win_streak = GREATEST(best_win_streak, cur_win_streak + 1),
+        updated_at      = now()
+      WHERE season_id = v_season AND user_id = v_u;
+    ELSIF v_outcome = 'draw' THEN
+      UPDATE public.season_rankings SET
+        games_played   = games_played + 1,
+        draws          = draws + 1,
+        cur_win_streak = 0,
+        updated_at     = now()
+      WHERE season_id = v_season AND user_id = v_u;
+    ELSE
+      UPDATE public.season_rankings SET
+        games_played   = games_played + 1,
+        losses         = losses + 1,
+        cur_win_streak = 0,
+        updated_at     = now()
+      WHERE season_id = v_season AND user_id = v_u;
+    END IF;
+
+    PERFORM public._season_award_sp(
+      v_u, 'game_' || v_outcome, v_pts, NEW.id::text,
+      jsonb_build_object('base', v_base, 'bonus', v_bonus, 'tier', v_tier,
+                         'opponent_tier', v_opp_tier, 'opponent', v_opp)
+    );
+
+    IF v_penalty <> 0 THEN
+      PERFORM public._season_award_sp(
+        v_u, 'penalty_' || COALESCE(NEW.end_reason, 'conduct'), v_penalty, NEW.id::text,
+        jsonb_build_object('reason', NEW.end_reason)
+      );
+    END IF;
+  END LOOP;
+
+  RETURN NEW;
+END; $fn$;
+
+DROP TRIGGER IF EXISTS trg_season_game_finished ON public.games;
+CREATE TRIGGER trg_season_game_finished
+  AFTER UPDATE ON public.games
+  FOR EACH ROW
+  WHEN (OLD.ended_at IS NULL AND NEW.ended_at IS NOT NULL)
+  EXECUTE FUNCTION public.handle_season_game_finished();
+
+-- ---------------------------------------------------------------------
+-- 102.6 Conduct penalties applied outside the game trigger
+-- ---------------------------------------------------------------------
+-- Used by the anti-cheat pipeline and admin moderation. A cheating
+-- verdict also removes the player from the season ranking.
+CREATE OR REPLACE FUNCTION public.apply_season_penalty(
+  p_user   UUID,
+  p_kind   TEXT,      -- disconnect | timeout | afk | cheating
+  p_ref    TEXT,
+  p_ban    BOOLEAN DEFAULT NULL,
+  p_reason TEXT DEFAULT NULL
+) RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+DECLARE
+  v_cfg    RECORD;
+  v_points INT;
+  v_season UUID;
+  v_ban    BOOLEAN;
+BEGIN
+  SELECT * INTO v_cfg FROM public.season_config WHERE id;
+  v_points := COALESCE((v_cfg.penalties ->> p_kind)::INT, 0);
+  IF v_points = 0 THEN RETURN 0; END IF;
+
+  v_points := public._season_award_sp(p_user, 'penalty_' || p_kind, v_points, p_ref,
+                                      jsonb_build_object('reason', p_reason));
+
+  v_ban := COALESCE(p_ban, p_kind = 'cheating');
+  IF v_ban THEN
+    SELECT id INTO v_season FROM public.seasons
+    WHERE status = 'live' ORDER BY season_number DESC LIMIT 1;
+    IF v_season IS NOT NULL THEN
+      UPDATE public.season_rankings
+      SET banned = true,
+          ban_reason = COALESCE(p_reason, p_kind),
+          updated_at = now()
+      WHERE season_id = v_season AND user_id = p_user;
+
+      INSERT INTO public.notifications (user_id, kind, title, body, link)
+      VALUES (p_user, 'season_ban', 'Removed from the season ranking',
+              'Your account is under fair-play review and has been removed from this season''s leaderboard.',
+              '/seasons');
+    END IF;
+  END IF;
+
+  RETURN v_points;
+END; $fn$;
+REVOKE ALL ON FUNCTION public.apply_season_penalty(UUID, TEXT, TEXT, BOOLEAN, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.apply_season_penalty(UUID, TEXT, TEXT, BOOLEAN, TEXT) TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 102.7 Permanent ELO — K-factor schedule
+-- ---------------------------------------------------------------------
+-- Provisional players (< 15 games) move fast so they find their level
+-- quickly; elite players move slowly so the top of the ladder is stable.
+-- Mirrors kFactor() in src/lib/ranking/elo.ts.
+CREATE OR REPLACE FUNCTION public.elo_k_factor(p_rating INT, p_games INT)
+RETURNS INT LANGUAGE sql IMMUTABLE AS $fn$
+  SELECT CASE
+    WHEN COALESCE(p_games, 0) < 15 THEN 40
+    WHEN COALESCE(p_rating, 0) >= 2400 THEN 12
+    WHEN COALESCE(p_rating, 0) >= 1800 THEN 20
+    ELSE 24
+  END;
+$fn$;
+GRANT EXECUTE ON FUNCTION public.elo_k_factor(INT, INT) TO anon, authenticated, service_role;
+
+-- Recreated from SECTION 23 with the K-factor schedule. Unchanged
+-- otherwise: idempotent per game via games.elo_applied, writes
+-- rating_history, and hands off to the season engine afterwards.
+CREATE OR REPLACE FUNCTION public.apply_elo_change(p_game_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+DECLARE
+  v_game    RECORD;
+  v_w       RECORD;
+  v_b       RECORD;
+  v_k_w     INT;
+  v_k_b     INT;
+  v_exp_w   NUMERIC;
+  v_exp_b   NUMERIC;
+  v_score_w NUMERIC;
+  v_new_w   INT;
+  v_new_b   INT;
+BEGIN
+  SELECT * INTO v_game FROM public.games WHERE id = p_game_id;
+  IF NOT FOUND
+     OR NOT v_game.is_rated
+     OR v_game.white_id IS NULL
+     OR v_game.black_id IS NULL THEN RETURN; END IF;
+  IF v_game.result NOT IN ('white','black','draw') THEN RETURN; END IF;
+  IF v_game.elo_applied THEN RETURN; END IF;
+
+  INSERT INTO public.ratings
+    (user_id, time_class, rating, peak_rating, games_played, wins, losses, draws)
+  VALUES
+    (v_game.white_id, v_game.time_class, 100, 100, 0, 0, 0, 0),
+    (v_game.black_id, v_game.time_class, 100, 100, 0, 0, 0, 0)
+  ON CONFLICT (user_id, time_class) DO NOTHING;
+
+  SELECT * INTO v_w FROM public.ratings
+    WHERE user_id = v_game.white_id AND time_class = v_game.time_class;
+  SELECT * INTO v_b FROM public.ratings
+    WHERE user_id = v_game.black_id AND time_class = v_game.time_class;
+  IF v_w IS NULL OR v_b IS NULL THEN RETURN; END IF;
+
+  v_k_w     := public.elo_k_factor(v_w.rating, v_w.games_played);
+  v_k_b     := public.elo_k_factor(v_b.rating, v_b.games_played);
+  v_exp_w   := 1.0 / (1 + power(10, (v_b.rating - v_w.rating) / 400.0));
+  v_exp_b   := 1.0 - v_exp_w;
+  v_score_w := CASE v_game.result WHEN 'white' THEN 1 WHEN 'draw' THEN 0.5 ELSE 0 END;
+
+  -- Ratings never fall below zero (the ladder starts at 100).
+  v_new_w := GREATEST(0, ROUND(v_w.rating + v_k_w * (v_score_w - v_exp_w)));
+  v_new_b := GREATEST(0, ROUND(v_b.rating + v_k_b * ((1 - v_score_w) - v_exp_b)));
+
+  UPDATE public.ratings SET
+    rating       = v_new_w,
+    peak_rating  = GREATEST(peak_rating, v_new_w),
+    games_played = games_played + 1,
+    wins         = wins   + CASE WHEN v_game.result = 'white' THEN 1 ELSE 0 END,
+    losses       = losses + CASE WHEN v_game.result = 'black' THEN 1 ELSE 0 END,
+    draws        = draws  + CASE WHEN v_game.result = 'draw'  THEN 1 ELSE 0 END
+  WHERE user_id = v_game.white_id AND time_class = v_game.time_class;
+
+  UPDATE public.ratings SET
+    rating       = v_new_b,
+    peak_rating  = GREATEST(peak_rating, v_new_b),
+    games_played = games_played + 1,
+    wins         = wins   + CASE WHEN v_game.result = 'black' THEN 1 ELSE 0 END,
+    losses       = losses + CASE WHEN v_game.result = 'white' THEN 1 ELSE 0 END,
+    draws        = draws  + CASE WHEN v_game.result = 'draw'  THEN 1 ELSE 0 END
+  WHERE user_id = v_game.black_id AND time_class = v_game.time_class;
+
+  INSERT INTO public.rating_history
+    (user_id, game_id, time_class, old_rating, new_rating, delta)
+  VALUES
+    (v_game.white_id, p_game_id, v_game.time_class, v_w.rating, v_new_w, v_new_w - v_w.rating),
+    (v_game.black_id, p_game_id, v_game.time_class, v_b.rating, v_new_b, v_new_b - v_b.rating);
+
+  UPDATE public.games SET elo_applied = true WHERE id = p_game_id;
+
+  PERFORM public.apply_iq_change(p_game_id);
+END; $fn$;
+REVOKE EXECUTE ON FUNCTION public.apply_elo_change(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.apply_elo_change(UUID) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 102.8 ELO leaderboard — global / country / state / district / friends
+-- ---------------------------------------------------------------------
+-- One RPC serves every scope. `p_scope`:
+--   global   — everyone
+--   country  — p_country
+--   state    — p_country + p_state
+--   district — p_country + p_state + p_district
+--   friends  — accepted friends of p_viewer, plus the viewer
+-- Players with fewer than p_min_games rated games are excluded so the
+-- top of the board is not full of 1-game provisional accounts.
+CREATE OR REPLACE FUNCTION public.elo_leaderboard(
+  p_time_class public.time_class DEFAULT 'rapid',
+  p_scope      TEXT DEFAULT 'global',
+  p_country    TEXT DEFAULT NULL,
+  p_state      TEXT DEFAULT NULL,
+  p_district   TEXT DEFAULT NULL,
+  p_viewer     UUID DEFAULT NULL,
+  p_search     TEXT DEFAULT NULL,
+  p_min_games  INT  DEFAULT 5,
+  p_limit      INT  DEFAULT 50,
+  p_offset     INT  DEFAULT 0
+)
+RETURNS TABLE (
+  rank          BIGINT,
+  user_id       UUID,
+  username      TEXT,
+  full_name     TEXT,
+  avatar_url    TEXT,
+  country       TEXT,
+  state         TEXT,
+  district      TEXT,
+  rating        INT,
+  peak_rating   INT,
+  games_played  INT,
+  wins          INT,
+  losses        INT,
+  draws         INT,
+  win_rate      NUMERIC,
+  premium_active BOOLEAN
+)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $fn$
+  WITH scoped AS (
+    SELECT r.user_id, r.rating, r.peak_rating, r.games_played,
+           r.wins, r.losses, r.draws,
+           p.username, p.full_name, p.avatar_url,
+           p.country, p.state, p.district,
+           COALESCE(p.premium_active, false) AS premium_active
+    FROM public.ratings r
+    JOIN public.profiles p ON p.id = r.user_id
+    WHERE r.time_class = p_time_class
+      AND r.games_played >= GREATEST(COALESCE(p_min_games, 0), 0)
+      AND (
+        p_scope <> 'friends' OR p_viewer IS NULL OR r.user_id = p_viewer OR EXISTS (
+          SELECT 1 FROM public.friends f
+          WHERE f.status = 'accepted'
+            AND ((f.requester_id = p_viewer AND f.addressee_id = r.user_id)
+              OR (f.addressee_id = p_viewer AND f.requester_id = r.user_id))
+        )
+      )
+      AND (p_scope NOT IN ('country','state','district') OR p.country IS NOT DISTINCT FROM p_country)
+      AND (p_scope NOT IN ('state','district')          OR p.state   IS NOT DISTINCT FROM p_state)
+      AND (p_scope <> 'district'                        OR p.district IS NOT DISTINCT FROM p_district)
+      AND (p_search IS NULL OR p.username ILIKE '%' || p_search || '%'
+                            OR p.full_name ILIKE '%' || p_search || '%')
+  )
+  SELECT
+    RANK() OVER (ORDER BY s.rating DESC, s.games_played DESC, s.user_id)::BIGINT,
+    s.user_id, s.username, s.full_name, s.avatar_url,
+    s.country, s.state, s.district,
+    s.rating, s.peak_rating, s.games_played, s.wins, s.losses, s.draws,
+    CASE WHEN (s.wins + s.losses + s.draws) = 0 THEN NULL
+         ELSE ROUND(((s.wins + s.draws / 2.0) / (s.wins + s.losses + s.draws)) * 100, 1)
+    END,
+    s.premium_active
+  FROM scoped s
+  ORDER BY s.rating DESC, s.games_played DESC, s.user_id
+  LIMIT GREATEST(LEAST(COALESCE(p_limit, 50), 200), 1)
+  OFFSET GREATEST(COALESCE(p_offset, 0), 0);
+$fn$;
+GRANT EXECUTE ON FUNCTION public.elo_leaderboard(
+  public.time_class, TEXT, TEXT, TEXT, TEXT, UUID, TEXT, INT, INT, INT
+) TO anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 102.9 Season Points leaderboard — same five scopes
+-- ---------------------------------------------------------------------
+-- Season-banned players are excluded from every scope.
+CREATE OR REPLACE FUNCTION public.sp_leaderboard(
+  p_season_id UUID DEFAULT NULL,
+  p_scope     TEXT DEFAULT 'global',
+  p_country   TEXT DEFAULT NULL,
+  p_state     TEXT DEFAULT NULL,
+  p_district  TEXT DEFAULT NULL,
+  p_viewer    UUID DEFAULT NULL,
+  p_search    TEXT DEFAULT NULL,
+  p_limit     INT  DEFAULT 50,
+  p_offset    INT  DEFAULT 0
+)
+RETURNS TABLE (
+  rank           BIGINT,
+  prev_rank      INT,
+  user_id        UUID,
+  username       TEXT,
+  full_name      TEXT,
+  avatar_url     TEXT,
+  country        TEXT,
+  state          TEXT,
+  district       TEXT,
+  season_points  INT,
+  rung_id        TEXT,
+  rung_index     INT,
+  tier_code      TEXT,
+  games_played   INT,
+  wins           INT,
+  losses         INT,
+  draws          INT,
+  win_rate       NUMERIC,
+  best_win_streak INT,
+  premium_active BOOLEAN
+)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $fn$
+  WITH season AS (
+    SELECT COALESCE(
+      p_season_id,
+      (SELECT id FROM public.seasons WHERE status = 'live'
+        ORDER BY season_number DESC LIMIT 1)
+    ) AS id
+  ), scoped AS (
+    SELECT sr.user_id, sr.prev_rank, sr.season_iq, sr.rung_id, sr.rung_index,
+           sr.games_played, sr.wins, sr.losses, sr.draws, sr.best_win_streak,
+           p.username, p.full_name, p.avatar_url,
+           p.country, p.state, p.district,
+           COALESCE(p.premium_active, false) AS premium_active
+    FROM public.season_rankings sr
+    JOIN season sn ON sn.id = sr.season_id
+    JOIN public.profiles p ON p.id = sr.user_id
+    WHERE sr.banned = false
+      AND (
+        p_scope <> 'friends' OR p_viewer IS NULL OR sr.user_id = p_viewer OR EXISTS (
+          SELECT 1 FROM public.friends f
+          WHERE f.status = 'accepted'
+            AND ((f.requester_id = p_viewer AND f.addressee_id = sr.user_id)
+              OR (f.addressee_id = p_viewer AND f.requester_id = sr.user_id))
+        )
+      )
+      AND (p_scope NOT IN ('country','state','district') OR p.country IS NOT DISTINCT FROM p_country)
+      AND (p_scope NOT IN ('state','district')          OR p.state   IS NOT DISTINCT FROM p_state)
+      AND (p_scope <> 'district'                        OR p.district IS NOT DISTINCT FROM p_district)
+      AND (p_search IS NULL OR p.username ILIKE '%' || p_search || '%'
+                            OR p.full_name ILIKE '%' || p_search || '%')
+  )
+  SELECT
+    RANK() OVER (ORDER BY s.season_iq DESC, s.wins DESC, s.user_id)::BIGINT,
+    s.prev_rank,
+    s.user_id, s.username, s.full_name, s.avatar_url,
+    s.country, s.state, s.district,
+    s.season_iq, s.rung_id, s.rung_index, split_part(s.rung_id, '_', 1),
+    s.games_played, s.wins, s.losses, s.draws,
+    CASE WHEN (s.wins + s.losses + s.draws) = 0 THEN NULL
+         ELSE ROUND(((s.wins + s.draws / 2.0) / (s.wins + s.losses + s.draws)) * 100, 1)
+    END,
+    s.best_win_streak,
+    s.premium_active
+  FROM scoped s
+  ORDER BY s.season_iq DESC, s.wins DESC, s.user_id
+  LIMIT GREATEST(LEAST(COALESCE(p_limit, 50), 200), 1)
+  OFFSET GREATEST(COALESCE(p_offset, 0), 0);
+$fn$;
+GRANT EXECUTE ON FUNCTION public.sp_leaderboard(
+  UUID, TEXT, TEXT, TEXT, TEXT, UUID, TEXT, INT, INT
+) TO anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 102.10 Player ranking card
+-- ---------------------------------------------------------------------
+-- Everything the profile's ranking section needs in one round trip:
+-- permanent ELO (+ global/country/state/district placement), the
+-- season standing, and career records.
+CREATE OR REPLACE FUNCTION public.player_ranking_card(
+  p_user_id    UUID,
+  p_time_class public.time_class DEFAULT 'rapid'
+)
+RETURNS JSONB
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $fn$
+DECLARE
+  v_p       RECORD;
+  v_r       RECORD;
+  v_sr      RECORD;
+  v_has_elo BOOLEAN := false;
+  v_has_sp  BOOLEAN := false;
+  v_season  UUID;
+  v_result  JSONB;
+  v_global  BIGINT;
+  v_country BIGINT;
+  v_state   BIGINT;
+  v_district BIGINT;
+  v_sp_rank BIGINT;
+BEGIN
+  SELECT id, username, full_name, avatar_url, country, state, district,
+         career_highest_iq, career_best_rank, career_best_rank_season
+    INTO v_p
+  FROM public.profiles WHERE id = p_user_id;
+  IF NOT FOUND THEN RETURN NULL; END IF;
+
+  SELECT * INTO v_r FROM public.ratings
+  WHERE user_id = p_user_id AND time_class = p_time_class;
+  v_has_elo := FOUND;
+
+  SELECT id INTO v_season FROM public.seasons
+  WHERE status = 'live' ORDER BY season_number DESC LIMIT 1;
+
+  SELECT * INTO v_sr FROM public.season_rankings
+  WHERE season_id = v_season AND user_id = p_user_id;
+  v_has_sp := FOUND;
+
+  -- Scoped ELO placements (NULL when the player has no rating row).
+  IF v_has_elo THEN
+    SELECT count(*) + 1 INTO v_global FROM public.ratings r2
+      JOIN public.profiles p2 ON p2.id = r2.user_id
+      WHERE r2.time_class = p_time_class AND r2.rating > v_r.rating;
+
+    SELECT count(*) + 1 INTO v_country FROM public.ratings r2
+      JOIN public.profiles p2 ON p2.id = r2.user_id
+      WHERE r2.time_class = p_time_class AND r2.rating > v_r.rating
+        AND p2.country IS NOT DISTINCT FROM v_p.country;
+
+    SELECT count(*) + 1 INTO v_state FROM public.ratings r2
+      JOIN public.profiles p2 ON p2.id = r2.user_id
+      WHERE r2.time_class = p_time_class AND r2.rating > v_r.rating
+        AND p2.country IS NOT DISTINCT FROM v_p.country
+        AND p2.state   IS NOT DISTINCT FROM v_p.state;
+
+    SELECT count(*) + 1 INTO v_district FROM public.ratings r2
+      JOIN public.profiles p2 ON p2.id = r2.user_id
+      WHERE r2.time_class = p_time_class AND r2.rating > v_r.rating
+        AND p2.country  IS NOT DISTINCT FROM v_p.country
+        AND p2.state    IS NOT DISTINCT FROM v_p.state
+        AND p2.district IS NOT DISTINCT FROM v_p.district;
+  END IF;
+
+  IF v_has_sp THEN
+    SELECT count(*) + 1 INTO v_sp_rank FROM public.season_rankings sr2
+    WHERE sr2.season_id = v_season AND sr2.banned = false
+      AND sr2.season_iq > v_sr.season_iq;
+  END IF;
+
+  v_result := jsonb_build_object(
+    'user_id',    p_user_id,
+    'username',   v_p.username,
+    'full_name',  v_p.full_name,
+    'avatar_url', v_p.avatar_url,
+    'country',    v_p.country,
+    'state',      v_p.state,
+    'district',   v_p.district,
+    'elo', CASE WHEN NOT v_has_elo THEN NULL ELSE jsonb_build_object(
+      'time_class',    p_time_class,
+      'rating',        v_r.rating,
+      'peak_rating',   v_r.peak_rating,
+      'games_played',  v_r.games_played,
+      'wins',          v_r.wins,
+      'losses',        v_r.losses,
+      'draws',         v_r.draws,
+      'global_rank',   v_global,
+      'country_rank',  v_country,
+      'state_rank',    v_state,
+      'district_rank', v_district
+    ) END,
+    'season', CASE WHEN NOT v_has_sp THEN NULL ELSE jsonb_build_object(
+      'season_id',       v_season,
+      'season_points',   v_sr.season_iq,
+      'rung_id',         v_sr.rung_id,
+      'rung_index',      v_sr.rung_index,
+      'tier_code',       split_part(v_sr.rung_id, '_', 1),
+      'rank',            v_sp_rank,
+      'prev_rank',       v_sr.prev_rank,
+      'peak_sp',         v_sr.peak_sp,
+      'peak_rung_index', v_sr.peak_rung_index,
+      'games_played',    v_sr.games_played,
+      'wins',            v_sr.wins,
+      'losses',          v_sr.losses,
+      'draws',           v_sr.draws,
+      'best_win_streak', v_sr.best_win_streak,
+      'banned',          v_sr.banned
+    ) END,
+    'career', jsonb_build_object(
+      'best_season_rank',   v_p.career_best_rank,
+      'best_season_number', v_p.career_best_rank_season,
+      'highest_sp',         v_p.career_highest_iq,
+      'seasons_played',     (SELECT count(*) FROM public.season_history WHERE user_id = p_user_id),
+      'seasons_won',        (SELECT count(*) FROM public.season_history
+                              WHERE user_id = p_user_id AND final_rank = 1)
+    )
+  );
+
+  RETURN v_result;
+END; $fn$;
+GRANT EXECUTE ON FUNCTION public.player_ranking_card(UUID, public.time_class)
+  TO anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 102.11 Hall of Fame
+-- ---------------------------------------------------------------------
+-- Permanent record of past season finishers. Reads frozen
+-- season_history rows only — live seasons never appear.
+CREATE OR REPLACE FUNCTION public.hall_of_fame(
+  p_season_number INT DEFAULT NULL,
+  p_limit         INT DEFAULT 100,
+  p_offset        INT DEFAULT 0
+)
+RETURNS TABLE (
+  season_number INT,
+  season_name   TEXT,
+  ended_at      TIMESTAMPTZ,
+  final_rank    INT,
+  user_id       UUID,
+  username      TEXT,
+  full_name     TEXT,
+  avatar_url    TEXT,
+  country       TEXT,
+  season_points INT,
+  tier_code     TEXT,
+  rung_id       TEXT,
+  rewards       TEXT[]
+)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $fn$
+  SELECT
+    s.season_number,
+    s.name,
+    sh.ended_at,
+    sh.final_rank,
+    sh.user_id,
+    p.username,
+    p.full_name,
+    p.avatar_url,
+    p.country,
+    sh.season_iq,
+    COALESCE(split_part(sh.rung_id, '_', 1), lower(COALESCE(sh.tier, ''))),
+    sh.rung_id,
+    sh.rewards
+  FROM public.season_history sh
+  JOIN public.seasons  s ON s.id = sh.season_id
+  JOIN public.profiles p ON p.id = sh.user_id
+  WHERE (p_season_number IS NULL OR s.season_number = p_season_number)
+  ORDER BY s.season_number DESC, sh.final_rank ASC
+  LIMIT GREATEST(LEAST(COALESCE(p_limit, 100), 200), 1)
+  OFFSET GREATEST(COALESCE(p_offset, 0), 0);
+$fn$;
+GRANT EXECUTE ON FUNCTION public.hall_of_fame(INT, INT, INT) TO anon, authenticated;
+
+-- Champions only — one row per completed season, for the HoF header.
+CREATE OR REPLACE FUNCTION public.hall_of_fame_champions(p_limit INT DEFAULT 24)
+RETURNS TABLE (
+  season_number INT,
+  season_name   TEXT,
+  ended_at      TIMESTAMPTZ,
+  user_id       UUID,
+  username      TEXT,
+  avatar_url    TEXT,
+  country       TEXT,
+  season_points INT,
+  tier_code     TEXT
+)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $fn$
+  SELECT s.season_number, s.name, sh.ended_at, sh.user_id,
+         p.username, p.avatar_url, p.country, sh.season_iq,
+         COALESCE(split_part(sh.rung_id, '_', 1), lower(COALESCE(sh.tier, '')))
+  FROM public.season_history sh
+  JOIN public.seasons  s ON s.id = sh.season_id
+  JOIN public.profiles p ON p.id = sh.user_id
+  WHERE sh.final_rank = 1
+  ORDER BY s.season_number DESC
+  LIMIT GREATEST(LEAST(COALESCE(p_limit, 24), 100), 1);
+$fn$;
+GRANT EXECUTE ON FUNCTION public.hall_of_fame_champions(INT) TO anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 102.12 Season-end tier rewards
+-- ---------------------------------------------------------------------
+-- Grants the tier reward bundle + placement rewards to every ranked
+-- player of a season. Called by admin_end_season / season_rollover;
+-- safe to re-run (rewards are de-duplicated).
+CREATE OR REPLACE FUNCTION public.award_season_tier_rewards(p_season_id UUID)
+RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+DECLARE
+  v_count INT := 0;
+BEGIN
+  WITH bundles AS (
+    SELECT sr.user_id,
+           sr.rank,
+           split_part(sr.rung_id, '_', 1) AS tier_code,
+           CASE split_part(sr.rung_id, '_', 1)
+             WHEN 'bronze'      THEN ARRAY['badge_bronze']
+             WHEN 'silver'      THEN ARRAY['badge_silver','coins']
+             WHEN 'gold'        THEN ARRAY['coins','avatar_premium']
+             WHEN 'platinum'    THEN ARRAY['coins','frame_platinum','title_platinum']
+             WHEN 'diamond'     THEN ARRAY['badge_animated_diamond']
+             WHEN 'master'      THEN ARRAY['theme_master']
+             WHEN 'grandmaster' THEN ARRAY['badge_crown','border_grandmaster',
+                                           'hall_of_fame','trophy_season']
+             ELSE ARRAY[]::TEXT[]
+           END
+           ||
+           CASE
+             WHEN sr.rank = 1            THEN ARRAY['top_1']
+             WHEN sr.rank <= 3           THEN ARRAY['top_3']
+             WHEN sr.rank <= 10          THEN ARRAY['top_10']
+             WHEN sr.rank <= 100         THEN ARRAY['top_100']
+             ELSE ARRAY[]::TEXT[]
+           END AS bundle
+    FROM public.season_rankings sr
+    WHERE sr.season_id = p_season_id AND sr.banned = false AND sr.rank IS NOT NULL
+  )
+  UPDATE public.season_rankings sr
+  SET rewards = ARRAY(SELECT DISTINCT unnest(sr.rewards || b.bundle))
+  FROM bundles b
+  WHERE sr.season_id = p_season_id AND sr.user_id = b.user_id;
+
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END; $fn$;
+REVOKE ALL ON FUNCTION public.award_season_tier_rewards(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.award_season_tier_rewards(UUID) TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 102.13 Admin RPCs
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.admin_get_season_config()
+RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $fn$
+DECLARE v_row RECORD;
+BEGIN
+  IF NOT public.is_admin() THEN RAISE EXCEPTION 'Admin access required'; END IF;
+  SELECT * INTO v_row FROM public.season_config WHERE id;
+  RETURN jsonb_build_object(
+    'sp_rates',              v_row.sp_rates,
+    'upset_bonus',           v_row.upset_bonus,
+    'penalties',             v_row.penalties,
+    'ladder',                v_row.ladder,
+    'demotion_grace_sp',     v_row.demotion_grace_sp,
+    'min_moves_for_sp',      v_row.min_moves_for_sp,
+    'daily_sp_cap',          v_row.daily_sp_cap,
+    'repeat_opponent_limit', v_row.repeat_opponent_limit,
+    'repeat_opponent_pct',   v_row.repeat_opponent_pct,
+    'updated_at',            v_row.updated_at
+  );
+END; $fn$;
+REVOKE EXECUTE ON FUNCTION public.admin_get_season_config() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_get_season_config() TO authenticated, service_role;
+
+-- Partial update: pass only the keys you want to change.
+CREATE OR REPLACE FUNCTION public.admin_update_season_config(p_patch JSONB)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+BEGIN
+  IF NOT public.is_admin() THEN RAISE EXCEPTION 'Admin access required'; END IF;
+
+  UPDATE public.season_config SET
+    sp_rates              = COALESCE(p_patch -> 'sp_rates', sp_rates),
+    upset_bonus           = COALESCE(p_patch -> 'upset_bonus', upset_bonus),
+    penalties             = COALESCE(p_patch -> 'penalties', penalties),
+    ladder                = COALESCE(p_patch -> 'ladder', ladder),
+    demotion_grace_sp     = COALESCE((p_patch ->> 'demotion_grace_sp')::INT, demotion_grace_sp),
+    min_moves_for_sp      = COALESCE((p_patch ->> 'min_moves_for_sp')::INT, min_moves_for_sp),
+    daily_sp_cap          = COALESCE((p_patch ->> 'daily_sp_cap')::INT, daily_sp_cap),
+    repeat_opponent_limit = COALESCE((p_patch ->> 'repeat_opponent_limit')::INT, repeat_opponent_limit),
+    repeat_opponent_pct   = COALESCE((p_patch ->> 'repeat_opponent_pct')::INT, repeat_opponent_pct),
+    updated_at            = now(),
+    updated_by            = auth.uid()
+  WHERE id;
+
+  RETURN public.admin_get_season_config();
+END; $fn$;
+REVOKE EXECUTE ON FUNCTION public.admin_update_season_config(JSONB) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_update_season_config(JSONB) TO authenticated, service_role;
+
+-- Manual SP adjustment (compensation or sanction). Always ledgered.
+CREATE OR REPLACE FUNCTION public.admin_adjust_season_points(
+  p_user_id UUID,
+  p_points  INT,
+  p_reason  TEXT
+) RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+DECLARE v_applied INT;
+BEGIN
+  IF NOT public.is_admin() THEN RAISE EXCEPTION 'Admin access required'; END IF;
+  IF COALESCE(p_points, 0) = 0 THEN RETURN 0; END IF;
+
+  v_applied := public._season_award_sp(
+    p_user_id, 'admin_adjust', p_points,
+    'admin:' || auth.uid()::text || ':' || extract(epoch from now())::bigint::text,
+    jsonb_build_object('reason', p_reason, 'by', auth.uid())
+  );
+
+  INSERT INTO public.notifications (user_id, kind, title, body, link)
+  VALUES (p_user_id, 'rank_adjustment',
+          CASE WHEN p_points > 0 THEN 'Season Points added' ELSE 'Season Points removed' END,
+          COALESCE(p_reason, 'An administrator adjusted your season total.'),
+          '/seasons');
+
+  RETURN v_applied;
+END; $fn$;
+REVOKE EXECUTE ON FUNCTION public.admin_adjust_season_points(UUID, INT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_adjust_season_points(UUID, INT, TEXT) TO authenticated, service_role;
+
+-- Season ban / unban for the live season.
+CREATE OR REPLACE FUNCTION public.admin_set_season_ban(
+  p_user_id UUID,
+  p_banned  BOOLEAN,
+  p_reason  TEXT DEFAULT NULL
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+DECLARE v_season UUID;
+BEGIN
+  IF NOT public.is_admin() THEN RAISE EXCEPTION 'Admin access required'; END IF;
+
+  SELECT id INTO v_season FROM public.seasons
+  WHERE status = 'live' ORDER BY season_number DESC LIMIT 1;
+  IF v_season IS NULL THEN RAISE EXCEPTION 'No live season'; END IF;
+
+  UPDATE public.season_rankings
+  SET banned = p_banned, ban_reason = p_reason, updated_at = now()
+  WHERE season_id = v_season AND user_id = p_user_id;
+END; $fn$;
+REVOKE EXECUTE ON FUNCTION public.admin_set_season_ban(UUID, BOOLEAN, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_set_season_ban(UUID, BOOLEAN, TEXT) TO authenticated, service_role;
+
+-- Ranking analytics for the admin dashboard.
+CREATE OR REPLACE FUNCTION public.admin_ranking_analytics()
+RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $fn$
+DECLARE
+  v_season UUID;
+  v_result JSONB;
+BEGIN
+  IF NOT public.is_admin() THEN RAISE EXCEPTION 'Admin access required'; END IF;
+
+  SELECT id INTO v_season FROM public.seasons
+  WHERE status = 'live' ORDER BY season_number DESC LIMIT 1;
+
+  SELECT jsonb_build_object(
+    'season_id', v_season,
+    'ranked_players', (SELECT count(*) FROM public.season_rankings
+                        WHERE season_id = v_season AND banned = false),
+    'banned_players', (SELECT count(*) FROM public.season_rankings
+                        WHERE season_id = v_season AND banned = true),
+    'active_players', (SELECT count(*) FROM public.season_rankings
+                        WHERE season_id = v_season AND games_played > 0 AND banned = false),
+    'games_counted',  (SELECT COALESCE(sum(games_played), 0) / 2 FROM public.season_rankings
+                        WHERE season_id = v_season),
+    'sp_awarded',     (SELECT COALESCE(sum(points), 0) FROM public.season_iq_events
+                        WHERE season_id = v_season AND points > 0),
+    'sp_deducted',    (SELECT COALESCE(sum(-points), 0) FROM public.season_iq_events
+                        WHERE season_id = v_season AND points < 0),
+    'tier_distribution', (
+      SELECT COALESCE(jsonb_object_agg(t.tier_code, t.n), '{}'::jsonb)
+      FROM (
+        SELECT split_part(rung_id, '_', 1) AS tier_code, count(*) AS n
+        FROM public.season_rankings
+        WHERE season_id = v_season AND banned = false
+        GROUP BY 1
+      ) t
+    ),
+    'elo_distribution', (
+      SELECT COALESCE(jsonb_object_agg(b.bucket, b.n), '{}'::jsonb)
+      FROM (
+        SELECT (rating / 200 * 200)::TEXT AS bucket, count(*) AS n
+        FROM public.ratings WHERE time_class = 'rapid' AND games_played >= 5
+        GROUP BY 1
+      ) b
+    )
+  ) INTO v_result;
+
+  RETURN v_result;
+END; $fn$;
+REVOKE EXECUTE ON FUNCTION public.admin_ranking_analytics() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_ranking_analytics() TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 102.14 Backfill existing rows onto the ladder
+-- ---------------------------------------------------------------------
+-- One-time (idempotent) sync so pre-102 rankings show a correct rung.
+-- Only touches rows still sitting on the default rung with points on
+-- the board, so re-running after real play never rewrites live data.
+WITH resolved AS (
+  SELECT sr.id,
+         (SELECT rung_id    FROM public.sp_rung(sr.season_iq)) AS rung_id,
+         (SELECT rung_index FROM public.sp_rung(sr.season_iq)) AS rung_index,
+         (SELECT tier_code  FROM public.sp_rung(sr.season_iq)) AS tier_code,
+         sr.season_iq
+  FROM public.season_rankings sr
+  WHERE sr.rung_id = 'bronze_3' AND sr.season_iq > 0
+)
+UPDATE public.season_rankings sr
+SET rung_id         = r.rung_id,
+    rung_index      = r.rung_index,
+    tier            = r.tier_code,
+    peak_sp         = GREATEST(sr.peak_sp, r.season_iq),
+    peak_rung_index = GREATEST(sr.peak_rung_index, r.rung_index)
+FROM resolved r
+WHERE sr.id = r.id;
+
+-- ---------------------------------------------------------------------
+-- 102.15 Season finalization — corrections
+-- ---------------------------------------------------------------------
+-- Three gaps between the SECTION 77 finalization path and the v2 ladder,
+-- fixed here rather than by rewriting the large admin_end_season /
+-- season_rollover bodies (both funnel through the two objects below, so
+-- patching these covers every caller):
+--
+--   1. Banned players still received a rank, and therefore rewards and a
+--      permanent Hall of Fame entry. They are now excluded from ranking.
+--   2. Tier reward bundles were never applied to frozen history.
+--   3. season_history carried no rung and an old-style tier name
+--      ('Expert'), which the v2 UI cannot map to a badge.
+
+-- Ranking now skips banned players entirely: they keep their points for
+-- the audit trail but hold no rank, so they cannot place, earn rank
+-- rewards, or be frozen into history (which filters on rank IS NOT NULL).
+CREATE OR REPLACE FUNCTION public._season_recompute_rankings(p_season_id UUID)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+BEGIN
+  WITH ranked AS (
+    SELECT user_id,
+           ROW_NUMBER() OVER (
+             ORDER BY season_iq DESC, wins DESC, games_played ASC, user_id ASC
+           ) AS rnk
+    FROM public.season_rankings
+    WHERE season_id = p_season_id AND banned = false
+  )
+  UPDATE public.season_rankings sr SET
+    prev_rank  = sr.rank,
+    rank       = ranked.rnk,
+    updated_at = now()
+  FROM ranked
+  WHERE sr.season_id = p_season_id AND sr.user_id = ranked.user_id;
+
+  -- Banned entries hold no placement.
+  UPDATE public.season_rankings
+  SET prev_rank = rank, rank = NULL, updated_at = now()
+  WHERE season_id = p_season_id AND banned = true AND rank IS NOT NULL;
+END; $fn$;
+REVOKE ALL ON FUNCTION public._season_recompute_rankings(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._season_recompute_rankings(UUID) TO service_role;
+
+-- Enriches every frozen history row at write time, whichever function
+-- performed the freeze. Idempotent: re-finalizing a season recomputes
+-- the same rung and re-merges the same de-duplicated reward bundle.
+CREATE OR REPLACE FUNCTION public._season_history_enrich()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+DECLARE
+  v_rung   RECORD;
+  v_bundle TEXT[];
+  v_peak   INT;
+BEGIN
+  SELECT * INTO v_rung FROM public.sp_rung(COALESCE(NEW.season_iq, 0));
+
+  NEW.rung_id    := v_rung.rung_id;
+  NEW.rung_index := v_rung.rung_index;
+  -- Store the v2 tier code ('grandmaster'), not the legacy display name.
+  NEW.tier       := v_rung.tier_code;
+
+  SELECT peak_sp INTO v_peak FROM public.season_rankings
+  WHERE season_id = NEW.season_id AND user_id = NEW.user_id;
+  NEW.peak_sp := GREATEST(COALESCE(v_peak, 0), COALESCE(NEW.season_iq, 0));
+
+  v_bundle := CASE v_rung.tier_code
+    WHEN 'bronze'      THEN ARRAY['badge_bronze']
+    WHEN 'silver'      THEN ARRAY['badge_silver','coins']
+    WHEN 'gold'        THEN ARRAY['coins','avatar_premium']
+    WHEN 'platinum'    THEN ARRAY['coins','frame_platinum','title_platinum']
+    WHEN 'diamond'     THEN ARRAY['badge_animated_diamond']
+    WHEN 'master'      THEN ARRAY['theme_master']
+    WHEN 'grandmaster' THEN ARRAY['badge_crown','border_grandmaster',
+                                  'hall_of_fame','trophy_season']
+    ELSE ARRAY[]::TEXT[]
+  END;
+
+  IF NEW.final_rank = 1 THEN
+    v_bundle := v_bundle || ARRAY['top_1'];
+  ELSIF NEW.final_rank <= 3 THEN
+    v_bundle := v_bundle || ARRAY['top_3'];
+  ELSIF NEW.final_rank <= 10 THEN
+    v_bundle := v_bundle || ARRAY['top_10'];
+  ELSIF NEW.final_rank <= 100 THEN
+    v_bundle := v_bundle || ARRAY['top_100'];
+  END IF;
+
+  NEW.rewards := ARRAY(
+    SELECT DISTINCT unnest(COALESCE(NEW.rewards, ARRAY[]::TEXT[]) || v_bundle)
+  );
+
+  RETURN NEW;
+END; $fn$;
+
+DROP TRIGGER IF EXISTS trg_season_history_enrich ON public.season_history;
+CREATE TRIGGER trg_season_history_enrich
+  BEFORE INSERT OR UPDATE ON public.season_history
+  FOR EACH ROW EXECUTE FUNCTION public._season_history_enrich();
+
+-- Mirror the same bundles onto the LIVE board so the season's final
+-- standings show their rewards before/without a freeze. Safe to re-run.
+-- (History correctness does not depend on this — the trigger above owns
+-- that — so a missed call is cosmetic only.)
+
+-- =====================================================================
+-- SECTION 103: EMAIL VERIFICATION LINK REGISTRATION (2026-07-29)
+-- ---------------------------------------------------------------------
+-- Replaces the SECTION 78 OTP flow with a verification-LINK flow in
+-- which the password is chosen AFTER the email is proven:
+--
+--   register (username + email, no password)
+--     -> pending_registrations row, status 'pending_verification'
+--     -> email containing /verify-email/{token}
+--   click link
+--     -> status 'email_verified', verified_at set, setup token issued
+--   create password
+--     -> Supabase Auth user created (email_confirm: true), row deleted
+--
+-- WHY THE AUTH USER IS CREATED LAST
+-- Creating it up-front would mean a password-less account holding the
+-- email address, plus a throwaway password sitting in auth.users for
+-- every abandoned signup. Staging the registration here instead means an
+-- abandoned attempt expires to nothing and the address stays free.
+-- auth.users therefore only ever contains complete, verified accounts —
+-- and Supabase Auth remains the sole owner of password hashing.
+--
+-- TOKENS ARE NEVER STORED IN PLAINTEXT. The columns hold SHA-256 digests;
+-- the raw token exists only in the email that was sent. A database leak
+-- therefore does not let an attacker verify anyone's address.
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS public.pending_registrations (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email              TEXT NOT NULL UNIQUE,
+  username           TEXT NOT NULL,
+
+  -- Account lifecycle. 'completed' rows are deleted immediately, so in
+  -- practice a live row is only ever pending_verification/email_verified.
+  status             TEXT NOT NULL DEFAULT 'pending_verification'
+                       CHECK (status IN ('pending_verification','email_verified','completed')),
+  email_verified     BOOLEAN NOT NULL DEFAULT false,
+
+  -- Verification link: SHA-256 of the token that went out by email.
+  token_hash         TEXT,
+  token_expires_at   TIMESTAMPTZ,
+
+  -- Short-lived, single-use grant that authorises the create-password
+  -- step. Issued only after the address is proven.
+  setup_token_hash   TEXT,
+  setup_expires_at   TIMESTAMPTZ,
+
+  -- Abuse controls.
+  send_count         INT NOT NULL DEFAULT 0,
+  last_sent_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  verified_at        TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_token
+  ON public.pending_registrations (token_hash) WHERE token_hash IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_setup
+  ON public.pending_registrations (setup_token_hash) WHERE setup_token_hash IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_expiry
+  ON public.pending_registrations (token_expires_at);
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_username
+  ON public.pending_registrations (lower(username));
+
+-- RLS on with ZERO policies: anon and authenticated are denied outright.
+-- Only the service-role server (which bypasses RLS) touches this table —
+-- it is never queried from the browser.
+ALTER TABLE public.pending_registrations ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.pending_registrations FROM anon, authenticated;
+GRANT ALL ON public.pending_registrations TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 103.1 Housekeeping
+-- ---------------------------------------------------------------------
+-- Drops abandoned registrations. Rows are kept for a grace period past
+-- token expiry so "your link expired, resend?" can still explain itself
+-- before the record disappears.
+CREATE OR REPLACE FUNCTION public.purge_expired_registrations(p_grace_hours INT DEFAULT 72)
+RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+DECLARE v_deleted INT;
+BEGIN
+  DELETE FROM public.pending_registrations
+  WHERE created_at < now() - make_interval(hours => GREATEST(COALESCE(p_grace_hours, 72), 1));
+  GET DIAGNOSTICS v_deleted = ROW_COUNT;
+  RETURN v_deleted;
+END; $fn$;
+REVOKE ALL ON FUNCTION public.purge_expired_registrations(INT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.purge_expired_registrations(INT) TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 103.2 Username availability
+-- ---------------------------------------------------------------------
+-- A name is taken if a profile holds it OR another in-flight
+-- registration has reserved it. Case-insensitive both ways.
+CREATE OR REPLACE FUNCTION public.is_username_taken(
+  p_username TEXT,
+  p_except_email TEXT DEFAULT NULL
+)
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $fn$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles WHERE lower(username) = lower(p_username)
+  ) OR EXISTS (
+    SELECT 1 FROM public.pending_registrations
+    WHERE lower(username) = lower(p_username)
+      AND (p_except_email IS NULL OR lower(email) <> lower(p_except_email))
+      AND created_at > now() - interval '72 hours'
+  );
+$fn$;
+REVOKE ALL ON FUNCTION public.is_username_taken(TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.is_username_taken(TEXT, TEXT) TO service_role;
+
+-- ---------------------------------------------------------------------
+-- 103.3 Deprecation note — SECTION 78 OTP
+-- ---------------------------------------------------------------------
+-- public.email_otp_verifications is no longer written or read by the
+-- application: registration moved to the link flow above. The table is
+-- deliberately left in place rather than dropped, so that deploying this
+-- section cannot destroy an in-flight OTP or require a coordinated
+-- rollout. Drop it manually once no old build is serving traffic:
+--
+--   DROP TABLE IF EXISTS public.email_otp_verifications;
+--
+-- public.is_email_registered() is still used by the new flow and stays.
+
+-- ---------------------------------------------------------------------
+-- 103.4 Repeat-click accuracy
+-- ---------------------------------------------------------------------
+-- The first cut cleared token_hash on consumption, which meant a second
+-- request carrying the same link could no longer find its row and was
+-- reported as "invalid". That is wrong for the most common repeat case
+-- of all — the user simply refreshing the verification page — and it
+-- also left the "already verified" state unreachable.
+--
+-- The digest is now RETAINED and consumption is recorded separately, so
+-- a repeat click still resolves to its registration and can be answered
+-- honestly. Single-use is unchanged: verifyEmailToken refuses to issue a
+-- second setup grant once token_consumed_at is set.
+ALTER TABLE public.pending_registrations
+  ADD COLUMN IF NOT EXISTS token_consumed_at TIMESTAMPTZ;
+
+-- Completed registrations are kept (tokens cleared) rather than deleted,
+-- so a link opened after setup finishes says "already verified" instead
+-- of "invalid". purge_expired_registrations removes them with the rest.
+
+-- =====================================================================
+-- SECTION 104: SPECTATOR MODE
+-- ---------------------------------------------------------------------
+-- Live spectating with a server-enforced broadcast delay.
+--
+-- THE CORE PROBLEM THIS SECTION SOLVES
+-- Before this section, `games` was `SELECT ... USING (true)`: the live
+-- `fen` of every in-progress game was world-readable, in real time, to
+-- anyone with the anon key. A spectator delay implemented in the client
+-- would have been decoration — a cheater's helper reads the row, not the
+-- UI. So the delay is enforced where the data lives:
+--
+--   * ACTIVE games (and their moves) are no longer readable by anyone
+--     except the two players and admins. Waiting and finished games stay
+--     fully public — they have no live position to protect.
+--   * Everything a spectator sees comes from get_spectator_game(), a
+--     SECURITY DEFINER RPC that reconstructs the position from
+--     game_moves as it stood `delay` seconds ago and refuses to return
+--     anything newer.
+--   * Live match metadata with NO position (who is playing, rating,
+--     clock class, move count) is exposed through public.live_games, a
+--     view that simply does not select fen/pgn/turn.
+--
+-- The delay therefore cannot be bypassed by talking to the database
+-- directly, which is the only property that makes it worth having.
+--
+-- 104.1  Enum + per-player visibility preferences
+-- 104.2  Tunable delay/session config
+-- 104.3  RLS lockdown on live games and moves
+-- 104.4  live_games view (metadata only)
+-- 104.5  Delay + visibility helpers
+-- 104.6  Spectator sessions and viewer counts
+-- 104.7  get_spectator_game()  — the delayed feed
+-- 104.8  list_live_games()     — the browse/featured feed
+-- 104.9  set_spectator_visibility()
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 104.1 Visibility vocabulary and per-player preference
+-- ---------------------------------------------------------------------
+-- Each player controls their OWN side of the game. The effective
+-- visibility of a match is the more restrictive of the two players'
+-- preferences, so a player who wants privacy always gets it and can
+-- never be exposed by their opponent's choice.
+--
+-- A preference resolves as: per-game override (this match only) →
+-- profile default (every match) → 'public'.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'spectator_visibility') THEN
+    EXECUTE 'CREATE TYPE public.spectator_visibility AS ENUM (''public'', ''friends'', ''private'')';
+  END IF;
+END $$;
+
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS spectator_default public.spectator_visibility NOT NULL DEFAULT 'public';
+
+ALTER TABLE public.games
+  ADD COLUMN IF NOT EXISTS white_spectator_pref public.spectator_visibility,
+  ADD COLUMN IF NOT EXISTS black_spectator_pref public.spectator_visibility;
+
+-- Restrictiveness rank — higher wins when combining two preferences.
+CREATE OR REPLACE FUNCTION public.spectator_rank(v public.spectator_visibility)
+RETURNS INT LANGUAGE sql IMMUTABLE SET search_path = public AS $$
+  SELECT CASE v WHEN 'private' THEN 2 WHEN 'friends' THEN 1 ELSE 0 END
+$$;
+GRANT EXECUTE ON FUNCTION public.spectator_rank(public.spectator_visibility)
+  TO anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 104.2 Tunable configuration (single row)
+-- ---------------------------------------------------------------------
+-- The delay bands come from the product spec:
+--   casual 0-5s · ranked 20-30s · tournament finals 30-60s
+-- The CHECKs pin each band so a mis-typed admin update cannot silently
+-- turn a ranked game into a real-time engine feed.
+CREATE TABLE IF NOT EXISTS public.spectator_config (
+  id                   BOOLEAN PRIMARY KEY DEFAULT true CHECK (id),
+  casual_delay_seconds INT NOT NULL DEFAULT 3  CHECK (casual_delay_seconds BETWEEN 0 AND 5),
+  ranked_delay_seconds INT NOT NULL DEFAULT 25 CHECK (ranked_delay_seconds BETWEEN 20 AND 30),
+  final_delay_seconds  INT NOT NULL DEFAULT 45 CHECK (final_delay_seconds BETWEEN 30 AND 60),
+  -- A spectator session is counted as live for this long after its last
+  -- heartbeat. Must exceed the client heartbeat interval.
+  session_ttl_seconds  INT NOT NULL DEFAULT 45 CHECK (session_ttl_seconds BETWEEN 15 AND 300),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+INSERT INTO public.spectator_config (id) VALUES (true) ON CONFLICT (id) DO NOTHING;
+
+GRANT SELECT ON public.spectator_config TO anon, authenticated;
+GRANT ALL ON public.spectator_config TO service_role;
+ALTER TABLE public.spectator_config ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "spectator_config readable" ON public.spectator_config;
+CREATE POLICY "spectator_config readable"
+  ON public.spectator_config FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "spectator_config admin write" ON public.spectator_config;
+CREATE POLICY "spectator_config admin write"
+  ON public.spectator_config FOR UPDATE TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'))
+  WITH CHECK (public.has_role(auth.uid(), 'admin'));
+
+-- ---------------------------------------------------------------------
+-- 104.3 RLS lockdown — live positions leave the public surface
+-- ---------------------------------------------------------------------
+-- Policies are OR'd, so these three together mean: everyone sees waiting
+-- and finished games; only the two players (and admins) see a game while
+-- it is being played.
+--
+-- The admin branch is a separate `TO authenticated` policy on purpose —
+-- EXECUTE on has_role() is revoked from anon, so folding it into the
+-- public policy would make every anonymous read fail outright.
+DROP POLICY IF EXISTS "Games are public" ON public.games;
+DROP POLICY IF EXISTS "games public read settled" ON public.games;
+CREATE POLICY "games public read settled"
+  ON public.games FOR SELECT TO anon, authenticated
+  USING (status <> 'active');
+DROP POLICY IF EXISTS "games players read live" ON public.games;
+CREATE POLICY "games players read live"
+  ON public.games FOR SELECT TO authenticated
+  USING (auth.uid() = white_id OR auth.uid() = black_id);
+DROP POLICY IF EXISTS "games admin read live" ON public.games;
+CREATE POLICY "games admin read live"
+  ON public.games FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- game_moves inherits the same rule from its parent game: the move
+-- ledger of a live game is the live position, one row per ply.
+DROP POLICY IF EXISTS "moves readable" ON public.game_moves;
+DROP POLICY IF EXISTS "moves public read settled" ON public.game_moves;
+CREATE POLICY "moves public read settled"
+  ON public.game_moves FOR SELECT TO anon, authenticated
+  USING (EXISTS (
+    SELECT 1 FROM public.games g
+    WHERE g.id = game_moves.game_id AND g.status <> 'active'
+  ));
+DROP POLICY IF EXISTS "moves players read live" ON public.game_moves;
+CREATE POLICY "moves players read live"
+  ON public.game_moves FOR SELECT TO authenticated
+  USING (EXISTS (
+    SELECT 1 FROM public.games g
+    WHERE g.id = game_moves.game_id
+      AND (auth.uid() = g.white_id OR auth.uid() = g.black_id)
+  ));
+DROP POLICY IF EXISTS "moves admin read live" ON public.game_moves;
+CREATE POLICY "moves admin read live"
+  ON public.game_moves FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- ---------------------------------------------------------------------
+-- 104.4 live_games — metadata for in-progress games, no position
+-- ---------------------------------------------------------------------
+-- Everything the lobby, the friends list and the live match card need,
+-- and nothing a cheater can use: fen, pgn, turn and the clocks are
+-- simply not columns of this view. `security_invoker = false` lets it
+-- read past the base-table RLS added above; that is safe precisely
+-- because the position never appears in the projection.
+DROP VIEW IF EXISTS public.live_games;
+CREATE VIEW public.live_games
+WITH (security_invoker = false) AS
+  SELECT
+    g.id,
+    g.white_id,
+    g.black_id,
+    g.white_username,
+    g.black_username,
+    g.white_rating,
+    g.black_rating,
+    g.time_class,
+    g.time_control,
+    g.initial_seconds,
+    g.increment_seconds,
+    g.is_rated,
+    g.vs_computer,
+    g.moves_count,
+    g.opening,
+    g.created_at,
+    g.last_move_at,
+    GREATEST(
+      public.spectator_rank(COALESCE(g.white_spectator_pref, wp.spectator_default, 'public')),
+      public.spectator_rank(COALESCE(g.black_spectator_pref, bp.spectator_default, 'public'))
+    ) AS visibility_rank
+  FROM public.games g
+  LEFT JOIN public.profiles wp ON wp.id = g.white_id
+  LEFT JOIN public.profiles bp ON bp.id = g.black_id
+  WHERE g.status = 'active'
+    AND g.vs_computer = false
+    AND g.white_id IS NOT NULL
+    AND g.black_id IS NOT NULL;
+
+GRANT SELECT ON public.live_games TO anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 104.5 Delay and visibility helpers
+-- ---------------------------------------------------------------------
+-- Which band a game falls into. Tournament FINALS (the highest round of
+-- their tournament) get the longest delay; any other rated game gets the
+-- ranked band; everything else is casual.
+CREATE OR REPLACE FUNCTION public.spectator_delay_seconds(p_game_id UUID)
+RETURNS INT LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_cfg      public.spectator_config%ROWTYPE;
+  v_is_rated BOOLEAN;
+  v_is_final BOOLEAN := false;
+BEGIN
+  SELECT * INTO v_cfg FROM public.spectator_config WHERE id;
+  SELECT is_rated INTO v_is_rated FROM public.games WHERE id = p_game_id;
+  IF v_is_rated IS NULL THEN RETURN v_cfg.ranked_delay_seconds; END IF;
+
+  SELECT tm.round = (
+           SELECT max(tm2.round) FROM public.tournament_matches tm2
+           WHERE tm2.tournament_id = tm.tournament_id
+         )
+    INTO v_is_final
+  FROM public.tournament_matches tm
+  WHERE tm.game_id = p_game_id
+  LIMIT 1;
+
+  IF COALESCE(v_is_final, false) THEN RETURN v_cfg.final_delay_seconds; END IF;
+  IF v_is_rated THEN RETURN v_cfg.ranked_delay_seconds; END IF;
+  RETURN v_cfg.casual_delay_seconds;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.spectator_delay_seconds(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.spectator_delay_seconds(UUID)
+  TO anon, authenticated, service_role;
+
+-- May p_viewer watch p_game_id? Participants and admins always may.
+-- Otherwise the effective visibility (most restrictive of the two
+-- players' preferences) decides.
+CREATE OR REPLACE FUNCTION public.can_spectate(p_game_id UUID, p_viewer UUID)
+RETURNS BOOLEAN LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_g    public.games%ROWTYPE;
+  v_rank INT;
+BEGIN
+  SELECT * INTO v_g FROM public.games WHERE id = p_game_id;
+  IF NOT FOUND THEN RETURN false; END IF;
+
+  -- Your own game is always yours to look at.
+  IF p_viewer IS NOT NULL AND p_viewer IN (v_g.white_id, v_g.black_id) THEN RETURN true; END IF;
+  IF p_viewer IS NOT NULL AND public.has_role(p_viewer, 'admin') THEN RETURN true; END IF;
+
+  -- Practice against the engine is nobody else's business. It also has a
+  -- NULL player slot, so the preference lookup below would resolve that
+  -- side to the 'public' default and quietly open the game up.
+  IF v_g.vs_computer THEN RETURN false; END IF;
+
+  SELECT GREATEST(
+    public.spectator_rank(COALESCE(
+      v_g.white_spectator_pref,
+      (SELECT spectator_default FROM public.profiles WHERE id = v_g.white_id),
+      'public')),
+    public.spectator_rank(COALESCE(
+      v_g.black_spectator_pref,
+      (SELECT spectator_default FROM public.profiles WHERE id = v_g.black_id),
+      'public'))
+  ) INTO v_rank;
+
+  IF v_rank = 2 THEN RETURN false; END IF;                 -- private
+  IF v_rank = 0 THEN RETURN true;  END IF;                 -- public
+  IF p_viewer IS NULL THEN RETURN false; END IF;           -- friends-only, signed out
+
+  RETURN EXISTS (
+    SELECT 1 FROM public.friends f
+    WHERE f.status = 'accepted'
+      AND (
+        (f.requester_id = p_viewer AND f.addressee_id IN (v_g.white_id, v_g.black_id)) OR
+        (f.addressee_id = p_viewer AND f.requester_id IN (v_g.white_id, v_g.black_id))
+      )
+  );
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.can_spectate(UUID, UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.can_spectate(UUID, UUID)
+  TO anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 104.6 Spectator sessions and viewer counts
+-- ---------------------------------------------------------------------
+-- One row per (game, signed-in viewer), refreshed by a heartbeat. Keying
+-- on user_id means the count is a count of ACCOUNTS, so opening ten tabs
+-- does not inflate it — the cheapest available defence against fake
+-- spectator numbers. Signed-out viewers can watch public games but are
+-- deliberately not counted rather than counted from a spoofable token.
+CREATE TABLE IF NOT EXISTS public.spectator_sessions (
+  game_id    UUID NOT NULL REFERENCES public.games(id) ON DELETE CASCADE,
+  user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (game_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_spectator_sessions_seen
+  ON public.spectator_sessions(game_id, last_seen DESC);
+
+GRANT SELECT ON public.spectator_sessions TO authenticated;
+GRANT ALL ON public.spectator_sessions TO service_role;
+ALTER TABLE public.spectator_sessions ENABLE ROW LEVEL SECURITY;
+-- Writes go through spectator_heartbeat() only, so no INSERT/UPDATE policy.
+DROP POLICY IF EXISTS "spectator_sessions own read" ON public.spectator_sessions;
+CREATE POLICY "spectator_sessions own read"
+  ON public.spectator_sessions FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+
+-- Denormalised live count, so the browse page reads one row per game
+-- instead of aggregating a session table of unbounded size.
+CREATE TABLE IF NOT EXISTS public.spectator_counts (
+  game_id    UUID PRIMARY KEY REFERENCES public.games(id) ON DELETE CASCADE,
+  viewers    INT NOT NULL DEFAULT 0 CHECK (viewers >= 0),
+  peak       INT NOT NULL DEFAULT 0 CHECK (peak >= 0),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_spectator_counts_viewers
+  ON public.spectator_counts(viewers DESC);
+
+GRANT SELECT ON public.spectator_counts TO anon, authenticated;
+GRANT ALL ON public.spectator_counts TO service_role;
+ALTER TABLE public.spectator_counts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "spectator_counts readable" ON public.spectator_counts;
+CREATE POLICY "spectator_counts readable"
+  ON public.spectator_counts FOR SELECT TO anon, authenticated USING (true);
+
+-- Refresh my presence in a game's audience and return the live count.
+-- Also prunes that game's expired sessions, so the table self-cleans
+-- under exactly the traffic that fills it and needs no cron job.
+CREATE OR REPLACE FUNCTION public.spectator_heartbeat(p_game_id UUID)
+RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid   UUID := auth.uid();
+  v_ttl   INT;
+  v_count INT;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  IF NOT public.can_spectate(p_game_id, v_uid) THEN
+    RAISE EXCEPTION 'Not allowed to spectate this game';
+  END IF;
+
+  SELECT session_ttl_seconds INTO v_ttl FROM public.spectator_config WHERE id;
+
+  -- Players are watching their own board, not spectating it.
+  IF NOT EXISTS (
+    SELECT 1 FROM public.games
+    WHERE id = p_game_id AND v_uid IN (white_id, black_id)
+  ) THEN
+    INSERT INTO public.spectator_sessions (game_id, user_id)
+    VALUES (p_game_id, v_uid)
+    ON CONFLICT (game_id, user_id) DO UPDATE SET last_seen = now();
+  END IF;
+
+  DELETE FROM public.spectator_sessions
+  WHERE game_id = p_game_id AND last_seen < now() - make_interval(secs => v_ttl);
+
+  SELECT count(*) INTO v_count
+  FROM public.spectator_sessions WHERE game_id = p_game_id;
+
+  INSERT INTO public.spectator_counts (game_id, viewers, peak, updated_at)
+  VALUES (p_game_id, v_count, v_count, now())
+  ON CONFLICT (game_id) DO UPDATE
+    SET viewers = EXCLUDED.viewers,
+        peak = GREATEST(public.spectator_counts.peak, EXCLUDED.viewers),
+        updated_at = now();
+
+  RETURN v_count;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.spectator_heartbeat(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.spectator_heartbeat(UUID) TO authenticated, service_role;
+
+-- Leave the audience immediately instead of waiting out the TTL.
+CREATE OR REPLACE FUNCTION public.spectator_leave(p_game_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid   UUID := auth.uid();
+  v_count INT;
+BEGIN
+  IF v_uid IS NULL THEN RETURN; END IF;
+  DELETE FROM public.spectator_sessions WHERE game_id = p_game_id AND user_id = v_uid;
+  SELECT count(*) INTO v_count FROM public.spectator_sessions WHERE game_id = p_game_id;
+  UPDATE public.spectator_counts SET viewers = v_count, updated_at = now()
+  WHERE game_id = p_game_id;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.spectator_leave(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.spectator_leave(UUID) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 104.7 get_spectator_game() — the delayed feed
+-- ---------------------------------------------------------------------
+-- The only way a non-participant obtains a live position.
+--
+-- The position is REBUILT from the plies whose created_at is at or
+-- before `now() - delay`; `games.fen` is never read, because reading it
+-- would be reading the present. Everything that could leak the present
+-- is masked the same way:
+--
+--   * result / winner / end_reason of a game that ended inside the delay
+--     window are withheld — otherwise a watcher learns the game is over
+--     (and therefore what happened) before the delay elapses;
+--   * the clocks come from the last visible ply of each colour, so they
+--     describe the delayed position, not the current one.
+--
+-- `moves_behind` tells the client how many plies are still embargoed,
+-- which is what the UI's "LIVE · 25s delay" badge is built from.
+CREATE OR REPLACE FUNCTION public.get_spectator_game(p_game_id UUID)
+RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid          UUID := auth.uid();
+  v_g            public.games%ROWTYPE;
+  v_delay        INT;
+  v_cutoff       TIMESTAMPTZ;
+  v_is_player    BOOLEAN;
+  v_visible_plies INT;
+  v_total_plies  INT;
+  v_fen          TEXT;
+  v_last_at      TIMESTAMPTZ;
+  v_white_ms     INT;
+  v_black_ms     INT;
+  v_status       TEXT;
+  v_result       TEXT;
+  v_winner       UUID;
+  v_end_reason   TEXT;
+  v_ended        BOOLEAN;
+  v_moves        JSONB;
+  v_viewers      INT;
+  v_tour         JSONB := NULL;
+  -- Scalars rather than RECORDs: a vs-computer or half-joined game has a
+  -- NULL player slot, and reading a field off a RECORD that no SELECT
+  -- ever assigned raises "record is not assigned yet".
+  v_w_avatar TEXT; v_w_country TEXT; v_w_title TEXT;
+  v_w_tier   public.premium_tier; v_w_sp INT; v_w_rung TEXT;
+  v_b_avatar TEXT; v_b_country TEXT; v_b_title TEXT;
+  v_b_tier   public.premium_tier; v_b_sp INT; v_b_rung TEXT;
+BEGIN
+  SELECT * INTO v_g FROM public.games WHERE id = p_game_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Game not found'; END IF;
+  IF NOT public.can_spectate(p_game_id, v_uid) THEN
+    RAISE EXCEPTION 'This game is not open to spectators';
+  END IF;
+
+  v_is_player := v_uid IS NOT NULL AND v_uid IN (v_g.white_id, v_g.black_id);
+  v_delay := public.spectator_delay_seconds(p_game_id);
+
+  -- Players see their own game live; so does everyone once it is over,
+  -- since a finished position can no longer help anybody cheat.
+  IF v_is_player OR v_g.status <> 'active' THEN
+    v_delay := 0;
+  END IF;
+  v_cutoff := now() - make_interval(secs => v_delay);
+
+  SELECT count(*) INTO v_total_plies FROM public.game_moves WHERE game_id = p_game_id;
+
+  SELECT count(*) INTO v_visible_plies
+  FROM public.game_moves WHERE game_id = p_game_id AND created_at <= v_cutoff;
+
+  SELECT gm.fen_after, gm.created_at INTO v_fen, v_last_at
+  FROM public.game_moves gm
+  WHERE gm.game_id = p_game_id AND gm.created_at <= v_cutoff
+  ORDER BY gm.ply DESC LIMIT 1;
+
+  -- No ply has cleared the embargo yet → the starting position.
+  IF v_fen IS NULL THEN
+    v_fen := 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  END IF;
+
+  -- Clocks as of the delayed position: each colour's remaining time is
+  -- whatever it was after that colour's most recent visible move.
+  -- White plays the odd plies, Black the even ones.
+  SELECT gm.time_left_ms INTO v_white_ms
+  FROM public.game_moves gm
+  WHERE gm.game_id = p_game_id AND gm.created_at <= v_cutoff AND gm.ply % 2 = 1
+  ORDER BY gm.ply DESC LIMIT 1;
+
+  SELECT gm.time_left_ms INTO v_black_ms
+  FROM public.game_moves gm
+  WHERE gm.game_id = p_game_id AND gm.created_at <= v_cutoff AND gm.ply % 2 = 0
+  ORDER BY gm.ply DESC LIMIT 1;
+
+  v_white_ms := COALESCE(v_white_ms, v_g.initial_seconds * 1000);
+  v_black_ms := COALESCE(v_black_ms, v_g.initial_seconds * 1000);
+
+  -- Withhold the ending until the delay has caught up with it.
+  v_ended := v_g.ended_at IS NOT NULL AND v_g.ended_at <= v_cutoff;
+  IF v_ended THEN
+    v_status     := v_g.status;
+    v_result     := v_g.result::TEXT;
+    v_winner     := v_g.winner_id;
+    v_end_reason := v_g.end_reason;
+  ELSE
+    v_status     := CASE WHEN v_g.status = 'waiting' THEN 'waiting' ELSE 'active' END;
+    v_result     := 'ongoing';
+    v_winner     := NULL;
+    v_end_reason := NULL;
+  END IF;
+
+  SELECT COALESCE(jsonb_agg(m ORDER BY (m->>'ply')::INT), '[]'::jsonb) INTO v_moves
+  FROM (
+    SELECT jsonb_build_object(
+             'ply', gm.ply,
+             'san', gm.san,
+             'uci', gm.uci,
+             'fen_after', gm.fen_after,
+             'time_left_ms', gm.time_left_ms,
+             'created_at', gm.created_at
+           ) AS m
+    FROM public.game_moves gm
+    WHERE gm.game_id = p_game_id AND gm.created_at <= v_cutoff
+  ) s;
+
+  SELECT viewers INTO v_viewers FROM public.spectator_counts WHERE game_id = p_game_id;
+
+  SELECT jsonb_build_object(
+           'tournament_id', t.id,
+           'name',          t.name,
+           'slug',          t.slug,
+           'round',         tm.round,
+           'is_final',      tm.round = (
+             SELECT max(tm2.round) FROM public.tournament_matches tm2
+             WHERE tm2.tournament_id = tm.tournament_id
+           )
+         ) INTO v_tour
+  FROM public.tournament_matches tm
+  JOIN public.tournaments t ON t.id = tm.tournament_id
+  WHERE tm.game_id = p_game_id
+  LIMIT 1;
+
+  SELECT p.avatar_url, p.country, p.title, p.premium_tier,
+         (SELECT sr.season_iq FROM public.season_rankings sr
+          JOIN public.seasons se ON se.id = sr.season_id AND se.status = 'live'
+          WHERE sr.user_id = p.id LIMIT 1),
+         (SELECT sr.rung_id FROM public.season_rankings sr
+          JOIN public.seasons se ON se.id = sr.season_id AND se.status = 'live'
+          WHERE sr.user_id = p.id LIMIT 1)
+    INTO v_w_avatar, v_w_country, v_w_title, v_w_tier, v_w_sp, v_w_rung
+  FROM public.profiles p WHERE p.id = v_g.white_id;
+
+  SELECT p.avatar_url, p.country, p.title, p.premium_tier,
+         (SELECT sr.season_iq FROM public.season_rankings sr
+          JOIN public.seasons se ON se.id = sr.season_id AND se.status = 'live'
+          WHERE sr.user_id = p.id LIMIT 1),
+         (SELECT sr.rung_id FROM public.season_rankings sr
+          JOIN public.seasons se ON se.id = sr.season_id AND se.status = 'live'
+          WHERE sr.user_id = p.id LIMIT 1)
+    INTO v_b_avatar, v_b_country, v_b_title, v_b_tier, v_b_sp, v_b_rung
+  FROM public.profiles p WHERE p.id = v_g.black_id;
+
+  RETURN jsonb_build_object(
+    'id',                p_game_id,
+    'is_player',         v_is_player,
+    'delay_seconds',     v_delay,
+    'moves_behind',      GREATEST(v_total_plies - v_visible_plies, 0),
+    'server_time',       now(),
+
+    'white', jsonb_build_object(
+      'id', v_g.white_id, 'username', v_g.white_username, 'rating', v_g.white_rating,
+      'avatar_url', v_w_avatar, 'country', v_w_country, 'title', v_w_title,
+      'premium_tier', v_w_tier,
+      'season_points', v_w_sp, 'rung_id', v_w_rung,
+      'time_ms', v_white_ms
+    ),
+    'black', jsonb_build_object(
+      'id', v_g.black_id, 'username', v_g.black_username, 'rating', v_g.black_rating,
+      'avatar_url', v_b_avatar, 'country', v_b_country, 'title', v_b_title,
+      'premium_tier', v_b_tier,
+      'season_points', v_b_sp, 'rung_id', v_b_rung,
+      'time_ms', v_black_ms
+    ),
+
+    'fen',               v_fen,
+    'turn',              split_part(v_fen, ' ', 2),
+    'moves_count',       v_visible_plies,
+    'last_move_at',      v_last_at,
+    'moves',             v_moves,
+
+    'status',            v_status,
+    'result',            v_result,
+    'winner_id',         v_winner,
+    'end_reason',        v_end_reason,
+
+    'time_class',        v_g.time_class,
+    'time_control',      v_g.time_control,
+    'initial_seconds',   v_g.initial_seconds,
+    'increment_seconds', v_g.increment_seconds,
+    'is_rated',          v_g.is_rated,
+    'opening',           v_g.opening,
+    'started_at',        v_g.created_at,
+    'viewers',           COALESCE(v_viewers, 0),
+    'tournament',        v_tour
+  );
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.get_spectator_game(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_spectator_game(UUID)
+  TO anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 104.8 list_live_games() — the browse and featured feed
+-- ---------------------------------------------------------------------
+-- Position-free by construction: it reads public.live_games, which has
+-- no position columns to leak.
+--
+-- `featured` marks the matches the spec wants surfaced on the home page:
+-- top-rated players, tournament games, and whatever the crowd is already
+-- watching. `sort` = 'featured' | 'viewers' | 'rating' | 'recent'.
+CREATE OR REPLACE FUNCTION public.list_live_games(
+  p_limit      INT  DEFAULT 24,
+  p_offset     INT  DEFAULT 0,
+  p_time_class public.time_class DEFAULT NULL,
+  p_rated_only BOOLEAN DEFAULT false,
+  p_sort       TEXT DEFAULT 'featured'
+) RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid  UUID := auth.uid();
+  v_rows JSONB;
+  v_lim  INT  := LEAST(GREATEST(COALESCE(p_limit, 24), 1), 60);
+  v_off  INT  := GREATEST(COALESCE(p_offset, 0), 0);
+BEGIN
+  SELECT COALESCE(jsonb_agg(card ORDER BY ord, started_at DESC), '[]'::jsonb)
+    INTO v_rows
+  FROM (
+    SELECT
+      jsonb_build_object(
+        'id',            lg.id,
+        'white', jsonb_build_object(
+          'id', lg.white_id, 'username', lg.white_username, 'rating', lg.white_rating,
+          'avatar_url', wp.avatar_url, 'country', wp.country, 'title', wp.title,
+          'season_points', wsr.season_iq, 'rung_id', wsr.rung_id),
+        'black', jsonb_build_object(
+          'id', lg.black_id, 'username', lg.black_username, 'rating', lg.black_rating,
+          'avatar_url', bp.avatar_url, 'country', bp.country, 'title', bp.title,
+          'season_points', bsr.season_iq, 'rung_id', bsr.rung_id),
+        'time_class',    lg.time_class,
+        'time_control',  lg.time_control,
+        'is_rated',      lg.is_rated,
+        'moves_count',   lg.moves_count,
+        'opening',       lg.opening,
+        'started_at',    lg.created_at,
+        'viewers',       COALESCE(sc.viewers, 0),
+        'avg_rating',    (COALESCE(lg.white_rating, 0) + COALESCE(lg.black_rating, 0)) / 2,
+        'tournament',    CASE WHEN t.id IS NULL THEN NULL ELSE jsonb_build_object(
+                           'tournament_id', t.id, 'name', t.name, 'slug', t.slug,
+                           'round', tm.round,
+                           'is_final', tm.round = (
+                             SELECT max(tm2.round) FROM public.tournament_matches tm2
+                             WHERE tm2.tournament_id = tm.tournament_id)) END,
+        'featured',      t.id IS NOT NULL
+                           OR COALESCE(sc.viewers, 0) >= 25
+                           OR (COALESCE(lg.white_rating, 0) + COALESCE(lg.black_rating, 0)) / 2 >= 2000
+      ) AS row,
+      lg.created_at AS started_at,
+      CASE COALESCE(p_sort, 'featured')
+        WHEN 'viewers' THEN -COALESCE(sc.viewers, 0)
+        WHEN 'rating'  THEN -((COALESCE(lg.white_rating, 0) + COALESCE(lg.black_rating, 0)) / 2)
+        WHEN 'recent'  THEN 0
+        ELSE -- 'featured': tournament games first, then crowds, then strength
+             (CASE WHEN t.id IS NOT NULL THEN -1000000 ELSE 0 END)
+             - COALESCE(sc.viewers, 0) * 100
+             - ((COALESCE(lg.white_rating, 0) + COALESCE(lg.black_rating, 0)) / 2)
+      END AS ord
+    FROM public.live_games lg
+    LEFT JOIN public.profiles wp ON wp.id = lg.white_id
+    LEFT JOIN public.profiles bp ON bp.id = lg.black_id
+    -- Season standing for the tier chip on each card. Joined through the
+    -- one 'live' season, so between seasons these simply come back NULL.
+    LEFT JOIN LATERAL (
+      SELECT sr.season_iq, sr.rung_id FROM public.season_rankings sr
+      JOIN public.seasons se ON se.id = sr.season_id AND se.status = 'live'
+      WHERE sr.user_id = lg.white_id LIMIT 1
+    ) wsr ON true
+    LEFT JOIN LATERAL (
+      SELECT sr.season_iq, sr.rung_id FROM public.season_rankings sr
+      JOIN public.seasons se ON se.id = sr.season_id AND se.status = 'live'
+      WHERE sr.user_id = lg.black_id LIMIT 1
+    ) bsr ON true
+    LEFT JOIN public.spectator_counts sc ON sc.game_id = lg.id
+    LEFT JOIN public.tournament_matches tm ON tm.game_id = lg.id
+    LEFT JOIN public.tournaments t ON t.id = tm.tournament_id
+    WHERE (p_time_class IS NULL OR lg.time_class = p_time_class)
+      AND (NOT COALESCE(p_rated_only, false) OR lg.is_rated)
+      -- Public games are listed for everyone; anything more private is
+      -- filtered per viewer by the same rule that guards the feed.
+      AND (lg.visibility_rank = 0 OR public.can_spectate(lg.id, v_uid))
+    ORDER BY ord, lg.created_at DESC
+    LIMIT v_lim OFFSET v_off
+  ) s;
+
+  RETURN v_rows;
+END; $$;
+REVOKE EXECUTE ON FUNCTION public.list_live_games(INT, INT, public.time_class, BOOLEAN, TEXT)
+  FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.list_live_games(INT, INT, public.time_class, BOOLEAN, TEXT)
+  TO anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------
+-- 104.9 set_spectator_visibility()
+-- ---------------------------------------------------------------------
+-- A participant sets the preference for THEIR OWN side of a match. It
+-- can be changed at any point in the game: a player who becomes
+-- uncomfortable with an audience mid-game should not have to finish the
+-- game to get rid of it.
+CREATE OR REPLACE FUNCTION public.set_spectator_visibility(
+  p_game_id    UUID,
+  p_visibility public.spectator_visibility
+) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_g   public.games%ROWTYPE;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  SELECT * INTO v_g FROM public.games WHERE id = p_game_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Game not found'; END IF;
+
+  IF v_uid = v_g.white_id THEN
+    UPDATE public.games SET white_spectator_pref = p_visibility WHERE id = p_game_id;
+  ELSIF v_uid = v_g.black_id THEN
+    UPDATE public.games SET black_spectator_pref = p_visibility WHERE id = p_game_id;
+  ELSE
+    RAISE EXCEPTION 'Only the players can change spectator visibility';
+  END IF;
+
+  -- Turning spectators off empties the room immediately.
+  IF p_visibility = 'private' THEN
+    DELETE FROM public.spectator_sessions WHERE game_id = p_game_id;
+    UPDATE public.spectator_counts SET viewers = 0, updated_at = now()
+    WHERE game_id = p_game_id;
+  END IF;
+END; $$;
+REVOKE EXECUTE ON FUNCTION
+  public.set_spectator_visibility(UUID, public.spectator_visibility) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION
+  public.set_spectator_visibility(UUID, public.spectator_visibility)
+  TO authenticated, service_role;
+
+-- Set the account-wide default used by every future match.
+CREATE OR REPLACE FUNCTION public.set_spectator_default(
+  p_visibility public.spectator_visibility
+) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_uid UUID := auth.uid();
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  UPDATE public.profiles SET spectator_default = p_visibility WHERE id = v_uid;
+END; $$;
+REVOKE EXECUTE ON FUNCTION
+  public.set_spectator_default(public.spectator_visibility) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION
+  public.set_spectator_default(public.spectator_visibility) TO authenticated, service_role;
+
+
+
+
+
+
+-- =====================================================================
+-- SECTION 105: AUTH UNIFICATION  (2026-07-29)
+-- ---------------------------------------------------------------------
+-- Run this once against the project your app's SUPABASE_URL points at
+-- (Dashboard -> SQL Editor -> New query -> paste -> Run). It is fully
+-- idempotent: re-running it is a no-op.
+--
+-- WHY THIS EXISTS
+-- Two things were wrong on the live database:
+--
+--  1. SECTION 103 (the verification-link registration flow) was written
+--     into schema.sql but never applied. `pending_registrations`,
+--     `is_username_taken()` and `purge_expired_registrations()` do not
+--     exist, so registerAccount()'s very first username check 404s
+--     (PGRST202) and the signup handler reports its catch-all
+--     "Something went wrong. Please try again." That is THE bug behind
+--     the failing Create Account page. 105.1 below applies it.
+--
+--  2. There was nowhere to record how an account was created, so the
+--     "one email = one ChessOx account" rule could not be enforced and
+--     onboarding state could not be remembered. 105.2 adds it.
+--
+-- WHERE THE IDENTITY COLUMNS LIVE, AND WHY NOT ON `profiles`
+-- public.profiles is deliberately world-readable (GRANT SELECT TO anon
+-- plus a `USING (true)` SELECT policy) because usernames, avatars and
+-- ratings are public. Putting `email` there would publish every user's
+-- address to anyone holding the anon key. The identity/lifecycle fields
+-- therefore live in public.user_accounts, which is readable only by its
+-- own owner. Only `city` — public profile data, alongside the existing
+-- country/state — is added to profiles.
+-- =====================================================================
+
+
+-- =====================================================================
+-- 105.1  SECTION 103 CATCH-UP — the registration staging table
+-- ---------------------------------------------------------------------
+-- Identical to schema.sql SECTION 103; reproduced here so this file can
+-- be applied standalone against a database that never received it.
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS public.pending_registrations (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email              TEXT NOT NULL UNIQUE,
+  username           TEXT NOT NULL,
+
+  status             TEXT NOT NULL DEFAULT 'pending_verification'
+                       CHECK (status IN ('pending_verification','email_verified','completed')),
+  email_verified     BOOLEAN NOT NULL DEFAULT false,
+
+  -- SHA-256 of the token that went out by email. The raw token exists
+  -- only in the message, so a database leak cannot be replayed.
+  token_hash         TEXT,
+  token_expires_at   TIMESTAMPTZ,
+  token_consumed_at  TIMESTAMPTZ,
+
+  -- Short-lived, single-use grant authorising the create-password step.
+  setup_token_hash   TEXT,
+  setup_expires_at   TIMESTAMPTZ,
+
+  send_count         INT NOT NULL DEFAULT 0,
+  last_sent_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  verified_at        TIMESTAMPTZ
+);
+
+-- Present separately too: a database that got an early cut of SECTION
+-- 103 has the table but not this column.
+ALTER TABLE public.pending_registrations
+  ADD COLUMN IF NOT EXISTS token_consumed_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_token
+  ON public.pending_registrations (token_hash) WHERE token_hash IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_setup
+  ON public.pending_registrations (setup_token_hash) WHERE setup_token_hash IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_expiry
+  ON public.pending_registrations (token_expires_at);
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_username
+  ON public.pending_registrations (lower(username));
+
+-- RLS on with ZERO policies: anon and authenticated are denied outright.
+-- Only the service-role server (which bypasses RLS) touches this table.
+ALTER TABLE public.pending_registrations ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.pending_registrations FROM anon, authenticated;
+GRANT ALL ON public.pending_registrations TO service_role;
+
+-- Drops abandoned registrations. Rows survive a grace period past token
+-- expiry so "your link expired, resend?" can still explain itself.
+CREATE OR REPLACE FUNCTION public.purge_expired_registrations(p_grace_hours INT DEFAULT 72)
+RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+DECLARE v_deleted INT;
+BEGIN
+  DELETE FROM public.pending_registrations
+  WHERE created_at < now() - make_interval(hours => GREATEST(COALESCE(p_grace_hours, 72), 1));
+  GET DIAGNOSTICS v_deleted = ROW_COUNT;
+  RETURN v_deleted;
+END; $fn$;
+REVOKE ALL ON FUNCTION public.purge_expired_registrations(INT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.purge_expired_registrations(INT) TO service_role;
+
+-- A name is taken if a profile holds it OR another in-flight
+-- registration has reserved it. Case-insensitive both ways.
+CREATE OR REPLACE FUNCTION public.is_username_taken(
+  p_username TEXT,
+  p_except_email TEXT DEFAULT NULL
+)
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $fn$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles WHERE lower(username) = lower(p_username)
+  ) OR EXISTS (
+    SELECT 1 FROM public.pending_registrations
+    WHERE lower(username) = lower(p_username)
+      AND (p_except_email IS NULL OR lower(email) <> lower(p_except_email))
+      AND created_at > now() - interval '72 hours'
+  );
+$fn$;
+REVOKE ALL ON FUNCTION public.is_username_taken(TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.is_username_taken(TEXT, TEXT) TO service_role;
+
+-- auth.users is not exposed via PostgREST; this SECURITY DEFINER shim
+-- lets the trusted server check registration status. (Already live, but
+-- re-asserted so this file stands alone.)
+CREATE OR REPLACE FUNCTION public.is_email_registered(p_email TEXT)
+RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER SET search_path = public AS $fn$
+  SELECT EXISTS (SELECT 1 FROM auth.users WHERE lower(email) = lower(p_email));
+$fn$;
+REVOKE ALL ON FUNCTION public.is_email_registered(TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.is_email_registered(TEXT) TO service_role;
+
+
+-- =====================================================================
+-- 105.2  ACCOUNT IDENTITY — one email, one account, one provider
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS public.user_accounts (
+  id                 UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+
+  -- Mirror of auth.users.email, kept in step by the triggers below so
+  -- the app can reason about identity without querying the auth schema.
+  email              TEXT NOT NULL,
+
+  -- How the account was FIRST created. This is the account's home
+  -- provider and never changes: it is what the "please sign in with X"
+  -- messages are derived from.
+  provider           TEXT NOT NULL DEFAULT 'email'
+                       CHECK (provider IN ('email','google')),
+
+  email_verified     BOOLEAN NOT NULL DEFAULT false,
+  -- True once the account has a usable Supabase Auth password. Google
+  -- accounts start false and may flip to true from Settings -> Security.
+  password_created   BOOLEAN NOT NULL DEFAULT false,
+  -- The onboarding form is shown while this is false, and exactly once.
+  profile_completed  BOOLEAN NOT NULL DEFAULT false,
+
+  timezone           TEXT,
+  preferred_language TEXT,
+
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- The hard guarantee behind "one email = one ChessOx account". auth.users
+-- already enforces this; the mirror must not be able to drift out of it.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_accounts_email_unique
+  ON public.user_accounts (lower(email));
+
+ALTER TABLE public.user_accounts ENABLE ROW LEVEL SECURITY;
+
+-- Readable by its owner only — never by anon, never by other players.
+REVOKE ALL ON public.user_accounts FROM anon, authenticated;
+GRANT SELECT ON public.user_accounts TO authenticated;
+GRANT ALL ON public.user_accounts TO service_role;
+
+DROP POLICY IF EXISTS "own account row is readable" ON public.user_accounts;
+CREATE POLICY "own account row is readable"
+  ON public.user_accounts FOR SELECT TO authenticated
+  USING (auth.uid() = id);
+
+-- No INSERT/UPDATE/DELETE policy on purpose. Every write goes through a
+-- server function on the service role, so a client cannot mark itself
+-- verified, mark a password created, or skip onboarding.
+
+-- `city` is public profile data, so it belongs beside country/state.
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS city TEXT DEFAULT '';
+
+
+-- =====================================================================
+-- 105.3  USERNAME GENERATION — exactly 11 chars: 8 letters + 1 of [_.] + 2 digits
+-- =====================================================================
+
+-- One candidate. Seeded from a display name where possible so the result
+-- still looks like the person ("chessfox_42"), padded with random
+-- letters when the seed is too short or unusable.
+CREATE OR REPLACE FUNCTION public.chessox_username_candidate(p_seed TEXT DEFAULT NULL)
+RETURNS TEXT LANGUAGE plpgsql VOLATILE SET search_path = public AS $fn$
+DECLARE
+  v_letters CONSTANT TEXT := 'abcdefghijklmnopqrstuvwxyz';
+  v_base TEXT;
+BEGIN
+  v_base := lower(regexp_replace(COALESCE(p_seed, ''), '[^a-zA-Z]', '', 'g'));
+  v_base := substr(v_base, 1, 8);
+  WHILE length(v_base) < 8 LOOP
+    v_base := v_base || substr(v_letters, 1 + floor(random() * 26)::int, 1);
+  END LOOP;
+
+  RETURN v_base
+      || CASE WHEN random() < 0.5 THEN '_' ELSE '.' END
+      || lpad(floor(random() * 100)::int::text, 2, '0');
+END; $fn$;
+
+-- Retries until the candidate is free, so uniqueness is guaranteed
+-- rather than hoped for. 26^8 x 2 x 100 keeps collisions vanishingly
+-- rare; the loop bound exists so a pathological database cannot hang a
+-- signup.
+CREATE OR REPLACE FUNCTION public.generate_unique_username(p_seed TEXT DEFAULT NULL)
+RETURNS TEXT LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = public AS $fn$
+DECLARE
+  v_candidate TEXT;
+  v_attempt   INT := 0;
+BEGIN
+  LOOP
+    v_attempt := v_attempt + 1;
+    -- After a few tries stop honouring the seed: if "chessfox" is
+    -- congested, more "chessfox__" variants will not help.
+    v_candidate := public.chessox_username_candidate(
+      CASE WHEN v_attempt <= 5 THEN p_seed ELSE NULL END
+    );
+
+    IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE lower(username) = v_candidate)
+       AND NOT EXISTS (
+         SELECT 1 FROM public.pending_registrations
+         WHERE lower(username) = v_candidate
+           AND created_at > now() - interval '72 hours'
+       )
+    THEN
+      RETURN v_candidate;
+    END IF;
+
+    IF v_attempt >= 100 THEN
+      RAISE EXCEPTION 'could not generate a unique username after % attempts', v_attempt;
+    END IF;
+  END LOOP;
+END; $fn$;
+REVOKE ALL ON FUNCTION public.generate_unique_username(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.generate_unique_username(TEXT) TO service_role;
+
+
+-- =====================================================================
+-- 105.4  PROVIDER LOOKUP — what does the app tell someone about this email?
+-- ---------------------------------------------------------------------
+-- Returns everything the "an account already exists with this email"
+-- decision needs in ONE round trip, so signup and sign-in cannot reach
+-- different conclusions. Service role only: it answers questions about
+-- other people's accounts and must never be callable from a browser.
+-- =====================================================================
+CREATE OR REPLACE FUNCTION public.account_for_email(p_email TEXT)
+RETURNS JSONB LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $fn$
+  SELECT COALESCE(
+    (
+      SELECT jsonb_build_object(
+        'exists',         true,
+        'user_id',        u.id,
+        'provider',       COALESCE(a.provider, 'email'),
+        'has_password',   (u.encrypted_password IS NOT NULL AND u.encrypted_password <> ''),
+        'email_verified', (u.email_confirmed_at IS NOT NULL),
+        'identities',     COALESCE(
+                            (SELECT array_agg(DISTINCT i.provider)
+                               FROM auth.identities i WHERE i.user_id = u.id),
+                            ARRAY[]::TEXT[]
+                          )
+      )
+      FROM auth.users u
+      LEFT JOIN public.user_accounts a ON a.id = u.id
+      WHERE lower(u.email) = lower(p_email)
+      LIMIT 1
+    ),
+    jsonb_build_object('exists', false)
+  );
+$fn$;
+REVOKE ALL ON FUNCTION public.account_for_email(TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.account_for_email(TEXT) TO service_role;
+
+
+-- =====================================================================
+-- 105.5  SIGNUP TRIGGER — extend, don't replace
+-- ---------------------------------------------------------------------
+-- Everything SECTION 21 did (profile, role, ratings, subscription,
+-- wallet + welcome bonus) still happens; this adds the user_accounts row
+-- and switches username generation to the 11-character format.
+--
+-- The trigger runs inside the same transaction as the auth.users INSERT,
+-- so any failure here rolls the new user back with it — there is no
+-- state in which an auth user exists without its profile.
+-- =====================================================================
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+DECLARE
+  v_username  TEXT;
+  v_full_name TEXT;
+  v_provider  TEXT;
+BEGIN
+  v_full_name := COALESCE(
+    NEW.raw_user_meta_data->>'full_name',
+    NEW.raw_user_meta_data->>'name',
+    NEW.raw_user_meta_data->>'username',
+    split_part(NEW.email, '@', 1)
+  );
+
+  -- 'email' for password signups (including the admin API used by the
+  -- verification-link flow), 'google' for OAuth.
+  v_provider := CASE
+    WHEN COALESCE(NEW.raw_app_meta_data->>'provider', 'email') = 'google' THEN 'google'
+    ELSE 'email'
+  END;
+
+  v_username := public.generate_unique_username(v_full_name);
+
+  INSERT INTO public.profiles (id, username, full_name, avatar_url)
+  VALUES (NEW.id, v_username, v_full_name, NEW.raw_user_meta_data->>'avatar_url')
+  ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO public.user_accounts (
+    id, email, provider, email_verified, password_created, profile_completed
+  )
+  VALUES (
+    NEW.id,
+    NEW.email,
+    v_provider,
+    NEW.email_confirmed_at IS NOT NULL,
+    NEW.encrypted_password IS NOT NULL AND NEW.encrypted_password <> '',
+    false
+  )
+  ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO public.user_roles (user_id, role) VALUES (NEW.id, 'user')
+  ON CONFLICT DO NOTHING;
+
+  INSERT INTO public.ratings (user_id, time_class) VALUES
+    (NEW.id, 'bullet'), (NEW.id, 'blitz'), (NEW.id, 'rapid'), (NEW.id, 'classical')
+  ON CONFLICT DO NOTHING;
+
+  INSERT INTO public.subscriptions (user_id, tier, status)
+  VALUES (NEW.id, 'free', 'inactive')
+  ON CONFLICT DO NOTHING;
+
+  INSERT INTO public.wallets (user_id, balance, total_earned)
+  VALUES (NEW.id, 50, 50)
+  ON CONFLICT DO NOTHING;
+
+  INSERT INTO public.wallet_transactions
+    (user_id, type, amount, balance_after, description, idempotency_key)
+  VALUES
+    (NEW.id, 'welcome_bonus', 50, 50, 'Welcome to ChessOx! Here are 50 bonus coins.',
+     'welcome_' || NEW.id::text)
+  ON CONFLICT DO NOTHING;
+
+  RETURN NEW;
+END; $fn$;
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+
+-- ---------------------------------------------------------------------
+-- 105.6  Keep the mirror honest
+-- ---------------------------------------------------------------------
+-- Supabase Auth owns email confirmation and password hashing. Whenever
+-- it changes either, reflect it — otherwise `password_created` would go
+-- stale the moment someone completes a password reset and the sign-in
+-- guidance would start lying to them.
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.sync_user_account_from_auth()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+BEGIN
+  UPDATE public.user_accounts SET
+    email            = NEW.email,
+    email_verified   = NEW.email_confirmed_at IS NOT NULL,
+    password_created = (NEW.encrypted_password IS NOT NULL AND NEW.encrypted_password <> ''),
+    updated_at       = now()
+  WHERE id = NEW.id;
+  RETURN NEW;
+END; $fn$;
+REVOKE EXECUTE ON FUNCTION public.sync_user_account_from_auth() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS on_auth_user_identity_changed ON auth.users;
+CREATE TRIGGER on_auth_user_identity_changed
+  AFTER UPDATE OF email, email_confirmed_at, encrypted_password ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.sync_user_account_from_auth();
+
+
+-- ---------------------------------------------------------------------
+-- 105.7  Identity columns are server-owned
+-- ---------------------------------------------------------------------
+-- There is no client UPDATE grant on user_accounts today, but a future
+-- policy added in good faith could hand one out. This makes the
+-- guarantee structural: whatever the grants say, only the service role
+-- can move an identity column.
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.user_accounts_protect_identity()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+BEGIN
+  IF current_user IN ('service_role', 'postgres', 'supabase_admin', 'supabase_auth_admin') THEN
+    RETURN NEW;
+  END IF;
+  NEW.email             := OLD.email;
+  NEW.provider          := OLD.provider;
+  NEW.email_verified    := OLD.email_verified;
+  NEW.password_created  := OLD.password_created;
+  NEW.profile_completed := OLD.profile_completed;
+  RETURN NEW;
+END; $fn$;
+
+DROP TRIGGER IF EXISTS trg_user_accounts_protect_identity ON public.user_accounts;
+CREATE TRIGGER trg_user_accounts_protect_identity
+  BEFORE UPDATE ON public.user_accounts
+  FOR EACH ROW EXECUTE FUNCTION public.user_accounts_protect_identity();
+
+
+-- =====================================================================
+-- 105.8  BACKFILL — existing accounts keep working
+-- ---------------------------------------------------------------------
+-- Every account that predates this migration is marked
+-- profile_completed = true. They already use the app; sending them all
+-- to an onboarding form on their next visit would be a regression, not
+-- a feature. The gate applies to accounts created from here on.
+-- =====================================================================
+INSERT INTO public.user_accounts (
+  id, email, provider, email_verified, password_created, profile_completed, created_at
+)
+SELECT
+  u.id,
+  u.email,
+  CASE
+    WHEN EXISTS (SELECT 1 FROM auth.identities i
+                  WHERE i.user_id = u.id AND i.provider = 'google')
+     AND NOT EXISTS (SELECT 1 FROM auth.identities i
+                  WHERE i.user_id = u.id AND i.provider = 'email')
+    THEN 'google' ELSE 'email'
+  END,
+  u.email_confirmed_at IS NOT NULL,
+  u.encrypted_password IS NOT NULL AND u.encrypted_password <> '',
+  true,
+  u.created_at
+FROM auth.users u
+WHERE u.email IS NOT NULL
+ON CONFLICT (id) DO NOTHING;
+
+
+-- =====================================================================
+-- 105.9  Verification — every row should read "ok"
+-- =====================================================================
+SELECT
+  CASE WHEN to_regclass('public.pending_registrations') IS NOT NULL
+       THEN 'ok' ELSE 'MISSING' END                       AS pending_registrations,
+  CASE WHEN to_regclass('public.user_accounts') IS NOT NULL
+       THEN 'ok' ELSE 'MISSING' END                       AS user_accounts,
+  CASE WHEN to_regproc('public.is_username_taken') IS NOT NULL
+       THEN 'ok' ELSE 'MISSING' END                       AS is_username_taken,
+  CASE WHEN to_regproc('public.is_email_registered') IS NOT NULL
+       THEN 'ok' ELSE 'MISSING' END                       AS is_email_registered,
+  CASE WHEN to_regproc('public.account_for_email') IS NOT NULL
+       THEN 'ok' ELSE 'MISSING' END                       AS account_for_email,
+  CASE WHEN to_regproc('public.generate_unique_username') IS NOT NULL
+       THEN 'ok' ELSE 'MISSING' END                       AS generate_unique_username,
+  (SELECT count(*) FROM auth.users)                       AS auth_users,
+  (SELECT count(*) FROM public.user_accounts)             AS mirrored_accounts;
+
+
+ALTER TABLE public.wallets 
+ADD COLUMN IF NOT EXISTS locked_balance INT NOT NULL DEFAULT 0;

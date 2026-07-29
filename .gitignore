@@ -25,6 +25,9 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Stockfish WASM binaries — copied from node_modules by scripts/copy-engine.mjs
+public/engine/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

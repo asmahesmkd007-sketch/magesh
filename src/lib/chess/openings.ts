@@ -108,3 +108,33 @@ export function detectOpening(sans: string[]): OpeningMatch | null {
   }
   return best;
 }
+
+export type BookContinuation = { san: string; eco: string; name: string };
+
+/**
+ * Theory continuations from the current line: every book opening whose
+ * moves extend the given SAN prefix by at least one ply, keyed by that
+ * next move. Feeds the "Theory" tab of the opening explorer.
+ */
+export function bookContinuations(sans: string[]): BookContinuation[] {
+  const game = sans.map(normalizeSan);
+  const byMove = new Map<string, BookContinuation>();
+  for (const op of OPENINGS) {
+    if (op.moves.length <= game.length) continue;
+    let ok = true;
+    for (let i = 0; i < game.length; i++) {
+      if (normalizeSan(op.moves[i]) !== game[i]) {
+        ok = false;
+        break;
+      }
+    }
+    if (!ok) continue;
+    const next = op.moves[game.length];
+    // Prefer the most specific (longest) named line for each move.
+    const existing = byMove.get(next);
+    if (!existing || op.moves.length === game.length + 1) {
+      byMove.set(next, { san: next, eco: op.eco, name: op.name });
+    }
+  }
+  return [...byMove.values()];
+}

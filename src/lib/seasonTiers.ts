@@ -1,14 +1,28 @@
 // =====================================================================
-// Season IQ tier ladder — mirrors public.season_tier() in schema.sql
-// SECTION 77 (the server is the sole authority; this is display only).
+// Season tier ladder — COMPATIBILITY SHIM
+// ---------------------------------------------------------------------
+// The ladder now lives in src/lib/ranking/tiers.ts (Bronze → Grandmaster,
+// three divisions each), mirroring public.sp_rung() in schema.sql
+// SECTION 102. This module keeps the SECTION 77-era export surface
+// (SEASON_TIERS / tierOf / nextTierOf / tierProgress / reward labels)
+// so /seasons and anything else built against it keeps working — but it
+// is now backed by the SAME ladder the /rankings page uses.
+//
+// Before this shim, the two pages rendered the same stored number with
+// different vocabularies: 1,200 points read as "Expert" on /seasons and
+// "Gold III" on /rankings. One ladder, one set of names.
+//
+// New code should import from "@/lib/ranking/tiers" directly.
 // =====================================================================
+import { LADDER, REWARD_LABELS, rungOf, rungProgress, type Rung } from "@/lib/ranking/tiers";
 
 export type SeasonTier = {
+  /** Full rung name, e.g. "Gold III". */
   name: string;
   min: number;
-  /** Exclusive upper bound; null = uncapped top tier. */
+  /** Exclusive upper bound; null = uncapped top rung. */
   max: number | null;
-  /** Tailwind text class for the tier's identity color. */
+  /** Tailwind text class for the tier's identity colour. */
   text: string;
   /** Tailwind background/border classes for badges. */
   badge: string;
@@ -16,104 +30,48 @@ export type SeasonTier = {
   bar: string;
 };
 
-export const SEASON_TIERS: SeasonTier[] = [
-  {
-    name: "Beginner",
-    min: 0,
-    max: 200,
-    text: "text-zinc-400",
-    badge: "border-zinc-500/30 bg-zinc-500/10",
-    bar: "bg-zinc-400",
-  },
-  {
-    name: "Learner",
-    min: 200,
-    max: 500,
-    text: "text-stone-300",
-    badge: "border-stone-400/30 bg-stone-400/10",
-    bar: "bg-stone-300",
-  },
-  {
-    name: "Skilled",
-    min: 500,
-    max: 1000,
-    text: "text-emerald",
-    badge: "border-emerald/30 bg-emerald/10",
-    bar: "bg-emerald",
-  },
-  {
-    name: "Expert",
-    min: 1000,
-    max: 2000,
-    text: "text-sky-400",
-    badge: "border-sky-500/30 bg-sky-500/10",
-    bar: "bg-sky-400",
-  },
-  {
-    name: "Master",
-    min: 2000,
-    max: 3500,
-    text: "text-violet-400",
-    badge: "border-violet-500/30 bg-violet-500/10",
-    bar: "bg-violet-400",
-  },
-  {
-    name: "Grandmaster",
-    min: 3500,
-    max: 5500,
-    text: "text-rose-400",
-    badge: "border-rose-500/30 bg-rose-500/10",
-    bar: "bg-rose-400",
-  },
-  {
-    name: "Elite",
-    min: 5500,
-    max: 8000,
-    text: "text-amber-400",
-    badge: "border-amber-500/30 bg-amber-500/10",
-    bar: "bg-amber-400",
-  },
-  {
-    name: "Chessox Legend",
-    min: 8000,
-    max: null,
-    text: "text-gold",
-    badge: "border-gold/40 bg-gold/10",
-    bar: "gradient-gold",
-  },
-];
-
-export function tierOf(iq: number): SeasonTier {
-  for (let i = SEASON_TIERS.length - 1; i >= 0; i--) {
-    if (iq >= SEASON_TIERS[i].min) return SEASON_TIERS[i];
-  }
-  return SEASON_TIERS[0];
+function toSeasonTier(rung: Rung): SeasonTier {
+  return {
+    name: rung.label,
+    min: rung.minSp,
+    max: rung.nextSp,
+    text: rung.tier.text,
+    badge: rung.tier.badge,
+    bar: rung.tier.bar,
+  };
 }
 
-export function nextTierOf(iq: number): SeasonTier | null {
-  const idx = SEASON_TIERS.indexOf(tierOf(iq));
-  return idx < SEASON_TIERS.length - 1 ? SEASON_TIERS[idx + 1] : null;
+/** Every rung of the ladder, ascending. */
+export const SEASON_TIERS: SeasonTier[] = LADDER.map(toSeasonTier);
+
+export function tierOf(points: number): SeasonTier {
+  return toSeasonTier(rungOf(points));
 }
 
-/** 0–100 progress through the current tier toward the next one. */
-export function tierProgress(iq: number): number {
-  const tier = tierOf(iq);
-  if (tier.max === null) return 100;
-  return Math.max(0, Math.min(100, Math.round(((iq - tier.min) / (tier.max - tier.min)) * 100)));
+export function nextTierOf(points: number): SeasonTier | null {
+  const cur = rungOf(points);
+  const next = LADDER[cur.index + 1];
+  return next ? toSeasonTier(next) : null;
+}
+
+/** 0–100 progress through the current rung toward the next one. */
+export function tierProgress(points: number): number {
+  return rungProgress(points);
+}
+
+/**
+ * Display name for a tier value stored on a history row. Rows frozen
+ * since SECTION 102 hold a tier CODE ("grandmaster"); older rows hold a
+ * legacy display name ("Chessox Legend"). Anything unrecognised falls
+ * back to resolving the points against the current ladder.
+ */
+export function tierDisplayName(stored: string | null | undefined, points: number): string {
+  if (!stored) return tierOf(points).name;
+  const code = stored.toLowerCase();
+  const match = LADDER.find((r) => r.tier.code === code);
+  if (match) return match.tier.name; // "grandmaster" → "Grandmaster"
+  return stored; // legacy label, shown as recorded at the time
 }
 
 /** Human labels for reward/badge codes awarded at season end. */
-export const SEASON_REWARD_LABELS: Record<string, string> = {
-  season_champion: "Season Champion",
-  champion_badge: "Champion Badge",
-  top_1: "Rank #1",
-  podium_badge: "Podium Finish",
-  top_3: "Top 3",
-  top_10: "Top 10",
-  top_100: "Top 100",
-  most_improved: "Most Improved Player",
-  puzzle_master: "Puzzle Master",
-  highest_win_streak: "Highest Win Streak",
-  best_new_player: "Best New Player",
-  regional_champion: "Regional Champion",
-};
+export const SEASON_REWARD_LABELS: Record<string, string> = REWARD_LABELS;

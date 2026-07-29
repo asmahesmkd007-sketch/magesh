@@ -1,10 +1,10 @@
 import type { Chess, Move } from "chess.js";
 
 /**
- * Shared static-evaluation core for the bot engine (engine.ts) and the
- * post-game analysis engine (analysis.worker.ts). Both used to carry their
- * own byte-for-byte copy of these piece-square tables and search — this is
- * the single source of truth so a tuning change can't drift between them.
+ * Static-evaluation core for the bot engine (engine.ts / engine.worker.ts).
+ * Game analysis now runs on Stockfish (src/lib/analysis/gameAnalyzer.ts);
+ * this module remains the single source of truth for the bot's
+ * piece-square tables and search.
  */
 
 /** Material values in centipawns. */

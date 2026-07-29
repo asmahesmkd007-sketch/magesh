@@ -32,6 +32,7 @@ import {
   Shield,
   IdCard,
   LifeBuoy,
+  Gauge,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -46,6 +47,7 @@ const NAV: NavItem[] = [
   { to: "/admin/clans", label: "Clans", icon: <Shield className="h-4 w-4" /> },
   { to: "/admin/leaderboard", label: "Leaderboard", icon: <ListOrdered className="h-4 w-4" /> },
   { to: "/admin/seasons", label: "Seasons", icon: <CalendarClock className="h-4 w-4" /> },
+  { to: "/admin/ranking", label: "Ranking System", icon: <Gauge className="h-4 w-4" /> },
   { to: "/admin/puzzles", label: "Puzzles", icon: <PuzzleIcon className="h-4 w-4" /> },
   { to: "/admin/wallet", label: "Wallet", icon: <Wallet className="h-4 w-4" /> },
   { to: "/admin/withdrawals", label: "Withdrawals", icon: <Banknote className="h-4 w-4" /> },
@@ -54,6 +56,7 @@ const NAV: NavItem[] = [
   { to: "/admin/community", label: "Community", icon: <MessagesSquare className="h-4 w-4" /> },
   { to: "/admin/chat", label: "Chat", icon: <MessageSquareWarning className="h-4 w-4" /> },
   { to: "/admin/premium", label: "Premium", icon: <Crown className="h-4 w-4" /> },
+  { to: "/admin/anticheat", label: "Anti-Cheat", icon: <ShieldAlert className="h-4 w-4" /> },
   { to: "/admin/reports", label: "Reports", icon: <Flag className="h-4 w-4" /> },
   { to: "/admin/feedback", label: "Feedback", icon: <Inbox className="h-4 w-4" /> },
   { to: "/admin/about-chess", label: "About Chess", icon: <BookOpen className="h-4 w-4" /> },

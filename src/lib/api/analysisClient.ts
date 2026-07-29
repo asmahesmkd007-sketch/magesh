@@ -4,12 +4,11 @@
 // Reads the persisted per-move review (game_moves analysis columns) and
 // the per-game summary (game_analysis), and writes a completed review
 // back through the save_game_analysis RPC. The engine itself runs in the
-// browser (src/lib/chess/analysis.worker.ts); this module only deals with
-// persistence + the shape of the stored report.
+// browser (src/lib/analysis/gameAnalyzer.ts — Stockfish pipeline); this
+// module only deals with persistence + the shape of the stored report.
 // =====================================================================
 import { supabase } from "@/integrations/supabase/client";
 import type { Classification } from "@/lib/chess/classification";
-import type { MoveAnalysis } from "@/lib/chess/analysis.worker";
 
 // ── Stored row shapes ────────────────────────────────────────────────
 export type ReviewMove = {
@@ -118,62 +117,4 @@ export async function saveGameAnalysis(input: SaveAnalysisInput): Promise<void> 
     p_move_evals: input.moveEvals,
   });
   if (error) throw new Error(error.message);
-}
-
-// ── Report builder ───────────────────────────────────────────────────
-
-/** Per-move accuracy from centipawn loss (0cp → 100%, ~300cp → 0%). */
-function moveAccuracy(cpl: number): number {
-  return Math.max(0, Math.min(100, 100 - cpl / 3));
-}
-
-const avg = (xs: number[]): number | null =>
-  xs.length ? Math.round(xs.reduce((s, v) => s + v, 0) / xs.length) : null;
-
-/**
- * Turn the worker's per-move analyses into the payload that
- * saveGameAnalysis expects: per-side accuracy, ACPL, class counts, and
- * the per-move eval/classification annotations (white-perspective evals).
- */
-export function buildAnalysisReport(
-  moves: MoveAnalysis[],
-): Omit<SaveAnalysisInput, "gameId" | "openingName" | "openingEco"> {
-  const accW: number[] = [];
-  const accB: number[] = [];
-  const cplW: number[] = [];
-  const cplB: number[] = [];
-  const countsW: ClassCounts = {};
-  const countsB: ClassCounts = {};
-
-  const moveEvals: SaveAnalysisInput["moveEvals"] = moves.map((m) => {
-    const whiteToMove = m.ply % 2 === 1;
-    if (whiteToMove) {
-      accW.push(moveAccuracy(m.cpl));
-      cplW.push(m.cpl);
-      countsW[m.classification] = (countsW[m.classification] ?? 0) + 1;
-    } else {
-      accB.push(moveAccuracy(m.cpl));
-      cplB.push(m.cpl);
-      countsB[m.classification] = (countsB[m.classification] ?? 0) + 1;
-    }
-    // Store white-perspective evals so the review graph reads them directly.
-    const bestWhite = whiteToMove ? m.evalCpBefore : -m.evalCpBefore;
-    return {
-      ply: m.ply,
-      eval_before_cp: Math.round(bestWhite),
-      eval_after_cp: Math.round(m.evalWhite),
-      best_move_san: m.bestMoveSan,
-      classification: m.classification,
-    };
-  });
-
-  return {
-    accuracyWhite: avg(accW),
-    accuracyBlack: avg(accB),
-    acplWhite: avg(cplW),
-    acplBlack: avg(cplB),
-    classCountsWhite: countsW,
-    classCountsBlack: countsB,
-    moveEvals,
-  };
 }

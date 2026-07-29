@@ -1,10 +1,22 @@
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { Crown, Loader2, ChevronLeft, Mail, Lock, User, ShieldCheck, Check, X, Eye, EyeOff } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  Crown,
+  Loader2,
+  ChevronLeft,
+  Mail,
+  Lock,
+  User,
+  MailCheck,
+  RefreshCw,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { GoldButton } from "@/components/site/Primitives";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { requestEmailOtp, verifyEmailOtpAndRegister } from "@/lib/api/auth-otp.functions";
+import { registerAccount, resendVerification } from "@/lib/api/registration.functions";
+import { USERNAME_REGEX } from "@/lib/auth/password";
 import heroRegal from "@/assets/hero-regal.jpg";
 import { noindexSeo } from "@/lib/seo";
 
@@ -17,25 +29,6 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-// Mirrors the server-side rules in auth-otp.functions.ts — kept as private,
-// duplicated constants per this repo's convention (see reset-password.tsx)
-// rather than a shared import, so each page's validation stays self-contained.
-const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,20}$/;
-const PASSWORD_REQUIREMENTS = [
-  { key: "length", label: "At least 8 characters", test: (p: string) => p.length >= 8 },
-  { key: "upper", label: "One uppercase letter", test: (p: string) => /[A-Z]/.test(p) },
-  { key: "lower", label: "One lowercase letter", test: (p: string) => /[a-z]/.test(p) },
-  { key: "number", label: "One number", test: (p: string) => /\d/.test(p) },
-  {
-    key: "special",
-    label: "One special character",
-    test: (p: string) => /[!@#$%^&*()\-_=+[\]{};':"\\|,.<>/?`~]/.test(p),
-  },
-] as const;
-function passwordMeetsPolicy(pw: string): boolean {
-  return PASSWORD_REQUIREMENTS.every((r) => r.test(pw));
-}
-
 /**
  * Turns raw Supabase Auth errors into clear, action-oriented messages. Supabase
  * returns terse server strings (e.g. "email rate limit exceeded") that mean
@@ -47,17 +40,11 @@ function friendlyAuthError(e: unknown): string {
   if (m.includes("rate limit") || m.includes("too many requests")) {
     return "Too many attempts right now. Please wait a few minutes and try again — or use Continue with Google below.";
   }
-  if (m.includes("already registered") || m.includes("already been registered")) {
-    return "That email already has an account. Try signing in instead.";
-  }
   if (m.includes("invalid login credentials")) {
     return "Incorrect email or password. Please check and try again.";
   }
-  if (m.includes("email not confirmed")) {
-    return "Please verify your email before logging in.";
-  }
-  if (m.includes("password") && m.includes("6")) {
-    return "Password must be at least 6 characters.";
+  if (m.includes("email not confirmed") || m.includes("email not verified")) {
+    return "Please verify your email before signing in. Check your inbox for the verification link.";
   }
   return msg;
 }
@@ -73,18 +60,13 @@ function AuthPage() {
   const navigate = useNavigate();
   const router = useRouter();
 
-  // ---- Email OTP verification (signup only) --------------------------------
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [verifyBusy, setVerifyBusy] = useState(false);
-  const [verifyNotice, setVerifyNotice] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
+  // ---- Registration: email verification link (signup only) -----------------
+  const [sentTo, setSentTo] = useState<string | null>(null);
   const [resendIn, setResendIn] = useState(0);
-  const otpEmailRef = useRef<string | null>(null); // email the current OTP was actually sent to
+  const [resendBusy, setResendBusy] = useState(false);
+  const [resendNote, setResendNote] = useState<string | null>(null);
 
-  // Already authenticated — go straight to home.
+  // Already authenticated — check profile completion
   useEffect(() => {
     if (session) navigate({ to: "/home" });
   }, [session, navigate]);
@@ -96,60 +78,27 @@ function AuthPage() {
     return () => clearInterval(t);
   }, [resendIn]);
 
-  function resetOtpState() {
-    setOtp("");
-    setOtpSent(false);
-    setVerifyNotice(null);
-    setResendIn(0);
-    otpEmailRef.current = null;
-  }
-
   function switchMode(m: "signin" | "signup") {
     setMode(m);
     setError(null);
-    resetOtpState();
+    setSentTo(null);
+    setResendNote(null);
+    setResendIn(0);
   }
 
-  // "Verify" beside the email field — sends the OTP. Also used as "Resend".
-  async function handleVerifyClick() {
-    setVerifyNotice(null);
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanUsername = username.trim();
-
-    if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) {
-      setVerifyNotice({ type: "error", text: "Enter a valid email address first." });
-      return;
-    }
-    if (!USERNAME_REGEX.test(cleanUsername)) {
-      setVerifyNotice({
-        type: "error",
-        text: "Username must be 3-20 characters (letters, numbers, underscore only).",
-      });
-      return;
-    }
-
-    setVerifyBusy(true);
+  async function handleResend() {
+    if (!sentTo || resendIn > 0) return;
+    setResendBusy(true);
+    setResendNote(null);
     try {
-      const result = await requestEmailOtp({
-        data: { email: cleanEmail, username: cleanUsername },
-      });
-      otpEmailRef.current = cleanEmail;
-      setOtpSent(true);
-      setOtp("");
+      const result = await resendVerification({ data: { email: sentTo } });
       setResendIn(result.resendInSeconds);
-      setVerifyNotice({ type: "success", text: `Verification code sent to ${cleanEmail}.` });
+      setResendNote("A new verification link is on its way.");
     } catch (e) {
-      setVerifyNotice({
-        type: "error",
-        text: e instanceof Error ? e.message : "Failed to send code.",
-      });
+      setResendNote(e instanceof Error ? e.message : "Could not resend the email.");
     } finally {
-      setVerifyBusy(false);
+      setResendBusy(false);
     }
-  }
-
-  function handleChangeEmail() {
-    resetOtpState();
   }
 
   async function handleEmail(e: React.FormEvent) {
@@ -161,34 +110,22 @@ function AuthPage() {
     const cleanUsername = username.trim();
     try {
       if (mode === "signup") {
-        if (!otpSent || otpEmailRef.current !== cleanEmail) {
-          throw new Error("Please verify your email address first.");
+        if (!cleanUsername || cleanUsername.length !== 11) {
+          throw new Error("Username must be exactly 11 characters (e.g. chessfox_42).");
         }
-        if (!/^\d{6}$/.test(otp)) {
-          throw new Error("Enter the 6-digit code sent to your email.");
-        }
-        if (!passwordMeetsPolicy(cleanPassword)) {
-          throw new Error("Password does not meet the requirements below.");
-        }
-
-        await verifyEmailOtpAndRegister({
-          data: { email: cleanEmail, username: cleanUsername, password: cleanPassword, otp },
+        const result = await registerAccount({
+          data: { email: cleanEmail, username: cleanUsername },
         });
-
-        // Account now exists (email already verified server-side) — sign in
-        // to establish the client session, same as the signin branch below.
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password: cleanPassword,
-        });
-        if (signInError) throw signInError;
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password: cleanPassword,
-        });
-        if (error) throw error;
+        setSentTo(result.email);
+        setResendIn(result.resendInSeconds);
+        return;
       }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: cleanPassword,
+      });
+      if (error) throw error;
       router.invalidate();
       navigate({ to: "/home" });
     } catch (e) {
@@ -202,16 +139,13 @@ function AuthPage() {
     setError(null);
     setBusy(true);
     try {
-      // Use Supabase OAuth directly — the callback goes through Supabase's
-      // registered redirect URI and the session is restored by onAuthStateChange.
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: window.location.origin + "/home",
+          redirectTo: window.location.origin + "/auth",
         },
       });
       if (error) throw error;
-      // Browser navigates away for the OAuth flow — no further action here.
     } catch (e) {
       setError(friendlyAuthError(e));
       setBusy(false);
@@ -250,7 +184,6 @@ function AuthPage() {
 
       {/* Right Side - Auth Form */}
       <div className="flex w-full flex-col items-center justify-center lg:w-1/2 p-6 sm:p-12 relative overflow-hidden">
-        {/* Subtle background mandala for right side */}
         <div className="pointer-events-none absolute inset-0 mandala-bg opacity-[0.03]" />
 
         <div className="w-full max-w-[420px] relative z-10">
@@ -277,185 +210,150 @@ function AuthPage() {
               <button
                 key={m}
                 onClick={() => switchMode(m)}
-                className={`rounded-lg px-3 py-2.5 transition-all duration-300 font-medium ${
-                  mode === m
+                className={`rounded-lg px-3 py-2.5 transition-all duration-300 font-medium ${mode === m
                     ? "bg-gold/15 text-gold shadow-sm"
                     : "text-foreground/50 hover:text-foreground/80 hover:bg-white/5"
-                }`}
+                  }`}
               >
                 {m === "signin" ? "Sign in" : "Create account"}
               </button>
             ))}
           </div>
 
-          <form className="space-y-3.5" onSubmit={handleEmail}>
-            {mode === "signup" ? (
-              <>
-                <Input
-                  icon={<User className="h-4 w-4" />}
-                  label="Username"
-                  value={username}
-                  onChange={setUsername}
-                  placeholder="grandmaster"
-                  required
-                  disabled={otpSent}
-                />
+          {mode === "signup" && sentTo ? (
+            <div className="rounded-xl border border-gold/20 bg-black/40 p-6 text-center">
+              <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full border border-emerald/30 bg-emerald/10">
+                <MailCheck className="h-7 w-7 text-emerald" />
+              </div>
+              <h2 className="font-display text-xl text-ivory">Verification Email Sent</h2>
+              <p className="mt-2 text-sm leading-relaxed text-foreground/60">
+                Verification email sent successfully. Please check your inbox at{" "}
+                <span className="text-gold">{sentTo}</span> and verify your email before signing in.
+              </p>
+              <p className="mt-3 text-[11px] text-foreground/40">
+                The link is valid for 24 hours. Can&rsquo;t find it? Check your spam folder.
+              </p>
 
-                {/* Email + Verify button */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] uppercase tracking-[0.1em] text-foreground/60 font-medium ml-1 block">
-                    Email
-                  </label>
-                  <div className="flex gap-2">
-                    <div className="relative group flex-1">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-foreground/40 group-focus-within:text-gold transition-colors">
-                        <Mail className="h-4 w-4" />
-                      </div>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="your@email.com"
-                        required
-                        disabled={otpSent}
-                        autoComplete="off"
-                        className="w-full rounded-xl border border-gold/15 bg-black/40 py-3 pl-10 pr-4 text-sm text-ivory outline-none transition-all placeholder:text-foreground/30 focus:border-gold/40 focus:bg-black/60 focus:ring-1 focus:ring-gold/40 disabled:opacity-60 disabled:cursor-not-allowed"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleVerifyClick}
-                      disabled={verifyBusy || (otpSent && resendIn > 0)}
-                      className="shrink-0 rounded-xl border border-gold/30 bg-gold/10 px-4 text-xs font-medium uppercase tracking-wide text-gold transition-all hover:bg-gold/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {verifyBusy ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : otpSent ? (
-                        resendIn > 0 ? (
-                          `Resend (${resendIn}s)`
-                        ) : (
-                          "Resend"
-                        )
-                      ) : (
-                        "Verify"
-                      )}
-                    </button>
-                  </div>
-                  {otpSent && (
-                    <button
-                      type="button"
-                      onClick={handleChangeEmail}
-                      className="text-[11px] text-gold/60 underline-offset-2 hover:text-gold hover:underline ml-1"
-                    >
-                      Change email
-                    </button>
-                  )}
-                  {verifyNotice && (
-                    <p
-                      className={`text-xs ml-1 ${verifyNotice.type === "success" ? "text-emerald" : "text-destructive"}`}
-                    >
-                      {verifyNotice.text}
-                    </p>
-                  )}
-                </div>
+              <button
+                type="button"
+                onClick={() => void handleResend()}
+                disabled={resendBusy || resendIn > 0}
+                className="mt-5 inline-flex items-center gap-2 rounded-xl border border-gold/30 bg-gold/10 px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-gold transition-all hover:bg-gold/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {resendBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                {resendIn > 0 ? `Resend in ${resendIn}s` : "Resend email"}
+              </button>
 
-                {/* OTP field — appears once the code has been sent */}
-                {otpSent && (
+              {resendNote && (
+                <p role="status" className="mt-3 text-xs text-foreground/60">
+                  {resendNote}
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSentTo(null);
+                  setResendNote(null);
+                  setResendIn(0);
+                }}
+                className="mt-4 block w-full text-[11px] text-gold/60 underline-offset-2 hover:text-gold hover:underline"
+              >
+                Use a different email address
+              </button>
+            </div>
+          ) : (
+            <form className="space-y-3.5" onSubmit={handleEmail}>
+              {mode === "signup" ? (
+                <>
                   <Input
-                    icon={<ShieldCheck className="h-4 w-4" />}
-                    label="Verification Code"
-                    type="text"
-                    value={otp}
-                    onChange={(v) => setOtp(v.replace(/\D/g, "").slice(0, 6))}
-                    placeholder="123456"
+                    icon={<User className="h-4 w-4" />}
+                    label="Username"
+                    value={username}
+                    onChange={setUsername}
+                    placeholder="grandmaster"
                     required
                   />
-                )}
-              </>
-            ) : (
-              <Input
-                icon={<Mail className="h-4 w-4" />}
-                label="Email Address"
-                type="email"
-                value={email}
-                onChange={setEmail}
-                placeholder="your@email.com"
-                required
-              />
-            )}
-            <Input
-              icon={<Lock className="h-4 w-4" />}
-              label="Password"
-              type="password"
-              value={password}
-              onChange={setPassword}
-              placeholder="••••••••"
-              required
-              minLength={8}
-              autoComplete="new-password"
-            />
+                  <Input
+                    icon={<Mail className="h-4 w-4" />}
+                    label="Email Address"
+                    type="email"
+                    value={email}
+                    onChange={setEmail}
+                    placeholder="your@email.com"
+                    required
+                    autoComplete="email"
+                  />
+                  <p className="ml-1 text-[11px] leading-relaxed text-foreground/40">
+                    We&rsquo;ll email you a verification link. You&rsquo;ll set your password once
+                    your address is confirmed.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Input
+                    icon={<Mail className="h-4 w-4" />}
+                    label="Email Address"
+                    type="email"
+                    value={email}
+                    onChange={setEmail}
+                    placeholder="your@email.com"
+                    required
+                    autoComplete="email"
+                  />
+                  <Input
+                    icon={<Lock className="h-4 w-4" />}
+                    label="Password"
+                    type="password"
+                    value={password}
+                    onChange={setPassword}
+                    placeholder="••••••••"
+                    required
+                    autoComplete="current-password"
+                  />
+                </>
+              )}
 
-            {mode === "signup" && password.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 -mt-1 ml-1">
-                {PASSWORD_REQUIREMENTS.map((r) => {
-                  const passing = r.test(password);
-                  return (
-                    <div
-                      key={r.key}
-                      className={`flex items-center gap-1.5 text-[11px] ${passing ? "text-emerald" : "text-foreground/40"}`}
-                    >
-                      {passing ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                      {r.label}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+              {mode === "signin" && (
+                <div className="-mt-1 flex justify-end">
+                  <Link
+                    to="/forgot-password"
+                    className="text-xs text-gold/70 underline-offset-2 transition-colors hover:text-gold hover:underline"
+                  >
+                    Forgot Password?
+                  </Link>
+                </div>
+              )}
 
-            {mode === "signin" && (
-              <div className="-mt-1 flex justify-end">
-                <Link
-                  to="/forgot-password"
-                  className="text-xs text-gold/70 underline-offset-2 transition-colors hover:text-gold hover:underline"
+              {error && (
+                <div
+                  className={`rounded-lg border px-4 py-3 text-sm flex items-start gap-2 ${error.startsWith("Account created")
+                      ? "border-emerald/30 bg-emerald/10 text-emerald"
+                      : "border-destructive/30 bg-destructive/10 text-destructive"
+                    }`}
                 >
-                  Forgot Password?
-                </Link>
-              </div>
-            )}
+                  <div className="mt-0.5">•</div>
+                  <div>{error}</div>
+                </div>
+              )}
 
-            {error && (
-              <div
-                className={`rounded-lg border px-4 py-3 text-sm flex items-start gap-2 ${
-                  error.startsWith("Account created")
-                    ? "border-emerald/30 bg-emerald/10 text-emerald"
-                    : "border-destructive/30 bg-destructive/10 text-destructive"
-                }`}
-              >
-                <div className="mt-0.5">•</div>
-                <div>{error}</div>
+              <div className="pt-1">
+                <GoldButton className="w-full h-11 text-[14px]" disabled={busy} type="submit">
+                  {busy ? (
+                    <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+                  ) : mode === "signin" ? (
+                    "Sign In"
+                  ) : (
+                    "Create Account"
+                  )}
+                </GoldButton>
               </div>
-            )}
-
-            <div className="pt-1">
-              <GoldButton
-                className="w-full h-11 text-[14px]"
-                disabled={
-                  busy ||
-                  (mode === "signup" &&
-                    (!otpSent || otp.length !== 6 || !passwordMeetsPolicy(password)))
-                }
-                type="submit"
-              >
-                {busy ? (
-                  <Loader2 className="mx-auto h-4 w-4 animate-spin" />
-                ) : mode === "signin" ? (
-                  "Sign In"
-                ) : (
-                  "Create Account"
-                )}
-              </GoldButton>
-            </div>
-          </form>
+            </form>
+          )}
 
           <div className="my-6 flex items-center gap-4 text-xs font-medium text-foreground/40 uppercase tracking-widest">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent to-gold/20" />
@@ -562,9 +460,8 @@ function Input({
           minLength={minLength}
           disabled={disabled}
           autoComplete={autoComplete}
-          className={`w-full rounded-xl border border-gold/15 bg-black/40 py-3 pl-10 ${
-            isPassword ? "pr-10" : "pr-4"
-          } text-sm text-ivory outline-none transition-all placeholder:text-foreground/30 focus:border-gold/40 focus:bg-black/60 focus:ring-1 focus:ring-gold/40 disabled:opacity-60 disabled:cursor-not-allowed`}
+          className={`w-full rounded-xl border border-gold/15 bg-black/40 py-3 pl-10 ${isPassword ? "pr-10" : "pr-4"
+            } text-sm text-ivory outline-none transition-all placeholder:text-foreground/30 focus:border-gold/40 focus:bg-black/60 focus:ring-1 focus:ring-gold/40 disabled:opacity-60 disabled:cursor-not-allowed`}
         />
         {isPassword && (
           <button

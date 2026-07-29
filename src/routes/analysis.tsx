@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageShell } from "@/components/site/Primitives";
-import { AnalysisBoard } from "@/components/site/AnalysisBoard";
+import { AnalysisWorkspace } from "@/components/analysis/AnalysisWorkspace";
 import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/analysis")({
@@ -42,7 +42,7 @@ function Analysis() {
   const { gameId } = Route.useSearch();
   return (
     <PageShell eyebrow="Engine Room" title="Analysis Board">
-      <AnalysisBoard gameId={gameId} />
+      <AnalysisWorkspace gameId={gameId} />
     </PageShell>
   );
 }

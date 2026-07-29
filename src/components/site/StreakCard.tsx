@@ -1,4 +1,4 @@
-import { CalendarDays, Flame, Gift, Swords, Trophy, type LucideIcon } from "lucide-react";
+import { CalendarDays, Flame, Trophy, type LucideIcon } from "lucide-react";
 import { Card } from "@/components/site/Primitives";
 import { useStreaks } from "@/hooks/useStreaks";
 
@@ -84,13 +84,13 @@ export function StreakCard({ userId }: { userId: string }) {
 
         {/* Stat grid */}
         {loading ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[0, 1, 2, 3].map((i) => (
+          <div className="grid grid-cols-2 gap-3">
+            {[0, 1].map((i) => (
               <div key={i} className="h-20 animate-pulse rounded-2xl bg-white/5" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3">
             <StatBox
               label="Login Streak"
               value={streaks?.current_login_streak ?? 0}
@@ -104,19 +104,6 @@ export function StreakCard({ userId }: { userId: string }) {
               icon={Trophy}
               iconCls="text-gold"
             />
-            <StatBox
-              label="Match Streak"
-              value={streaks?.current_match_streak ?? 0}
-              icon={Swords}
-              iconCls="text-blue-400"
-              prominent
-            />
-            <StatBox
-              label="Best Match"
-              value={streaks?.best_match_streak ?? 0}
-              icon={Trophy}
-              iconCls="text-gold"
-            />
           </div>
         )}
 
@@ -127,17 +114,6 @@ export function StreakCard({ userId }: { userId: string }) {
             Last active: {fmtDate(streaks.last_login_date)}
           </div>
         )}
-
-        {/* Rewards placeholder */}
-        <div className="mt-4 flex items-center justify-between rounded-xl border border-gold/10 bg-gold/[0.03] px-4 py-3">
-          <div className="flex items-center gap-2 text-sm">
-            <Gift className="h-4 w-4 text-gold/40" />
-            <span className="text-muted-foreground">Daily Streak Rewards</span>
-          </div>
-          <span className="rounded-full border border-gold/20 bg-gold/5 px-3 py-0.5 text-xs text-gold/60">
-            Coming Soon
-          </span>
-        </div>
       </div>
     </Card>
   );

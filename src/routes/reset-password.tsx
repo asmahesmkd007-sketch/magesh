@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { GoldButton } from "@/components/site/Primitives";
 import { supabase } from "@/integrations/supabase/client";
+import { PASSWORD_RULES } from "@/lib/auth/password";
 import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/reset-password")({
@@ -33,18 +34,9 @@ const landing =
     ? { hash: window.location.hash, search: window.location.search }
     : { hash: "", search: "" };
 
-// Same policy as the Security tab in settings.tsx.
-const PASSWORD_REQUIREMENTS = [
-  { key: "length", label: "Minimum 8 characters", test: (p: string) => p.length >= 8 },
-  { key: "upper", label: "At least one uppercase letter", test: (p: string) => /[A-Z]/.test(p) },
-  { key: "lower", label: "At least one lowercase letter", test: (p: string) => /[a-z]/.test(p) },
-  { key: "number", label: "At least one number", test: (p: string) => /\d/.test(p) },
-  {
-    key: "special",
-    label: "At least one special character",
-    test: (p: string) => /[!@#$%^&*()\-_=+[\]{};':"\\|,.<>/?`~]/.test(p),
-  },
-] as const;
+// The one policy definition, shared with registration's create-password
+// screen and the Security tab in settings.tsx (@/lib/auth/password).
+const PASSWORD_REQUIREMENTS = PASSWORD_RULES;
 
 const STRENGTH_TIERS = [
   { label: "Too weak", color: "bg-destructive", text: "text-destructive" },

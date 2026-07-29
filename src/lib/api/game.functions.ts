@@ -3,6 +3,10 @@ import { Chess } from "chess.js";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+// Plain constants (its only import is type-only), so this is safe to pull in
+// statically — the alternative, a dynamic import, would put an await on the
+// move hot path for what is just a threshold lookup.
+import { ANTICHEAT_CONFIG } from "@/lib/anticheat/config";
 import { rateLimit } from "@/lib/rate-limit";
 
 // =====================================================================
@@ -24,6 +28,24 @@ const moveInput = z.object({
   promotion: z.enum(["q", "r", "b", "n"]).optional(),
 });
 
+// Anti-cheat evidence hook. Always fire-and-forget (`void ac(...)`) —
+// recording suspicion must never add a millisecond to the move path.
+async function ac(
+  events: Array<{
+    userId: string | null;
+    gameId: string | null;
+    type: import("@/lib/anticheat/types").ServerEventType;
+    metadata?: Record<string, unknown>;
+  }>,
+): Promise<void> {
+  try {
+    const { recordServerEvents } = await import("@/lib/anticheat/ingest.server");
+    await recordServerEvents(events);
+  } catch {
+    /* evidence recording is best-effort */
+  }
+}
+
 export type MakeMoveResult = {
   ok: boolean;
   status: string;
@@ -41,6 +63,7 @@ export const makeMove = createServerFn({ method: "POST" })
 
     // Guard against move-spam / runaway clients (bounded per instance).
     if (!rateLimit({ key: `move:${userId}`, limit: 10, windowMs: 1000 })) {
+      void ac([{ userId, gameId: data.gameId, type: "move_rate_exceeded" }]);
       throw new Error("Too many moves — slow down");
     }
 
@@ -60,7 +83,11 @@ export const makeMove = createServerFn({ method: "POST" })
 
     const myColor: "w" | "b" | null =
       g.white_id === userId ? "w" : g.black_id === userId ? "b" : null;
-    if (!myColor) throw new Error("Not a player in this game");
+    if (!myColor) {
+      // Ghost-move attempt: submitting into a game the caller isn't seated in.
+      void ac([{ userId, gameId: data.gameId, type: "non_player_move" }]);
+      throw new Error("Not a player in this game");
+    }
 
     // Defense-in-depth: banned/suspended players cannot move (mirrors the
     // DB triggers in migration 20260701000006 that block game/tournament entry).
@@ -81,9 +108,13 @@ export const makeMove = createServerFn({ method: "POST" })
       .eq("id", userId)
       .maybeSingle();
     if (prof?.account_status && ["banned", "suspended"].includes(prof.account_status)) {
+      void ac([{ userId, gameId: data.gameId, type: "banned_player_move_attempt" }]);
       throw new Error("Account is suspended or banned");
     }
-    if (g.turn !== myColor) throw new Error("Not your turn");
+    if (g.turn !== myColor) {
+      void ac([{ userId, gameId: data.gameId, type: "wrong_turn_move" }]);
+      throw new Error("Not your turn");
+    }
 
     // Recompute the clock from the server's own timestamps — never trust the client.
     const now = Date.now();
@@ -137,6 +168,9 @@ export const makeMove = createServerFn({ method: "POST" })
         .eq("id", data.gameId);
       if (g.is_rated)
         await supabaseAdmin.rpc("apply_elo_change", { p_game_id: data.gameId } as never);
+      void import("@/lib/anticheat/analysis.server")
+        .then((m) => m.analyzeGameIfNeeded(data.gameId))
+        .catch(() => {});
       return {
         ok: false,
         status: "finished",
@@ -153,9 +187,44 @@ export const makeMove = createServerFn({ method: "POST" })
     try {
       move = chess.move({ from: data.from, to: data.to, promotion: data.promotion });
     } catch {
+      void ac([
+        {
+          userId,
+          gameId: data.gameId,
+          type: "illegal_move_attempt",
+          metadata: { from: data.from, to: data.to, promotion: data.promotion ?? null },
+        },
+      ]);
       throw new Error("Illegal move");
     }
-    if (!move) throw new Error("Illegal move");
+    if (!move) {
+      void ac([
+        {
+          userId,
+          gameId: data.gameId,
+          type: "illegal_move_attempt",
+          metadata: { from: data.from, to: data.to, promotion: data.promotion ?? null },
+        },
+      ]);
+      throw new Error("Illegal move");
+    }
+
+    // Sub-human reaction time (server-measured, past the opening plies) —
+    // recorded as evidence only; the pattern analysis decides if it matters.
+    const acCfg = ANTICHEAT_CONFIG.server;
+    if (
+      ((g.moves_count as number) ?? 0) >= acCfg.speedCheckMinPly &&
+      elapsed < acCfg.impossibleMoveMs
+    ) {
+      void ac([
+        {
+          userId,
+          gameId: data.gameId,
+          type: "impossible_move_speed",
+          metadata: { elapsedMs: elapsed, ply: ((g.moves_count as number) ?? 0) + 1 },
+        },
+      ]);
+    }
 
     const fenAfter = chess.fen();
     const nextTurn = chess.turn();
@@ -206,7 +275,21 @@ export const makeMove = createServerFn({ method: "POST" })
       is_promotion: !!move.promotion,
       is_castling: move.flags.includes("k") || move.flags.includes("q"),
     } as never);
-    if (moveErr) throw new Error("Failed to record move");
+    if (moveErr) {
+      // UNIQUE (game_id, ply) tripping means this exact ply was already
+      // committed — a replayed/duplicated move packet racing itself.
+      if (moveErr.code === "23505" || /duplicate|unique/i.test(moveErr.message ?? "")) {
+        void ac([
+          {
+            userId,
+            gameId: data.gameId,
+            type: "duplicate_move",
+            metadata: { ply, uci: `${data.from}${data.to}${data.promotion ?? ""}` },
+          },
+        ]);
+      }
+      throw new Error("Failed to record move");
+    }
 
     // Update authoritative game state.
     const patch: Record<string, unknown> = {
@@ -233,6 +316,14 @@ export const makeMove = createServerFn({ method: "POST" })
 
     if (status === "finished" && g.is_rated) {
       await supabaseAdmin.rpc("apply_elo_change", { p_game_id: data.gameId } as never);
+    }
+
+    // Game over → queue the post-game fair-play analysis. Fire-and-forget:
+    // the pipeline claims the game atomically and runs off the move path.
+    if (status === "finished") {
+      void import("@/lib/anticheat/analysis.server")
+        .then((m) => m.analyzeGameIfNeeded(data.gameId))
+        .catch(() => {});
     }
 
     return { ok: true, status, result, fen: fenAfter, turn: nextTurn, endReason };

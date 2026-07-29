@@ -14,6 +14,16 @@ import React from "react";
 
 export type BoardCell = { square: Square; type: PieceSymbol; color: Color } | null;
 
+/** An arrow drawn over the board (engine suggestions, annotations). */
+export type BoardArrow = {
+  from: string;
+  to: string;
+  /** Any CSS color; defaults to the gold accent. */
+  color?: string;
+  /** 0–1 relative emphasis; scales width and opacity (default 1). */
+  weight?: number;
+};
+
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 
 type Props = {
@@ -31,6 +41,8 @@ type Props = {
   pieceTheme?: PieceTheme;
   showCoords?: boolean;
   endState?: { result: "white" | "black" | "draw"; reason: string } | null;
+  /** Arrows rendered over the board (engine lines, annotations). */
+  arrows?: BoardArrow[];
 };
 
 type Placed = { id: string; color: Color; type: PieceSymbol; square: string; fresh: boolean };
@@ -212,6 +224,7 @@ export const InteractiveBoard = React.memo(function InteractiveBoard({
   pieceTheme,
   showCoords,
   endState,
+  arrows,
 }: Props) {
   // Fall back to the user's saved settings so every board mode (Play, Bot,
   // Analysis, Puzzle, Tournament, Replay, Spectator) reflects them automatically.
@@ -454,6 +467,59 @@ export const InteractiveBoard = React.memo(function InteractiveBoard({
                     );
                   })}
                 </div>
+
+                {/* Arrow overlay (engine suggestions / annotations) */}
+                {arrows && arrows.length > 0 && (
+                  <svg
+                    viewBox="0 0 8 8"
+                    className="pointer-events-none absolute inset-0 h-full w-full"
+                    style={{ zIndex: 20 }}
+                    aria-hidden="true"
+                  >
+                    {arrows.map((a, i) => {
+                      const from = coords(a.from);
+                      const to = coords(a.to);
+                      const x1 = from.col + 0.5;
+                      const y1 = from.row + 0.5;
+                      const x2 = to.col + 0.5;
+                      const y2 = to.row + 0.5;
+                      const dx = x2 - x1;
+                      const dy = y2 - y1;
+                      const len = Math.hypot(dx, dy);
+                      if (len === 0) return null;
+                      const ux = dx / len;
+                      const uy = dy / len;
+                      const weight = a.weight ?? 1;
+                      const color = a.color ?? "rgb(212,175,55)";
+                      const width = 0.14 * (0.6 + 0.4 * weight);
+                      const head = 0.3 * (0.7 + 0.3 * weight);
+                      // Start off-centre, stop where the head begins.
+                      const sx = x1 + ux * 0.3;
+                      const sy = y1 + uy * 0.3;
+                      const hx = x2 - ux * head;
+                      const hy = y2 - uy * head;
+                      const px = -uy;
+                      const py = ux;
+                      return (
+                        <g key={`${a.from}${a.to}${i}`} opacity={0.5 + 0.35 * weight}>
+                          <line
+                            x1={sx}
+                            y1={sy}
+                            x2={hx}
+                            y2={hy}
+                            stroke={color}
+                            strokeWidth={width}
+                            strokeLinecap="round"
+                          />
+                          <polygon
+                            fill={color}
+                            points={`${x2},${y2} ${hx + px * head * 0.6},${hy + py * head * 0.6} ${hx - px * head * 0.6},${hy - py * head * 0.6}`}
+                          />
+                        </g>
+                      );
+                    })}
+                  </svg>
+                )}
 
                 {/* Floating piece that follows the cursor while dragging */}
                 {drag &&

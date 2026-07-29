@@ -13,6 +13,10 @@ import type { GameSettings } from "@/lib/settings/schema";
  * not via the notifications table; there's no "friend came online" or
  * "match found" event producer yet). A kind with no mapping is always
  * shown — filtering only applies where there's a real category to filter.
+ *
+ * The anti-cheat kinds (`anticheat` admin alerts, `anticheat_enforcement`
+ * player notices) are deliberately unmapped: fair-play alerts and account
+ * actions must reach their recipient regardless of preferences.
  */
 const CATEGORY_BY_KIND: Partial<Record<string, keyof GameSettings>> = {
   tournament_locked: "notify_tournament_starting",

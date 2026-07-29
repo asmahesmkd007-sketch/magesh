@@ -8,13 +8,17 @@ const isProd = process.env.NODE_ENV === "production";
 //   - Supabase REST + Realtime (https/wss to *.supabase.co)
 //   - Google Fonts (styles from googleapis, fonts from gstatic)
 //   - Inline styles (Tailwind) and the framework's hydration script
+//   - Stockfish WASM ('wasm-unsafe-eval' + same-origin worker; the engine
+//     itself is served from /engine/, so no third-party script is involved)
+//   - Lichess tablebase API (Syzygy endgame probing in the analysis room)
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+  "worker-src 'self' blob:",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://tablebase.lichess.ovh",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

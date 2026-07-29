@@ -2,7 +2,8 @@
 
 A royal Indian–themed online chess platform: live multiplayer, ranked Quick Match,
 friend challenges, vs-computer, puzzles & rush, clubs, tournaments, news, friends,
-and presence — built on **React 19 + TanStack Start (SSR)** and **Supabase**.
+presence, and live spectating — built on **React 19 + TanStack Start (SSR)** and
+**Supabase**.
 
 ## Quick start
 
@@ -26,12 +27,17 @@ npm run dev               # http://localhost:8080
 ## How it works (short version)
 
 - The **database is the source of truth** for games. Clients can't write game state directly; moves are validated server-side with chess.js (`submitMove`) and other transitions go through `SECURITY DEFINER` RPCs. This makes wins and ratings unforgeable.
+- A **live game is only readable by its two players.** Spectators get a position rebuilt as it stood 20–30s ago, through `get_spectator_game()`. The broadcast delay lives in RLS, not in the UI, so it can't be skipped by querying around the app.
 - The **service layer** (`src/lib/api/gameClient.ts`) is the single typed entry point for game/matchmaking actions.
 - Cross-cutting concerns are modular: structured logging, security headers/CSP, rate limiting, presence.
 
 ## Documentation
 
 - [Architecture](./docs/ARCHITECTURE.md)
+- [Authentication (registration & passwords)](./docs/AUTH.md)
+- [Analysis module (engine room)](./docs/ANALYSIS.md)
+- [Spectator mode (live broadcasts & delay)](./docs/SPECTATOR.md)
+- [Ranking system (ELO + Season Points)](./docs/RANKING.md)
 - [API reference](./docs/API.md)
 - [Database & schema](./docs/DATABASE.md)
 - [Deployment](./docs/DEPLOYMENT.md)

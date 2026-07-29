@@ -63,15 +63,26 @@ export function useFriends(userId?: string | null) {
         : { data: [] as { user_id: string; rating: number }[] };
     const ratingByPlayer = new Map((ratingRows ?? []).map((r) => [r.user_id, r.rating]));
 
-    // Cheap, read-only lookup against the existing `games` table (publicly
-    // selectable) so "Current status" can say "Playing now" instead of just
-    // online/offline — no schema changes needed.
+    // "Playing now" comes from public.live_games, not from `games`: since
+    // spectator mode landed, an in-progress game's row is readable only by
+    // its two players (schema.sql SECTION 104). live_games is the
+    // position-free projection built for exactly this kind of lookup — it
+    // exposes who is playing without exposing the board.
     const { data: liveGames } =
       uniqueIds.length > 0
-        ? await supabase
-            .from("games")
+        ? await (
+            supabase as unknown as {
+              from: (t: string) => {
+                select: (c: string) => {
+                  or: (f: string) => Promise<{
+                    data: { id: string; white_id: string | null; black_id: string | null }[] | null;
+                  }>;
+                };
+              };
+            }
+          )
+            .from("live_games")
             .select("id,white_id,black_id")
-            .eq("status", "active")
             .or(`white_id.in.(${uniqueIds.join(",")}),black_id.in.(${uniqueIds.join(",")})`)
         : { data: [] as { id: string; white_id: string | null; black_id: string | null }[] };
     const activeGameByPlayer = new Map<string, string>();

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { PageShell, Card, GoldButton } from "@/components/site/Primitives";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { noteFairPlayReport } from "@/lib/anticheat/anticheat.functions";
 import { noindexSeo } from "@/lib/seo";
 
 type Search = { type?: string; id?: string };
@@ -75,6 +76,11 @@ function ReportPage() {
           description: details.trim() || reason,
         });
       if (error) throw new Error(error.message);
+      // Fair-play reports about a specific player also register as a weak
+      // anti-cheat signal (never enough to enforce on by itself).
+      if (initId && (targetType === "user" || targetType === "game")) {
+        void noteFairPlayReport({ data: { reportedUserId: initId, reason } }).catch(() => {});
+      }
       toast.success("Report submitted — our moderation team will review it.");
       navigate({ to: "/home" });
     } catch (e) {

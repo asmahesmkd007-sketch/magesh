@@ -520,26 +520,71 @@ export function VsComputer() {
   const isMyTurn = phase === "playing" && gameRef.current.turn() === myColor && !thinking;
   const isOppTurn = phase === "playing" && gameRef.current.turn() !== myColor;
 
-  return (
-    <div className="grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)_280px]">
-      {/* LEFT — Your profile */}
-      <div className="space-y-4">
-        <ProfileCard
-          label="Your Profile"
-          name={myName}
-          rating={myRating}
-          time={myTime}
-          active={isMyTurn}
-          icon={myInitial}
-          iconBg="gradient-gold text-[#0B0D10]"
-          capturedColor={myColor}
-          board={board}
-        />
-      </div>
+  const topPlayer =
+    myColor === "w"
+      ? {
+          name: `${activeLevel.name} Engine`,
+          rating: oppRating,
+          time: oppTime,
+          active: isOppTurn,
+          icon: <Bot className="h-4 w-4" />,
+          iconBg: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
+          capturedColor: "w" as const,
+          me: false,
+        }
+      : {
+          name: myName,
+          rating: myRating,
+          time: myTime,
+          active: isMyTurn,
+          icon: myInitial,
+          iconBg: "bg-gold/20 text-gold border border-gold/40",
+          capturedColor: "b" as const,
+          me: true,
+        };
 
-      {/* CENTER — Board + actions */}
-      <div className="flex flex-col items-center gap-6">
-        <div className="relative w-full">
+  const bottomPlayer =
+    myColor === "w"
+      ? {
+          name: myName,
+          rating: myRating,
+          time: myTime,
+          active: isMyTurn,
+          icon: myInitial,
+          iconBg: "bg-gold/20 text-gold border border-gold/40",
+          capturedColor: "b" as const,
+          me: true,
+        }
+      : {
+          name: `${activeLevel.name} Engine`,
+          rating: oppRating,
+          time: oppTime,
+          active: isOppTurn,
+          icon: <Bot className="h-4 w-4" />,
+          iconBg: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
+          capturedColor: "w" as const,
+          me: false,
+        };
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_320px] items-start max-w-5xl mx-auto">
+      {/* MAIN COLUMN (OPPONENT PROFILE + BOARD + PLAYER PROFILE) */}
+      <div className="flex flex-col gap-2 w-full">
+        {/* Top Player (Opponent when White, You when Black) */}
+        <PlayerBar
+          name={topPlayer.name}
+          rating={topPlayer.rating}
+          time={topPlayer.time}
+          active={topPlayer.active}
+          icon={topPlayer.icon}
+          iconBg={topPlayer.iconBg}
+          capturedColor={topPlayer.capturedColor}
+          board={board}
+          me={topPlayer.me}
+        />
+
+        {/* Chess Board */}
+        <div className="relative w-full aspect-square">
           <InteractiveBoard
             board={board}
             orientation={myColor}
@@ -567,85 +612,90 @@ export function VsComputer() {
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <GhostButton onClick={() => setPhase("setup")}>
-            <RotateCcw className="h-4 w-4" /> New Game
-          </GhostButton>
-          <GhostButton onClick={analyzeGame}>
-            <LineChart className="h-4 w-4" /> Analysis
-          </GhostButton>
-          {phase === "playing" ? (
-            <>
-              <GhostButton onClick={resign}>
-                <Flag className="h-4 w-4" /> Resign
-              </GhostButton>
-              <GhostButton onClick={offerDraw}>
-                <Handshake className="h-4 w-4" /> Draw
-              </GhostButton>
-            </>
-          ) : (
-            <GoldButton onClick={() => setShowResult(true)}>
-              <Crown className="h-4 w-4" /> View Result
-            </GoldButton>
+        {/* Bottom Player (You when White, Opponent when Black) */}
+        <PlayerBar
+          name={bottomPlayer.name}
+          rating={bottomPlayer.rating}
+          time={bottomPlayer.time}
+          active={bottomPlayer.active}
+          icon={bottomPlayer.icon}
+          iconBg={bottomPlayer.iconBg}
+          capturedColor={bottomPlayer.capturedColor}
+          board={board}
+          me={bottomPlayer.me}
+        />
+      </div>
+
+      {/* RIGHT SIDEBAR (STATUS + MOVE LIST + GAME ACTIONS) */}
+      <div className="space-y-4">
+        {/* Game Status Banner */}
+        <div className="rounded-xl border border-gold/20 bg-black/60 p-3 text-center">
+          <div className="text-xs uppercase tracking-[0.2em] font-semibold text-muted-foreground">
+            {phase === "over"
+              ? resultText
+              : thinking
+                ? "Engine is thinking…"
+                : gameRef.current.inCheck()
+                  ? "Check!"
+                  : isMyTurn
+                    ? "Your turn"
+                    : "Awaiting opponent…"}
+          </div>
+          {thinking && (
+            <div className="mt-1 flex items-center justify-center gap-1.5 text-xs text-gold/80 animate-pulse">
+              <Sparkles className="h-3.5 w-3.5" /> Engine thinking...
+            </div>
           )}
         </div>
 
-        <div className="text-center text-xs uppercase tracking-[0.24em] text-muted-foreground">
-          {phase === "over"
-            ? resultText
-            : thinking
-              ? "Engine is thinking…"
-              : gameRef.current.inCheck()
-                ? "Check!"
-                : isMyTurn
-                  ? "Your move"
-                  : "Awaiting opponent…"}
-        </div>
-      </div>
-
-      {/* RIGHT — Move list + opponent */}
-      <div className="space-y-4">
-        <Card className="p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="font-display text-lg">Move List</div>
-            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+        {/* Move List */}
+        <Card className="p-4">
+          <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-2">
+            <div className="font-display text-base font-bold text-foreground">Move List</div>
+            <span className="text-[10px] font-mono text-muted-foreground">
               {history.length} ply
             </span>
           </div>
-          <div className="grid max-h-[260px] grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1.5 overflow-y-auto pr-2 text-sm scrollbar-thin">
+          <div className="grid max-h-[280px] grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1.5 overflow-y-auto pr-2 text-sm font-mono scrollbar-thin">
             {movePairs.length === 0 && (
-              <div className="col-span-3 text-xs text-muted-foreground">
+              <div className="col-span-3 text-xs text-muted-foreground italic">
                 No moves yet — make the opening move.
               </div>
             )}
             {movePairs.map((pair, i) => (
               <div className="contents" key={i}>
-                <div className="text-right text-muted-foreground">{i + 1}.</div>
-                <div className="font-mono">{pair[0]}</div>
-                <div className="font-mono text-muted-foreground">{pair[1] ?? ""}</div>
+                <div className="text-right text-muted-foreground/60">{i + 1}.</div>
+                <div className="text-foreground">{pair[0]}</div>
+                <div className="text-muted-foreground">{pair[1] ?? ""}</div>
               </div>
             ))}
             <div ref={movesEndRef} className="col-span-3" />
           </div>
         </Card>
 
-        <ProfileCard
-          label="Opponent Profile"
-          name={`${activeLevel.name} Engine`}
-          rating={oppRating}
-          time={oppTime}
-          active={isOppTurn}
-          icon={<Bot className="h-7 w-7" />}
-          iconBg="bg-emerald/25 text-emerald"
-          capturedColor={myColor === "w" ? "b" : "w"}
-          board={board}
-        />
-
-        {thinking && (
-          <div className="flex items-center justify-center gap-2 text-xs text-gold/80">
-            <Sparkles className="h-3 w-3 animate-pulse" /> Engine is thinking…
-          </div>
-        )}
+        {/* Game Actions */}
+        <div className="flex flex-col gap-2">
+          <GhostButton onClick={() => setPhase("setup")} className="w-full">
+            <RotateCcw className="mr-2 h-4 w-4" /> New Game
+          </GhostButton>
+          <GhostButton onClick={analyzeGame} className="w-full">
+            <LineChart className="mr-2 h-4 w-4" /> Analysis
+          </GhostButton>
+          {phase === "playing" ? (
+            <div className="grid grid-cols-2 gap-2">
+              <GhostButton onClick={resign} className="text-red-400 hover:text-red-300">
+                <Flag className="mr-1.5 h-4 w-4" /> Resign
+              </GhostButton>
+              <GhostButton onClick={offerDraw}>
+                <Handshake className="mr-1.5 h-4 w-4" /> Draw
+              </GhostButton>
+            </div>
+          ) : (
+            <GoldButton onClick={() => setShowResult(true)} className="w-full">
+              <Crown className="mr-2 h-4 w-4" /> View Result
+            </GoldButton>
+          )}
+        </div>
       </div>
 
       <Dialog open={showResult} onOpenChange={setShowResult}>
@@ -690,12 +740,7 @@ export function VsComputer() {
   );
 }
 
-// Hoisted to module scope (was previously defined inline inside VsComputer's
-// render, which gave it a new function identity every render — React then
-// remounted it on every tick, discarding useClockAudio's internal refs and
-// re-firing the low-time warning repeatedly instead of once).
-function ProfileCard({
-  label,
+function PlayerBar({
   name,
   rating,
   time,
@@ -704,48 +749,60 @@ function ProfileCard({
   iconBg,
   capturedColor,
   board,
+  me,
 }: {
-  label: string;
   name: string;
   rating: number;
-  /** Remaining time in milliseconds. */
   time: number;
   active: boolean;
   icon: React.ReactNode;
   iconBg: string;
   capturedColor: "w" | "b";
   board: BoardCell[][];
+  me?: boolean;
 }) {
   useClockAudio(Math.ceil(time / 1000), active);
   return (
-    <Card className="p-5 text-center">
-      <div className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">{label}</div>
-      <div className="mx-auto mt-4 grid h-20 w-20 place-items-center rounded-full bg-[#1a0d10] ring-2 ring-gold/70 shadow-[0_0_24px_rgba(212,175,55,0.25)]">
+    <div
+      className={`flex items-center justify-between px-3 py-2 rounded-xl border transition-all ${
+        active
+          ? "border-gold/50 bg-gold/10 shadow-md shadow-gold/10"
+          : "border-white/10 bg-black/60"
+      }`}
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
         <div
-          className={`grid h-16 w-16 place-items-center rounded-full ${iconBg} font-display text-2xl text-ivory`}
+          className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${iconBg} font-display text-sm font-bold`}
         >
           {icon}
         </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="truncate font-display text-sm font-semibold text-foreground">
+              {name}
+            </span>
+            {me && (
+              <span className="rounded bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-gold border border-gold/30">
+                You
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{rating} Elo</span>
+            <CapturedPieces board={board} player={capturedColor} className="inline-flex ml-1" />
+          </div>
+        </div>
       </div>
-      <div className="mt-3 truncate font-display text-sm">{name}</div>
-      <div className="mt-1">
-        <span className="font-stat text-2xl text-gradient-gold">{rating}</span>
-        <span className="ml-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-          ELO
-        </span>
-      </div>
+
       <div
-        className={`mx-auto mt-4 w-fit rounded-full border px-5 py-1.5 font-stat text-xl tabular-nums transition-colors ${
+        className={`rounded-lg px-3 py-1 font-sans text-sm font-bold tracking-wide tabular-nums transition-all shrink-0 ${
           active
-            ? "border-gold/80 text-gold shadow-[0_0_18px_rgba(212,175,55,0.35)]"
-            : "border-gold/20 text-foreground/70"
+            ? "bg-gold text-[#0B0D10] shadow-md shadow-gold/30 scale-105"
+            : "bg-white/10 text-foreground/90 border border-white/15"
         }`}
       >
         <ClockTime ms={time} active={active} />
       </div>
-      <div className="mt-3 flex justify-center">
-        <CapturedPieces board={board} player={capturedColor} />
-      </div>
-    </Card>
+    </div>
   );
 }

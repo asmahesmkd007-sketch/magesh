@@ -368,14 +368,65 @@
     background-size: 34px 34px;
   }
 
-  .royal-scroll::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+  /* GLOBAL WEBSITE SCROLLBARS (MAIN BROWSER WINDOW & ALL CONTAINERS) */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
   }
 
-  .royal-scroll::-webkit-scrollbar-thumb {
-    background: rgba(212, 175, 55, 0.26);
+  ::-webkit-scrollbar-track {
+    background: rgba(11, 13, 16, 0.8);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(212, 175, 55, 0.35);
     border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(212, 175, 55, 0.7);
+  }
+
+  .royal-scroll::-webkit-scrollbar,
+  .scrollbar-thin::-webkit-scrollbar,
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .royal-scroll::-webkit-scrollbar-track,
+  .scrollbar-thin::-webkit-scrollbar-track,
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .royal-scroll::-webkit-scrollbar-thumb,
+  .scrollbar-thin::-webkit-scrollbar-thumb,
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(212, 175, 55, 0.35);
+    border-radius: 999px;
+  }
+
+  .royal-scroll::-webkit-scrollbar-thumb:hover,
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover,
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(212, 175, 55, 0.7);
+  }
+
+  .scrollbar-none::-webkit-scrollbar,
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-none,
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(212, 175, 55, 0.35) rgba(11, 13, 16, 0.8);
   }
 
   .text-gold {

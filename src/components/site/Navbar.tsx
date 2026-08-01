@@ -55,6 +55,8 @@ export function Navbar() {
   const [userMenu, setUserMenu] = useState(false);
   const [communityMenu, setCommunityMenu] = useState(false);
   const [moreMenu, setMoreMenu] = useState(false);
+  const [mobileCommunityOpen, setMobileCommunityOpen] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { user } = useAuth();
   const { profile } = useProfile(user?.id);
@@ -67,6 +69,8 @@ export function Navbar() {
     setUserMenu(false);
     setCommunityMenu(false);
     setMoreMenu(false);
+    setMobileCommunityOpen(false);
+    setMobileMoreOpen(false);
   }
 
   async function handleSignOut() {
@@ -327,119 +331,247 @@ export function Navbar() {
 
       {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="border-t border-gold/15 bg-background/95 lg:hidden">
+        <div className="border-t border-gold/15 bg-background/95 lg:hidden max-h-[calc(100vh-72px)] overflow-y-auto custom-scrollbar z-50">
           <div className="mx-auto grid gap-2 px-4 py-4">
             {user ? (
               <>
-                {NAV_AUTH.map((n) => (
-                  <Link
-                    key={n.to}
-                    to={n.to}
-                    onClick={() => setMobileOpen(false)}
-                    className="rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
-                  >
-                    {n.label}
-                  </Link>
-                ))}
-                <div className="px-1 pt-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                  Community
-                </div>
-                {COMMUNITY_ITEMS.map((n) =>
-                  n.isComingSoon ? (
-                    <button
-                      key={n.to}
-                      onClick={() => {
-                        setMobileOpen(false);
-                        setShowComingSoon(true);
-                      }}
-                      className="w-full text-left rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
-                    >
-                      {n.label}
-                    </button>
-                  ) : (
-                    <Link
-                      key={n.to}
-                      to={n.to}
-                      onClick={() => setMobileOpen(false)}
-                      className="rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
-                    >
-                      {n.label}
-                    </Link>
-                  ),
-                )}
+                {/* 1. Home */}
                 <Link
-                  to="/notifications"
+                  to="/home"
                   onClick={() => setMobileOpen(false)}
-                  className="flex items-center justify-between rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
+                  className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
+                    path === "/home"
+                      ? "border-gold/40 bg-gold/15 text-gold"
+                      : "border-gold/15 bg-white/[0.03] text-foreground hover:bg-gold/10 hover:text-gold"
+                  }`}
                 >
-                  <span>Notifications</span>
-                  {unreadCount > 0 && (
-                    <span className="grid h-5 min-w-5 place-items-center rounded-full bg-gold px-1.5 text-[10px] font-bold text-[#0B0D10]">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
-                  )}
+                  Home
                 </Link>
-                {isAdmin && (
-                  <Link
-                    to="/admin"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-2 rounded-xl border border-gold/30 bg-gold/5 px-4 py-3 text-sm text-gold"
+
+                {/* 2. Play */}
+                <Link
+                  to="/play"
+                  onClick={() => setMobileOpen(false)}
+                  className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
+                    path.startsWith("/play")
+                      ? "border-gold/40 bg-gold/15 text-gold"
+                      : "border-gold/15 bg-white/[0.03] text-foreground hover:bg-gold/10 hover:text-gold"
+                  }`}
+                >
+                  Play
+                </Link>
+
+                {/* 3. Watch */}
+                <Link
+                  to="/watch"
+                  onClick={() => setMobileOpen(false)}
+                  className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
+                    path.startsWith("/watch")
+                      ? "border-gold/40 bg-gold/15 text-gold"
+                      : "border-gold/15 bg-white/[0.03] text-foreground hover:bg-gold/10 hover:text-gold"
+                  }`}
+                >
+                  Watch
+                </Link>
+
+                {/* 4. Puzzles */}
+                <Link
+                  to="/puzzles"
+                  onClick={() => setMobileOpen(false)}
+                  className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
+                    path.startsWith("/puzzles")
+                      ? "border-gold/40 bg-gold/15 text-gold"
+                      : "border-gold/15 bg-white/[0.03] text-foreground hover:bg-gold/10 hover:text-gold"
+                  }`}
+                >
+                  Puzzles
+                </Link>
+
+                {/* 5. Tournaments */}
+                <Link
+                  to="/tournaments"
+                  onClick={() => setMobileOpen(false)}
+                  className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
+                    path.startsWith("/tournaments")
+                      ? "border-gold/40 bg-gold/15 text-gold"
+                      : "border-gold/15 bg-white/[0.03] text-foreground hover:bg-gold/10 hover:text-gold"
+                  }`}
+                >
+                  Tournaments
+                </Link>
+
+                {/* 6. Community Accordion Dropdown */}
+                <div className="rounded-xl border border-gold/15 bg-white/[0.03]">
+                  <button
+                    onClick={() => setMobileCommunityOpen((v) => !v)}
+                    className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-foreground hover:text-gold"
                   >
-                    <ShieldCheck className="h-4 w-4" /> Admin Panel
-                  </Link>
-                )}
+                    <span>Community</span>
+                    <ChevronDown
+                      className={`h-4 w-4 text-gold/70 transition-transform ${
+                        mobileCommunityOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                  {mobileCommunityOpen && (
+                    <div className="space-y-1 border-t border-gold/10 px-3 py-2 bg-black/20">
+                      {COMMUNITY_ITEMS.map((n) =>
+                        n.isComingSoon ? (
+                          <button
+                            key={n.to}
+                            onClick={() => {
+                              setMobileOpen(false);
+                              setShowComingSoon(true);
+                            }}
+                            className="block w-full text-left rounded-lg px-3 py-2 text-xs text-muted-foreground hover:bg-white/5 hover:text-gold"
+                          >
+                            {n.label} (Coming Soon)
+                          </button>
+                        ) : (
+                          <Link
+                            key={n.to}
+                            to={n.to}
+                            onClick={() => setMobileOpen(false)}
+                            className={`block rounded-lg px-3 py-2 text-xs font-medium transition ${
+                              path.startsWith(n.to)
+                                ? "bg-gold/15 text-gold"
+                                : "text-foreground hover:bg-white/5 hover:text-gold"
+                            }`}
+                          >
+                            {n.label}
+                          </Link>
+                        ),
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 7. Premium */}
                 <Link
                   to="/premium"
                   onClick={() => setMobileOpen(false)}
-                  className="rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
+                  className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
+                    path.startsWith("/premium")
+                      ? "border-gold/40 bg-gold/15 text-gold"
+                      : "border-gold/15 bg-white/[0.03] text-foreground hover:bg-gold/10 hover:text-gold"
+                  }`}
                 >
                   Premium
                 </Link>
-                <Link
-                  to="/wallet"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center justify-between rounded-xl border border-gold/25 bg-gold/5 px-4 py-3 text-sm text-gold"
-                >
-                  <span className="flex items-center gap-2">
-                    <Coins className="h-4 w-4" /> Wallet
-                  </span>
-                  <span className="font-display">{wallet?.balance ?? 0} coins</span>
-                </Link>
-                <div className="px-1 pt-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                  More
-                </div>
-                {MORE_ITEMS.map((n) => (
-                  <Link
-                    key={n.to}
-                    to={n.to}
-                    onClick={() => setMobileOpen(false)}
-                    className="rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
+
+                {/* 8. More Accordion Dropdown */}
+                <div className="rounded-xl border border-gold/15 bg-white/[0.03]">
+                  <button
+                    onClick={() => setMobileMoreOpen((v) => !v)}
+                    className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-foreground hover:text-gold"
                   >
-                    {n.label}
+                    <span>More</span>
+                    <ChevronDown
+                      className={`h-4 w-4 text-gold/70 transition-transform ${
+                        mobileMoreOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                  {mobileMoreOpen && (
+                    <div className="space-y-1 border-t border-gold/10 px-3 py-2 bg-black/20">
+                      {MORE_ITEMS.map((n) => (
+                        <Link
+                          key={n.to}
+                          to={n.to}
+                          onClick={() => setMobileOpen(false)}
+                          className={`block rounded-lg px-3 py-2 text-xs font-medium transition ${
+                            path.startsWith(n.to)
+                              ? "bg-gold/15 text-gold"
+                              : "text-foreground hover:bg-white/5 hover:text-gold"
+                          }`}
+                        >
+                          {n.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* User Account / Shortcuts */}
+                <div className="pt-2 border-t border-gold/10 space-y-2">
+                  <Link
+                    to="/notifications"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center justify-between rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Bell className="h-4 w-4 text-gold" /> Notifications
+                    </span>
+                    {unreadCount > 0 && (
+                      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-gold px-1.5 text-[10px] font-bold text-[#0B0D10]">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
                   </Link>
-                ))}
-                <button
-                  onClick={() => {
-                    setMobileOpen(false);
-                    handleSignOut();
-                  }}
-                  className="mt-2 rounded-xl gradient-gold px-4 py-3 text-center text-sm font-medium text-background"
-                >
-                  Sign out
-                </button>
+
+                  {isAdmin && (
+                    <Link
+                      to="/admin"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-2 rounded-xl border border-gold/30 bg-gold/5 px-4 py-3 text-sm text-gold"
+                    >
+                      <ShieldCheck className="h-4 w-4" /> Admin Panel
+                    </Link>
+                  )}
+
+                  <Link
+                    to="/wallet"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center justify-between rounded-xl border border-gold/25 bg-gold/5 px-4 py-3 text-sm text-gold"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Coins className="h-4 w-4" /> Wallet
+                    </span>
+                    <span className="font-display">{wallet?.balance ?? 0} coins</span>
+                  </Link>
+
+                  <button
+                    onClick={() => {
+                      setMobileOpen(false);
+                      handleSignOut();
+                    }}
+                    className="mt-2 w-full rounded-xl gradient-gold px-4 py-3 text-center text-sm font-medium text-background"
+                  >
+                    Sign out
+                  </button>
+                </div>
               </>
             ) : (
+              /* GUEST VIEW */
               <>
-                {NAV_GUEST.map((n) => (
-                  <Link
-                    key={n.to}
-                    to={n.to}
-                    onClick={() => setMobileOpen(false)}
-                    className="rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
-                  >
-                    {n.label}
-                  </Link>
-                ))}
+                <Link
+                  to="/watch"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
+                >
+                  Watch
+                </Link>
+                <Link
+                  to="/community"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
+                >
+                  Community
+                </Link>
+                <Link
+                  to="/news"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
+                >
+                  News
+                </Link>
+                <Link
+                  to="/tournaments"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
+                >
+                  Tournaments
+                </Link>
                 <div className="grid grid-cols-2 gap-2 pt-2">
                   <Link
                     to="/auth"

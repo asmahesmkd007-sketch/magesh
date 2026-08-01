@@ -1012,7 +1012,7 @@ function LiveGame() {
       {/* =================================================== */}
       {/* MOBILE LAYOUT (< lg screens)                       */}
       {/* =================================================== */}
-      <div className="flex lg:hidden flex-col h-screen max-h-screen overflow-hidden bg-[#0B0D10] text-foreground select-none relative">
+      <div className="flex lg:hidden flex-col h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#0B0D10] text-foreground select-none fixed inset-0 z-10 touch-none overscroll-none">
         {/* 1. FIXED TOP HEADER */}
         <header className="flex-shrink-0 h-11 bg-black/90 backdrop-blur-md border-b border-gold/20 px-3 flex items-center justify-between z-20">
           <button
@@ -1051,32 +1051,34 @@ function LiveGame() {
               1. game start...
             </span>
           ) : (
-            Array.from({ length: Math.ceil(moves.length / 2) }).map((_, i) => {
-              const wPly = i * 2 + 1;
-              const bPly = i * 2 + 2;
-              const wMove = moves[i * 2];
-              const bMove = moves[i * 2 + 1];
-              const isWActive = viewPly === wPly || (viewPly === null && moves.length === wPly);
-              const isBActive = viewPly === bPly || (viewPly === null && moves.length === bPly);
+            moves.map((m, idx) => {
+              if (idx % 2 !== 0) return null;
+              const moveNum = Math.floor(idx / 2) + 1;
+              const wMove = m;
+              const bMove = moves[idx + 1];
+              const isWActive = viewPly !== null ? viewPly === idx + 1 : idx === moves.length - 1;
+              const isBActive =
+                viewPly !== null ? viewPly === idx + 2 : bMove && idx + 1 === moves.length - 1;
+
               return (
-                <div key={i} className="inline-flex items-center gap-1 shrink-0 font-mono text-[11px]">
-                  <span className="text-muted-foreground/50 font-semibold">{i + 1}.</span>
-                  {wMove && (
-                    <button
-                      onClick={() => setViewPly(wPly)}
-                      className={`px-1.5 py-0.5 rounded font-medium transition-all ${
-                        isWActive
-                          ? "bg-gold text-[#0B0D10] font-bold shadow-sm shadow-gold/40"
-                          : "bg-white/5 text-foreground hover:bg-white/15"
-                      }`}
-                    >
-                      {wMove.san}
-                    </button>
-                  )}
+                <div key={idx} className="inline-flex items-center gap-1 shrink-0">
+                  <span className="text-[11px] text-gold/70 font-mono font-medium">
+                    {moveNum}.
+                  </span>
+                  <button
+                    onClick={() => setViewPly(idx + 1)}
+                    className={`px-1.5 py-0.5 rounded text-[11px] font-mono transition-colors ${
+                      isWActive
+                        ? "bg-gold text-[#0B0D10] font-bold shadow-sm shadow-gold/40"
+                        : "bg-white/5 text-foreground hover:bg-white/15"
+                    }`}
+                  >
+                    {wMove.san}
+                  </button>
                   {bMove && (
                     <button
-                      onClick={() => setViewPly(bPly)}
-                      className={`px-1.5 py-0.5 rounded font-medium transition-all ${
+                      onClick={() => setViewPly(idx + 2)}
+                      className={`px-1.5 py-0.5 rounded text-[11px] font-mono transition-colors ${
                         isBActive
                           ? "bg-gold text-[#0B0D10] font-bold shadow-sm shadow-gold/40"
                           : "bg-white/5 text-foreground hover:bg-white/15"
@@ -1094,7 +1096,7 @@ function LiveGame() {
         {/* MAIN GAME CONTAINER (OPPONENT PROFILE + BOARD + PLAYER PROFILE) */}
         <div className="flex-1 flex flex-col justify-center items-center px-1 py-0.5 overflow-hidden min-h-0 w-full">
           {/* 3. OPPONENT PROFILE */}
-          <div className="w-full max-w-[min(100vw,calc(100vh-210px))] flex-shrink-0">
+          <div className="w-full max-w-[min(100vw-8px,calc(100dvh-220px))] flex-shrink-0">
             <PlayerCard
               name={topPlayer.name}
               rating={topPlayer.rating}
@@ -1112,7 +1114,7 @@ function LiveGame() {
           </div>
 
           {/* 4. CHESS BOARD */}
-          <div className="w-full max-w-[min(100vw-8px,calc(100vh-210px))] aspect-square relative flex items-center justify-center flex-shrink-0 my-0.5">
+          <div className="w-full max-w-[min(100vw-8px,calc(100dvh-220px))] aspect-square relative flex items-center justify-center flex-shrink-0 my-0.5">
             <InteractiveBoard
               board={displayBoard}
               orientation={orientation}
@@ -1142,7 +1144,7 @@ function LiveGame() {
           </div>
 
           {/* 5. PLAYER PROFILE */}
-          <div className="w-full max-w-[min(100vw,calc(100vh-210px))] flex-shrink-0">
+          <div className="w-full max-w-[min(100vw-8px,calc(100dvh-220px))] flex-shrink-0">
             <PlayerCard
               name={bottomPlayer.name}
               rating={bottomPlayer.rating}

@@ -270,6 +270,23 @@ function RootComponent() {
     select: (s) => s.location.pathname.startsWith("/game/"),
   });
 
+  useEffect(() => {
+    if (isGameRoute) {
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.overflow = "hidden";
+      document.body.style.touchAction = "none";
+    } else {
+      document.documentElement.style.overflow = "";
+      document.body.style.overflow = "";
+      document.body.style.touchAction = "";
+    }
+    return () => {
+      document.documentElement.style.overflow = "";
+      document.body.style.overflow = "";
+      document.body.style.touchAction = "";
+    };
+  }, [isGameRoute]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <SettingsEffects />

@@ -1124,7 +1124,7 @@ function LiveGame() {
               checkSquare={checkSquare}
               onSquare={handleSquare}
               disabled={!isMyTurn || !!promotion || submittingRef.current}
-              endState={endState as { result: "white" | "black" | "draw"; reason: string } | null}
+              endState={viewPly !== null ? null : (endState as { result: "white" | "black" | "draw"; reason: string } | null)}
             />
 
             {/* Promotion Picker */}
@@ -1546,7 +1546,7 @@ function LiveGame() {
               checkSquare={checkSquare}
               onSquare={handleSquare}
               disabled={!isMyTurn || !!promotion || submittingRef.current}
-              endState={endState as { result: "white" | "black" | "draw"; reason: string } | null}
+              endState={viewPly !== null ? null : (endState as { result: "white" | "black" | "draw"; reason: string } | null)}
             />
 
             {/* Promotion Picker */}

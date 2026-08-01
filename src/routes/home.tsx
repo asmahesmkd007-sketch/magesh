@@ -341,29 +341,93 @@ function HomePage() {
       <div className="mt-6">
         <Card className="p-6">
           <SectionTitle kicker="Stats" title="Performance" />
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div>
-              <div className="text-xs text-muted-foreground">Win Rate</div>
-              <div className="font-display text-2xl text-gradient-gold">
-                {statsLoading ? "—" : `${winRate}%`}
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-4 items-center gap-6">
+            {/* Round SVG Win Rate Gauge */}
+            <div className="flex items-center gap-4 shrink-0 justify-center sm:justify-start">
+              <div className="relative flex items-center justify-center h-24 w-24 shrink-0">
+                <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 90 90">
+                  <circle
+                    cx="45"
+                    cy="45"
+                    r="36"
+                    className="stroke-white/10"
+                    strokeWidth="7"
+                    fill="transparent"
+                  />
+                  <circle
+                    cx="45"
+                    cy="45"
+                    r="36"
+                    className="stroke-gold transition-all duration-1000 ease-out"
+                    strokeWidth="7"
+                    strokeDasharray={226.19}
+                    strokeDashoffset={226.19 - (winRate / 100) * 226.19}
+                    strokeLinecap="round"
+                    fill="transparent"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                  <span className="font-display text-xl font-bold text-gradient-gold leading-none">
+                    {statsLoading ? "—" : `${winRate}%`}
+                  </span>
+                  <span className="mt-1 text-[9px] uppercase tracking-widest font-semibold text-gold/80">
+                    Win Rate
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-0.5">
+                <div className="text-[10px] uppercase tracking-widest text-gold font-semibold">
+                  Status
+                </div>
+                <div className="text-sm font-medium text-foreground">
+                  {statsLoading
+                    ? "Calculating..."
+                    : winRate >= 50
+                      ? "🔥 Winning Record"
+                      : "⚡ Keep Training"}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {totalWins}W / {totalGames}G
+                </div>
               </div>
             </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Total Games</div>
-              <div className="font-display text-2xl">{statsLoading ? "—" : totalGames}</div>
+
+            {/* Stat Item 1: Total Games */}
+            <div className="flex flex-col items-center justify-center text-center">
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-gold/10 text-gold mb-1 text-sm font-bold">
+                ♟️
+              </div>
+              <div className="text-[11px] text-muted-foreground uppercase tracking-wider">
+                Total Games
+              </div>
+              <div className="font-display text-2xl text-foreground mt-0.5">
+                {statsLoading ? "—" : totalGames}
+              </div>
             </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Total Wins</div>
-              <div className="font-display text-2xl text-emerald">
+
+            {/* Stat Item 2: Total Wins */}
+            <div className="flex flex-col items-center justify-center text-center">
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-emerald-500/10 text-emerald-400 mb-1 text-sm font-bold">
+                🏆
+              </div>
+              <div className="text-[11px] text-muted-foreground uppercase tracking-wider">
+                Total Wins
+              </div>
+              <div className="font-display text-2xl text-emerald-400 mt-0.5">
                 {statsLoading ? "—" : totalWins}
               </div>
             </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Best Rapid</div>
-              <div className="font-display text-2xl">
-                {statsLoading
-                  ? "—"
-                  : (ratings.find((r) => r.time_class === "rapid")?.peak_rating ?? "—")}
+
+            {/* Stat Item 3: Best Rapid */}
+            <div className="flex flex-col items-center justify-center text-center">
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-gold/10 text-gold mb-1 text-sm font-bold">
+                ⚡
+              </div>
+              <div className="text-[11px] text-muted-foreground uppercase tracking-wider">
+                Best Rapid
+              </div>
+              <div className="font-display text-2xl text-gradient-gold mt-0.5">
+                {statsLoading ? "—" : rating("rapid")}
               </div>
             </div>
           </div>

@@ -78,22 +78,18 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-gold/15 bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex h-18 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
-        {/* Logo */}
-        <Link
-          to={user ? "/home" : "/"}
-          className="flex shrink-0 items-center gap-2.5"
-          onClick={closeAllDropdowns}
-        >
+        {/* Logo — Static non-clickable text & icon */}
+        <div className="flex shrink-0 items-center gap-2.5 cursor-default select-none">
           <img
             src="/chessox-icon.ico"
-            alt="ChessOx — play chess online"
-            className="h-14 w-auto object-contain"
+            alt="ChessOx"
+            className="h-14 w-auto object-contain pointer-events-none"
             draggable={false}
           />
           <div className="font-display text-[1.75rem] tracking-wide leading-none text-gradient-gold whitespace-nowrap">
             CHESSOX
           </div>
-        </Link>
+        </div>
 
         {/* Desktop nav */}
         <nav className="hidden flex-1 items-center justify-center gap-1 lg:flex">
@@ -201,13 +197,6 @@ export function Navbar() {
 
         {/* Desktop right side */}
         <div className="ml-auto hidden items-center gap-2 lg:flex">
-          <Link
-            to="/search"
-            onClick={closeAllDropdowns}
-            className="grid h-10 w-10 place-items-center rounded-full border border-gold/20 bg-white/[0.03] text-muted-foreground transition-colors hover:text-gold"
-          >
-            <Search className="h-4 w-4" />
-          </Link>
 
           {/* Wallet balance chip */}
           {user && (

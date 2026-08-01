@@ -55,7 +55,7 @@ export function ClockTime({
   const inPressure = active && settings.time_pressure_effects && ms > 0 && ms < LOW_TIME_MS;
 
   return (
-    <span className={`${className} ${inPressure ? "cx-time-pressure" : ""}`}>
+    <span className={`font-sans font-bold ${className} ${inPressure ? "cx-time-pressure" : ""}`}>
       {format(display, settings.show_tenths)}
     </span>
   );

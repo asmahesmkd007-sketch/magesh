@@ -278,7 +278,7 @@ function RootComponent() {
           isGameRoute ? "h-screen max-h-screen overflow-hidden flex flex-col" : "min-h-screen"
         }`}
       >
-        <Navbar />
+        {!isGameRoute && <Navbar />}
         <main className={isGameRoute ? "flex-1 overflow-hidden" : ""}>
           <Outlet />
         </main>

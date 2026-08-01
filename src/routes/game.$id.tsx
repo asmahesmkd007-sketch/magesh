@@ -56,6 +56,13 @@ import {
   Info,
   Users,
   BookOpen,
+  ArrowLeft,
+  SlidersHorizontal,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Settings,
+  ShieldAlert,
 } from "lucide-react";
 import { noindexSeo } from "@/lib/seo";
 
@@ -123,7 +130,7 @@ function LiveGame() {
   const [flipped, setFlipped] = useState(false);
   const [joining, setJoining] = useState(false);
 
-  // New UI Tabs & Replay states
+  // UI Tabs & Replay states
   const [activeTab, setActiveTab] = useState<"moves" | "chat" | "info" | "spectators" | "opening">(
     "moves",
   );
@@ -131,8 +138,19 @@ function LiveGame() {
   const [isPlayingReplay, setIsPlayingReplay] = useState(false);
   const [replaySpeed] = useState<number>(1);
 
+  // Mobile Bottom Sheet states
+  const [mobileSheet, setMobileSheet] = useState<"none" | "options" | "chat_moves">("none");
+  const [mobileSheetTab, setMobileSheetTab] = useState<"chat" | "moves">("chat");
+
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const movesScrollRef = useRef<HTMLDivElement>(null);
+  const horizontalMoveScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (horizontalMoveScrollRef.current) {
+      horizontalMoveScrollRef.current.scrollLeft = horizontalMoveScrollRef.current.scrollWidth;
+    }
+  }, [moves.length]);
 
   const [whiteProfile, setWhiteProfile] = useState<{
     premium_active?: boolean;
@@ -421,14 +439,16 @@ function LiveGame() {
 
   const activeTurn = useMemo(() => {
     if (pending) return pending.fen.split(" ")[1] as "w" | "b";
+    if (live.snapshot) return live.snapshot.fen.split(" ")[1] as "w" | "b";
     return (game?.turn as "w" | "b") ?? "w";
-  }, [pending, game?.turn]);
+  }, [pending, live.snapshot, game?.turn]);
 
   const displayFen = useMemo(() => {
     if (pending) return pending.fen;
+    if (live.snapshot) return live.snapshot.fen;
     if (!game) return START_FEN;
     return game.fen;
-  }, [pending, game]);
+  }, [pending, live.snapshot, game]);
 
   const chess = useMemo(() => {
     try {
@@ -496,18 +516,26 @@ function LiveGame() {
   const board = displayBoard;
 
   const lastMove = useMemo(() => {
-    if (viewPly !== null && viewPly > 0 && viewPly <= moves.length) {
-      const targetMove = moves[viewPly - 1];
-      if (targetMove && targetMove.uci) {
-        return { from: targetMove.uci.slice(0, 2), to: targetMove.uci.slice(2, 4) };
+    if (viewPly !== null && viewPly > 0) {
+      const allMoves = live.snapshot?.moves ?? moves;
+      if (viewPly <= allMoves.length) {
+        const targetMove = allMoves[viewPly - 1];
+        if (targetMove && targetMove.uci) {
+          return { from: targetMove.uci.slice(0, 2), to: targetMove.uci.slice(2, 4) };
+        }
       }
     }
     if (pending) return { from: pending.from, to: pending.to };
+    const snapMoves = live.snapshot?.moves ?? [];
+    if (snapMoves.length > 0) {
+      const last = snapMoves[snapMoves.length - 1];
+      if (last.uci) return { from: last.uci.slice(0, 2), to: last.uci.slice(2, 4) };
+    }
     if (moves.length === 0) return null;
     const last = moves[moves.length - 1];
     if (!last.uci) return null;
     return { from: last.uci.slice(0, 2), to: last.uci.slice(2, 4) };
-  }, [pending, moves, viewPly]);
+  }, [pending, live.snapshot, moves, viewPly]);
 
   const checkSquare = useMemo(() => {
     if (!chess.inCheck()) return null;
@@ -912,7 +940,7 @@ function LiveGame() {
       />
 
       {/* Top Floating Rematch Notification Banner inside site */}
-      {live.rematchOffer && (
+      {live.rematchOffer && game?.status === "finished" && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-full bg-[#0C0E12]/95 border border-gold/40 px-5 py-2.5 shadow-2xl shadow-gold/20 backdrop-blur-md animate-in slide-in-from-top-4 duration-300">
           <Swords className="h-4 w-4 text-gold animate-pulse" />
           <span className="text-xs font-semibold text-foreground">
@@ -938,6 +966,34 @@ function LiveGame() {
         </div>
       )}
 
+      {/* Top Floating Draw Offer Notification Banner inside site */}
+      {game?.status === "active" && (drawFromOpponent || drawFromMe) && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-full bg-[#0C0E12]/95 border border-gold/40 px-5 py-2.5 shadow-2xl shadow-gold/20 backdrop-blur-md animate-in slide-in-from-top-4 duration-300 max-w-[95vw]">
+          <Handshake className="h-4 w-4 text-gold animate-pulse shrink-0" />
+          <span className="text-xs font-semibold text-foreground truncate">
+            {drawFromOpponent ? "Opponent offered a draw!" : "Draw offer sent to opponent..."}
+          </span>
+          {drawFromOpponent ? (
+            <div className="flex items-center gap-2 shrink-0">
+              <GoldButton
+                onClick={executeDrawOffer}
+                className="h-7 px-3 text-xs bg-gradient-to-r from-gold to-amber-500 text-black font-bold"
+              >
+                Accept
+              </GoldButton>
+              <GhostButton
+                onClick={executeDeclineDraw}
+                className="h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground border-white/10"
+              >
+                Decline
+              </GhostButton>
+            </div>
+          ) : (
+            <span className="text-[10px] text-gold/80 italic animate-pulse shrink-0">Waiting...</span>
+          )}
+        </div>
+      )}
+
       {showEndModal && game.status === "finished" && (
         <GameEndModal
           result={game.result}
@@ -953,8 +1009,509 @@ function LiveGame() {
         />
       )}
 
+      {/* =================================================== */}
+      {/* MOBILE LAYOUT (< lg screens)                       */}
+      {/* =================================================== */}
+      <div className="flex lg:hidden flex-col h-screen max-h-screen overflow-hidden bg-[#0B0D10] text-foreground select-none relative">
+        {/* 1. FIXED TOP HEADER */}
+        <header className="flex-shrink-0 h-11 bg-black/90 backdrop-blur-md border-b border-gold/20 px-3 flex items-center justify-between z-20">
+          <button
+            onClick={() => void navigate({ to: "/play" })}
+            className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-gold transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Play</span>
+          </button>
+          <div className="flex items-center gap-1.5">
+            <Crown className="h-4 w-4 text-gold" />
+            <span className="font-display font-bold text-sm tracking-wider text-gradient-gold">
+              ChessOX
+            </span>
+          </div>
+          <div className="flex justify-end shrink-0">
+            {user?.id && (
+              <SpectatorVisibilityControl
+                scope="game"
+                gameId={id}
+                value={myVisibility}
+                onChange={setMyVisibility}
+                mode="dropdown"
+              />
+            )}
+          </div>
+        </header>
+
+        {/* 2. HORIZONTAL MOVE HISTORY BAR */}
+        <div
+          ref={horizontalMoveScrollRef}
+          className="flex-shrink-0 h-9 bg-black/60 border-b border-white/10 px-3 flex items-center gap-2 overflow-x-auto whitespace-nowrap scrollbar-none text-xs"
+        >
+          {moves.length === 0 ? (
+            <span className="text-[11px] text-muted-foreground/60 italic">
+              1. game start...
+            </span>
+          ) : (
+            Array.from({ length: Math.ceil(moves.length / 2) }).map((_, i) => {
+              const wPly = i * 2 + 1;
+              const bPly = i * 2 + 2;
+              const wMove = moves[i * 2];
+              const bMove = moves[i * 2 + 1];
+              const isWActive = viewPly === wPly || (viewPly === null && moves.length === wPly);
+              const isBActive = viewPly === bPly || (viewPly === null && moves.length === bPly);
+              return (
+                <div key={i} className="inline-flex items-center gap-1 shrink-0 font-mono text-[11px]">
+                  <span className="text-muted-foreground/50 font-semibold">{i + 1}.</span>
+                  {wMove && (
+                    <button
+                      onClick={() => setViewPly(wPly)}
+                      className={`px-1.5 py-0.5 rounded font-medium transition-all ${
+                        isWActive
+                          ? "bg-gold text-[#0B0D10] font-bold shadow-sm shadow-gold/40"
+                          : "bg-white/5 text-foreground hover:bg-white/15"
+                      }`}
+                    >
+                      {wMove.san}
+                    </button>
+                  )}
+                  {bMove && (
+                    <button
+                      onClick={() => setViewPly(bPly)}
+                      className={`px-1.5 py-0.5 rounded font-medium transition-all ${
+                        isBActive
+                          ? "bg-gold text-[#0B0D10] font-bold shadow-sm shadow-gold/40"
+                          : "bg-white/5 text-foreground hover:bg-white/15"
+                      }`}
+                    >
+                      {bMove.san}
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* MAIN GAME CONTAINER (OPPONENT PROFILE + BOARD + PLAYER PROFILE) */}
+        <div className="flex-1 flex flex-col justify-between items-center px-2 py-1 overflow-hidden min-h-0">
+          {/* 3. OPPONENT PROFILE */}
+          <div className="w-full max-w-[420px] flex-shrink-0">
+            <PlayerCard
+              name={topPlayer.name}
+              rating={topPlayer.rating}
+              clock={clock}
+              color={topPlayer.color}
+              showClock={!clock.untimed}
+              p_active={topPlayer.p_active}
+              p_exp={topPlayer.p_exp}
+              avatar={topPlayer.avatar}
+              active={!isWaiting && activeTurn === topPlayer.color}
+              board={liveBoard}
+              player={topPlayer.color}
+              friendUserId={topPlayer.isMe ? null : topPlayer.id}
+            />
+          </div>
+
+          {/* 4. CHESS BOARD */}
+          <div className="w-full max-w-[420px] aspect-square relative flex items-center justify-center flex-shrink-0 my-auto">
+            <InteractiveBoard
+              board={displayBoard}
+              orientation={orientation}
+              selected={selected}
+              targets={targets}
+              lastMove={lastMove}
+              checkSquare={checkSquare}
+              onSquare={handleSquare}
+              disabled={!isMyTurn || !!promotion || submittingRef.current}
+              endState={endState as { result: "white" | "black" | "draw"; reason: string } | null}
+            />
+
+            {/* Promotion Picker */}
+            {promotion && (
+              <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                <PromotionPicker
+                  color={myColor!}
+                  onCancel={() => setPromotion(null)}
+                  onPick={(p) => {
+                    const { from, to } = promotion;
+                    setPromotion(null);
+                    void commitMove(from, to, p);
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* 5. PLAYER PROFILE */}
+          <div className="w-full max-w-[420px] flex-shrink-0">
+            <PlayerCard
+              name={bottomPlayer.name}
+              rating={bottomPlayer.rating}
+              clock={clock}
+              color={bottomPlayer.color}
+              showClock={!clock.untimed}
+              p_active={bottomPlayer.p_active}
+              p_exp={bottomPlayer.p_exp}
+              avatar={bottomPlayer.avatar}
+              active={!isWaiting && activeTurn === bottomPlayer.color}
+              board={liveBoard}
+              player={bottomPlayer.color}
+              me={bottomPlayer.isMe}
+              friendUserId={bottomPlayer.isMe ? null : bottomPlayer.id}
+            />
+          </div>
+        </div>
+
+        {/* 6. BOTTOM NAVIGATION (4 BUTTONS) */}
+        <nav className="flex-shrink-0 h-14 bg-black/95 backdrop-blur-md border-t border-white/10 grid grid-cols-4 items-center justify-items-center px-1 z-20">
+          {/* Button 1: Options */}
+          <button
+            onClick={() => setMobileSheet(mobileSheet === "options" ? "none" : "options")}
+            className={`w-full h-full flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold transition-colors ${
+              mobileSheet === "options" ? "text-gold" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            <span>Options</span>
+          </button>
+
+          {/* Button 2: Chat / Moves */}
+          <button
+            onClick={() => setMobileSheet(mobileSheet === "chat_moves" ? "none" : "chat_moves")}
+            className={`w-full h-full flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold transition-colors ${
+              mobileSheet === "chat_moves" ? "text-gold" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <MessageSquare className="h-4 w-4" />
+            <span>Chat</span>
+          </button>
+
+          {/* Button 3: Back (Replay Previous Move) */}
+          <button
+            onClick={() =>
+              setViewPly((prev) => Math.max(0, (prev ?? moves.length) - 1))
+            }
+            disabled={moves.length === 0 || viewPly === 0}
+            className="w-full h-full flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:hover:text-muted-foreground transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            <span>Back</span>
+          </button>
+
+          {/* Button 4: Forward (Replay Next Move) */}
+          <button
+            onClick={() =>
+              setViewPly((prev) => {
+                if (prev === null) return null;
+                const next = prev + 1;
+                return next >= moves.length ? null : next;
+              })
+            }
+            disabled={viewPly === null || viewPly >= moves.length}
+            className="w-full h-full flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:hover:text-muted-foreground transition-colors"
+          >
+            <ChevronRight className="h-4 w-4" />
+            <span>Forward</span>
+          </button>
+        </nav>
+
+        {/* BOTTOM SHEETS */}
+        {mobileSheet !== "none" && (
+          <>
+            {/* Backdrop */}
+            <div
+              onClick={() => setMobileSheet("none")}
+              className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+            />
+
+            {/* Sheet Container */}
+            <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl border-t border-gold/30 bg-black/95 p-4 shadow-2xl shadow-gold/20 max-h-[75vh] flex flex-col animate-in slide-in-from-bottom duration-300">
+              {/* Drag handle */}
+              <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-3 shrink-0" />
+
+              {/* OPTIONS BOTTOM SHEET */}
+              {mobileSheet === "options" && (
+                <div className="flex flex-col space-y-3 overflow-y-auto max-h-[60vh] pb-2">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                    <span className="font-display font-bold text-base text-gold flex items-center gap-2">
+                      <SlidersHorizontal className="h-4 w-4" /> Game Options
+                    </span>
+                    <button
+                      onClick={() => setMobileSheet("none")}
+                      className="p-1 rounded-full bg-white/5 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Actions Grid */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Draw Offer / Accept / Decline */}
+                    {drawFromOpponent ? (
+                      <div className="col-span-2 flex items-center justify-between gap-2 p-2.5 rounded-xl border border-gold/40 bg-gold/10">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-gold">
+                          <Handshake className="h-4 w-4 shrink-0" />
+                          <span>Draw Offered by Opponent</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <GoldButton
+                            onClick={() => {
+                              setMobileSheet("none");
+                              void executeDrawOffer();
+                            }}
+                            className="h-7 px-3 text-xs bg-gradient-to-r from-gold to-amber-500 text-black font-bold"
+                          >
+                            Accept
+                          </GoldButton>
+                          <GhostButton
+                            onClick={() => {
+                              setMobileSheet("none");
+                              void executeDeclineDraw();
+                            }}
+                            className="h-7 px-2.5 text-xs border border-white/10 text-muted-foreground hover:text-foreground"
+                          >
+                            Decline
+                          </GhostButton>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setMobileSheet("none");
+                          handleDrawClick();
+                        }}
+                        disabled={!myColor || drawFromMe || game?.status !== "active"}
+                        className="flex items-center gap-2 p-3 rounded-xl border border-white/10 bg-white/5 text-xs font-semibold text-foreground hover:border-gold/30 hover:bg-gold/10 disabled:opacity-40 transition-all"
+                      >
+                        <Handshake className="h-4 w-4 text-gold" />
+                        <span>{drawFromMe ? "Draw Offered" : "Offer Draw"}</span>
+                      </button>
+                    )}
+
+                    {/* Resign */}
+                    <button
+                      onClick={() => {
+                        setMobileSheet("none");
+                        handleResignClick();
+                      }}
+                      disabled={game?.status !== "active"}
+                      className="flex items-center gap-2 p-3 rounded-xl border border-rose-500/20 bg-rose-500/10 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 disabled:opacity-40 transition-all"
+                    >
+                      <Flag className="h-4 w-4 text-rose-400" />
+                      <span>Resign</span>
+                    </button>
+                  </div>
+
+                  {/* Game Details Info */}
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2 text-xs">
+                    <div className="font-semibold text-gold flex items-center gap-1.5">
+                      <Info className="h-3.5 w-3.5" /> Game Information
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 text-muted-foreground text-[11px]">
+                      <div>Opening: <span className="text-foreground font-medium">{currentOpening?.name ?? "Standard"}</span></div>
+                      <div>Format: <span className="text-foreground font-medium uppercase">{game?.time_class ?? "Blitz"}</span></div>
+                      <div>Rated: <span className="text-foreground font-medium">{game?.is_rated ? "Yes" : "Casual"}</span></div>
+                      <div>ID: <span className="text-foreground font-medium font-mono text-[10px]">{id.slice(0, 8)}...</span></div>
+                    </div>
+                  </div>
+
+                  {/* Export PGN */}
+                  <button
+                    onClick={() => {
+                      copyPGN();
+                      setMobileSheet("none");
+                    }}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-white/10 bg-white/5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-white/10"
+                  >
+                    <Copy className="h-3.5 w-3.5" /> Copy PGN
+                  </button>
+                </div>
+              )}
+
+              {/* CHAT / MOVES BOTTOM SHEET */}
+              {mobileSheet === "chat_moves" && (
+                <div className="flex flex-col h-[55vh] max-h-[500px]">
+                  {/* Two Tab Navigation Header */}
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2 shrink-0">
+                    <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl">
+                      <button
+                        onClick={() => setMobileSheetTab("chat")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                          mobileSheetTab === "chat"
+                            ? "bg-gold text-[#0B0D10] font-bold shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" /> Chat
+                      </button>
+                      <button
+                        onClick={() => setMobileSheetTab("moves")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                          mobileSheetTab === "moves"
+                            ? "bg-gold text-[#0B0D10] font-bold shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <History className="h-3.5 w-3.5" /> Moves ({moves.length})
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setMobileSheet("none")}
+                      className="p-1 rounded-full bg-white/5 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* TAB 1: CHAT */}
+                  {mobileSheetTab === "chat" && (
+                    <div className="flex-1 flex flex-col min-h-0">
+                      <div className="flex-1 overflow-y-auto space-y-2 p-2 rounded-xl bg-black/40 border border-white/5 scrollbar-thin">
+                        {chat.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground/60 text-xs italic">
+                            No chat messages yet. Say hello!
+                          </div>
+                        ) : (
+                          chat.map((msg) => {
+                            const isMe = msg.user_id === user?.id;
+                            return (
+                              <div
+                                key={msg.id}
+                                className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
+                              >
+                                <div className="text-[10px] text-muted-foreground mb-0.5 px-1">
+                                  {msg.username}
+                                </div>
+                                <div
+                                  className={`rounded-2xl px-3 py-1.5 text-xs max-w-[85%] break-words ${
+                                    isMe
+                                      ? "bg-gradient-to-r from-amber-500 to-gold text-[#0B0D10] font-medium"
+                                      : "bg-white/10 text-foreground border border-white/10"
+                                  }`}
+                                >
+                                  {msg.body}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {/* Quick Emojis & Input */}
+                      <div className="mt-2 pt-2 border-t border-white/10 space-y-2 shrink-0">
+                        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
+                          {["👍", "👏", "🤝", "🔥", "GG", "Good luck!"].map((emoji) => (
+                            <button
+                              key={emoji}
+                              onClick={() => {
+                                setChatInput(emoji);
+                                void sendChat();
+                              }}
+                              className="px-2 py-0.5 rounded-lg bg-white/5 border border-white/10 text-xs text-foreground hover:bg-gold/20 hover:border-gold/40 transition-colors shrink-0"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            void sendChat();
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <input
+                            type="text"
+                            value={chatInput}
+                            onChange={(e) => setChatInput(e.target.value)}
+                            placeholder="Type a message..."
+                            className="flex-1 bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-gold/50"
+                          />
+                          <button
+                            type="submit"
+                            disabled={!chatInput.trim()}
+                            className="p-2 rounded-xl bg-gold text-[#0B0D10] font-bold disabled:opacity-40"
+                          >
+                            <Send className="h-4 w-4" />
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 2: MOVES */}
+                  {mobileSheetTab === "moves" && (
+                    <div className="flex-1 flex flex-col min-h-0 space-y-2">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-1.5 shrink-0 text-xs">
+                        <span className="font-semibold text-gold truncate">
+                          {currentOpening?.name ?? "Standard Opening"}
+                        </span>
+                        <button
+                          onClick={copyPGN}
+                          className="text-[10px] text-muted-foreground hover:text-gold border border-white/10 px-2 py-0.5 rounded"
+                        >
+                          <Copy className="h-3 w-3 inline mr-1" /> PGN
+                        </button>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto p-2.5 rounded-xl bg-black/40 border border-white/5 scrollbar-thin">
+                        {moves.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground/60 text-xs italic">
+                            No moves played yet.
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-[28px_1fr_1fr] gap-x-2 gap-y-1 text-xs">
+                            {Array.from({ length: Math.ceil(moves.length / 2) }).map((_, i) => {
+                              const wPly = i * 2 + 1;
+                              const bPly = i * 2 + 2;
+                              const wMove = moves[i * 2];
+                              const bMove = moves[i * 2 + 1];
+                              const isWActive = viewPly === wPly;
+                              const isBActive = viewPly === bPly;
+                              return (
+                                <div className="contents" key={i}>
+                                  <div className="text-muted-foreground/60 py-1 font-mono text-[11px] font-semibold">
+                                    {i + 1}.
+                                  </div>
+                                  <button
+                                    onClick={() => setViewPly(wPly)}
+                                    className={`text-left px-2 py-1 rounded font-mono font-medium transition-all ${
+                                      isWActive
+                                        ? "bg-gold text-[#0B0D10] font-bold shadow-sm"
+                                        : "bg-white/5 text-foreground hover:bg-white/15"
+                                    }`}
+                                  >
+                                    {wMove?.san ?? ""}
+                                  </button>
+                                  <button
+                                    onClick={() => bMove && setViewPly(bPly)}
+                                    disabled={!bMove}
+                                    className={`text-left px-2 py-1 rounded font-mono font-medium transition-all ${
+                                      isBActive
+                                        ? "bg-gold text-[#0B0D10] font-bold shadow-sm"
+                                        : bMove
+                                          ? "bg-white/5 text-foreground hover:bg-white/15"
+                                          : "opacity-0 cursor-default"
+                                    }`}
+                                  >
+                                    {bMove?.san ?? ""}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
       {/* Responsive Grid: Left Column (Player Cards + Board), Right Column (History, Tabs, Actions) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center justify-center max-h-full overflow-hidden h-full">
+      <div className="hidden lg:grid grid-cols-1 lg:grid-cols-12 gap-4 items-center justify-center max-h-full overflow-hidden h-full">
         {/* =================================================== */}
         {/* LEFT COLUMN: PLAYER CARDS & CHESS BOARD             */}
         {/* =================================================== */}
@@ -1139,7 +1696,7 @@ function LiveGame() {
                                     ? "bg-gold text-[#0B0D10] font-bold shadow-sm shadow-gold/30"
                                     : bMove
                                       ? "bg-white/5 text-muted-foreground hover:text-foreground hover:bg-white/15"
-                                      : "opacity-0 pointer-events-none"
+                                      : "opacity-0 cursor-default"
                                 }`}
                               >
                                 <span className="truncate">{bMove?.san ?? ""}</span>
@@ -1163,60 +1720,88 @@ function LiveGame() {
               )}
 
               {activeTab === "chat" && (
-                <div className="flex flex-col h-full">
+                <div className="flex flex-col h-full space-y-2">
+                  <div className="font-display text-xs font-semibold tracking-wide text-gold border-b border-white/10 pb-1.5 flex-shrink-0 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <MessageSquare className="h-3 w-3" /> Live Game Chat
+                    </span>
+                    <span className="text-[10px] font-normal text-muted-foreground">
+                      {chat.length} messages
+                    </span>
+                  </div>
+
                   <div
                     ref={chatScrollRef}
-                    className="flex-1 overflow-y-auto space-y-1 pr-1 text-xs scrollbar-thin"
+                    className="flex-1 overflow-y-auto space-y-2 pr-1 text-xs scrollbar-thin"
                   >
                     {chat.length === 0 ? (
-                      <div className="text-center py-6 text-muted-foreground/60 text-xs italic">
-                        No chat messages yet.
+                      <div className="text-center py-8 text-muted-foreground/60 text-xs italic">
+                        No chat messages yet. Say hello!
                       </div>
                     ) : (
-                      chat.map((c) => (
-                        <div
-                          key={c.id}
-                          className="bg-white/[0.02] p-1.5 rounded border border-white/5"
-                        >
-                          <span className="font-semibold text-gold mr-1">{c.username}:</span>
-                          <span>{c.body}</span>
-                        </div>
-                      ))
+                      chat.map((msg) => {
+                        const isMe = msg.user_id === user?.id;
+                        return (
+                          <div
+                            key={msg.id}
+                            className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
+                          >
+                            <div className="text-[10px] text-muted-foreground mb-0.5">
+                              {msg.username}
+                            </div>
+                            <div
+                              className={`rounded-xl px-3 py-1.5 max-w-[85%] break-words ${
+                                isMe
+                                  ? "bg-gold text-[#0B0D10] font-medium"
+                                  : "bg-white/10 text-foreground border border-white/10"
+                              }`}
+                            >
+                              {msg.body}
+                            </div>
+                          </div>
+                        );
+                      })
                     )}
                   </div>
 
-                  {/* Chat Reactions & Send Box */}
-                  <div className="mt-1.5 space-y-1 pt-1.5 border-t border-white/5 flex-shrink-0">
-                    <div className="flex gap-1 overflow-x-auto pb-0.5 text-xs no-scrollbar">
-                      {["👍", "👏", "😃", "🔥", "🎯", "👑", "😮", "🤝"].map((emo) => (
+                  {/* Chat Input & Quick Emojis */}
+                  <div className="space-y-1.5 pt-1.5 border-t border-white/10 flex-shrink-0">
+                    <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-1">
+                      {["👍", "👏", "🤝", "🔥", "GG", "Good luck!"].map((emoji) => (
                         <button
-                          key={emo}
-                          onClick={() => sendQuickEmoji(emo)}
-                          className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 transition-colors"
+                          key={emoji}
+                          onClick={() => {
+                            setChatInput(emoji);
+                            void sendChat();
+                          }}
+                          className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[11px] text-foreground hover:bg-gold/20 hover:border-gold/40 transition-colors shrink-0"
                         >
-                          {emo}
+                          {emoji}
                         </button>
                       ))}
                     </div>
-                    <div className="flex gap-1.5">
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void sendChat();
+                      }}
+                      className="flex items-center gap-1.5"
+                    >
                       <input
+                        type="text"
                         value={chatInput}
                         onChange={(e) => setChatInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") sendChat();
-                        }}
-                        placeholder={user ? "Type a message…" : "Sign in"}
-                        disabled={!user}
-                        className="flex-1 rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-1 text-xs outline-none focus:border-gold/40"
+                        placeholder="Type a message..."
+                        className="flex-1 bg-black/50 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-gold/50"
                       />
                       <button
-                        onClick={sendChat}
-                        disabled={!user || !chatInput.trim()}
-                        className="grid h-7 w-7 place-items-center rounded-lg gradient-gold text-[#0B0D10] disabled:opacity-40"
+                        type="submit"
+                        disabled={!chatInput.trim()}
+                        className="p-1.5 rounded-lg bg-gold text-[#0B0D10] font-bold disabled:opacity-40"
                       >
                         <Send className="h-3.5 w-3.5" />
                       </button>
-                    </div>
+                    </form>
                   </div>
                 </div>
               )}
@@ -1522,7 +2107,7 @@ function PlayerCard({
         {/* Digital Clock Readout */}
         {showClock && (
           <div
-            className={`rounded-lg px-3 py-1 font-mono text-sm font-bold tabular-nums transition-all flex-shrink-0 ${
+            className={`rounded-lg px-3 py-1 font-sans text-sm font-bold tracking-wide tabular-nums transition-all flex-shrink-0 ${
               active
                 ? "bg-gold text-[#0B0D10] shadow-md shadow-gold/30 scale-105"
                 : "bg-white/10 text-foreground/90 border border-white/15"

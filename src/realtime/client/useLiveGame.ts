@@ -88,6 +88,8 @@ export function useLiveGame(gameId: string | null): LiveGameApi {
       // The snapshot supersedes any optimistic move: it either contains
       // it (accepted) or it doesn't (dropped while we were away).
       setPending(null);
+      setRematchOffer(null);
+      setRematchNewGameId(null);
       setConnection("live");
       setError(null);
     } catch (err) {
@@ -98,6 +100,10 @@ export function useLiveGame(gameId: string | null): LiveGameApi {
 
   useEffect(() => {
     if (!gameId) return;
+    setSnapshot(null);
+    setPending(null);
+    setRematchOffer(null);
+    setRematchNewGameId(null);
     const socket = ensureConnected();
     let alive = true;
 
@@ -213,6 +219,7 @@ export function useLiveGame(gameId: string | null): LiveGameApi {
 
     const applyRematchAccepted = (payload: { gameId: string; newGameId: string }) => {
       if (payload.gameId !== gameId) return;
+      setRematchOffer(null);
       setRematchNewGameId(payload.newGameId);
     };
 

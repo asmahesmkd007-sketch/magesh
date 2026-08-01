@@ -27,6 +27,7 @@ const COMMUNITY_ITEMS: readonly NavEntry[] = [
   { to: "/seasons", label: "Seasons" },
   { to: "/events", label: "Events", isComingSoon: true },
   { to: "/watch", label: "Watch" },
+  { to: "/friends", label: "👥 Friends" },
 ];
 
 const MORE_ITEMS = [
@@ -39,7 +40,6 @@ const MORE_ITEMS = [
   { to: "/policies", label: "Policies" },
   { to: "/feedback", label: "Feedback" },
   { to: "/report", label: "Report" },
-  { to: "/friends", label: "👥 Friends" },
 ] as const;
 
 const NAV_GUEST = [

@@ -2083,26 +2083,29 @@ function PlayerCard({
   return (
     <div className="py-1.5 px-1 transition-all duration-300 w-full">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <div className="relative flex-shrink-0">
             <UserAvatar avatarUrl={avatar} displayName={name} size="md" />
             <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background animate-pulse" />
           </div>
-          <div className="min-w-0 flex items-center gap-2 flex-wrap">
-            <div className="truncate text-sm font-semibold flex items-center gap-1.5 text-foreground">
-              <span>{name}</span>
+          <div className="min-w-0 flex flex-col justify-center gap-0.5 flex-1">
+            <div className="flex items-center gap-2 flex-wrap text-sm font-semibold text-foreground">
+              <span className="truncate">{name}</span>
               <PremiumBadge premiumActive={p_active} premiumExpiresAt={p_exp} />
               {friendUserId && <FriendButton targetUserId={friendUserId} targetName={name} />}
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span>{rating ? `${rating} Elo` : "—"}</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                {rating ? `${rating} Elo` : "—"}
+              </span>
               {me && (
                 <span className="rounded bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-gold border border-gold/30">
                   You
                 </span>
               )}
             </div>
-            <CapturedPieces board={board} player={player} className="inline-flex ml-1" />
+            {/* Captured Pieces ALWAYS on its own line below player/opponent name & rating */}
+            <div className="flex items-center mt-0.5">
+              <CapturedPieces board={board} player={player} className="flex items-center" />
+            </div>
           </div>
         </div>
 

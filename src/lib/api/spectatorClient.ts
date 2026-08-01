@@ -98,14 +98,74 @@ export type LiveGameFilters = {
 };
 
 /** The /watch browse feed. Position-free — these rows cannot leak a game. */
-export function listLiveGames(filters: LiveGameFilters = {}): Promise<LiveMatchSummary[]> {
-  return callRpc("list_live_games", {
-    p_limit: filters.limit ?? 24,
-    p_offset: filters.offset ?? 0,
-    p_time_class: filters.timeClass ?? null,
-    p_rated_only: filters.ratedOnly ?? false,
-    p_sort: filters.sort ?? "featured",
-  });
+export async function listLiveGames(filters: LiveGameFilters = {}): Promise<LiveMatchSummary[]> {
+  try {
+    return await callRpc("list_live_games", {
+      p_limit: filters.limit ?? 24,
+      p_offset: filters.offset ?? 0,
+      p_time_class: filters.timeClass ?? null,
+      p_rated_only: filters.ratedOnly ?? false,
+      p_sort: filters.sort ?? "featured",
+    });
+  } catch (err) {
+    console.warn("list_live_games RPC failed, falling back to direct query:", err);
+    try {
+      let query = (supabase as any)
+        .from("games")
+        .select(
+          "id, white_id, black_id, white_username, black_username, white_rating, black_rating, time_class, time_control, is_rated, status, created_at",
+        )
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(filters.limit ?? 24);
+
+      if (filters.timeClass) {
+        query = query.eq("time_class", filters.timeClass);
+      }
+      if (filters.ratedOnly) {
+        query = query.eq("is_rated", true);
+      }
+
+      const { data, error } = await query;
+      if (error || !data) return [];
+
+      return data.map((g: any) => ({
+        id: g.id,
+        white: {
+          id: g.white_id,
+          username: g.white_username ?? "White",
+          rating: g.white_rating ?? 1500,
+          avatar_url: null,
+          country: null,
+          title: null,
+          season_points: 0,
+          rung_id: null,
+        },
+        black: {
+          id: g.black_id,
+          username: g.black_username ?? "Black",
+          rating: g.black_rating ?? 1500,
+          avatar_url: null,
+          country: null,
+          title: null,
+          season_points: 0,
+          rung_id: null,
+        },
+        time_class: g.time_class ?? "blitz",
+        time_control: g.time_control ?? "5+0",
+        is_rated: g.is_rated ?? true,
+        moves_count: 0,
+        opening: "Standard",
+        started_at: g.created_at ?? new Date().toISOString(),
+        viewers: 0,
+        avg_rating: Math.round(((g.white_rating || 1500) + (g.black_rating || 1500)) / 2),
+        tournament: null,
+        featured: false,
+      }));
+    } catch {
+      return [];
+    }
+  }
 }
 
 /**

@@ -567,24 +567,26 @@ export function VsComputer() {
         };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px] items-start max-w-5xl mx-auto">
+    <div className="grid gap-6 lg:grid-cols-[1fr_320px] items-center justify-center max-w-5xl mx-auto py-1">
       {/* MAIN COLUMN (OPPONENT PROFILE + BOARD + PLAYER PROFILE) */}
-      <div className="flex flex-col gap-2 w-full">
+      <div className="flex flex-col items-center gap-1.5 w-full">
         {/* Top Player (Opponent when White, You when Black) */}
-        <PlayerBar
-          name={topPlayer.name}
-          rating={topPlayer.rating}
-          time={topPlayer.time}
-          active={topPlayer.active}
-          icon={topPlayer.icon}
-          iconBg={topPlayer.iconBg}
-          capturedColor={topPlayer.capturedColor}
-          board={board}
-          me={topPlayer.me}
-        />
+        <div className="w-full max-w-[min(100%,calc(100vh-210px))] flex-shrink-0">
+          <PlayerBar
+            name={topPlayer.name}
+            rating={topPlayer.rating}
+            time={topPlayer.time}
+            active={topPlayer.active}
+            icon={topPlayer.icon}
+            iconBg={topPlayer.iconBg}
+            capturedColor={topPlayer.capturedColor}
+            board={board}
+            me={topPlayer.me}
+          />
+        </div>
 
         {/* Chess Board */}
-        <div className="relative w-full aspect-square">
+        <div className="w-full max-w-[min(100%,calc(100vh-210px))] aspect-square relative flex items-center justify-center flex-shrink-0">
           <InteractiveBoard
             board={board}
             orientation={myColor}
@@ -613,23 +615,25 @@ export function VsComputer() {
         </div>
 
         {/* Bottom Player (You when White, Opponent when Black) */}
-        <PlayerBar
-          name={bottomPlayer.name}
-          rating={bottomPlayer.rating}
-          time={bottomPlayer.time}
-          active={bottomPlayer.active}
-          icon={bottomPlayer.icon}
-          iconBg={bottomPlayer.iconBg}
-          capturedColor={bottomPlayer.capturedColor}
-          board={board}
-          me={bottomPlayer.me}
-        />
+        <div className="w-full max-w-[min(100%,calc(100vh-210px))] flex-shrink-0">
+          <PlayerBar
+            name={bottomPlayer.name}
+            rating={bottomPlayer.rating}
+            time={bottomPlayer.time}
+            active={bottomPlayer.active}
+            icon={bottomPlayer.icon}
+            iconBg={bottomPlayer.iconBg}
+            capturedColor={bottomPlayer.capturedColor}
+            board={board}
+            me={bottomPlayer.me}
+          />
+        </div>
       </div>
 
       {/* RIGHT SIDEBAR (STATUS + MOVE LIST + GAME ACTIONS) */}
-      <div className="space-y-4">
+      <div className="space-y-3 shrink-0">
         {/* Game Status Banner */}
-        <div className="rounded-xl border border-gold/20 bg-black/60 p-3 text-center">
+        <div className="rounded-xl border border-gold/20 bg-black/60 p-2.5 text-center">
           <div className="text-xs uppercase tracking-[0.2em] font-semibold text-muted-foreground">
             {phase === "over"
               ? resultText
@@ -649,14 +653,14 @@ export function VsComputer() {
         </div>
 
         {/* Move List */}
-        <Card className="p-4">
-          <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-2">
-            <div className="font-display text-base font-bold text-foreground">Move List</div>
+        <Card className="p-3.5">
+          <div className="mb-2 flex items-center justify-between border-b border-white/10 pb-2">
+            <div className="font-display text-sm font-bold text-foreground">Move List</div>
             <span className="text-[10px] font-mono text-muted-foreground">
               {history.length} ply
             </span>
           </div>
-          <div className="grid max-h-[280px] grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1.5 overflow-y-auto pr-2 text-sm font-mono scrollbar-thin">
+          <div className="grid max-h-[min(240px,calc(100vh-380px))] grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1 overflow-y-auto pr-2 text-xs font-mono scrollbar-thin">
             {movePairs.length === 0 && (
               <div className="col-span-3 text-xs text-muted-foreground italic">
                 No moves yet — make the opening move.
@@ -674,25 +678,25 @@ export function VsComputer() {
         </Card>
 
         {/* Game Actions */}
-        <div className="flex flex-col gap-2">
-          <GhostButton onClick={() => setPhase("setup")} className="w-full">
-            <RotateCcw className="mr-2 h-4 w-4" /> New Game
+        <div className="flex flex-col gap-1.5">
+          <GhostButton onClick={() => setPhase("setup")} className="w-full h-8 text-xs">
+            <RotateCcw className="mr-2 h-3.5 w-3.5" /> New Game
           </GhostButton>
-          <GhostButton onClick={analyzeGame} className="w-full">
-            <LineChart className="mr-2 h-4 w-4" /> Analysis
+          <GhostButton onClick={analyzeGame} className="w-full h-8 text-xs">
+            <LineChart className="mr-2 h-3.5 w-3.5" /> Analysis
           </GhostButton>
           {phase === "playing" ? (
             <div className="grid grid-cols-2 gap-2">
-              <GhostButton onClick={resign} className="text-red-400 hover:text-red-300">
-                <Flag className="mr-1.5 h-4 w-4" /> Resign
+              <GhostButton onClick={resign} className="text-red-400 hover:text-red-300 h-8 text-xs">
+                <Flag className="mr-1.5 h-3.5 w-3.5" /> Resign
               </GhostButton>
-              <GhostButton onClick={offerDraw}>
-                <Handshake className="mr-1.5 h-4 w-4" /> Draw
+              <GhostButton onClick={offerDraw} className="h-8 text-xs">
+                <Handshake className="mr-1.5 h-3.5 w-3.5" /> Draw
               </GhostButton>
             </div>
           ) : (
-            <GoldButton onClick={() => setShowResult(true)} className="w-full">
-              <Crown className="mr-2 h-4 w-4" /> View Result
+            <GoldButton onClick={() => setShowResult(true)} className="w-full h-8 text-xs">
+              <Crown className="mr-2 h-3.5 w-3.5" /> View Result
             </GoldButton>
           )}
         </div>

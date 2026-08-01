@@ -953,7 +953,44 @@ GRANT EXECUTE ON FUNCTION public.respond_draw(UUID) TO authenticated, service_ro
 
 -- =====================================================================
 -- SECTION 30: RPC — CLAIM TIMEOUT
+-- ---------------------------------------------------------------------
+-- FIDE 6.9: when a flag falls, the opponent only wins if they could still
+-- checkmate "by any possible series of legal moves". Against a bare king,
+-- or a king with a single minor piece, no mate is possible and the game is
+-- drawn. `has_mating_material` mirrors the TypeScript implementation in
+-- src/lib/chess/rules.ts so the RPC and the server move handler cannot
+-- reach different verdicts about the same position.
 -- =====================================================================
+CREATE OR REPLACE FUNCTION public.has_mating_material(p_fen TEXT, p_color TEXT)
+RETURNS BOOLEAN LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE
+  v_board   TEXT := split_part(p_fen, ' ', 1);
+  v_pawns   INT;
+  v_knights INT;
+  v_bishops INT;
+  v_majors  INT;
+BEGIN
+  IF p_color = 'w' THEN
+    v_pawns   := length(v_board) - length(replace(v_board, 'P', ''));
+    v_knights := length(v_board) - length(replace(v_board, 'N', ''));
+    v_bishops := length(v_board) - length(replace(v_board, 'B', ''));
+    v_majors  := (length(v_board) - length(replace(v_board, 'R', '')))
+               + (length(v_board) - length(replace(v_board, 'Q', '')));
+  ELSE
+    v_pawns   := length(v_board) - length(replace(v_board, 'p', ''));
+    v_knights := length(v_board) - length(replace(v_board, 'n', ''));
+    v_bishops := length(v_board) - length(replace(v_board, 'b', ''));
+    v_majors  := (length(v_board) - length(replace(v_board, 'r', '')))
+               + (length(v_board) - length(replace(v_board, 'q', '')));
+  END IF;
+
+  -- A pawn can promote and a rook/queen mates outright.
+  IF v_pawns > 0 OR v_majors > 0 THEN RETURN TRUE; END IF;
+  -- Two minors can mate (incl. two knights, where a helpmate exists);
+  -- a single minor cannot.
+  RETURN (v_bishops + v_knights) >= 2;
+END; $$;
+
 CREATE OR REPLACE FUNCTION public.claim_timeout(p_game_id UUID)
 RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -963,6 +1000,8 @@ DECLARE
   v_to_move_ms INT;
   v_result     public.game_result;
   v_winner     UUID;
+  v_opponent   TEXT;
+  v_reason     TEXT;
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
   SELECT * INTO v_game FROM public.games WHERE id = p_game_id FOR UPDATE;
@@ -982,17 +1021,25 @@ BEGIN
 
   IF v_elapsed_ms < v_to_move_ms THEN RETURN false; END IF;
 
-  IF v_game.turn = 'w' THEN
-    v_result := 'black'; v_winner := v_game.black_id;
+  v_opponent := CASE WHEN v_game.turn = 'w' THEN 'b' ELSE 'w' END;
+
+  IF public.has_mating_material(v_game.fen, v_opponent) THEN
+    v_reason := 'timeout';
+    IF v_game.turn = 'w' THEN
+      v_result := 'black'; v_winner := v_game.black_id;
+    ELSE
+      v_result := 'white'; v_winner := v_game.white_id;
+    END IF;
   ELSE
-    v_result := 'white'; v_winner := v_game.white_id;
+    -- FIDE 6.9 — the flag fell, but the opponent cannot mate: draw.
+    v_result := 'draw'; v_winner := NULL; v_reason := 'timeout_vs_insufficient';
   END IF;
 
   UPDATE public.games SET
     status       = 'finished',
     result       = v_result,
     winner_id    = v_winner,
-    end_reason   = 'timeout',
+    end_reason   = v_reason,
     ended_at     = now(),
     white_time_ms = CASE WHEN v_game.turn = 'w' THEN 0 ELSE v_game.white_time_ms END,
     black_time_ms = CASE WHEN v_game.turn = 'b' THEN 0 ELSE v_game.black_time_ms END
@@ -18998,65 +19045,14 @@ BEGIN
 END; $$;
 REVOKE EXECUTE ON FUNCTION public.chat_discover_private_rooms(TEXT, INT) FROM PUBLIC;
 -- 7. Live Game timeout claim RPC
-DROP FUNCTION IF EXISTS public.claim_timeout(UUID);
-CREATE OR REPLACE FUNCTION public.claim_timeout(p_game_id UUID)
-RETURNS BOOLEAN
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  v_game public.games%ROWTYPE;
-  v_caller UUID := auth.uid();
-  v_elapsed_ms BIGINT;
-  v_winner UUID;
-  v_end_reason TEXT;
-  v_result public.game_result;
-BEGIN
-  IF v_caller IS NULL THEN
-    RAISE EXCEPTION 'Authentication required';
-  END IF;
-
-  SELECT * INTO v_game FROM public.games WHERE id = p_game_id FOR UPDATE;
-  IF NOT FOUND OR v_game.status != 'active' THEN
-    RETURN FALSE;
-  END IF;
-
-  IF v_caller != v_game.white_id AND v_caller != v_game.black_id THEN
-    RAISE EXCEPTION 'Not a player in this game';
-  END IF;
-
-  IF v_game.last_move_at IS NOT NULL THEN
-    v_elapsed_ms := (EXTRACT(EPOCH FROM (now() - v_game.last_move_at)) * 1000)::BIGINT;
-  ELSE
-    v_elapsed_ms := 0;
-  END IF;
-
-  IF v_game.turn = 'w' AND (v_game.white_time_ms - v_elapsed_ms) <= 0 THEN
-    v_winner := v_game.black_id;
-    v_result := 'black';
-    v_end_reason := 'black_won_on_time';
-  ELSIF v_game.turn = 'b' AND (v_game.black_time_ms - v_elapsed_ms) <= 0 THEN
-    v_winner := v_game.white_id;
-    v_result := 'white';
-    v_end_reason := 'white_won_on_time';
-  ELSE
-    RETURN FALSE;
-  END IF;
-
-  UPDATE public.games
-  SET
-    status = 'finished',
-    result = v_result,
-    winner_id = v_winner,
-    end_reason = v_end_reason,
-    white_time_ms = CASE WHEN turn = 'w' THEN 0 ELSE white_time_ms END,
-    black_time_ms = CASE WHEN turn = 'b' THEN 0 ELSE black_time_ms END,
-    updated_at = now()
-  WHERE id = p_game_id;
-
-  RETURN TRUE;
-END; $$;
-
-REVOKE EXECUTE ON FUNCTION public.claim_timeout(UUID) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.claim_timeout(UUID) TO authenticated, service_role;
+-- REMOVED (duplicate). A second CREATE OR REPLACE for claim_timeout used to
+-- live here. Because it ran after SECTION 30 it won on any full re-run of
+-- this file, and it silently dropped the `PERFORM public.apply_elo_change(...)`
+-- call -- so ratings stopped updating whenever a game ended on the clock. It
+-- also wrote end_reason 'white_won_on_time'/'black_won_on_time' instead of
+-- SECTION 30's 'timeout'. The deployed database runs the SECTION 30 version;
+-- deleting the duplicate makes this file match production instead of
+-- silently regressing it.
 
 
 
@@ -22348,3 +22344,143 @@ SELECT
 
 ALTER TABLE public.wallets 
 ADD COLUMN IF NOT EXISTS locked_balance INT NOT NULL DEFAULT 0;
+
+
+-- =====================================================================
+-- FIDE 6.9 — a flag fall is only a loss if the opponent can still mate
+-- ---------------------------------------------------------------------
+-- NOT YET APPLIED to the deployed database. Run this against the project
+-- to bring `claim_timeout` in line with the TypeScript move handler
+-- (src/lib/api/game.functions.ts), which already implements the rule.
+--
+-- Until it is applied the two paths disagree: a game that ends on the
+-- clock inside makeMove is correctly drawn when the winner has only a
+-- bare king, while the same position claimed through claim_timeout is
+-- recorded as a win. Both branches are already merged into
+-- supabase/schema.sql, so a fresh apply of that file is correct.
+--
+-- Idempotent: CREATE OR REPLACE only, no data changes.
+-- =====================================================================
+
+-- Mirrors hasMatingMaterial() in src/lib/chess/rules.ts.
+CREATE OR REPLACE FUNCTION public.has_mating_material(p_fen TEXT, p_color TEXT)
+RETURNS BOOLEAN LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE
+  v_board   TEXT := split_part(p_fen, ' ', 1);
+  v_pawns   INT;
+  v_knights INT;
+  v_bishops INT;
+  v_majors  INT;
+BEGIN
+  IF p_color = 'w' THEN
+    v_pawns   := length(v_board) - length(replace(v_board, 'P', ''));
+    v_knights := length(v_board) - length(replace(v_board, 'N', ''));
+    v_bishops := length(v_board) - length(replace(v_board, 'B', ''));
+    v_majors  := (length(v_board) - length(replace(v_board, 'R', '')))
+               + (length(v_board) - length(replace(v_board, 'Q', '')));
+  ELSE
+    v_pawns   := length(v_board) - length(replace(v_board, 'p', ''));
+    v_knights := length(v_board) - length(replace(v_board, 'n', ''));
+    v_bishops := length(v_board) - length(replace(v_board, 'b', ''));
+    v_majors  := (length(v_board) - length(replace(v_board, 'r', '')))
+               + (length(v_board) - length(replace(v_board, 'q', '')));
+  END IF;
+
+  IF v_pawns > 0 OR v_majors > 0 THEN RETURN TRUE; END IF;
+  RETURN (v_bishops + v_knights) >= 2;
+END; $$;
+
+CREATE OR REPLACE FUNCTION public.claim_timeout(p_game_id UUID)
+RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid        UUID := auth.uid();
+  v_game       public.games%ROWTYPE;
+  v_elapsed_ms BIGINT;
+  v_to_move_ms INT;
+  v_result     public.game_result;
+  v_winner     UUID;
+  v_opponent   TEXT;
+  v_reason     TEXT;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  SELECT * INTO v_game FROM public.games WHERE id = p_game_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Game not found'; END IF;
+  IF v_game.status <> 'active' THEN RETURN false; END IF;
+  IF v_uid <> v_game.white_id AND v_uid <> v_game.black_id THEN
+    RAISE EXCEPTION 'Not a player';
+  END IF;
+
+  v_elapsed_ms := EXTRACT(EPOCH FROM (
+    now() - COALESCE(v_game.last_move_at, v_game.created_at)
+  )) * 1000;
+  v_to_move_ms := CASE WHEN v_game.turn = 'w'
+                    THEN v_game.white_time_ms
+                    ELSE v_game.black_time_ms
+                  END;
+
+  IF v_elapsed_ms < v_to_move_ms THEN RETURN false; END IF;
+
+  v_opponent := CASE WHEN v_game.turn = 'w' THEN 'b' ELSE 'w' END;
+
+  IF public.has_mating_material(v_game.fen, v_opponent) THEN
+    v_reason := 'timeout';
+    IF v_game.turn = 'w' THEN
+      v_result := 'black'; v_winner := v_game.black_id;
+    ELSE
+      v_result := 'white'; v_winner := v_game.white_id;
+    END IF;
+  ELSE
+    v_result := 'draw'; v_winner := NULL; v_reason := 'timeout_vs_insufficient';
+  END IF;
+
+  UPDATE public.games SET
+    status       = 'finished',
+    result       = v_result,
+    winner_id    = v_winner,
+    end_reason   = v_reason,
+    ended_at     = now(),
+    white_time_ms = CASE WHEN v_game.turn = 'w' THEN 0 ELSE v_game.white_time_ms END,
+    black_time_ms = CASE WHEN v_game.turn = 'b' THEN 0 ELSE v_game.black_time_ms END
+  WHERE id = p_game_id;
+
+  PERFORM public.apply_elo_change(p_game_id);
+  RETURN true;
+END; $$;
+
+REVOKE EXECUTE ON FUNCTION public.claim_timeout(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.claim_timeout(UUID) TO authenticated, service_role;
+
+-- Sanity checks (expect: f, f, f, t, t, t)
+--   SELECT public.has_mating_material('8/8/4k3/8/8/4K3/8/8 w - - 0 1','w');      -- bare king
+--   SELECT public.has_mating_material('8/8/4k3/8/8/4K3/8/5N2 w - - 0 1','w');    -- K+N
+--   SELECT public.has_mating_material('8/8/4k3/8/8/4K3/8/5B2 w - - 0 1','w');    -- K+B
+--   SELECT public.has_mating_material('8/8/4k3/8/8/4K3/8/4NN2 w - - 0 1','w');   -- K+NN
+--   SELECT public.has_mating_material('8/8/4k3/8/8/4K3/4P3/8 w - - 0 1','w');    -- K+P
+--   SELECT public.has_mating_material('8/8/4k3/8/8/4K3/8/5R2 w - - 0 1','w');    -- K+R
+
+-- =====================================================================
+-- SECTION 200: HOT-PATH INDEXES
+-- ---------------------------------------------------------------------
+-- Indexes for the read patterns the live game surfaces issue on every
+-- board load. Additive and idempotent — safe to re-run against an
+-- existing database, and no existing index or query is changed.
+-- =====================================================================
+
+-- game.$id.tsx loads the whole chat for a board with
+--   SELECT ... FROM game_chat WHERE game_id = ? ORDER BY created_at
+-- and game_chat had no index at all beyond its primary key, so this was a
+-- sequential scan of every chat message ever sent, on every game page
+-- load, growing with total site history rather than with the game.
+CREATE INDEX IF NOT EXISTS idx_game_chat_game_created
+  ON public.game_chat (game_id, created_at);
+
+-- The lobby / matchmaking surfaces filter open games by status, and the
+-- clock sweep scans active ones. `idx_games_created` only helps the
+-- ordering, not the filter.
+CREATE INDEX IF NOT EXISTS idx_games_status_created
+  ON public.games (status, created_at DESC);
+
+-- Spectator + live-game feeds read active boards by time class.
+CREATE INDEX IF NOT EXISTS idx_games_active_time_class
+  ON public.games (time_class, last_move_at DESC)
+  WHERE status = 'active';

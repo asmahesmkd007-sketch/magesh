@@ -213,7 +213,25 @@ export function PuzzleTrainer() {
     }
     if (!selected) return;
 
+    // `step` can run past the solution array if the stored step_index and
+    // the moves list ever disagree (bad puzzle data, or a resumed attempt
+    // whose progress row is ahead of its puzzle). Reading `.slice()` off
+    // undefined here used to throw and leave the board wedged mid-puzzle.
     const expected = puzzle.moves[step];
+    if (!expected) {
+      toast.error("This puzzle's data is incomplete — skipping.");
+      setLocalStatus("FAILED");
+      updateProgress({
+        status: "FAILED",
+        time_spent_ms: getTimeSpent(),
+        board_fen: g.fen(),
+        step_index: step,
+        wrong_moves_count: wrongMoves,
+        hint_used: hintUsed,
+        last_move_played: null,
+      });
+      return;
+    }
     if (selected + sq === expected.slice(0, 4)) {
       const playerMade = applyUci(expected);
       if (!playerMade) {
@@ -312,7 +330,17 @@ export function PuzzleTrainer() {
     // "Show Solution", or genuinely broken puzzle data ends the attempt.
     // wrong_moves_count is tracked precisely so multiple tries are expected.
     try {
-      const made = g.move({ from: selected, to: sq, promotion: "q" });
+      // Try the move as-is first and only add a promotion piece when the
+      // position actually requires one. Hardcoding `promotion: "q"` made
+      // every non-promotion move carry a meaningless flag, and — worse —
+      // silently turned an attempted underpromotion into a queen, so a
+      // player exploring `=N` could never see their own idea on the board.
+      const needsPromotion = g
+        .moves({ square: selected as Square, verbose: true })
+        .some((m) => m.to === sq && m.flags.includes("p"));
+      const made = needsPromotion
+        ? g.move({ from: selected, to: sq, promotion: expected[4] ?? "q" })
+        : g.move({ from: selected, to: sq });
       setLastMove({ from: made.from, to: made.to });
       sync();
       doFlash("bad");

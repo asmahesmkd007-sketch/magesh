@@ -81,17 +81,17 @@ export function Navbar() {
         {/* Logo */}
         <Link
           to={user ? "/home" : "/"}
-          className="flex items-center gap-2.5"
+          className="flex shrink-0 items-center gap-2.5"
           onClick={closeAllDropdowns}
         >
           <img
             src="/chessox-icon.ico"
             alt="ChessOx — play chess online"
-            className="h-16 w-auto object-contain"
+            className="h-14 w-auto object-contain"
             draggable={false}
           />
-          <div className="font-display text-[1.75rem] tracking-wide leading-none text-gradient-gold">
-            CHESS OX
+          <div className="font-display text-[1.75rem] tracking-wide leading-none text-gradient-gold whitespace-nowrap">
+            CHESSOX
           </div>
         </Link>
 

@@ -290,7 +290,9 @@ export function useAnalysisSession() {
         setReviewState({
           status: "error",
           message:
-            "The engine could not finish the review. Check that your browser supports WebAssembly and try again.",
+            e instanceof Error && e.message
+              ? `Review failed: ${e.message}`
+              : "The engine could not finish the review. Please try again.",
         });
       } finally {
         if (reviewAbortRef.current === abort) reviewAbortRef.current = null;

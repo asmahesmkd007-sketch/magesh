@@ -77,7 +77,9 @@ export function generate11CharUsername(seedName?: string): string {
     base += letters[Math.floor(Math.random() * 26)];
   }
   const separator = Math.random() < 0.5 ? "_" : ".";
-  const num = Math.floor(Math.random() * 100).toString().padStart(2, "0");
+  const num = Math.floor(Math.random() * 100)
+    .toString()
+    .padStart(2, "0");
   return `${base}${separator}${num}`;
 }
 

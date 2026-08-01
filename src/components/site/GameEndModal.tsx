@@ -1,37 +1,59 @@
-import { X, Play, LineChart, Users, Home } from "lucide-react";
+import { X, Play, RotateCcw, Users, Home } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { GoldButton, GhostButton } from "./Primitives";
-
-export type GameEndResult = "white" | "black" | "draw" | "resigned";
+import {
+  formatEndReason,
+  normalizeResult,
+  personalHeadline,
+  resultHeadline,
+  type GameResult,
+} from "@/lib/chess/result";
 
 type Props = {
-  result: GameEndResult;
-  reason: string;
+  /** The raw `games.result` value; any of the five `game_result` members. */
+  result: GameResult | string;
+  /** The raw `games.end_reason` value — humanised for display here. */
+  reason?: string | null;
+  /** The viewer's seat, so the headline can say "You Won"/"You Lost". */
+  myColor?: "w" | "b" | null;
   onClose: () => void;
   gameId?: string;
   isLocal?: boolean;
   roomId?: string;
   roomHostId?: string;
   currentUserId?: string;
+  onRematch?: () => void;
+  rematchStatus?: "none" | "offered" | "incoming";
 };
 
 export function GameEndModal({
   result,
   reason,
+  myColor,
   onClose,
   gameId,
   isLocal,
   roomId,
   roomHostId,
   currentUserId,
+  onRematch,
+  rematchStatus = "none",
 }: Props) {
-  const isDraw = result === "draw";
-  const title = isDraw
-    ? "Draw"
-    : result === "resigned"
-      ? "Resignation"
-      : `${result === "white" ? "White" : "Black"} Wins`;
-  const icon = isDraw ? "🤝" : result === "resigned" ? "🏳" : "🏆";
+  // Never infer a winner from a value we don't recognise — `normalizeResult`
+  // sends anything unexpected to "ongoing" instead of to a Black win, which
+  // is what the previous `result === "white" ? … : "Black"` ternary did for
+  // draws, aborts and unfinished games alike.
+  const verdict = normalizeResult(result);
+  const isDraw = verdict === "draw";
+  const isAborted = verdict === "aborted";
+
+  // The neutral headline always states *who* won; the reason line carries
+  // *how*. Resignation used to replace the headline entirely, which meant a
+  // resigned game never showed a winner at all.
+  const title = myColor ? personalHeadline(verdict, myColor) : resultHeadline(verdict);
+  const subtitle = myColor && verdict !== "ongoing" ? resultHeadline(verdict) : null;
+  const detail = formatEndReason(reason);
+  const icon = isAborted ? "⊘" : isDraw ? "🤝" : verdict === "ongoing" ? "⏳" : "🏆";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4 animate-in fade-in duration-300">
@@ -46,18 +68,41 @@ export function GameEndModal({
         <div className="text-center mt-2">
           <div className="mb-4 text-5xl">{icon}</div>
           <h2 className="font-display text-3xl text-gradient-gold uppercase">{title}</h2>
-          <p className="mt-2 text-sm font-medium uppercase tracking-widest text-muted-foreground">
-            {reason}
-          </p>
+          {subtitle && (
+            <p className="mt-1 text-sm font-medium uppercase tracking-widest text-gold/80">
+              {subtitle}
+            </p>
+          )}
+          {detail && (
+            <p className="mt-2 text-sm font-medium uppercase tracking-widest text-muted-foreground">
+              {detail}
+            </p>
+          )}
         </div>
 
         <div className="mt-8 flex flex-col gap-3">
-          {!isLocal && gameId && (
-            <Link to="/analysis" search={{ gameId }}>
-              <GoldButton className="w-full">
-                <LineChart className="mr-2 h-4 w-4" /> Review Game
-              </GoldButton>
-            </Link>
+          {onRematch ? (
+            <GoldButton
+              onClick={onRematch}
+              disabled={rematchStatus === "offered"}
+              className="w-full bg-gradient-to-r from-gold to-amber-500 text-black font-bold"
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              {rematchStatus === "offered"
+                ? "Rematch Requested..."
+                : rematchStatus === "incoming"
+                  ? "Accept Rematch"
+                  : "Rematch"}
+            </GoldButton>
+          ) : (
+            !isLocal &&
+            gameId && (
+              <Link to="/play">
+                <GoldButton className="w-full">
+                  <RotateCcw className="mr-2 h-4 w-4" /> Rematch
+                </GoldButton>
+              </Link>
+            )
           )}
           {roomId ? (
             roomHostId === currentUserId ? (

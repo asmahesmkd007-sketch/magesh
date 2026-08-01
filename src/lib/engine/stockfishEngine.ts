@@ -94,19 +94,22 @@ export class StockfishEngine {
   private options: EngineOptions = { ...DEFAULT_ENGINE_OPTIONS };
   private optionsDirty = true;
 
-  /** The search currently executing inside the engine (one at a time). */
+  /** The search currently executing inside the engine. */
   private active: {
     request: SearchRequest;
     snapshot: SearchSnapshot;
     resolve?: (s: SearchSnapshot) => void;
     reject?: (e: Error) => void;
   } | null = null;
-  /** The most recent request received while another search was running. */
-  private queued: {
+
+  /** Pending searches awaiting execution. */
+  private queue: Array<{
     request: SearchRequest;
+    snapshot: SearchSnapshot;
     resolve?: (s: SearchSnapshot) => void;
     reject?: (e: Error) => void;
-  } | null = null;
+  }> = [];
+
   /** Set when `stop` was sent and we are draining the active search. */
   private stopping = false;
 
@@ -185,11 +188,11 @@ export class StockfishEngine {
       this.stopping = true;
       this.post("stop");
     }
-    // Drop anything waiting behind the active search.
-    if (this.queued) {
-      this.queued.reject?.(new Error("superseded"));
-      this.queued = null;
+    // Drop any queued items
+    for (const item of this.queue) {
+      item.reject?.(new Error("superseded"));
     }
+    this.queue = [];
   }
 
   /** Terminate the worker entirely (e.g. leaving the analysis page). */
@@ -202,9 +205,11 @@ export class StockfishEngine {
     this.stopping = false;
     const err = new Error("engine disposed");
     this.active?.reject?.(err);
-    this.queued?.reject?.(err);
+    for (const item of this.queue) {
+      item.reject?.(err);
+    }
+    this.queue = [];
     this.active = null;
-    this.queued = null;
     this.emit();
   }
 
@@ -245,9 +250,11 @@ export class StockfishEngine {
         this.status_ = "error";
         const err = new Error(`engine failed: ${e.message || "worker error"}`);
         this.active?.reject?.(err);
-        this.queued?.reject?.(err);
+        for (const item of this.queue) {
+          item.reject?.(err);
+        }
+        this.queue = [];
         this.active = null;
-        this.queued = null;
         this.emit();
         reject(err);
       };
@@ -280,12 +287,9 @@ export class StockfishEngine {
       }
       this.status_ = "ready";
       this.emit();
-      // Start whatever queued up while this search was running.
-      if (this.queued) {
-        const q = this.queued;
-        this.queued = null;
-        void this.begin(q.request, q.resolve, q.reject);
-      }
+
+      // Drain next search from the queue
+      void this.processQueue();
       return;
     }
 
@@ -301,29 +305,49 @@ export class StockfishEngine {
 
   private enqueue(request: SearchRequest): Promise<SearchSnapshot> {
     return new Promise<SearchSnapshot>((resolve, reject) => {
-      if (this.active) {
-        // Replace any previously queued request — only the newest matters.
-        this.queued?.reject?.(new Error("superseded"));
-        this.queued = { request, resolve, reject };
-        if (!this.stopping) {
-          this.stopping = true;
-          this.post("stop");
-        }
+      const item = {
+        request,
+        snapshot: { fen: request.fen, lines: [], bestMove: null, done: false },
+        resolve,
+        reject,
+      };
+
+      if (request.infinite) {
+        // Live infinite searches discard previous pending infinite searches
+        this.queue = this.queue.filter((q) => {
+          if (q.request.infinite) {
+            q.reject?.(new Error("superseded"));
+            return false;
+          }
+          return true;
+        });
+        this.queue.push(item);
       } else {
-        void this.begin(request, resolve, reject);
+        // Batch reviews queue sequentially
+        this.queue.push(item);
       }
+
+      // Interrupt an active live infinite search so queued batch reviews run immediately
+      if (this.active && this.active.request.infinite && !this.stopping) {
+        this.stopping = true;
+        this.post("stop");
+      }
+
+      void this.processQueue();
     });
   }
 
-  private async begin(
-    request: SearchRequest,
-    resolve?: (s: SearchSnapshot) => void,
-    reject?: (e: Error) => void,
-  ): Promise<void> {
+  private async processQueue(): Promise<void> {
+    if (this.active || this.stopping || this.queue.length === 0) return;
+
+    const item = this.queue.shift();
+    if (!item) return;
+
     try {
       await this.ensureWorker();
     } catch (e) {
-      reject?.(e instanceof Error ? e : new Error(String(e)));
+      item.reject?.(e instanceof Error ? e : new Error(String(e)));
+      void this.processQueue();
       return;
     }
 
@@ -334,22 +358,17 @@ export class StockfishEngine {
       this.optionsDirty = false;
     }
 
-    this.active = {
-      request,
-      snapshot: { fen: request.fen, lines: [], bestMove: null, done: false },
-      resolve,
-      reject,
-    };
-    this.latest = this.active.snapshot;
+    this.active = item;
+    this.latest = item.snapshot;
     this.status_ = "searching";
 
-    this.post(`position fen ${request.fen}`);
-    if (request.infinite) {
+    this.post(`position fen ${item.request.fen}`);
+    if (item.request.infinite) {
       this.post("go infinite");
-    } else if (request.movetimeMs) {
-      this.post(`go movetime ${Math.max(50, Math.round(request.movetimeMs))}`);
+    } else if (item.request.movetimeMs) {
+      this.post(`go movetime ${Math.max(50, Math.round(item.request.movetimeMs))}`);
     } else {
-      const depth = clamp(request.depth ?? 18, 1, 99);
+      const depth = clamp(item.request.depth ?? 18, 1, 99);
       this.post(`go depth ${depth}`);
     }
     this.emit();

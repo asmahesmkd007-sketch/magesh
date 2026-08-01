@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageShell, Card, GhostButton } from "@/components/site/Primitives";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import DOMPurify from "isomorphic-dompurify";
 import {
   seo,
   breadcrumbLd,
@@ -49,7 +48,20 @@ export const Route = createFileRoute("/news/$slug")({
       .select(SELECT)
       .eq("slug", params.slug)
       .maybeSingle();
-    return { article: (data as Article | null) ?? null };
+    const article = (data as Article | null) ?? null;
+
+    // Sanitize once, here, instead of on every render of the component.
+    // DOMPurify parses the whole article body into a DOM and walks it — for a
+    // long article that is milliseconds of main-thread work, and it was being
+    // repeated on every single re-render of the page. The import is dynamic so
+    // the sanitizer (and, on the server, its jsdom backend) is only pulled in
+    // when an article actually has a body to clean.
+    let bodyHtml: string | null = null;
+    if (article?.body) {
+      const { default: DOMPurify } = await import("isomorphic-dompurify");
+      bodyHtml = DOMPurify.sanitize(article.body.replace(/\n/g, "<br/>"));
+    }
+    return { article, bodyHtml };
   },
   head: ({ params, loaderData }) => {
     const article = loaderData?.article ?? null;
@@ -111,7 +123,7 @@ export const Route = createFileRoute("/news/$slug")({
 });
 
 function ArticlePage() {
-  const { article } = Route.useLoaderData();
+  const { article, bodyHtml } = Route.useLoaderData();
 
   if (!article) {
     return (
@@ -171,16 +183,16 @@ function ArticlePage() {
           {article.read_time_min && <span>{article.read_time_min} min read</span>}
         </div>
         {article.excerpt && <p className="mb-6 text-lg text-muted-foreground">{article.excerpt}</p>}
-        {article.body ? (
+        {bodyHtml ? (
           <div
             className="prose prose-invert max-w-none text-sm leading-relaxed text-foreground/90"
             // Article bodies are admin-authored (RLS restricts INSERT/UPDATE
             // on news_articles to admins), but still sanitized before
             // rendering as raw HTML — defense in depth against a compromised
             // admin session or unsanitized paste from an external source.
-            dangerouslySetInnerHTML={{
-              __html: DOMPurify.sanitize(article.body.replace(/\n/g, "<br/>")),
-            }}
+            // Sanitized in the loader (once per article) rather than here
+            // (once per render); see the loader for the reasoning.
+            dangerouslySetInnerHTML={{ __html: bodyHtml }}
           />
         ) : (
           <Card className="p-8 text-center text-muted-foreground">

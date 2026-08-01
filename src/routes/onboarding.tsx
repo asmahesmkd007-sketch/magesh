@@ -63,7 +63,11 @@ function OnboardingPage() {
       if (profile.state && !stateName) setStateName(profile.state);
 
       if (!username) {
-        if (profile.username && profile.username.length === 11 && isValidUsernameFormat(profile.username)) {
+        if (
+          profile.username &&
+          profile.username.length === 11 &&
+          isValidUsernameFormat(profile.username)
+        ) {
           setUsername(profile.username);
         } else {
           setUsername(generate11CharUsername(profile.full_name || user?.email?.split("@")[0]));
@@ -90,7 +94,9 @@ function OnboardingPage() {
       return;
     }
     if (!username || username.length !== 11 || !isValidUsernameFormat(username)) {
-      setError("Username must be exactly 11 characters (8 letters, '_' or '.', 2 numbers - e.g. chessfox_42).");
+      setError(
+        "Username must be exactly 11 characters (8 letters, '_' or '.', 2 numbers - e.g. chessfox_42).",
+      );
       return;
     }
     if (!country.trim()) {
@@ -125,7 +131,9 @@ function OnboardingPage() {
         .maybeSingle();
 
       if (existingProfile) {
-        throw new Error("This username is already taken. Please click regenerate or pick another 11-char username.");
+        throw new Error(
+          "This username is already taken. Please click regenerate or pick another 11-char username.",
+        );
       }
 
       // 2. Update profile
@@ -262,7 +270,8 @@ function OnboardingPage() {
                 />
               </div>
               <p className="text-[11px] text-foreground/50">
-                Format: 8 letters + '_' or '.' + 2 numbers (e.g., <code className="text-gold">chessfox_42</code>)
+                Format: 8 letters + '_' or '.' + 2 numbers (e.g.,{" "}
+                <code className="text-gold">chessfox_42</code>)
               </p>
             </div>
 
@@ -384,8 +393,16 @@ function OnboardingPage() {
               </div>
             )}
 
-            <GoldButton className="w-full h-11 text-sm justify-center" disabled={busy} type="submit">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Complete Profile & Start Playing"}
+            <GoldButton
+              className="w-full h-11 text-sm justify-center"
+              disabled={busy}
+              type="submit"
+            >
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Complete Profile & Start Playing"
+              )}
             </GoldButton>
           </form>
         </Card>

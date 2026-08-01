@@ -85,8 +85,8 @@ export function Footer() {
               className="h-14 w-auto object-contain"
               draggable={false}
             />
-            <div className="font-display text-3xl tracking-wide leading-none text-gradient-gold">
-              CHESS OX
+            <div className="font-display text-3xl tracking-wide leading-none text-gradient-gold whitespace-nowrap">
+              CHESSOX
             </div>
           </div>
 
@@ -119,8 +119,8 @@ export function Footer() {
         {/* Nav link groups or Big Watermark on landing page/auth */}
         {isLandingOrAuthPage && (
           <div className="hidden md:flex md:col-span-3 flex-col items-center justify-center opacity-10 pointer-events-none select-none">
-            <div className="font-display text-[5rem] lg:text-[7rem] leading-none tracking-[0.15em] text-gold text-center">
-              CHESS OX
+            <div className="font-display text-[5rem] lg:text-[7rem] leading-none tracking-[0.15em] text-gold text-center whitespace-nowrap">
+              CHESSOX
             </div>
           </div>
         )}

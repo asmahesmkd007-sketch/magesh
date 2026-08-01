@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess, type Square } from "chess.js";
-import { RotateCcw, FlipVertical2, Flag, ArrowLeft } from "lucide-react";
+import { RotateCcw, FlipVertical2, Flag, ArrowLeft, Handshake } from "lucide-react";
 import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Primitives";
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
 import { CapturedPieces } from "@/components/site/CapturedPieces";
@@ -10,6 +10,21 @@ import { PromotionPicker } from "@/components/site/PromotionPicker";
 import { GameEndModal } from "@/components/site/GameEndModal";
 import { useGameSettings } from "@/hooks/useGameSettings";
 import { useClockAudio } from "@/hooks/useClockAudio";
+import { useChessClock } from "@/hooks/useChessClock";
+import {
+  createClock,
+  press,
+  startTurn,
+  stop as stopClock,
+  type ClockState,
+} from "@/lib/chess/clock";
+import {
+  checkedKingSquare,
+  hasMatingMaterial,
+  terminalStateOf,
+  type EndReason,
+} from "@/lib/chess/rules";
+import { resultSentence, type GameResult } from "@/lib/chess/result";
 import { playGameSound, soundForChessMove } from "@/lib/audio/sounds";
 import { buzz } from "@/lib/haptics";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,16 +63,22 @@ export const Route = createFileRoute("/play/local")({
   component: LocalPlay,
 });
 
+// Covers every class the app advertises: bullet, blitz, rapid, classical.
 const TIME_CONTROLS = [
-  { label: "No timer", sec: 0 },
-  { label: "1 min", sec: 60 },
-  { label: "3+0", sec: 180 },
-  { label: "5+0", sec: 300 },
-  { label: "10+0", sec: 600 },
+  { label: "No timer", sec: 0, inc: 0 },
+  { label: "1+0", sec: 60, inc: 0 },
+  { label: "2+1", sec: 120, inc: 1 },
+  { label: "3+0", sec: 180, inc: 0 },
+  { label: "3+2", sec: 180, inc: 2 },
+  { label: "5+0", sec: 300, inc: 0 },
+  { label: "5+3", sec: 300, inc: 3 },
+  { label: "10+0", sec: 600, inc: 0 },
   { label: "15+10", sec: 900, inc: 10 },
-];
+  { label: "30+20", sec: 1800, inc: 20 },
+] as const;
 
 type Phase = "setup" | "playing" | "over";
+type Outcome = { result: GameResult; reason: string };
 
 function LocalPlay() {
   const { settings } = useGameSettings();
@@ -71,147 +92,128 @@ function LocalPlay() {
   const [promotion, setPromotion] = useState<{ from: string; to: string } | null>(null);
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
   const [history, setHistory] = useState<string[]>([]);
-  const [result, setResult] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [showEndModal, setShowEndModal] = useState(false);
-  const [whiteTime, setWhiteTime] = useState(0);
-  const [blackTime, setBlackTime] = useState(0);
 
   const gameRef = useRef(new Chess());
   const [boardState, setBoardState] = useState<BoardCell[][]>(gameRef.current.board());
-  const tcRef = useRef(TIME_CONTROLS[0]);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const savedRef = useRef(false);
+  // Read by the flag callback, which must not act on a stale phase.
+  const phaseRef = useRef<Phase>("setup");
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
 
   const tc = TIME_CONTROLS[tcIdx];
 
-  function stopTimer() {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }
+  // Wall-clock-anchored clock. The previous `setInterval(t => t - 1)` drifted,
+  // gained time whenever the tab was backgrounded, and ended the game from
+  // inside a state updater.
+  const [clock, setClock] = useState<ClockState>(() => createClock({ initialMs: 0 }));
 
-  function startTimer(color: "w" | "b") {
-    stopTimer();
-    if (!tcRef.current.sec) return;
-    timerRef.current = setInterval(() => {
-      if (color === "w") {
-        setWhiteTime((t) => {
-          if (t <= 0) {
-            stopTimer();
-            endGame("Black wins on time");
-            return 0;
-          }
-          return t - 1;
-        });
-      } else {
-        setBlackTime((t) => {
-          if (t <= 0) {
-            stopTimer();
-            endGame("White wins on time");
-            return 0;
-          }
-          return t - 1;
-        });
+  const persistGame = useCallback(
+    (verdict: GameResult, reason: string) => {
+      if (!user) return;
+      const moveHistory = gameRef.current.history({ verbose: true });
+      if (moveHistory.length === 0) return;
+
+      const replay = new Chess();
+      const moves = moveHistory.map((m, idx) => {
+        const fenBefore = replay.fen();
+        replay.move({ from: m.from, to: m.to, promotion: m.promotion });
+        return {
+          ply: idx + 1,
+          san: m.san,
+          uci: m.from + m.to + (m.promotion ?? ""),
+          fen_before: fenBefore,
+          fen_after: replay.fen(),
+          is_capture: !!m.captured,
+          is_check: replay.inCheck(),
+          is_promotion: !!m.promotion,
+          is_castling: m.flags.includes("k") || m.flags.includes("q"),
+        };
+      });
+
+      saveLocalGame({
+        myColor: "w",
+        opponentName: "Local Opponent",
+        // The verdict is already a `game_result` member — it is no longer
+        // re-derived by string-matching an English sentence, which is what
+        // made "White wins on time" and "Black wins on time" both parse as
+        // wins for whoever the prefix happened to name.
+        result: verdict as "white" | "black" | "draw",
+        endReason: reason,
+        pgn: gameRef.current.pgn(),
+        movesCount: moveHistory.length,
+        finalFen: gameRef.current.fen(),
+        moves,
+      }).catch(() => {
+        /* silent — archiving a casual local game is not critical */
+      });
+    },
+    [user],
+  );
+
+  const endGame = useCallback(
+    (verdict: GameResult, reason: EndReason | string) => {
+      setClock((c) => stopClock(c, Date.now()));
+      setOutcome({ result: verdict, reason });
+      setPhase("over");
+      phaseRef.current = "over";
+      setShowEndModal(true);
+      if (verdict === "draw") playGameSound("draw");
+      else playGameSound("victory");
+      if (!savedRef.current) {
+        savedRef.current = true;
+        persistGame(verdict, reason);
       }
-    }, 1000);
-  }
+    },
+    [persistGame],
+  );
 
-  function endGame(msg: string) {
-    stopTimer();
-    setResult(msg);
-    setPhase("over");
-    setShowEndModal(true);
-    if (!savedRef.current) {
-      savedRef.current = true;
-      persistGame(msg);
-    }
-  }
+  const onFlag = useCallback(
+    (color: "w" | "b") => {
+      if (phaseRef.current !== "playing") return;
+      const opponent: "w" | "b" = color === "w" ? "b" : "w";
+      // FIDE 6.9 — a flag fall is only a loss if the opponent could still
+      // mate. Bare king (or king + single minor) makes it a draw.
+      if (!hasMatingMaterial(gameRef.current, opponent)) {
+        endGame("draw", "timeout_vs_insufficient");
+        return;
+      }
+      endGame(opponent === "w" ? "white" : "black", "timeout");
+    },
+    [endGame],
+  );
 
-  function persistGame(msg: string) {
-    if (!user) return;
-    const game = gameRef.current;
-    const history = game.history({ verbose: true });
-    if (history.length === 0) return;
-
-    let result: "white" | "black" | "draw";
-    let endReason: string;
-    if (msg.includes("checkmate")) {
-      result = msg.startsWith("White") ? "white" : "black";
-      endReason = "checkmate";
-    } else if (msg.toLowerCase().includes("time")) {
-      result = msg.startsWith("White") ? "white" : "black";
-      endReason = "timeout";
-    } else if (msg.includes("resignation")) {
-      result = msg.startsWith("White") ? "white" : "black";
-      endReason = "resignation";
-    } else {
-      result = "draw";
-      endReason = msg.toLowerCase().includes("stalemate") ? "stalemate" : "agreement";
-    }
-
-    // Replay the game to collect per-move FEN data and flags
-    const replay = new Chess();
-    const moves = history.map((m, idx) => {
-      const fenBefore = replay.fen();
-      replay.move({ from: m.from, to: m.to, promotion: m.promotion });
-      return {
-        ply: idx + 1,
-        san: m.san,
-        uci: m.from + m.to + (m.promotion ?? ""),
-        fen_before: fenBefore,
-        fen_after: replay.fen(),
-        is_capture: !!m.captured,
-        is_check: replay.inCheck(),
-        is_promotion: !!m.promotion,
-        is_castling: m.flags.includes("k") || m.flags.includes("q"),
-      };
-    });
-
-    const pgn = (() => {
-      const g = new Chess();
-      for (const m of history) g.move({ from: m.from, to: m.to, promotion: m.promotion });
-      return g.pgn();
-    })();
-
-    saveLocalGame({
-      myColor: "w",
-      opponentName: "Local Opponent",
-      result,
-      endReason,
-      pgn,
-      movesCount: history.length,
-      finalFen: gameRef.current.fen(),
-      moves,
-    }).catch(() => {
-      /* silent — not critical */
-    });
-  }
+  const { whiteMs, blackMs } = useChessClock(clock, {
+    showTenths: settings.show_tenths,
+    onFlag,
+  });
 
   function beginGame() {
-    tcRef.current = tc;
     gameRef.current = new Chess();
     savedRef.current = false;
     setBoardState(gameRef.current.board());
     setSelected(null);
     setTargets([]);
+    setPromotion(null);
     setLastMove(null);
     setHistory([]);
-    setResult(null);
+    setOutcome(null);
     setShowEndModal(false);
-    setWhiteTime(tc.sec);
-    setBlackTime(tc.sec);
     setPhase("playing");
-    startTimer("w");
+    phaseRef.current = "playing";
+    const fresh = createClock({ initialMs: tc.sec * 1000, incrementMs: tc.inc * 1000 });
+    setClock(tc.sec > 0 ? startTurn(fresh, "w", Date.now()) : fresh);
     if (settings.auto_flip) setOrientation("w");
   }
 
   function resetGame() {
-    stopTimer();
+    setClock((c) => stopClock(c, Date.now()));
     setPhase("setup");
+    phaseRef.current = "setup";
   }
-
-  useEffect(() => () => stopTimer(), []);
 
   function handleSquare(sq: string) {
     if (phase !== "playing" || promotion) return;
@@ -222,7 +224,6 @@ function LocalPlay() {
       const m = moveList.find((mv) => mv.to === square);
       if (m) {
         if (m.flags.includes("p")) {
-          // Auto-queen setting skips the promotion picker entirely.
           if (settings.auto_queen) {
             commitMove(selected, square, "q");
           } else {
@@ -249,66 +250,56 @@ function LocalPlay() {
     const m = g.move({ from, to, promotion: promo });
     if (!m) return;
 
-    // Add increment
-    const inc = (tcRef.current as { inc?: number }).inc ?? 0;
-    if (m.color === "w" && tcRef.current.sec)
-      setWhiteTime((t) => Math.min(t + inc, tcRef.current.sec));
-    if (m.color === "b" && tcRef.current.sec)
-      setBlackTime((t) => Math.min(t + inc, tcRef.current.sec));
+    const now = Date.now();
+    // Bank the mover's time and hand the clock over in one operation, so
+    // the increment is applied exactly once and no time is lost between
+    // "move made" and "opponent's clock started".
+    setClock((c) => (c.untimed ? c : press(c, now)));
 
-    setBoardState([...g.board()]);
+    setBoardState(g.board());
     setLastMove({ from, to });
     setSelected(null);
     setTargets([]);
     setHistory(g.history());
     buzz();
 
-    // Audio cues — most specific first.
-    if (g.isCheckmate()) {
-      playGameSound("checkmate");
-      endGame(`${m.color === "w" ? "White" : "Black"} wins by checkmate`);
-      return;
-    }
-    if (g.isDraw() || g.isStalemate()) {
-      playGameSound("draw");
-    } else {
-      soundForChessMove(m, g);
-    }
-
-    if (g.isDraw()) {
-      endGame("Draw");
-      return;
-    }
-    if (g.isStalemate()) {
-      endGame("Stalemate — Draw");
+    // One terminal check, from the shared rules module. The old chain put
+    // `isDraw()` before `isStalemate()`, which made the stalemate branch
+    // unreachable and reported every stalemate as a bare "Draw".
+    const terminal = terminalStateOf(g);
+    if (terminal) {
+      if (terminal.reason === "checkmate") playGameSound("checkmate");
+      endGame(terminal.result, terminal.reason);
       return;
     }
 
-    const nextTurn = g.turn();
-    if (settings.auto_flip) setOrientation(nextTurn);
-    startTimer(nextTurn);
+    soundForChessMove(m, g);
+    if (settings.auto_flip) setOrientation(g.turn());
+  }
+
+  function offerDraw() {
+    if (phase !== "playing") return;
+    if (settings.confirm_draw_offer && !confirm("Agree to a draw?")) return;
+    endGame("draw", "agreement");
   }
 
   const checkSquare = useMemo(() => {
-    const g = gameRef.current;
-    if (!g.inCheck()) return null;
-    // Reuse the already-computed boardState snapshot instead of calling
-    // g.board() again — also makes `boardState` a real dependency instead
-    // of a trigger-only one the linter can't see is intentional.
-    return (
-      boardState.flat().find((p) => p && p.type === "k" && p.color === g.turn())?.square ?? null
-    );
+    // boardState is the render-time snapshot; recomputing from it keeps the
+    // memo honest about what it actually depends on.
+    void boardState;
+    return checkedKingSquare(gameRef.current);
   }, [boardState]);
 
   const endState = useMemo(() => {
-    if (phase !== "over" || !result) return null;
-    let res: "white" | "black" | "draw" = "draw";
-    if (result.includes("White wins")) res = "white";
-    if (result.includes("Black wins")) res = "black";
-    return { result: res, reason: result };
-  }, [phase, result]);
+    if (phase !== "over" || !outcome) return null;
+    if (outcome.result !== "white" && outcome.result !== "black" && outcome.result !== "draw") {
+      return null;
+    }
+    return { result: outcome.result, reason: outcome.reason };
+  }, [phase, outcome]);
 
   const turn = gameRef.current.turn();
+  const headline = outcome ? resultSentence(outcome.result, outcome.reason) : null;
 
   return (
     <PageShell
@@ -317,18 +308,10 @@ function LocalPlay() {
       subtitle="Both players on the same device — pass and play."
       compact={true}
     >
-      {showEndModal && result && (
+      {showEndModal && outcome && (
         <GameEndModal
-          result={
-            result.toLowerCase().includes("resign")
-              ? "resigned"
-              : result.includes("White wins")
-                ? "white"
-                : result.includes("Black wins")
-                  ? "black"
-                  : "draw"
-          }
-          reason={result}
+          result={outcome.result}
+          reason={outcome.reason}
           onClose={() => setShowEndModal(false)}
           isLocal
         />
@@ -368,29 +351,27 @@ function LocalPlay() {
         <div className="grid gap-6 lg:grid-cols-12">
           {/* Left panel */}
           <div className="space-y-4 lg:col-span-3">
-            {/* Opponent clock (top) */}
             <PlayerCard
               name={orientation === "w" ? "Black" : "White"}
-              time={orientation === "w" ? blackTime : whiteTime}
+              ms={orientation === "w" ? blackMs : whiteMs}
               active={phase === "playing" && turn !== orientation}
-              showClock={!!tc.sec}
+              showClock={!clock.untimed}
               board={boardState}
               capturedColor={orientation === "w" ? "b" : "w"}
             />
-            {/* My clock (bottom) */}
             <PlayerCard
               name={orientation === "w" ? "White" : "Black"}
-              time={orientation === "w" ? whiteTime : blackTime}
+              ms={orientation === "w" ? whiteMs : blackMs}
               active={phase === "playing" && turn === orientation}
-              showClock={!!tc.sec}
+              showClock={!clock.untimed}
               board={boardState}
               capturedColor={orientation === "w" ? "w" : "b"}
               me
             />
 
-            {phase === "over" && result && (
+            {phase === "over" && headline && (
               <Card className="p-4 text-center">
-                <div className="font-display text-xl text-gradient-gold">{result}</div>
+                <div className="font-display text-xl text-gradient-gold">{headline}</div>
                 <div className="mt-4 flex justify-center gap-2">
                   <GoldButton onClick={beginGame}>Rematch</GoldButton>
                   <GhostButton onClick={resetGame}>New Setup</GhostButton>
@@ -408,9 +389,16 @@ function LocalPlay() {
                     <FlipVertical2 className="h-3.5 w-3.5" /> Flip
                   </button>
                   <button
+                    onClick={offerDraw}
+                    className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs hover:border-gold/30"
+                  >
+                    <Handshake className="h-3.5 w-3.5" /> Draw
+                  </button>
+                  <button
                     onClick={() => {
                       if (settings.confirm_resign && !confirm("Resign this game?")) return;
-                      endGame(`${turn === "w" ? "Black" : "White"} wins by resignation`);
+                      // The player to move is the one resigning.
+                      endGame(turn === "w" ? "black" : "white", "resignation");
                     }}
                     className="flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-2 text-xs text-destructive hover:bg-destructive/10"
                   >
@@ -490,7 +478,7 @@ function LocalPlay() {
 
 function PlayerCard({
   name,
-  time,
+  ms,
   active,
   showClock,
   me,
@@ -498,7 +486,7 @@ function PlayerCard({
   capturedColor,
 }: {
   name: string;
-  time: number;
+  ms: number;
   active: boolean;
   showClock: boolean;
   me?: boolean;
@@ -507,7 +495,7 @@ function PlayerCard({
 }) {
   // Hot-seat local play — whichever side is on the clock gets the audio
   // cue, not just "me", since both players share this device.
-  useClockAudio(Math.ceil(time), active);
+  useClockAudio(Math.ceil(ms / 1000), active && showClock);
   return (
     <Card className={`p-4 ${active ? "ring-1 ring-gold/60" : ""}`}>
       <div className="flex items-center gap-3">
@@ -528,7 +516,7 @@ function PlayerCard({
           <div
             className={`rounded-lg px-3 py-1.5 font-mono text-sm tabular-nums ${active ? "bg-gold text-[#0B0D10]" : "bg-white/5"}`}
           >
-            <ClockTime ms={time * 1000} active={active} />
+            <ClockTime ms={ms} active={active} />
           </div>
         )}
       </div>

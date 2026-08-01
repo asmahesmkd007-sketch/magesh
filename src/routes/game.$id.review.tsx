@@ -16,7 +16,10 @@ import {
   Loader2,
   Sparkles,
   Clock,
+  Copy,
+  Download,
 } from "lucide-react";
+import { formatEndReason, normalizeResult, resultToPgnTag } from "@/lib/chess/result";
 import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Primitives";
 import { InteractiveBoard } from "@/components/site/InteractiveBoard";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
@@ -74,6 +77,10 @@ type GameRow = {
   vs_computer: boolean;
   opening: string | null;
 };
+
+/** Autoplay interval at 1×; divided by the chosen speed multiplier. */
+const BASE_REPLAY_MS = 1200;
+const REPLAY_SPEEDS = [0.5, 1, 1.5, 2, 4] as const;
 
 const PIECE_UNICODE: Record<string, Record<string, string>> = {
   w: { p: "♙", n: "♘", b: "♗", r: "♖", q: "♕", k: "♔" },
@@ -266,11 +273,15 @@ function GameReview() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState(1);
   const [reviewing, setReviewing] = useState(false);
   const [reviewProgress, setReviewProgress] = useState(0);
   const autoPlayRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reviewAbortRef = useRef<AbortController | null>(null);
+  // The move-list row for the current ply, so the list can follow playback.
+  const activeMoveRef = useRef<HTMLButtonElement | null>(null);
 
   // ── Load game + moves + analysis ───────────────────────────────────────
   const load = useCallback(async () => {
@@ -404,6 +415,8 @@ function GameReview() {
   }, [sans.length, stepBack, stepForward]);
 
   // ── Autoplay ────────────────────────────────────────────────────────────
+  // Interval is derived from the chosen speed so changing speed mid-playback
+  // takes effect immediately (the effect re-runs and re-arms the timer).
   useEffect(() => {
     if (playing) {
       autoPlayRef.current = setInterval(() => {
@@ -414,7 +427,7 @@ function GameReview() {
           }
           return p + 1;
         });
-      }, 1200);
+      }, BASE_REPLAY_MS / speed);
     } else if (autoPlayRef.current) {
       clearInterval(autoPlayRef.current);
       autoPlayRef.current = null;
@@ -425,9 +438,79 @@ function GameReview() {
         autoPlayRef.current = null;
       }
     };
-  }, [playing, sans.length]);
+  }, [playing, sans.length, speed]);
 
   useEffect(() => () => reviewAbortRef.current?.abort(), []);
+
+  // Keep the current move visible in the list as playback advances or the
+  // user scrubs. `nearest` avoids yanking the panel when the move is
+  // already on screen.
+  useEffect(() => {
+    activeMoveRef.current?.scrollIntoView({ block: "nearest" });
+  }, [ply]);
+
+  // ── PGN export ──────────────────────────────────────────────────────────
+  // Rebuilt from the SAN list rather than read from games.pgn, so it is
+  // correct even for games stored before the server-side PGN fix, and it
+  // carries the Seven Tag Roster the raw column never had.
+  const pgnText = useMemo(() => {
+    if (!game || sans.length === 0) return "";
+    const chess = new Chess();
+    for (const san of sans) {
+      try {
+        chess.move(san);
+      } catch {
+        break;
+      }
+    }
+    const date =
+      (game.ended_at ?? game.created_at ?? "").slice(0, 10).replace(/-/g, ".") || "????.??.??";
+    chess.header(
+      "Event",
+      game.is_rated ? "ChessOx Rated Game" : "ChessOx Casual Game",
+      "Site",
+      "ChessOx",
+      "Date",
+      date,
+      "Round",
+      "-",
+      "White",
+      game.white_username ?? "White",
+      "Black",
+      game.black_username ?? "Black",
+      "Result",
+      resultToPgnTag(normalizeResult(game.result)),
+      "TimeControl",
+      game.time_control ?? "-",
+      "Termination",
+      formatEndReason(game.end_reason) ?? "Normal",
+    );
+    if (game.white_rating) chess.header("WhiteElo", String(game.white_rating));
+    if (game.black_rating) chess.header("BlackElo", String(game.black_rating));
+    return chess.pgn();
+  }, [game, sans]);
+
+  const copyPgn = useCallback(async () => {
+    if (!pgnText) return;
+    try {
+      await navigator.clipboard.writeText(pgnText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* clipboard blocked — the download button still works */
+    }
+  }, [pgnText]);
+
+  const downloadPgn = useCallback(() => {
+    if (!pgnText) return;
+    const blob = new Blob([pgnText], { type: "application/x-chess-pgn" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `chessox-${id.slice(0, 8)}.pgn`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [pgnText, id]);
 
   const current = useMemo(() => {
     const chess = new Chess();
@@ -770,13 +853,47 @@ function GameReview() {
             </GhostButton>
           </div>
 
-          <div className="mt-2 flex justify-center gap-4">
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
             <button
               onClick={() => setOrientation((o) => (o === "w" ? "b" : "w"))}
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
             >
               <RotateCcw className="h-3.5 w-3.5" /> Flip Board
             </button>
+
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground">Speed</span>
+              {REPLAY_SPEEDS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSpeed(s)}
+                  aria-pressed={speed === s}
+                  className={`rounded px-1.5 py-0.5 text-xs tabular-nums transition-colors ${
+                    speed === s
+                      ? "bg-gold/15 text-gold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {s}×
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={copyPgn}
+              disabled={!pgnText}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
+            >
+              <Copy className="h-3.5 w-3.5" /> {copied ? "Copied" : "Copy PGN"}
+            </button>
+            <button
+              onClick={downloadPgn}
+              disabled={!pgnText}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
+            >
+              <Download className="h-3.5 w-3.5" /> Download PGN
+            </button>
+
             <span className="text-xs text-muted-foreground">← → arrow keys to navigate</span>
           </div>
         </div>
@@ -937,7 +1054,9 @@ function GameReview() {
                       <div className="text-muted-foreground">{i + 1}.</div>
                       <button
                         type="button"
+                        ref={ply === wPly ? activeMoveRef : undefined}
                         onClick={() => setPly(wPly)}
+                        aria-current={ply === wPly ? "true" : undefined}
                         className={`flex items-center gap-1 rounded px-1 text-left hover:bg-white/5 ${
                           ply === wPly ? "bg-gold/15 text-gold" : ""
                         }`}
@@ -948,7 +1067,9 @@ function GameReview() {
                       {pair[1] ? (
                         <button
                           type="button"
+                          ref={ply === bPly ? activeMoveRef : undefined}
                           onClick={() => setPly(bPly)}
+                          aria-current={ply === bPly ? "true" : undefined}
                           className={`flex items-center gap-1 rounded px-1 text-left text-muted-foreground hover:bg-white/5 ${
                             ply === bPly ? "bg-gold/15 text-gold" : ""
                           }`}

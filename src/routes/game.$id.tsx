@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Chess, type Square } from "chess.js";
 import { toast } from "sonner";
@@ -7,21 +7,32 @@ import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveB
 import { CapturedPieces } from "@/components/site/CapturedPieces";
 import { ClockTime } from "@/components/site/ClockTime";
 import { useClockAudio } from "@/hooks/useClockAudio";
+import { useChessClock } from "@/hooks/useChessClock";
+import { createClock, press, restoreClock, formatMoveDuration, type ClockState } from "@/lib/chess/clock";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
 import { UserAvatar } from "@/components/site/UserAvatar";
-import { GameEndModal, type GameEndResult } from "@/components/site/GameEndModal";
+import { GameEndModal } from "@/components/site/GameEndModal";
+import { ConfirmModal } from "@/components/site/ConfirmModal";
+import { formatEndReason, normalizeResult, resultSentence } from "@/lib/chess/result";
+import { positionKey, terminalStateOf } from "@/lib/chess/rules";
+import { useLiveGame } from "@/realtime/client/useLiveGame";
+import { START_FEN } from "@/lib/chess/validation";
 import { FriendButton } from "@/components/friends/FriendButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameSettings } from "@/hooks/useGameSettings";
 import { playGameSound, soundForChessMove } from "@/lib/audio/sounds";
 import { buzz } from "@/lib/haptics";
-import { submitMove, joinGame, resignGame, respondDraw, claimTimeout } from "@/lib/api/gameClient";
+// Only matchmaking remains an HTTP RPC — joining a seat is a Supabase
+// transaction, not a live-gameplay action. Moves, resignation, draw
+// offers, chat and timeouts all travel over the socket now.
+import { joinGame } from "@/lib/api/gameClient";
 import { fetchSpectatorDefault } from "@/lib/api/spectatorClient";
 import { SpectatorVisibilityControl } from "@/components/spectator/SpectatorVisibilityControl";
 import type { SpectatorVisibility } from "@/lib/spectator/types";
 import { useAntiCheatMonitor } from "@/lib/anticheat/useAntiCheatMonitor";
+import { detectOpening } from "@/lib/chess/openings";
 import {
   Flag,
   Handshake,
@@ -29,11 +40,16 @@ import {
   Eye,
   Send,
   Crown,
-  MessageCircle,
   Swords,
   Play,
   LineChart,
   RotateCcw,
+  Download,
+  History,
+  MessageSquare,
+  Info,
+  Users,
+  BookOpen,
 } from "lucide-react";
 import { noindexSeo } from "@/lib/seo";
 
@@ -58,6 +74,7 @@ type GameRow = {
   time_control: string;
   initial_seconds: number;
   increment_seconds: number;
+  moves_count: number;
   white_time_ms: number;
   black_time_ms: number;
   last_move_at: string | null;
@@ -67,18 +84,13 @@ type GameRow = {
   end_reason: string | null;
   is_rated: boolean;
   time_class: "bullet" | "blitz" | "rapid" | "classical";
-  // Per-side spectator overrides; null/absent means "use my account
-  // default". Optional because the generated Supabase types predate
-  // SECTION 104 and every `as GameRow` cast here starts from them.
   white_spectator_pref?: SpectatorVisibility | null;
   black_spectator_pref?: SpectatorVisibility | null;
 };
 
-type MoveRow = { ply: number; san: string; uci: string; fen_after: string };
+type MoveRow = { ply: number; san: string; uci: string; fen_after: string; took_ms?: number };
 type ChatRow = { id: number; username: string; user_id: string; body: string; created_at: string };
 
-// public_rooms isn't in the generated Supabase types yet — same loose-cast
-// pattern used by src/lib/api/adminClient.ts and settings-sync.ts.
 type RoomLookupClient = {
   from: (t: string) => {
     select: (c: string) => {
@@ -92,6 +104,7 @@ type RoomLookupClient = {
 
 function LiveGame() {
   const { id } = useParams({ from: "/game/$id" });
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { settings } = useGameSettings();
   const [game, setGame] = useState<GameRow | null>(null);
@@ -103,6 +116,18 @@ function LiveGame() {
   const [promotion, setPromotion] = useState<{ from: string; to: string } | null>(null);
   const [flipped, setFlipped] = useState(false);
   const [joining, setJoining] = useState(false);
+
+  // New UI Tabs & Replay states
+  const [activeTab, setActiveTab] = useState<"moves" | "chat" | "info" | "spectators" | "opening">(
+    "moves",
+  );
+  const [viewPly, setViewPly] = useState<number | null>(null);
+  const [isPlayingReplay, setIsPlayingReplay] = useState(false);
+  const [replaySpeed] = useState<number>(1);
+
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const movesScrollRef = useRef<HTMLDivElement>(null);
+
   const [whiteProfile, setWhiteProfile] = useState<{
     premium_active?: boolean;
     premium_expires_at?: string | null;
@@ -113,53 +138,32 @@ function LiveGame() {
     premium_expires_at?: string | null;
     avatar_url?: string | null;
   } | null>(null);
-  // Optimistic local move — board updates instantly while the server write/realtime
-  // round-trip completes, then is reconciled by the authoritative FEN.
-  const [optimistic, setOptimistic] = useState<{
-    fen: string;
-    from: string;
-    to: string;
-    at: number;
-    isCheckmate: boolean;
-  } | null>(null);
+
   const [showEndModal, setShowEndModal] = useState(false);
   const [hasShownEndModal, setHasShownEndModal] = useState(false);
+  const [showResignModal, setShowResignModal] = useState(false);
+  const [showDrawModal, setShowDrawModal] = useState(false);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [roomHostId, setRoomHostId] = useState<string | null>(null);
-  // The game row came back empty — either it does not exist, or it is a
-  // live game this viewer is not seated in. Both are handled by offering
-  // the spectator feed rather than spinning forever.
   const [unreadable, setUnreadable] = useState(false);
-  // This player's own spectator preference for this match. Seeded from
-  // the game row's per-side override, falling back to the account
-  // default when the player has not overridden it here.
   const [myVisibility, setMyVisibility] = useState<SpectatorVisibility>("public");
 
-  // Prevent double-submission of moves
   const submittingRef = useRef(false);
-  // Prevent claiming timeout more than once per active game
-  const timeoutClaimedRef = useRef(false);
-  // Mirrors `game`/`optimistic` for reading fresh values from async callbacks
-  // (setTimeout, realtime handlers) without a stale-closure snapshot.
-  const gameRef = useRef<GameRow | null>(null);
-  const optimisticRef = useRef<{ fen: string; from: string; to: string } | null>(null);
-  // Pending fallback re-fetch, in case the post-move realtime UPDATE never
-  // arrives (dropped event / reconnect gap right after submitting).
-  const reconcileFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    gameRef.current = game;
-  }, [game]);
-  useEffect(() => {
-    optimisticRef.current = optimistic;
-  }, [optimistic]);
-  useEffect(
-    () => () => {
-      if (reconcileFallbackRef.current) clearTimeout(reconcileFallbackRef.current);
-    },
-    [],
-  );
+  const userIdRef = useRef<string | null>(null);
+  const myColorRef = useRef<"w" | "b" | null>(null);
+  const soundedPlyRef = useRef(0);
 
-  // Terminal audio cue when the game finishes (fires once per game).
+  useEffect(() => {
+    userIdRef.current = user?.id ?? null;
+  }, [user?.id]);
+
+  // ── Live transport ──────────────────────────────────────────────────
+  // The single source of live truth. Opponent moves, clock handovers,
+  // draw offers, chat and the final result all arrive here over the
+  // socket — no postgres_changes subscription and no database read is
+  // involved in rendering a move.
+  const live = useLiveGame(id);
+
   const finishedRef = useRef(false);
   useEffect(() => {
     if (!game || game.status !== "finished" || finishedRef.current) return;
@@ -167,419 +171,504 @@ function LiveGame() {
     if (game.result === "draw") playGameSound("draw");
     else if (user && game.winner_id === user.id) playGameSound("victory");
     else if (user && game.winner_id) playGameSound("defeat");
-    // Deliberately depend on the primitive sub-fields actually read here
-    // (all present below) rather than the whole `game`/`user` objects, so
-    // this doesn't re-run on unrelated game/user field changes — every
-    // value the effect reads is already listed.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game?.status, game?.result, game?.winner_id, user?.id]);
 
   useEffect(() => {
-    if (game?.status === "finished" && !hasShownEndModal) {
+    if (game && game.status === "finished" && !hasShownEndModal) {
       setShowEndModal(true);
       setHasShownEndModal(true);
     }
-  }, [game?.status, hasShownEndModal]);
+  }, [game?.status, hasShownEndModal, game]);
 
-  const activeFen = optimistic?.fen ?? game?.fen;
-  const chess = useMemo(() => {
-    const c = new Chess();
-    if (activeFen) {
-      try {
-        c.load(activeFen);
-      } catch {
-        /* noop */
-      }
+  useEffect(() => {
+    if (live.rematchNewGameId) {
+      toast.success("Rematch accepted! Starting new game...");
+      void navigate({ to: "/game/$id", params: { id: live.rematchNewGameId } });
     }
-    return c;
-  }, [activeFen]);
+  }, [live.rematchNewGameId, navigate]);
 
-  // Reconcile: once the authoritative position arrives, drop the optimistic copy.
   useEffect(() => {
-    setOptimistic(null);
-  }, [game?.fen]);
+    if (!user?.id) return;
+    void fetchSpectatorDefault(user.id).then(setMyVisibility);
+  }, [user?.id]);
 
-  // Initial load
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      const [{ data: g }, { data: m }, { data: c }, { data: r }] = await Promise.all([
-        supabase.from("games").select("*").eq("id", id).maybeSingle(),
-        supabase.from("game_moves").select("ply,san,uci,fen_after").eq("game_id", id).order("ply"),
-        supabase
-          .from("game_chat")
-          .select("id,user_id,username,body,created_at")
-          .eq("game_id", id)
-          .order("created_at"),
-        (supabase as unknown as RoomLookupClient)
-          .from("public_rooms")
-          .select("id, host_id")
-          .eq("game_id", id)
-          .maybeSingle(),
-      ]);
-      if (!alive) return;
-      // A missing row here is usually not a missing game: since spectator
-      // mode landed, an in-progress game is readable only by its two
-      // players (schema.sql SECTION 104), so anyone else lands on the
-      // delayed spectator feed instead of this board.
-      setUnreadable(!g);
-      setGame(g as GameRow | null);
-      setMoves((m ?? []) as MoveRow[]);
-      setChat((c ?? []) as ChatRow[]);
-      if (r) {
-        setRoomId(r.id);
-        setRoomHostId(r.host_id);
-      }
-    })();
+    if (!game || !user?.id) return;
+    const pref =
+      game.white_id === user.id
+        ? game.white_spectator_pref
+        : game.black_id === user.id
+          ? game.black_spectator_pref
+          : null;
+    if (pref) setMyVisibility(pref);
+  }, [
+    game?.white_id,
+    game?.black_id,
+    game?.white_spectator_pref,
+    game?.black_spectator_pref,
+    user?.id,
+    game,
+  ]);
+
+  // ── Socket snapshot -> the shapes this screen already renders ───────
+  // The board, move list, clocks and chat below are unchanged; they are
+  // simply fed from the authoritative socket snapshot instead of from a
+  // `games` row plus three postgres_changes subscriptions.
+  useEffect(() => {
+    const snap = live.snapshot;
+    if (!snap) return;
+
+    setGame(
+      (prev) =>
+        ({
+          // Fields the socket owns, every one of them server-authoritative.
+          ...(prev ?? ({} as GameRow)),
+          id: snap.gameId,
+          fen: snap.fen,
+          turn: snap.turn,
+          status: snap.status,
+          result: snap.result,
+          end_reason: snap.endReason,
+          winner_id: snap.winnerId,
+          moves_count: snap.moves.length,
+          draw_offered_by: snap.drawOfferedBy,
+          white_id: snap.white.userId,
+          black_id: snap.black.userId,
+          white_username: snap.white.username,
+          black_username: snap.black.username,
+          white_rating: snap.white.rating,
+          black_rating: snap.black.rating,
+          white_time_ms: snap.clock.whiteMs,
+          black_time_ms: snap.clock.blackMs,
+          last_move_at: new Date(snap.clock.since).toISOString(),
+          // Only the untimed/timed distinction is read off this column; the
+          // clock itself is built from `snap.clock` in the `clock` memo, not
+          // reconstructed from row fields.
+          initial_seconds: snap.clock.untimed ? 0 : 1,
+          increment_seconds: Math.round(snap.clock.incrementMs / 1000),
+          is_rated: snap.isRated,
+          time_control: snap.timeControl,
+        }) as GameRow,
+    );
+
+    setMoves(
+      snap.moves.map((m, idx, arr) => {
+        let tookMs = m.tookMs;
+        if ((!tookMs || tookMs === 0) && m.at && idx > 0) {
+          const prevAt = arr[idx - 1].at;
+          if (prevAt && m.at > prevAt) {
+            tookMs = m.at - prevAt;
+          }
+        }
+        return {
+          ply: m.ply,
+          san: m.san,
+          uci: m.uci,
+          fen_after: m.fenAfter,
+          took_ms: tookMs,
+        };
+      }),
+    );
+
+    setChat(
+      snap.chat.map((c) => ({
+        id: Number.isFinite(Number(c.id)) ? Number(c.id) : c.at,
+        username: c.username,
+        user_id: c.userId,
+        body: c.body,
+        created_at: new Date(c.at).toISOString(),
+      })),
+    );
+  }, [live.snapshot]);
+
+  // A viewer with no seat in a game still in progress keeps the existing
+  // behaviour: the live board is for its two players, everyone else is
+  // sent to the delayed broadcast.
+  useEffect(() => {
+    const snap = live.snapshot;
+    if (!snap || !live.ready) return;
+    const seated = !!user && (snap.white.userId === user.id || snap.black.userId === user.id);
+    setUnreadable(!seated && snap.status === "active");
+  }, [live.snapshot, live.ready, user]);
+
+  // Non-gameplay metadata: the room this game belongs to and the two
+  // players' avatars/premium badges. Read once from Supabase — these
+  // never change mid-game and are not part of the live path.
+  useEffect(() => {
+    let active = true;
+    const roomClient = supabase as unknown as RoomLookupClient;
+    void roomClient
+      .from("public_rooms")
+      .select("id, host_id")
+      .eq("game_id", id)
+      .maybeSingle()
+      .then(({ data: room }) => {
+        if (!active || !room) return;
+        setRoomId(room.id);
+        setRoomHostId(room.host_id);
+      });
     return () => {
-      alive = false;
+      active = false;
     };
   }, [id]);
 
+  const whiteId = live.snapshot?.white.userId ?? null;
+  const blackId = live.snapshot?.black.userId ?? null;
   useEffect(() => {
-    if (!game) return;
-    const fetchProfiles = async () => {
-      const ids = [];
-      if (game.white_id) ids.push(game.white_id);
-      if (game.black_id) ids.push(game.black_id);
-      if (ids.length === 0) return;
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, premium_active, premium_expires_at, avatar_url")
-        .in("id", ids);
-      const rows = (data ?? []) as Array<{
-        id: string;
-        premium_active?: boolean;
-        premium_expires_at?: string | null;
-        avatar_url?: string | null;
-      }>;
-      if (data) {
-        setWhiteProfile(rows.find((d) => d.id === game.white_id) || null);
-        setBlackProfile(rows.find((d) => d.id === game.black_id) || null);
-      }
-    };
-    fetchProfiles();
-    // Depend on the two ids actually used, not the whole `game` object —
-    // `game` gets a new identity on every move/clock update via realtime,
-    // and the two players don't change mid-game, so depending on the whole
-    // object would re-fetch these profiles on every single move for no reason.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game?.white_id, game?.black_id]);
-
-  const myColor: "w" | "b" | null =
-    user && game?.white_id === user.id ? "w" : user && game?.black_id === user.id ? "b" : null;
-
-  // Seed the spectator control: this match's override if the player set
-  // one, otherwise their account default.
-  useEffect(() => {
-    if (!myColor || !game || !user) return;
-    const override = myColor === "w" ? game.white_spectator_pref : game.black_spectator_pref;
-    if (override) {
-      setMyVisibility(override);
-      return;
-    }
-    let alive = true;
-    void fetchSpectatorDefault(user.id)
-      .then((v) => {
-        if (alive) setMyVisibility(v);
-      })
-      .catch(() => {});
+    const pids = [whiteId, blackId].filter(Boolean) as string[];
+    if (pids.length === 0) return;
+    let active = true;
+    void supabase
+      .from("profiles")
+      .select("id, premium_active, premium_expires_at, avatar_url")
+      .in("id", pids)
+      .then(({ data: profs }) => {
+        if (!active || !profs) return;
+        const w = profs.find((p) => p.id === whiteId);
+        const b = profs.find((p) => p.id === blackId);
+        if (w) setWhiteProfile(w);
+        if (b) setBlackProfile(b);
+      });
     return () => {
-      alive = false;
+      active = false;
     };
-    // Only re-seed when the seat or the stored override changes — not on
-    // every game-row update, which arrives on every move.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myColor, user?.id, game?.white_spectator_pref, game?.black_spectator_pref]);
+  }, [whiteId, blackId]);
 
-  // Fair-play monitor — records browser/connection signals for players in
-  // active games (evidence only, fully async; spectators are never observed).
-  const anticheat = useAntiCheatMonitor({
+  // Move audio for anything that arrived over the socket. Our own move
+  // already sounded at commit time, so this only fires for the opponent
+  // (and for every move, when watching).
+  useEffect(() => {
+    const last = moves[moves.length - 1];
+    if (!last || last.ply <= soundedPlyRef.current) return;
+    soundedPlyRef.current = last.ply;
+    const moverColor: "w" | "b" = last.ply % 2 === 1 ? "w" : "b";
+    if (myColorRef.current && myColorRef.current === moverColor) return;
+    if (last.san.includes("#")) playGameSound("checkmate");
+    else if (last.san.includes("+")) playGameSound("check");
+    else if (last.san.startsWith("O-O")) playGameSound("castle");
+    else if (last.san.includes("=")) playGameSound("promote");
+    else if (last.san.includes("x")) playGameSound("capture");
+    else playGameSound("move");
+  }, [moves]);
+
+  // Chat arriving from the opponent over the socket.
+  const chatCountRef = useRef(0);
+  useEffect(() => {
+    if (chat.length > chatCountRef.current) {
+      const last = chat[chat.length - 1];
+      if (chatCountRef.current > 0 && last && last.user_id !== userIdRef.current) {
+        playGameSound("notify");
+      }
+    }
+    chatCountRef.current = chat.length;
+  }, [chat]);
+
+  // Surface a refused action (illegal move, not your turn, out of time).
+  useEffect(() => {
+    if (live.error) toast.error(live.error);
+  }, [live.error]);
+
+  const myColor: "w" | "b" | null = useMemo(() => {
+    if (!game || !user) return null;
+    if (game.white_id === user.id) return "w";
+    if (game.black_id === user.id) return "b";
+    return null;
+  }, [game, user]);
+
+  useEffect(() => {
+    myColorRef.current = myColor;
+  }, [myColor]);
+
+  // The one unconfirmed move this client applied locally. It is owned by
+  // the transport (`useLiveGame`), which clears it the moment the
+  // server's own broadcast of the same ply arrives, or on a refusal.
+  //
+  // The terminal verdict is derived here rather than stored: mate and
+  // stalemate are visible in the position alone, which covers what the
+  // overlay needs during the few milliseconds before the server's
+  // authoritative `game:end` lands and supersedes it.
+  const pending = useMemo(() => {
+    const p = live.pending;
+    if (!p) return null;
+    let terminal: { result: "white" | "black" | "draw"; reason: string } | null = null;
+    try {
+      const term = terminalStateOf(new Chess(p.fen));
+      if (term && term.result !== "ongoing") {
+        terminal = {
+          result: term.result as "white" | "black" | "draw",
+          reason: formatEndReason(term.reason) ?? "",
+        };
+      }
+    } catch {
+      /* unparseable optimistic position — let the server settle it */
+    }
+    return { ...p, terminal };
+  }, [live.pending]);
+
+  useAntiCheatMonitor({
     gameId: id,
     status: game?.status,
     myColor,
-    userId: user?.id ?? null,
+    userId: user?.id,
     movesCount: moves.length,
   });
-  // Distinguishes real mid-game drops from the deliberate unsubscribe on unmount.
-  const leavingChannelRef = useRef(false);
-  const hadDropRef = useRef(false);
 
-  // Realtime — re-fetch move list on re-subscribe to recover any gaps during disconnect
-  useEffect(() => {
-    leavingChannelRef.current = false;
-    const ch = supabase
-      .channel(`game:${id}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${id}` },
-        (p) => setGame(p.new as GameRow),
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "game_moves", filter: `game_id=eq.${id}` },
-        (p) =>
-          setMoves((prev) => {
-            const row = p.new as MoveRow;
-            if (prev.some((r) => r.ply === row.ply)) return prev;
-            return [...prev, row].sort((a, b) => a.ply - b.ply);
-          }),
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "game_chat", filter: `game_id=eq.${id}` },
-        (p) => setChat((prev) => [...prev, p.new as ChatRow]),
-      )
-      .subscribe(async (status) => {
-        // Connection-quality evidence for the anti-cheat monitor (players
-        // in active games only; the unmount unsubscribe is not a "drop").
-        if (
-          (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") &&
-          !leavingChannelRef.current &&
-          gameRef.current?.status === "active"
-        ) {
-          hadDropRef.current = true;
-          anticheat.noteConnection("dropped");
-        }
-        if (status === "SUBSCRIBED" && hadDropRef.current) {
-          hadDropRef.current = false;
-          anticheat.noteConnection("restored");
-        }
-        if (status === "SUBSCRIBED") {
-          // Recover from any gap while disconnected — a reconnect only
-          // guarantees the channel is live again, not that every event
-          // fired during the gap was delivered. Re-fetching game_moves
-          // alone (the previous behavior) recovers missed moves but not a
-          // missed change to the games row itself (an opponent resigning,
-          // a draw being accepted, or a timeout being claimed while this
-          // client was briefly offline) — re-fetch both.
-          const [{ data: g }, { data: m }] = await Promise.all([
-            supabase.from("games").select("*").eq("id", id).maybeSingle(),
-            supabase
-              .from("game_moves")
-              .select("ply,san,uci,fen_after")
-              .eq("game_id", id)
-              .order("ply"),
-          ]);
-          if (g) setGame(g as GameRow);
-          if (m) setMoves(m as MoveRow[]);
-        }
-      });
-    return () => {
-      leavingChannelRef.current = true;
-      supabase.removeChannel(ch);
-    };
-    // anticheat.noteConnection is a stable useCallback — including the
-    // whole handle would re-subscribe the channel for no reason.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  const activeTurn = useMemo(() => {
+    if (pending) return pending.fen.split(" ")[1] as "w" | "b";
+    return (game?.turn as "w" | "b") ?? "w";
+  }, [pending, game?.turn]);
 
-  // Move audio for moves that arrive over realtime — the mover's own move
-  // already got its cue from the optimistic local apply above, so this only
-  // sounds for the opponent's moves (and every move, for spectators).
-  const prevMoveCountRef = useRef(0);
-  useEffect(() => {
-    if (moves.length <= prevMoveCountRef.current) {
-      prevMoveCountRef.current = moves.length;
-      return;
+  const displayFen = useMemo(() => {
+    if (pending) return pending.fen;
+    if (!game) return START_FEN;
+    return game.fen;
+  }, [pending, game]);
+
+  const chess = useMemo(() => {
+    try {
+      return new Chess(displayFen);
+    } catch {
+      return new Chess();
     }
-    prevMoveCountRef.current = moves.length;
+  }, [displayFen]);
+
+  const liveBoard = useMemo(() => {
+    const b = chess.board();
+    const result: BoardCell[][] = [];
+    for (let r = 0; r < 8; r++) {
+      const row: BoardCell[] = [];
+      for (let f = 0; f < 8; f++) {
+        const sq = b[r][f];
+        if (sq) {
+          row.push({
+            square: sq.square as Square,
+            type: sq.type,
+            color: sq.color,
+          });
+        } else {
+          row.push(null);
+        }
+      }
+      result.push(row);
+    }
+    return result;
+  }, [chess]);
+
+  // ViewPly historical board rendering
+  const displayBoard = useMemo(() => {
+    if (viewPly === null || moves.length === 0) return liveBoard;
+    try {
+      const c = new Chess();
+      const targetPly = Math.min(viewPly, moves.length);
+      for (let i = 0; i < targetPly; i++) {
+        c.move(moves[i].san);
+      }
+      const b = c.board();
+      const result: BoardCell[][] = [];
+      for (let r = 0; r < 8; r++) {
+        const row: BoardCell[] = [];
+        for (let f = 0; f < 8; f++) {
+          const sq = b[r][f];
+          if (sq) {
+            row.push({
+              square: sq.square as Square,
+              type: sq.type,
+              color: sq.color,
+            });
+          } else {
+            row.push(null);
+          }
+        }
+        result.push(row);
+      }
+      return result;
+    } catch {
+      return liveBoard;
+    }
+  }, [viewPly, moves, liveBoard]);
+
+  const board = displayBoard;
+
+  const lastMove = useMemo(() => {
+    if (viewPly !== null && viewPly > 0 && viewPly <= moves.length) {
+      const targetMove = moves[viewPly - 1];
+      if (targetMove && targetMove.uci) {
+        return { from: targetMove.uci.slice(0, 2), to: targetMove.uci.slice(2, 4) };
+      }
+    }
+    if (pending) return { from: pending.from, to: pending.to };
+    if (moves.length === 0) return null;
     const last = moves[moves.length - 1];
-    if (!last?.san) return;
-    const moverColor: "w" | "b" = last.ply % 2 === 1 ? "w" : "b";
-    const myColorNow: "w" | "b" | null =
-      user && game?.white_id === user.id ? "w" : user && game?.black_id === user.id ? "b" : null;
-    if (myColorNow && myColorNow === moverColor) return; // already heard the optimistic cue
-    const san = last.san;
-    if (san.includes("#")) playGameSound("checkmate");
-    else if (san.includes("+")) playGameSound("check");
-    else if (san.startsWith("O-O")) playGameSound("castle");
-    else if (san.includes("=")) playGameSound("promote");
-    else if (san.includes("x")) playGameSound("capture");
-    else playGameSound("move");
-  }, [moves, user, game?.white_id, game?.black_id]);
+    if (!last.uci) return null;
+    return { from: last.uci.slice(0, 2), to: last.uci.slice(2, 4) };
+  }, [pending, moves, viewPly]);
 
-  // Clock ticking has been moved to PlayerCard to avoid 250ms re-renders on the main game board
-
-  // Reset timeout claim flag when game status or id changes
-  useEffect(() => {
-    timeoutClaimedRef.current = false;
-  }, [game?.status, id]);
-
-  const baseOrientation = myColor ?? "w";
-  const orientation: "w" | "b" = flipped ? (baseOrientation === "w" ? "b" : "w") : baseOrientation;
-  const isMyTurn = !!myColor && myColor === game?.turn && game?.status === "active" && !optimistic;
-
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    if (game?.status !== "active") return;
-    const t = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(t);
-  }, [game?.status]);
-
-  // Live clock values passed to PlayerCards
-  const activeTurn = optimistic ? (game?.turn === "w" ? "b" : "w") : game?.turn;
-  const realLastMoveAt = game?.last_move_at ? new Date(game.last_move_at).getTime() : null;
-  const currentMoveAt = optimistic ? optimistic.at : realLastMoveAt;
-
-  const elapsedSinceLastMove =
-    game?.status === "active" && realLastMoveAt ? Math.max(0, now - realLastMoveAt) : 0;
-
-  // The base ms remaining for each player
-  const whiteMs = (game?.white_time_ms ?? 0) - (game?.turn === "w" ? elapsedSinceLastMove : 0);
-  const blackMs = (game?.black_time_ms ?? 0) - (game?.turn === "b" ? elapsedSinceLastMove : 0);
-
-  // Opponent timeout watcher — when it's NOT my turn and the opponent's displayed clock hits 0
-  useEffect(() => {
-    if (!game || game.status !== "active" || !myColor || !user || timeoutClaimedRef.current) return;
-    const isOppTurn = game.turn !== myColor;
-    const oppMs = myColor === "w" ? blackMs : whiteMs;
-    if (isOppTurn && oppMs <= 0) {
-      timeoutClaimedRef.current = true;
-      claimTimeout(id).catch((err) => {
-        console.error("Timeout claim error:", err);
-        timeoutClaimedRef.current = false;
-      });
+  const checkSquare = useMemo(() => {
+    if (!chess.inCheck()) return null;
+    const turnColor = chess.turn();
+    const boardState = chess.board();
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const sq = boardState[r][c];
+        if (sq && sq.type === "k" && sq.color === turnColor) {
+          return sq.square;
+        }
+      }
     }
-  }, [game, myColor, user, blackMs, whiteMs, id]);
+    return null;
+  }, [chess]);
 
-  // Board cells
-  const board: BoardCell[][] = useMemo(
-    () =>
-      chess
-        .board()
-        .map((row) =>
-          row.map((p) => (p ? { square: p.square, type: p.type, color: p.color } : null)),
-        ),
-    [chess],
-  );
-  const lastMove = useMemo(
-    () =>
-      optimistic
-        ? { from: optimistic.from, to: optimistic.to }
-        : moves.length
-          ? (() => {
-              const u = moves[moves.length - 1].uci;
-              return { from: u.slice(0, 2), to: u.slice(2, 4) };
-            })()
-          : null,
-    [optimistic, moves],
-  );
-  const inCheck = chess.inCheck();
-  const checkSquare = useMemo(
-    () =>
-      inCheck
-        ? (chess
-            .board()
-            .flat()
-            .find((p) => p && p.type === "k" && p.color === chess.turn())?.square ?? null)
-        : null,
-    [inCheck, chess],
-  );
+  const orientation = useMemo(() => {
+    if (flipped) return myColor === "b" ? "w" : "b";
+    return myColor === "b" ? "b" : "w";
+  }, [flipped, myColor]);
+
+  const isMyTurn = useMemo(() => {
+    if (!game || !myColor || game.status !== "active") return false;
+    return activeTurn === myColor;
+  }, [game, myColor, activeTurn]);
 
   const endState = useMemo(() => {
-    if (optimistic?.isCheckmate) {
-      return { result: game?.turn === "w" ? "white" : "black", reason: "Checkmate" };
-    }
-    if (game?.status !== "finished") return null;
-    let result: "white" | "black" | "draw" = "draw";
-    if (game.result === "white" || game.result === "black") {
-      result = game.result as "white" | "black";
-    }
-    return { result, reason: game.end_reason?.replace(/_/g, " ") ?? "Finished" };
-  }, [game?.status, game?.result, game?.end_reason, game?.turn, optimistic?.isCheckmate]);
+    if (pending?.terminal) return pending.terminal;
+    if (game?.status !== "finished" || !game.result) return null;
+    const res = normalizeResult(game.result);
+    return { result: res, reason: formatEndReason(game.end_reason) };
+  }, [pending, game?.status, game?.result, game?.end_reason]);
 
-  const submitMoveInBackground = useCallback(
-    async (
-      from: string,
-      to: string,
-      promo: "q" | "r" | "b" | "n" | undefined,
-      expectedFen: string,
-    ) => {
-      try {
-        const result = await submitMove({ gameId: id, from, to, promotion: promo });
-        if (!result.ok) {
-          // Server flagged this move as a timeout loss for the mover
-          setOptimistic(null);
-          toast.error("You ran out of time.");
-          return;
+  // The server's clock, taken straight from the snapshot rather than
+  // rebuilt from row columns. `ClockSnapshot` is already a ClockState:
+  // banked milliseconds per side plus the instant the running side's turn
+  // began, all stamped by the server. `remainingMs` subtracts the elapsed
+  // time exactly once at render.
+  //
+  // An unconfirmed local move hands the clock over immediately, so the
+  // opponent's time starts running in the same frame the piece lands
+  // instead of a round trip later; the server's next snapshot overwrites
+  // it with the authoritative numbers.
+  const clock: ClockState = useMemo(() => {
+    const snap = live.snapshot;
+    if (!snap) return createClock({ initialMs: 300000 });
+    const server: ClockState = {
+      whiteMs: snap.clock.whiteMs,
+      blackMs: snap.clock.blackMs,
+      running: snap.clock.running,
+      since: snap.clock.since,
+      incrementMs: snap.clock.incrementMs,
+      delayMs: 0,
+      untimed: snap.clock.untimed,
+    };
+    if (!pending || server.untimed || !server.running) return server;
+    return press(restoreClock(server, pending.at), pending.at);
+  }, [live.snapshot, pending]);
+
+  // Flag falls are settled server-side by a per-game timer that fires at
+  // the exact instant a clock expires (realtime/server/registry.ts), so
+  // there is nothing for the client to claim. The old `claim_timeout`
+  // RPC could only fire while someone had the tab open — a game whose
+  // loser simply closed the browser never ended.
+
+  // Replay Auto-Playback timer
+  useEffect(() => {
+    if (!isPlayingReplay) return;
+    const interval = setInterval(() => {
+      setViewPly((current) => {
+        const next = (current ?? 0) + 1;
+        if (next > moves.length) {
+          setIsPlayingReplay(false);
+          return null;
         }
-        // The server accepted the move — Realtime should update `game` from
-        // the DB write shortly. If that specific UPDATE event is dropped
-        // (packet loss, a reconnect gap landing right after this write), the
-        // optimistic state never clears and this player's board gets stuck
-        // unable to move again (isMyTurn requires !optimistic). Fall back to
-        // a direct re-fetch if reconciliation hasn't happened after a few
-        // seconds — but only if we're still waiting on *this* move (a newer
-        // move, or an error that already cleared optimistic, means there's
-        // nothing to reconcile).
-        if (reconcileFallbackRef.current) clearTimeout(reconcileFallbackRef.current);
-        reconcileFallbackRef.current = setTimeout(async () => {
-          reconcileFallbackRef.current = null;
-          if (optimisticRef.current?.from !== from || optimisticRef.current?.to !== to) return;
-          if (gameRef.current?.fen === expectedFen) return;
-          const { data: g } = await supabase.from("games").select("*").eq("id", id).maybeSingle();
-          if (g) setGame(g as GameRow);
-        }, 3500);
-      } catch (err) {
-        setOptimistic(null);
-        toast.error(err instanceof Error ? err.message : "Move failed — try again.");
+        return next;
+      });
+    }, 1000 / replaySpeed);
+    return () => clearInterval(interval);
+  }, [isPlayingReplay, moves.length, replaySpeed]);
+
+  // Auto-scroll chat & moves
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chat]);
+
+  useEffect(() => {
+    if (movesScrollRef.current && viewPly === null) {
+      movesScrollRef.current.scrollTop = movesScrollRef.current.scrollHeight;
+    }
+  }, [moves.length, viewPly]);
+
+  const commitMove = useCallback(
+    async (from: string, to: string, promo?: "q" | "r" | "b" | "n") => {
+      if (!game || !myColor || submittingRef.current) return;
+
+      // Play the cue and the haptic from the local position immediately —
+      // this is the frame the player sees. `live.move` applies the same
+      // move optimistically and emits it; the opponent's board is updated
+      // from the server's broadcast of it, with no database in between.
+      try {
+        const localChess = new Chess(pending?.fen ?? game.fen);
+        const res = localChess.move({ from, to, promotion: promo });
+        if (!res) throw new Error("Illegal move");
+        soundForChessMove(res, localChess);
+        buzz(12);
+        soundedPlyRef.current = Math.max(soundedPlyRef.current, moves.length + 1);
+      } catch {
+        toast.error("Illegal move.");
+        return;
+      }
+
+      submittingRef.current = true;
+      setSelected(null);
+      setTargets([]);
+
+      try {
+        await live.move(from, to, promo);
+      } catch {
+        // `live.move` has already reverted the optimistic board and
+        // surfaced the reason; nothing to add here.
       } finally {
         submittingRef.current = false;
       }
     },
-    [id],
-  );
-
-  const commitMove = useCallback(
-    (from: string, to: string, promo?: "q" | "r" | "b" | "n") => {
-      if (!game || !user || !myColor || submittingRef.current) return;
-      submittingRef.current = true;
-      setSelected(null);
-      setTargets([]);
-      // Clone the already-loaded `chess` instance (not a fresh FEN reparse) and
-      // apply the move synchronously — the caller already validated it's legal
-      // via chess.moves(), so this cannot fail. The board updates in this same
-      // tick, before the network call below even starts.
-      const c = new Chess(chess.fen());
-      const mv = c.move({ from, to, promotion: promo });
-      setOptimistic({ fen: c.fen(), from, to, at: Date.now(), isCheckmate: c.isCheckmate() });
-      anticheat.noteOwnMove();
-      buzz();
-      soundForChessMove(mv, c);
-      if (c.isCheckmate()) {
-        setShowEndModal(true);
-      }
-      // Fire the network request in the background — never block the UI thread
-      // or the optimistic render on it.
-      void submitMoveInBackground(from, to, promo, c.fen());
-    },
-    [game, user, myColor, chess, submitMoveInBackground, anticheat],
+    [game, myColor, pending?.fen, moves.length, live],
   );
 
   const handleSquare = useCallback(
     (sq: string) => {
-      if (!isMyTurn || promotion || submittingRef.current) return;
+      if (viewPly !== null) {
+        setViewPly(null);
+      }
+      if (!isMyTurn || promotion) return;
       const square = sq as Square;
+
       if (selected) {
-        const moveList = chess.moves({ square: selected as Square, verbose: true });
-        const m = moveList.find((mv) => mv.to === square);
-        if (m) {
-          // Pawn reaches the back rank → promotion required (unless auto-queen).
-          if (m.piece === "p" && (m.to[1] === "8" || m.to[1] === "1")) {
+        if (selected === square) {
+          setSelected(null);
+          setTargets([]);
+          return;
+        }
+
+        const isTarget = targets.includes(square);
+        if (isTarget) {
+          const piece = chess.get(selected as Square);
+          const targetRank = square[1];
+          const isPawnPromotion = piece?.type === "p" && (targetRank === "8" || targetRank === "1");
+
+          if (isPawnPromotion) {
             if (settings.auto_queen) {
-              commitMove(selected, square, "q");
+              void commitMove(selected, square, "q");
             } else {
               setPromotion({ from: selected, to: square });
             }
             return;
           }
-          commitMove(selected, square, undefined);
+
+          void commitMove(selected, square, undefined);
           return;
         }
       }
+
       const piece = chess.get(square);
-      if (piece && piece.color === game!.turn && piece.color === myColor) {
+      if (piece && piece.color === activeTurn && piece.color === myColor) {
         setSelected(sq);
         setTargets(chess.moves({ square, verbose: true }).map((mv) => mv.to));
       } else {
@@ -587,7 +676,18 @@ function LiveGame() {
         setTargets([]);
       }
     },
-    [isMyTurn, promotion, selected, chess, settings.auto_queen, game, myColor, commitMove],
+    [
+      viewPly,
+      isMyTurn,
+      promotion,
+      selected,
+      chess,
+      settings.auto_queen,
+      activeTurn,
+      myColor,
+      commitMove,
+      targets,
+    ],
   );
 
   async function joinAsOpponent() {
@@ -596,7 +696,6 @@ function LiveGame() {
     setJoining(true);
     try {
       await joinGame(id);
-      // join_game RPC sets status to "active", sets rating, and fires Realtime
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not join the game.");
     } finally {
@@ -604,48 +703,115 @@ function LiveGame() {
     }
   }
 
-  async function resign() {
+  async function executeResign() {
     if (!game || !myColor || game.status !== "active") return;
-    if (settings.confirm_resign && !confirm("Resign this game?")) return;
     try {
-      await resignGame(id);
-      // resign_game RPC finishes the game and calls apply_elo_change server-side
+      await live.resign();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Resign failed.");
     }
   }
 
-  async function offerOrAcceptDraw() {
+  function handleResignClick() {
     if (!game || !myColor || game.status !== "active") return;
-    // Confirm only when making a fresh offer (not when accepting the opponent's).
-    if (settings.confirm_draw_offer && !game.draw_offered_by && !confirm("Offer a draw?")) return;
+    if (settings.confirm_resign) {
+      setShowResignModal(true);
+    } else {
+      void executeResign();
+    }
+  }
+
+  async function executeDrawOffer() {
+    if (!game || !myColor || game.status !== "active") return;
     try {
-      const res = await respondDraw(id);
+      const res = await live.offerOrAcceptDraw();
       if (res === "offered") toast.info("Draw offer sent to opponent.");
-      // The RPC's TS union omits "declined", but the server can still return it.
-      if ((res as string) === "declined") toast.error("Draw request declined.");
-      // "accepted" → respond_draw finishes game + apply_elo_change; Realtime updates UI
+      if (res === "declined") toast.error("Draw request declined.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Draw action failed.");
     }
   }
 
+  async function executeDeclineDraw() {
+    if (!game || !myColor || game.status !== "active") return;
+    try {
+      await live.declineDraw();
+      toast.info("Draw offer declined.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not decline draw.");
+    }
+  }
+
+  function handleDrawClick() {
+    if (!game || !myColor || game.status !== "active") return;
+    if (settings.confirm_draw_offer && !game.draw_offered_by) {
+      setShowDrawModal(true);
+    } else {
+      void executeDrawOffer();
+    }
+  }
+
+  const rematchStatus = useMemo(() => {
+    if (!live.rematchOffer) return "none";
+    if (live.rematchOffer.offeredBy === user?.id) return "offered";
+    return "incoming";
+  }, [live.rematchOffer, user?.id]);
+
+  const handleRematchOffer = useCallback(async () => {
+    try {
+      const res = await live.offerRematch();
+      if (res.status === "accepted" && res.newGameId) {
+        toast.success("Rematch accepted! Starting new game...");
+        void navigate({ to: "/game/$id", params: { id: res.newGameId } });
+      } else {
+        toast.info("Rematch offer sent to opponent!");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Rematch request failed.");
+    }
+  }, [live, navigate]);
+
   async function sendChat() {
     if (!chatInput.trim() || !user) return;
     const body = chatInput.trim().slice(0, 500);
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("username")
-      .eq("id", user.id)
-      .maybeSingle();
     setChatInput("");
-    // game_chat remains client-writable (RLS enforces user_id match; not integrity-critical)
-    await supabase.from("game_chat").insert({
-      game_id: id,
-      user_id: user.id,
-      username: profile?.username ?? "User",
-      body,
-    });
+    try {
+      // Chat rides the same socket and is held in the live game, then
+      // flushed to `game_chat` when the game is persisted at the end.
+      await live.sendChat(body);
+    } catch (err) {
+      setChatInput(body);
+      toast.error(err instanceof Error ? err.message : "Message failed to send.");
+    }
+  }
+
+  function sendQuickEmoji(emo: string) {
+    if (!user) return;
+    setChatInput((prev) => prev + emo);
+  }
+
+  function downloadPGN() {
+    if (!game) return;
+    const pgnContent =
+      game.pgn ||
+      moves.map((m, i) => `${i % 2 === 0 ? `${Math.floor(i / 2) + 1}. ` : ""}${m.san}`).join(" ");
+    const blob = new Blob([pgnContent], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `game-${id}.pgn`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("PGN downloaded!");
+  }
+
+  function copyPGN() {
+    const pgnContent =
+      game?.pgn ||
+      moves.map((m, i) => `${i % 2 === 0 ? `${Math.floor(i / 2) + 1}. ` : ""}${m.san}`).join(" ");
+    if (!pgnContent) return;
+    navigator.clipboard.writeText(pgnContent);
+    toast.success("PGN copied to clipboard!");
   }
 
   if (!game && unreadable)
@@ -667,62 +833,41 @@ function LiveGame() {
   if (!game)
     return (
       <PageShell title="Loading throne…">
-        <div />
+        <div className="flex h-64 items-center justify-center text-sm text-gold/80">
+          Loading live game...
+        </div>
       </PageShell>
     );
 
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/game/${id}` : "";
-  const opp =
-    myColor === "w"
-      ? {
-          id: game.black_id,
-          name: game.black_username ?? "Awaiting…",
-          rating: game.black_rating,
-          ms: blackMs,
-          lastMoveAt: activeTurn === "b" ? currentMoveAt : null,
-          p_active: blackProfile?.premium_active,
-          p_exp: blackProfile?.premium_expires_at,
-          avatar: blackProfile?.avatar_url,
-        }
-      : {
-          id: game.white_id,
-          name: game.white_username ?? "Awaiting…",
-          rating: game.white_rating,
-          ms: whiteMs,
-          lastMoveAt: activeTurn === "w" ? currentMoveAt : null,
-          p_active: whiteProfile?.premium_active,
-          p_exp: whiteProfile?.premium_expires_at,
-          avatar: whiteProfile?.avatar_url,
-        };
-  const me = myColor
-    ? myColor === "w"
-      ? {
-          name: game.white_username ?? "You",
-          rating: game.white_rating,
-          ms: whiteMs,
-          lastMoveAt: activeTurn === "w" ? currentMoveAt : null,
-          p_active: whiteProfile?.premium_active,
-          p_exp: whiteProfile?.premium_expires_at,
-          avatar: whiteProfile?.avatar_url,
-        }
-      : {
-          name: game.black_username ?? "You",
-          rating: game.black_rating,
-          ms: blackMs,
-          lastMoveAt: activeTurn === "b" ? currentMoveAt : null,
-          p_active: blackProfile?.premium_active,
-          p_exp: blackProfile?.premium_expires_at,
-          avatar: blackProfile?.avatar_url,
-        }
-    : {
-        name: "Spectator",
-        rating: null,
-        ms: 0,
-        lastMoveAt: null,
-        p_active: false,
-        p_exp: null,
-        avatar: null,
-      };
+
+  const topColor: "w" | "b" = orientation === "w" ? "b" : "w";
+  const bottomColor: "w" | "b" = orientation === "w" ? "w" : "b";
+
+  const topPlayer = {
+    name:
+      topColor === "w" ? (game.white_username ?? "White") : (game.black_username ?? "Awaiting…"),
+    rating: topColor === "w" ? game.white_rating : game.black_rating,
+    color: topColor,
+    p_active: topColor === "w" ? whiteProfile?.premium_active : blackProfile?.premium_active,
+    p_exp: topColor === "w" ? whiteProfile?.premium_expires_at : blackProfile?.premium_expires_at,
+    avatar: topColor === "w" ? whiteProfile?.avatar_url : blackProfile?.avatar_url,
+    isMe: myColor === topColor,
+    id: topColor === "w" ? game.white_id : game.black_id,
+  };
+
+  const bottomPlayer = {
+    name:
+      bottomColor === "w" ? (game.white_username ?? "White") : (game.black_username ?? "Awaiting…"),
+    rating: bottomColor === "w" ? game.white_rating : game.black_rating,
+    color: bottomColor,
+    p_active: bottomColor === "w" ? whiteProfile?.premium_active : blackProfile?.premium_active,
+    p_exp:
+      bottomColor === "w" ? whiteProfile?.premium_expires_at : blackProfile?.premium_expires_at,
+    avatar: bottomColor === "w" ? whiteProfile?.avatar_url : blackProfile?.avatar_url,
+    isMe: myColor === bottomColor,
+    id: bottomColor === "w" ? game.white_id : game.black_id,
+  };
 
   const isWaiting = game.status === "waiting";
   const isFinished = game.status === "finished";
@@ -732,255 +877,574 @@ function LiveGame() {
   const drawFromMe = game.draw_offered_by === user?.id;
   const drawFromOpponent = game.draw_offered_by && game.draw_offered_by !== user?.id;
 
+  const currentOpening = detectOpening(moves.map((m) => m.san));
+
   return (
-    <PageShell>
+    <PageShell compact>
+      <ConfirmModal
+        isOpen={showResignModal}
+        onClose={() => setShowResignModal(false)}
+        onConfirm={executeResign}
+        title="Resign Game?"
+        description="Are you sure you want to resign this game? This will count as a defeat."
+        confirmText="Yes, Resign"
+        cancelText="Cancel"
+        icon={<Flag className="h-6 w-6 text-red-400" />}
+        variant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={showDrawModal}
+        onClose={() => setShowDrawModal(false)}
+        onConfirm={executeDrawOffer}
+        title="Offer Draw?"
+        description="Send a draw offer to your opponent?"
+        confirmText="Offer Draw"
+        cancelText="Cancel"
+        icon={<Handshake className="h-6 w-6 text-gold" />}
+        variant="gold"
+      />
+
+      {/* Top Floating Rematch Notification Banner inside site */}
+      {live.rematchOffer && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-full bg-[#0C0E12]/95 border border-gold/40 px-5 py-2.5 shadow-2xl shadow-gold/20 backdrop-blur-md animate-in slide-in-from-top-4 duration-300">
+          <Swords className="h-4 w-4 text-gold animate-pulse" />
+          <span className="text-xs font-semibold text-foreground">
+            {live.rematchOffer.offeredBy === user?.id
+              ? "Rematch offer sent to opponent..."
+              : "Opponent requested a rematch!"}
+          </span>
+          {live.rematchOffer.offeredBy !== user?.id ? (
+            <div className="flex items-center gap-2">
+              <GoldButton onClick={handleRematchOffer} className="h-7 px-3 text-xs">
+                Accept
+              </GoldButton>
+              <GhostButton
+                onClick={() => live.declineRematch()}
+                className="h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground border-white/10"
+              >
+                Decline
+              </GhostButton>
+            </div>
+          ) : (
+            <span className="text-[10px] text-gold/80 italic animate-pulse">Waiting...</span>
+          )}
+        </div>
+      )}
+
       {showEndModal && game.status === "finished" && (
         <GameEndModal
-          result={game.end_reason?.includes("resign") ? "resigned" : (game.result as GameEndResult)}
-          reason={game.end_reason?.replace(/_/g, " ") ?? "Finished"}
+          result={game.result}
+          reason={game.end_reason}
+          myColor={myColor}
           gameId={id}
           roomId={roomId ?? undefined}
           roomHostId={roomHostId ?? undefined}
           currentUserId={user?.id}
           onClose={() => setShowEndModal(false)}
+          onRematch={handleRematchOffer}
+          rematchStatus={rematchStatus}
         />
       )}
-      <div className="grid gap-6 lg:grid-cols-12">
-        <div className="space-y-4 lg:col-span-3">
-          <PlayerCard
-            name={opp.name}
-            rating={opp.rating}
-            baseMs={opp.ms}
-            lastMoveAt={opp.lastMoveAt}
-            p_active={opp.p_active}
-            p_exp={opp.p_exp}
-            avatar={opp.avatar}
-            active={!isWaiting && activeTurn !== myColor}
-            board={board}
-            player={orientation === "w" ? "b" : "w"}
-            friendUserId={opp.id}
-          />
-          <PlayerCard
-            name={me.name}
-            rating={me.rating}
-            baseMs={me.ms}
-            lastMoveAt={me.lastMoveAt}
-            p_active={me.p_active}
-            p_exp={me.p_exp}
-            avatar={me.avatar}
-            active={!isWaiting && activeTurn === myColor}
-            board={board}
-            player={orientation}
-            me
-          />
 
-          {myColor && (
-            <Card className="p-4">
-              <SpectatorVisibilityControl
-                scope="game"
-                gameId={id}
-                value={myVisibility}
-                onChange={setMyVisibility}
-              />
-            </Card>
-          )}
-
-          {isHostWaiting && (
-            <Card className="p-4">
-              <div className="text-xs uppercase tracking-[0.22em] text-gold/80">
-                Awaiting opponent
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Share this scroll to summon a challenger.
-              </p>
-              <div className="mt-3 flex gap-2">
-                <input
-                  readOnly
-                  value={shareUrl}
-                  className="flex-1 rounded-lg border border-gold/30 bg-white/[0.02] px-2 py-1.5 font-mono text-[11px]"
-                />
-                <button
-                  onClick={() => navigator.clipboard.writeText(shareUrl)}
-                  className="grid h-8 w-8 place-items-center rounded-lg gradient-gold text-[#0B0D10]"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </Card>
-          )}
-
-          {canJoin && (
-            <Card className="p-4">
-              <div className="text-xs uppercase tracking-[0.22em] text-gold/80">
-                Accept Challenge
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {game.time_control} · {game.is_rated ? "Rated" : "Casual"}
-              </p>
-              <div className="mt-3">
-                <GoldButton onClick={joinAsOpponent} disabled={joining}>
-                  <Swords className="h-4 w-4" /> Enter the Arena
-                </GoldButton>
-              </div>
-            </Card>
-          )}
-
-          {!user && isWaiting && (
-            <Card className="p-4">
-              <p className="text-sm text-muted-foreground">Sign in to accept this challenge.</p>
-              <div className="mt-3">
-                <Link to="/auth">
-                  <GoldButton>Sign in</GoldButton>
-                </Link>
-              </div>
-            </Card>
-          )}
-
-          {isFinished && (
-            <Card className="p-4 text-center">
-              <Crown className="mx-auto h-6 w-6 text-gold" />
-              <div className="mt-2 font-display text-2xl text-gradient-gold">
-                {game.result === "draw"
-                  ? "Draw"
-                  : `${game.result === "white" ? "White" : "Black"} Wins${
-                      game.end_reason ? ` by ${game.end_reason.replace(/_/g, " ")}` : ""
-                    }`}
-              </div>
-              <div className="text-xs uppercase tracking-widest text-muted-foreground">
-                {game.end_reason}
-              </div>
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
-                <Link to="/game/$id/review" params={{ id }}>
-                  <GoldButton>
-                    <Play className="h-4 w-4" /> Replay
-                  </GoldButton>
-                </Link>
-                <Link to="/analysis" search={{ gameId: id }}>
-                  <GhostButton>
-                    <LineChart className="h-4 w-4" /> Analyze
-                  </GhostButton>
-                </Link>
-                <Link to="/play/friend">
-                  <GhostButton>
-                    <Swords className="h-4 w-4" /> New Challenge
-                  </GhostButton>
-                </Link>
-              </div>
-            </Card>
-          )}
-        </div>
-
-        <div className="lg:col-span-6">
-          <InteractiveBoard
-            board={board}
-            orientation={orientation}
-            selected={selected}
-            targets={targets}
-            lastMove={lastMove}
-            checkSquare={checkSquare}
-            onSquare={handleSquare}
-            disabled={!isMyTurn || !!promotion || submittingRef.current}
-            endState={endState as { result: "white" | "black" | "draw"; reason: string } | null}
-          />
-          <div className="mt-3 flex justify-center">
-            <button
-              onClick={() => setFlipped((f) => !f)}
-              className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-muted-foreground hover:text-gold"
-            >
-              <RotateCcw className="h-3.5 w-3.5" /> Flip Board
-            </button>
+      {/* Responsive Grid: Left Column (Player Cards + Board), Right Column (History, Tabs, Actions) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center justify-center max-h-full overflow-hidden h-full">
+        {/* =================================================== */}
+        {/* LEFT COLUMN: PLAYER CARDS & CHESS BOARD             */}
+        {/* =================================================== */}
+        <div className="lg:col-span-7 xl:col-span-7 flex flex-col items-center justify-center w-full h-full">
+          {/* Top: Opponent Profile Card */}
+          <div className="w-full max-w-[480px] xl:max-w-[510px] mb-1.5">
+            <PlayerCard
+              name={topPlayer.name}
+              rating={topPlayer.rating}
+              clock={clock}
+              color={topPlayer.color}
+              showClock={!clock.untimed}
+              p_active={topPlayer.p_active}
+              p_exp={topPlayer.p_exp}
+              avatar={topPlayer.avatar}
+              active={!isWaiting && activeTurn === topPlayer.color}
+              board={liveBoard}
+              player={topPlayer.color}
+              friendUserId={topPlayer.isMe ? null : topPlayer.id}
+            />
           </div>
-          {promotion && (
-            <div className="mt-4 flex justify-center">
-              <PromotionPicker
-                color={myColor!}
-                onCancel={() => setPromotion(null)}
-                onPick={(p) => {
-                  const { from, to } = promotion;
-                  setPromotion(null);
-                  void commitMove(from, to, p);
-                }}
-              />
-            </div>
-          )}
-          {drawFromOpponent && !isFinished && (
-            <div className="mt-4 flex flex-col items-center justify-center rounded-xl border border-gold/30 bg-gold/10 p-4 shadow-lg shadow-gold/5 animate-in fade-in slide-in-from-bottom-2">
-              <div className="flex items-center gap-2 font-display text-lg text-gold">
-                <Handshake className="h-5 w-5" /> Draw Request Received
+
+          <div className="w-full max-w-[480px] xl:max-w-[510px] mx-auto relative flex flex-col items-center justify-center">
+            <InteractiveBoard
+              board={displayBoard}
+              orientation={orientation}
+              selected={selected}
+              targets={targets}
+              lastMove={lastMove}
+              checkSquare={checkSquare}
+              onSquare={handleSquare}
+              disabled={!isMyTurn || !!promotion || submittingRef.current}
+              endState={endState as { result: "white" | "black" | "draw"; reason: string } | null}
+            />
+
+            {/* Promotion Picker */}
+            {promotion && (
+              <div className="mt-2 flex justify-center z-30">
+                <PromotionPicker
+                  color={myColor!}
+                  onCancel={() => setPromotion(null)}
+                  onPick={(p) => {
+                    const { from, to } = promotion;
+                    setPromotion(null);
+                    void commitMove(from, to, p);
+                  }}
+                />
               </div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Your opponent has offered a draw.
-              </div>
-              <div className="mt-3 flex gap-3">
-                <GoldButton onClick={offerOrAcceptDraw}>Accept</GoldButton>
-                <GhostButton onClick={offerOrAcceptDraw} className="border border-white/10">
-                  Decline
-                </GhostButton>
-              </div>
-            </div>
-          )}
-          {!isWaiting && !isFinished && myColor && (
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              <GhostButton
-                onClick={offerOrAcceptDraw}
-                disabled={!!(drawFromMe || drawFromOpponent)}
-              >
-                <Handshake className="h-4 w-4" />
-                {game.draw_offered_by && !drawFromMe
-                  ? "Accept Draw"
-                  : drawFromMe
-                    ? "Draw Offered"
-                    : "Offer Draw"}
-              </GhostButton>
-              <GoldButton onClick={resign} className="bg-destructive text-foreground">
-                <Flag className="h-4 w-4" /> Resign
-              </GoldButton>
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* Bottom: Current Player Profile Card */}
+          <div className="w-full max-w-[480px] xl:max-w-[510px] mt-1.5">
+            <PlayerCard
+              name={bottomPlayer.name}
+              rating={bottomPlayer.rating}
+              clock={clock}
+              color={bottomPlayer.color}
+              showClock={!clock.untimed}
+              p_active={bottomPlayer.p_active}
+              p_exp={bottomPlayer.p_exp}
+              avatar={bottomPlayer.avatar}
+              active={!isWaiting && activeTurn === bottomPlayer.color}
+              board={liveBoard}
+              player={bottomPlayer.color}
+              me={bottomPlayer.isMe}
+              friendUserId={bottomPlayer.isMe ? null : bottomPlayer.id}
+            />
+          </div>
         </div>
 
-        <div className="space-y-4 lg:col-span-3">
-          <Card className="p-4">
-            <div className="mb-2 font-display">Moves</div>
-            <div className="grid max-h-72 grid-cols-[auto_1fr_1fr] gap-x-3 gap-y-1 overflow-y-auto pr-2 text-sm scrollbar-thin">
-              {Array.from({ length: Math.ceil(moves.length / 2) }).map((_, i) => (
-                <div className="contents" key={i}>
-                  <div className="text-muted-foreground">{i + 1}.</div>
-                  <div>{moves[i * 2]?.san ?? ""}</div>
-                  <div className="text-muted-foreground">{moves[i * 2 + 1]?.san ?? ""}</div>
+        {/* =================================================== */}
+        {/* RIGHT COLUMN: TAB HEADER, MAIN PANEL & TOOLS BOX   */}
+        {/* =================================================== */}
+        <div className="lg:col-span-5 xl:col-span-5 flex flex-col justify-between space-y-2 h-full">
+          {/* Top Tab Navigation Bar (Boxes 2, 3, 4, 5, 6) */}
+          <div className="grid grid-cols-5 gap-1 p-1 bg-black/40 backdrop-blur-md border border-white/10 rounded-xl flex-shrink-0">
+            {(["moves", "chat", "info", "spectators", "opening"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setActiveTab(t)}
+                className={`py-1.5 px-1 rounded-lg text-[11px] font-semibold capitalize transition-all flex items-center justify-center gap-1 ${
+                  activeTab === t
+                    ? "bg-gold text-[#0B0D10] shadow-sm shadow-gold/30"
+                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                }`}
+              >
+                {t === "moves" ? (
+                  <History className="h-3 w-3" />
+                ) : t === "chat" ? (
+                  <MessageSquare className="h-3 w-3" />
+                ) : t === "info" ? (
+                  <Info className="h-3 w-3" />
+                ) : t === "spectators" ? (
+                  <Users className="h-3 w-3" />
+                ) : (
+                  <BookOpen className="h-3 w-3" />
+                )}
+                <span className="truncate">
+                  {t === "moves"
+                    ? "Moves"
+                    : t === "info"
+                      ? "Info"
+                      : t === "spectators"
+                        ? "Spec"
+                        : t === "opening"
+                          ? "Book"
+                          : "Chat"}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Main Content Display Box (Box 1) - Fixed Height */}
+          <Card className="p-3 bg-black/40 backdrop-blur-md border-white/10 flex-1 min-h-[320px] max-h-[440px] flex flex-col overflow-hidden justify-between">
+            {/* Active Tab Content */}
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              {activeTab === "moves" && (
+                <div className="flex flex-col h-full space-y-2">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-1.5 flex-shrink-0">
+                    <span className="font-display text-xs font-semibold tracking-wide text-gold flex items-center gap-1">
+                      <History className="h-3 w-3" /> {currentOpening?.name ?? "Standard Opening"}
+                    </span>
+                    <button
+                      onClick={copyPGN}
+                      className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-gold transition-colors px-1.5 py-0.5 rounded border border-white/10 hover:border-gold/30"
+                      title="Export / Copy PGN"
+                    >
+                      <Copy className="h-3 w-3" /> PGN
+                    </button>
+                  </div>
+
+                  {/* Inner Dark Styled Move Box (Reference Image 2 style) */}
+                  <div
+                    ref={movesScrollRef}
+                    className="flex-1 rounded-xl bg-black/30 border border-white/5 p-2.5 overflow-y-auto space-y-1 scrollbar-thin"
+                  >
+                    {moves.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground/60 text-xs italic">
+                        No moves played yet.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-[28px_1fr_1fr] gap-x-2 gap-y-1 text-xs">
+                        {Array.from({ length: Math.ceil(moves.length / 2) }).map((_, i) => {
+                          const wPly = i * 2 + 1;
+                          const bPly = i * 2 + 2;
+                          const wMove = moves[i * 2];
+                          const bMove = moves[i * 2 + 1];
+                          const isWActive = viewPly === wPly;
+                          const isBActive = viewPly === bPly;
+                          const wTime = formatMoveDuration(wMove?.took_ms);
+                          const bTime = formatMoveDuration(bMove?.took_ms);
+                          return (
+                            <div className="contents" key={i}>
+                              <div className="text-muted-foreground/60 py-1 font-mono text-[11px] font-semibold">
+                                {i + 1}.
+                              </div>
+                              <button
+                                onClick={() => setViewPly(wPly)}
+                                className={`text-left px-2 py-1 rounded font-mono font-medium transition-all flex items-center justify-between gap-1 ${
+                                  isWActive
+                                    ? "bg-gold text-[#0B0D10] font-bold shadow-sm shadow-gold/30"
+                                    : "bg-white/5 text-foreground hover:bg-white/15"
+                                }`}
+                              >
+                                <span className="truncate">{wMove?.san ?? ""}</span>
+                                {wTime ? (
+                                  <span
+                                    className={`text-[10px] font-normal font-mono shrink-0 ${
+                                      isWActive ? "text-[#0B0D10]/80" : "text-muted-foreground/50"
+                                    }`}
+                                  >
+                                    {wTime}
+                                  </span>
+                                ) : null}
+                              </button>
+                              <button
+                                onClick={() => bMove && setViewPly(bPly)}
+                                disabled={!bMove}
+                                className={`text-left px-2 py-1 rounded font-mono font-medium transition-all flex items-center justify-between gap-1 ${
+                                  isBActive
+                                    ? "bg-gold text-[#0B0D10] font-bold shadow-sm shadow-gold/30"
+                                    : bMove
+                                      ? "bg-white/5 text-muted-foreground hover:text-foreground hover:bg-white/15"
+                                      : "opacity-0 pointer-events-none"
+                                }`}
+                              >
+                                <span className="truncate">{bMove?.san ?? ""}</span>
+                                {bTime ? (
+                                  <span
+                                    className={`text-[10px] font-normal font-mono shrink-0 ${
+                                      isBActive ? "text-[#0B0D10]/80" : "text-muted-foreground/50"
+                                    }`}
+                                  >
+                                    {bTime}
+                                  </span>
+                                ) : null}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ))}
+              )}
+
+              {activeTab === "chat" && (
+                <div className="flex flex-col h-full">
+                  <div
+                    ref={chatScrollRef}
+                    className="flex-1 overflow-y-auto space-y-1 pr-1 text-xs scrollbar-thin"
+                  >
+                    {chat.length === 0 ? (
+                      <div className="text-center py-6 text-muted-foreground/60 text-xs italic">
+                        No chat messages yet.
+                      </div>
+                    ) : (
+                      chat.map((c) => (
+                        <div
+                          key={c.id}
+                          className="bg-white/[0.02] p-1.5 rounded border border-white/5"
+                        >
+                          <span className="font-semibold text-gold mr-1">{c.username}:</span>
+                          <span>{c.body}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Chat Reactions & Send Box */}
+                  <div className="mt-1.5 space-y-1 pt-1.5 border-t border-white/5 flex-shrink-0">
+                    <div className="flex gap-1 overflow-x-auto pb-0.5 text-xs no-scrollbar">
+                      {["👍", "👏", "😃", "🔥", "🎯", "👑", "😮", "🤝"].map((emo) => (
+                        <button
+                          key={emo}
+                          onClick={() => sendQuickEmoji(emo)}
+                          className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 transition-colors"
+                        >
+                          {emo}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-1.5">
+                      <input
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") sendChat();
+                        }}
+                        placeholder={user ? "Type a message…" : "Sign in"}
+                        disabled={!user}
+                        className="flex-1 rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-1 text-xs outline-none focus:border-gold/40"
+                      />
+                      <button
+                        onClick={sendChat}
+                        disabled={!user || !chatInput.trim()}
+                        className="grid h-7 w-7 place-items-center rounded-lg gradient-gold text-[#0B0D10] disabled:opacity-40"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "spectators" && (
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center gap-1.5 text-gold font-semibold text-sm">
+                    <Eye className="h-4 w-4" /> Live Spectators
+                  </div>
+                  {myColor && (
+                    <SpectatorVisibilityControl
+                      scope="game"
+                      gameId={id}
+                      value={myVisibility}
+                      onChange={setMyVisibility}
+                    />
+                  )}
+                  <div className="rounded-lg border border-white/10 bg-white/[0.02] p-2 space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Visibility Mode</span>
+                      <span className="font-semibold text-emerald-400 capitalize">
+                        {myVisibility}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Spectator Access</span>
+                      <span className="text-foreground font-medium">Read Only</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "info" && (
+                <div className="space-y-1.5 text-xs">
+                  <div className="font-semibold text-gold text-sm border-b border-white/10 pb-1">
+                    Match Details
+                  </div>
+                  <div className="flex justify-between border-b border-white/5 py-1">
+                    <span className="text-muted-foreground">Game ID</span>
+                    <span className="font-mono text-foreground font-semibold">
+                      {id.slice(0, 8)}...
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/5 py-1">
+                    <span className="text-muted-foreground">Time Control</span>
+                    <span className="text-foreground">{game.time_control}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/5 py-1">
+                    <span className="text-muted-foreground">Rated Match</span>
+                    <span className="text-foreground">{game.is_rated ? "Yes" : "No"}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/5 py-1">
+                    <span className="text-muted-foreground">Total Plies</span>
+                    <span className="text-foreground">{game.moves_count}</span>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "opening" && (
+                <div className="space-y-2 text-xs">
+                  <div className="font-semibold text-gold text-sm border-b border-white/10 pb-1">
+                    Chess Opening Book
+                  </div>
+                  <div className="font-semibold text-foreground text-sm">
+                    {currentOpening?.name ?? "Standard Opening"}
+                  </div>
+                  {currentOpening?.eco && (
+                    <div className="text-muted-foreground">
+                      ECO Code:{" "}
+                      <span className="font-mono text-gold font-semibold">
+                        {currentOpening.eco}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </Card>
 
-          <Card className="p-4">
-            <div className="mb-2 flex items-center gap-2 text-sm">
-              <MessageCircle className="h-4 w-4 text-gold" /> Chat
-            </div>
-            <div className="h-40 space-y-1 overflow-y-auto rounded-lg bg-white/[0.02] p-2 text-xs scrollbar-thin">
-              {chat.map((c) => (
-                <div key={c.id}>
-                  <span className="text-gold">{c.username}:</span> {c.body}
+          {/* Bottom Card: Live Actions, Replay Navigation & Board Tools (Box 7) */}
+          <Card className="p-2.5 bg-black/40 backdrop-blur-md border-white/10 space-y-2">
+            {/* Live Game Action Buttons */}
+            {!isWaiting && !isFinished && myColor && (
+              <div className="flex justify-center gap-1.5 pb-1.5 border-b border-white/10">
+                <GhostButton
+                  onClick={handleDrawClick}
+                  disabled={drawFromMe || game.status !== "active"}
+                  className="text-xs h-7 px-2 flex-1 border-white/10"
+                >
+                  <Handshake className="h-3.5 w-3.5 mr-1" />
+                  {drawFromMe ? "Draw Offered" : "Offer Draw"}
+                </GhostButton>
+                <GoldButton
+                  onClick={handleResignClick}
+                  className="bg-destructive hover:bg-destructive/90 text-foreground text-xs h-7 px-2 flex-1"
+                >
+                  <Flag className="h-3.5 w-3.5 mr-1" /> Resign
+                </GoldButton>
+              </div>
+            )}
+
+            {drawFromOpponent && !isFinished && (
+              <div className="rounded-lg border border-gold/40 bg-gold/10 p-1.5 text-xs text-center space-y-1">
+                <div className="flex items-center justify-center gap-1 font-display text-gold">
+                  <Handshake className="h-3.5 w-3.5" /> Draw Offered
                 </div>
-              ))}
-            </div>
-            <div className="mt-2 flex gap-2">
-              <input
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") sendChat();
-                }}
-                placeholder={user ? "Type a message…" : "Sign in to chat"}
-                disabled={!user}
-                className="flex-1 rounded-full border border-white/10 bg-white/[0.02] px-3 py-2 text-sm outline-none focus:border-gold/40"
-              />
+                <div className="flex justify-center gap-2 pt-0.5">
+                  <GoldButton onClick={executeDrawOffer} className="h-6 px-2.5 text-xs">
+                    Accept
+                  </GoldButton>
+                  <GhostButton
+                    onClick={executeDeclineDraw}
+                    className="h-6 px-2.5 text-xs border-white/10"
+                  >
+                    Decline
+                  </GhostButton>
+                </div>
+              </div>
+            )}
+
+            {isHostWaiting && (
+              <div className="space-y-1 pb-1.5 border-b border-white/10 text-center">
+                <div className="text-[10px] uppercase tracking-wider text-gold/80 font-semibold">
+                  Awaiting Opponent
+                </div>
+                <div className="flex gap-1">
+                  <input
+                    readOnly
+                    value={shareUrl}
+                    className="flex-1 rounded border border-gold/30 bg-white/[0.02] px-2 py-0.5 font-mono text-[10px]"
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(shareUrl);
+                      toast.success("Link copied!");
+                    }}
+                    className="grid h-6 w-6 place-items-center rounded gradient-gold text-[#0B0D10]"
+                  >
+                    <Copy className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {canJoin && (
+              <div className="pb-1.5 border-b border-white/10 text-center">
+                <GoldButton
+                  onClick={joinAsOpponent}
+                  disabled={joining}
+                  className="w-full h-7 text-xs"
+                >
+                  <Swords className="h-3.5 w-3.5 mr-1" /> Enter Arena
+                </GoldButton>
+              </div>
+            )}
+
+            {isFinished && (
+              <div className="py-1 border-b border-white/10 text-center space-y-1">
+                <div className="font-display text-xs text-gradient-gold">
+                  {resultSentence(normalizeResult(game.result), game.end_reason)}
+                </div>
+              </div>
+            )}
+
+            {/* Replay Controls (Moved into Box 7) */}
+            <div className="flex items-center justify-between gap-1">
               <button
-                onClick={sendChat}
-                className="grid h-9 w-9 place-items-center rounded-full gradient-gold text-[#0B0D10]"
+                onClick={() => setViewPly(0)}
+                disabled={moves.length === 0}
+                className="flex-1 py-1 rounded bg-white/5 hover:bg-white/15 text-xs font-mono disabled:opacity-40 transition-colors"
+                title="First Move"
               >
-                <Send className="h-4 w-4" />
+                ⏮
               </button>
+              <button
+                onClick={() => setViewPly((prev) => Math.max(0, (prev ?? moves.length) - 1))}
+                disabled={moves.length === 0}
+                className="flex-1 py-1 rounded bg-white/5 hover:bg-white/15 text-xs font-mono disabled:opacity-40 transition-colors"
+                title="Previous Move"
+              >
+                ◀
+              </button>
+              <button
+                onClick={() => setViewPly(null)}
+                className={`flex-1 py-1 rounded text-xs font-bold transition-all ${
+                  viewPly === null
+                    ? "bg-gold text-[#0B0D10] shadow-sm shadow-gold/30"
+                    : "bg-white/10 text-gold hover:bg-white/20"
+                }`}
+                title="Live Position"
+              >
+                Live
+              </button>
+              <button
+                onClick={() =>
+                  setViewPly((prev) =>
+                    prev === null ? null : prev + 1 >= moves.length ? null : prev + 1,
+                  )
+                }
+                disabled={moves.length === 0 || viewPly === null}
+                className="flex-1 py-1 rounded bg-white/5 hover:bg-white/15 text-xs font-mono disabled:opacity-40 transition-colors"
+                title="Next Move"
+              >
+                ▶
+              </button>
+              <button
+                onClick={() => setViewPly(null)}
+                disabled={moves.length === 0}
+                className="flex-1 py-1 rounded bg-white/5 hover:bg-white/15 text-xs font-mono disabled:opacity-40 transition-colors"
+                title="Last Move"
+              >
+                ⏭
+              </button>
+            </div>
+
+            {/* Quick Board Tools */}
+            <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-white/10 text-xs">
+              <button
+                onClick={() => setFlipped((f) => !f)}
+                className="flex-1 flex items-center justify-center gap-1 py-1 rounded border border-white/10 text-muted-foreground hover:text-gold hover:border-gold/40 transition-colors"
+              >
+                <RotateCcw className="h-3 w-3" /> Flip
+              </button>
+              <button
+                onClick={downloadPGN}
+                className="flex-1 flex items-center justify-center gap-1 py-1 rounded border border-white/10 text-muted-foreground hover:text-gold hover:border-gold/40 transition-colors"
+              >
+                <Download className="h-3 w-3" /> PGN
+              </button>
+              <Link to="/analysis" search={{ gameId: id }} className="flex-1">
+                <button className="w-full flex items-center justify-center gap-1 py-1 rounded border border-gold/30 bg-gold/10 text-gold hover:bg-gold/20 transition-colors">
+                  <LineChart className="h-3 w-3" /> Analyze
+                </button>
+              </Link>
             </div>
           </Card>
         </div>
@@ -992,8 +1456,9 @@ function LiveGame() {
 function PlayerCard({
   name,
   rating,
-  baseMs,
-  lastMoveAt,
+  clock,
+  color,
+  showClock,
   p_active,
   p_exp,
   avatar,
@@ -1005,8 +1470,9 @@ function PlayerCard({
 }: {
   name: string;
   rating: number | null;
-  baseMs: number;
-  lastMoveAt: number | null;
+  clock: ClockState;
+  color: "w" | "b";
+  showClock: boolean;
   p_active?: boolean;
   p_exp?: string | null;
   avatar?: string | null;
@@ -1016,37 +1482,50 @@ function PlayerCard({
   player: "w" | "b";
   friendUserId?: string | null;
 }) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    if (!active || !lastMoveAt) return;
-    const t = setInterval(() => setNow(Date.now()), 100);
-    return () => clearInterval(t);
-  }, [active, lastMoveAt]);
+  const { settings } = useGameSettings();
+  const display = useChessClock(clock, { showTenths: settings.show_tenths });
+  const currentMs = color === "w" ? display.whiteMs : display.blackMs;
+  useClockAudio(Math.ceil(currentMs / 1000), !!active && !!me && showClock);
 
-  const elapsed = active && lastMoveAt ? Math.max(0, now - lastMoveAt) : 0;
-  const currentMs = Math.max(0, baseMs - elapsed);
-  useClockAudio(Math.ceil(currentMs / 1000), !!active && !!me);
   return (
-    <Card className={`p-4 ${active ? "ring-1 ring-gold/60" : ""}`}>
-      <div className="flex items-center gap-3">
-        <UserAvatar avatarUrl={avatar} displayName={name} size="md" />
-        <div className="flex-1 min-w-0">
-          <div className="truncate text-sm flex items-center gap-1.5">
-            {name}
-            <PremiumBadge premiumActive={p_active} premiumExpiresAt={p_exp} />
-            {friendUserId && <FriendButton targetUserId={friendUserId} targetName={name} />}
+    <div className="py-1.5 px-1 transition-all duration-300 w-full">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="relative flex-shrink-0">
+            <UserAvatar avatarUrl={avatar} displayName={name} size="md" />
+            <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background animate-pulse" />
           </div>
-          <div className="text-xs text-muted-foreground">
-            {rating ?? "—"} {me ? "· You" : ""}
+          <div className="min-w-0 flex items-center gap-2 flex-wrap">
+            <div className="truncate text-sm font-semibold flex items-center gap-1.5 text-foreground">
+              <span>{name}</span>
+              <PremiumBadge premiumActive={p_active} premiumExpiresAt={p_exp} />
+              {friendUserId && <FriendButton targetUserId={friendUserId} targetName={name} />}
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span>{rating ? `${rating} Elo` : "—"}</span>
+              {me && (
+                <span className="rounded bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-gold border border-gold/30">
+                  You
+                </span>
+              )}
+            </div>
+            <CapturedPieces board={board} player={player} className="inline-flex ml-1" />
           </div>
-          <CapturedPieces board={board} player={player} className="mt-0.5" />
         </div>
-        <div
-          className={`rounded-lg px-3 py-1.5 font-mono text-sm tabular-nums ${active ? "bg-gold text-[#0B0D10]" : "bg-white/5"}`}
-        >
-          <ClockTime ms={currentMs} active={!!active} />
-        </div>
+
+        {/* Digital Clock Readout */}
+        {showClock && (
+          <div
+            className={`rounded-lg px-3 py-1 font-mono text-sm font-bold tabular-nums transition-all flex-shrink-0 ${
+              active
+                ? "bg-gold text-[#0B0D10] shadow-md shadow-gold/30 scale-105"
+                : "bg-white/10 text-foreground/90 border border-white/15"
+            }`}
+          >
+            <ClockTime ms={currentMs} active={!!active} />
+          </div>
+        )}
       </div>
-    </Card>
+    </div>
   );
 }

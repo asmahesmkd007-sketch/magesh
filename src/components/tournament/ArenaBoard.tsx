@@ -19,6 +19,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useGameSettings } from "@/hooks/useGameSettings";
 import { useClockAudio } from "@/hooks/useClockAudio";
 import { submitMove, resignGame, respondDraw, claimTimeout } from "@/lib/api/gameClient";
+import type { MakeMoveResult } from "@/lib/api/game.functions";
+import {
+  LIVE_MOVE_EVENT,
+  acceptLiveMove,
+  sendLiveMove,
+  type LiveMoveSender,
+} from "@/lib/chess/liveMove";
 import {
   abortGame,
   claimNoShow,
@@ -255,11 +262,18 @@ export const ArenaBoard = memo(function ArenaBoard({
   const [selected, setSelected] = useState<string | null>(null);
   const [targets, setTargets] = useState<string[]>([]);
   const [promotion, setPromotion] = useState<{ from: string; to: string } | null>(null);
+  // One unconfirmed move on top of the authoritative row. `mine` is this
+  // player's own optimistic apply; `mine: false` is the opponent's move as
+  // relayed peer-to-peer over the channel this board already holds, which
+  // lands well before the write that carries it has replicated back.
   const [optimistic, setOptimistic] = useState<{
     fen: string;
     from: string;
     to: string;
     at: number;
+    /** The ply it produces; the overlay retires when the row reaches it. */
+    ply: number;
+    mine: boolean;
   } | null>(null);
   const [confirm, setConfirm] = useState<"resign" | "abort" | "draw" | null>(null);
   const [busy, setBusy] = useState(false);
@@ -269,22 +283,57 @@ export const ArenaBoard = memo(function ArenaBoard({
   // Mirrors `game`/`optimistic` for reading fresh values from async
   // callbacks (setTimeout) without a stale-closure snapshot.
   const gameRef = useRef<GameRow | null>(null);
-  const optimisticRef = useRef<{ fen: string; from: string; to: string } | null>(null);
-  // Pending fallback re-fetch, in case the post-move realtime UPDATE never
-  // arrives (dropped event / reconnect gap right after submitting).
-  const reconcileFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const optimisticRef = useRef<typeof optimistic>(null);
+  // The live channel, kept for relaying our own moves back out over it.
+  const channelRef = useRef<LiveMoveSender | null>(null);
+  // Highest ply already given a move cue, so a move heard once over the
+  // relay isn't heard again when its INSERT arrives.
+  const soundedPlyRef = useRef(0);
   useEffect(() => {
     gameRef.current = game;
   }, [game]);
   useEffect(() => {
     optimisticRef.current = optimistic;
   }, [optimistic]);
-  useEffect(
-    () => () => {
-      if (reconcileFallbackRef.current) clearTimeout(reconcileFallbackRef.current);
-    },
-    [],
-  );
+
+  // The authoritative row only ever moves forward: the move response now
+  // merges newer state locally, so a realtime UPDATE already in flight when
+  // that happened must not roll the board back a ply. Resignations, draws
+  // and timeouts leave `moves_count` untouched, so equality still applies.
+  const applyGameRow = useCallback((row: GameRow | null) => {
+    if (!row) return;
+    setGame((prev) => (prev && (row.moves_count ?? 0) < (prev.moves_count ?? 0) ? prev : row));
+  }, []);
+
+  // Fold the write's own response into the board. The move handler already
+  // holds every authoritative value it just wrote, so waiting for Postgres
+  // to replicate them back was a whole extra hop spent learning what the
+  // response had already said.
+  const mergeMoveResult = useCallback((res: MakeMoveResult) => {
+    setGame((prev) => {
+      if (!prev || res.ply < (prev.moves_count ?? 0)) return prev;
+      return {
+        ...prev,
+        fen: res.fen,
+        turn: res.turn,
+        status: res.status,
+        result: res.result,
+        end_reason: res.endReason,
+        winner_id: res.winnerId ?? prev.winner_id,
+        moves_count: res.ply,
+        white_time_ms: res.whiteTimeMs,
+        black_time_ms: res.blackTimeMs,
+        last_move_at: res.lastMoveAt,
+        draw_offered_by: null,
+      };
+    });
+    if (res.san && res.uci) {
+      const row: MoveRow = { ply: res.ply, san: res.san, uci: res.uci, fen_after: res.fen };
+      setMoves((prev) =>
+        prev.some((r) => r.ply === row.ply) ? prev : [...prev, row].sort((a, b) => a.ply - b.ply),
+      );
+    }
+  }, []);
 
   // 12s grace before declaring the opponent disconnected — page hops and
   // socket blips drop presence for a moment without the player leaving.
@@ -324,11 +373,42 @@ export const ArenaBoard = memo(function ArenaBoard({
     })();
 
     const ch = supabase
-      .channel(`arena_game:${gameId}`)
+      // `ack:false` keeps a relayed move fire-and-forget (no round-trip on
+      // the move path); `self:false` keeps our own relay off our own board.
+      .channel(`arena_game:${gameId}`, { config: { broadcast: { self: false, ack: false } } })
+      .on("broadcast", { event: LIVE_MOVE_EVENT }, (msg: { payload?: unknown }) => {
+        // The opponent's move straight off the socket, ahead of the write
+        // that carries it. Provisional and fully re-validated against our
+        // own authoritative position (see lib/chess/liveMove.ts); the row
+        // replaces it a moment later either way.
+        if (optimisticRef.current) return;
+        const g = gameRef.current;
+        const accepted = acceptLiveMove(msg?.payload, {
+          status: g?.status,
+          fen: g?.fen,
+          movesCount: g?.moves_count,
+          whiteId: g?.white_id,
+          blackId: g?.black_id,
+          viewerId: userId,
+        });
+        if (!accepted) return;
+        setOptimistic({
+          fen: accepted.fen,
+          from: accepted.from,
+          to: accepted.to,
+          at: accepted.at,
+          ply: accepted.ply,
+          mine: false,
+        });
+        if (accepted.ply > soundedPlyRef.current) {
+          soundedPlyRef.current = accepted.ply;
+          soundForChessMove(accepted.move, accepted.chess);
+        }
+      })
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${gameId}` },
-        (p) => setGame(p.new as GameRow),
+        (p) => applyGameRow(p.new as GameRow),
       )
       .on(
         "postgres_changes",
@@ -355,20 +435,25 @@ export const ArenaBoard = memo(function ArenaBoard({
               .order("ply"),
           ]);
           if (!alive) return;
-          if (g) setGame(g as GameRow);
+          if (g) applyGameRow(g as GameRow);
           if (m) setMoves(m as MoveRow[]);
         }
       });
+    channelRef.current = ch;
     return () => {
       alive = false;
+      channelRef.current = null;
       void supabase.removeChannel(ch);
     };
-  }, [gameId]);
+  }, [gameId, userId, applyGameRow]);
 
-  // Reconcile optimistic once the authoritative FEN lands.
+  // Retire the overlay once the authoritative row reaches the ply it
+  // represents — not on any FEN change, which would also drop an overlay
+  // that is still a ply ahead of the row.
   useEffect(() => {
-    setOptimistic(null);
-  }, [game?.fen]);
+    const count = game?.moves_count ?? 0;
+    setOptimistic((o) => (o && o.ply <= count ? null : o));
+  }, [game?.fen, game?.moves_count]);
 
   const activeFen = optimistic?.fen ?? game?.fen;
   const chess = useMemo(() => {
@@ -398,8 +483,11 @@ export const ArenaBoard = memo(function ArenaBoard({
     prevMovesRef.current = moves.length;
     const last = moves[moves.length - 1];
     if (!last?.san) return;
+    // Already heard when the move was relayed, ahead of this INSERT.
+    if (last.ply <= soundedPlyRef.current) return;
     const moverColor: "w" | "b" = last.ply % 2 === 1 ? "w" : "b";
     if (myColor && myColor === moverColor) return;
+    soundedPlyRef.current = last.ply;
     if (last.san.includes("#")) playGameSound("checkmate");
     else if (last.san.includes("+")) playGameSound("check");
     else if (last.san.startsWith("O-O")) playGameSound("castle");
@@ -432,7 +520,9 @@ export const ArenaBoard = memo(function ArenaBoard({
   const oppColor: "w" | "b" = orientation === "w" ? "b" : "w";
 
   // Opponent flag-fall → claim the win once (server re-validates).
-  if (game?.status === "active" && myColor && !timeoutClaimedRef.current) {
+  // Never while an overlay is up: a relayed move of theirs is already on
+  // the board, so they demonstrably did not run out of time.
+  if (game?.status === "active" && myColor && !optimistic && !timeoutClaimedRef.current) {
     const isOppTurn = game.turn !== myColor;
     const oppLeft =
       (myColor === "w" ? blackMs : whiteMs) -
@@ -507,14 +597,27 @@ export const ArenaBoard = memo(function ArenaBoard({
       submittingRef.current = true;
       setSelected(null);
       setTargets([]);
-      let expectedFen: string | null = null;
+      const ply = (game.moves_count ?? 0) + 1;
       try {
         const c = new Chess();
         c.load(activeFen!);
         const mv = c.move({ from, to, promotion: promo });
         if (mv) {
-          expectedFen = c.fen();
-          setOptimistic({ fen: expectedFen, from, to, at: Date.now() });
+          const at = Date.now();
+          // Relay first — this is the copy that reaches the opponent's
+          // board, and everything below is added to their wait.
+          sendLiveMove(channelRef.current, {
+            ply,
+            from,
+            to,
+            promotion: promo,
+            fenBefore: activeFen!,
+            fenAfter: c.fen(),
+            at,
+            by: userId,
+          });
+          setOptimistic({ fen: c.fen(), from, to, at, ply, mine: true });
+          soundedPlyRef.current = Math.max(soundedPlyRef.current, ply);
           buzz();
           soundForChessMove(mv, c);
         }
@@ -523,28 +626,14 @@ export const ArenaBoard = memo(function ArenaBoard({
       }
       try {
         const result = await submitMove({ gameId, from, to, promotion: promo });
+        // Reconcile from the write's own response rather than waiting for
+        // Realtime to replicate the same values back — one hop earlier, and
+        // a dropped UPDATE event no longer strands the board behind a
+        // multi-second fallback re-fetch.
+        mergeMoveResult(result);
         if (!result.ok) {
           setOptimistic(null);
           toast.error("You ran out of time.");
-        } else if (expectedFen) {
-          // The server accepted the move — Realtime should update `game`
-          // shortly. If that specific UPDATE event is dropped, `optimistic`
-          // never clears and this player can't move again (isMyTurn
-          // requires !optimistic). Fall back to a direct re-fetch if
-          // reconciliation hasn't happened after a few seconds.
-          if (reconcileFallbackRef.current) clearTimeout(reconcileFallbackRef.current);
-          const fenToMatch = expectedFen;
-          reconcileFallbackRef.current = setTimeout(async () => {
-            reconcileFallbackRef.current = null;
-            if (optimisticRef.current?.from !== from || optimisticRef.current?.to !== to) return;
-            if (gameRef.current?.fen === fenToMatch) return;
-            const { data: g } = await supabase
-              .from("games")
-              .select("*")
-              .eq("id", gameId)
-              .maybeSingle();
-            if (g) setGame(g as GameRow);
-          }, 3500);
         }
       } catch (err) {
         setOptimistic(null);
@@ -553,7 +642,7 @@ export const ArenaBoard = memo(function ArenaBoard({
         submittingRef.current = false;
       }
     },
-    [game, myColor, activeFen, gameId],
+    [game, myColor, activeFen, gameId, userId, mergeMoveResult],
   );
 
   const handleSquare = useCallback(

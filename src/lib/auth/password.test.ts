@@ -86,25 +86,43 @@ describe("passwordStrength", () => {
   });
 });
 
+// The handle rule is: exactly 11 characters, drawn from [a-zA-Z0-9_.],
+// and containing at least one '_' or '.' (see isValidUsernameFormat).
+// These tests previously asserted an earlier 3–20 character rule and had
+// drifted out of date with the implementation.
 describe("usernameSchema", () => {
-  it("accepts valid handles", () => {
-    for (const name of ["abc", "grand_master", "Player99", "a".repeat(20)]) {
+  it("accepts 11-character handles containing a separator", () => {
+    for (const name of ["chessfox_42", "grand.maste", "Player99_XY", "a_123456789"]) {
+      expect(name).toHaveLength(11);
       expect(usernameSchema.safeParse(name).success).toBe(true);
       expect(USERNAME_REGEX.test(name)).toBe(true);
     }
   });
 
-  it("rejects invalid handles", () => {
-    for (const name of ["ab", "a".repeat(21), "has space", "dash-not-ok", "emoji😀", ""]) {
+  it("rejects handles of the wrong length", () => {
+    for (const name of ["ab", "chessfox_4", "chessfox_422", "a".repeat(21), ""]) {
+      expect(usernameSchema.safeParse(name).success).toBe(false);
+    }
+  });
+
+  it("rejects 11-character handles with no separator", () => {
+    // Length and character class are fine, so the bare regex passes — the
+    // separator requirement lives in the schema's refine step.
+    expect(USERNAME_REGEX.test("abcdefghijk")).toBe(true);
+    expect(usernameSchema.safeParse("abcdefghijk").success).toBe(false);
+  });
+
+  it("rejects disallowed characters", () => {
+    for (const name of ["has space_", "dash-not-ok", "emoji😀_abcd"]) {
       expect(usernameSchema.safeParse(name).success).toBe(false);
       expect(USERNAME_REGEX.test(name)).toBe(false);
     }
   });
 
-  it("trims surrounding whitespace", () => {
-    const parsed = usernameSchema.safeParse("  player  ");
+  it("trims surrounding whitespace before validating", () => {
+    const parsed = usernameSchema.safeParse("  chessfox_42  ");
     expect(parsed.success).toBe(true);
-    if (parsed.success) expect(parsed.data).toBe("player");
+    if (parsed.success) expect(parsed.data).toBe("chessfox_42");
   });
 });
 

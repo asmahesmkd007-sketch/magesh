@@ -10,6 +10,16 @@ import { ClockTime } from "@/components/site/ClockTime";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
 import { useGameSettings } from "@/hooks/useGameSettings";
 import { useClockAudio } from "@/hooks/useClockAudio";
+import { useChessClock } from "@/hooks/useChessClock";
+import {
+  createClock,
+  press,
+  startTurn,
+  stop as stopClock,
+  type ClockState,
+} from "@/lib/chess/clock";
+import { hasMatingMaterial, terminalStateOf } from "@/lib/chess/rules";
+import { formatEndReason } from "@/lib/chess/result";
 import { playGameSound, soundForChessMove } from "@/lib/audio/sounds";
 import { buzz } from "@/lib/haptics";
 import type { Move } from "chess.js";
@@ -28,6 +38,18 @@ import type { EngineMove } from "@/lib/chess/engine";
 type Phase = "setup" | "playing" | "over";
 type SideChoice = "w" | "b" | "random";
 type GameResult = "win" | "loss" | "draw";
+
+// Bullet through classical, so the bot game exercises the same time
+// classes as online play instead of a hardcoded 15-minute clock.
+const TIME_CONTROLS = [
+  { label: "1+0", sec: 60, inc: 0 },
+  { label: "2+1", sec: 120, inc: 1 },
+  { label: "3+2", sec: 180, inc: 2 },
+  { label: "5+3", sec: 300, inc: 3 },
+  { label: "10+0", sec: 600, inc: 0 },
+  { label: "15+10", sec: 900, inc: 10 },
+  { label: "30+20", sec: 1800, inc: 20 },
+] as const;
 
 const LEVELS = [
   { level: 1, name: "Pawn", rating: "~600", desc: "Plays loose, makes blunders" },
@@ -53,18 +75,19 @@ export function VsComputer() {
 
   // Fetch player's real rating for the rapid time class
   const [myRating, setMyRating] = useState<number>(100);
+  const userId = user?.id;
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
     supabase
       .from("ratings")
       .select("rating")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("time_class", "rapid")
       .maybeSingle()
       .then(({ data }) => {
         if (data?.rating) setMyRating(data.rating);
       });
-  }, [user?.id]);
+  }, [userId]);
 
   const [phase, setPhase] = useState<Phase>("setup");
   const [side, setSide] = useState<SideChoice>("w");
@@ -84,8 +107,13 @@ export function VsComputer() {
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(
     null,
   );
-  const [whiteTime, setWhiteTime] = useState(900);
-  const [blackTime, setBlackTime] = useState(900);
+  const [tcIdx, setTcIdx] = useState(4); // 10+0 by default
+  const [clock, setClock] = useState<ClockState>(() => createClock({ initialMs: 0 }));
+  // Read by the flag callback, which must not act on a stale phase.
+  const phaseRef = useRef<Phase>("setup");
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
 
   const workerRef = useRef<Worker | null>(null);
   const tokenRef = useRef(0);
@@ -112,11 +140,18 @@ export function VsComputer() {
   }, []);
 
   onEngineMoveRef.current = (move: EngineMove | null) => {
-    if (!move) return;
+    if (!move) {
+      // The engine returned nothing (no legal reply it could find, or a
+      // worker fault). Without this the board sat on "Engine is thinking…"
+      // forever with no way forward — settle the position instead.
+      if (!checkGameEnd()) toast.error("The engine could not find a move.");
+      return;
+    }
     const game = gameRef.current;
     try {
       const made = game.move({ from: move.from, to: move.to, promotion: move.promotion });
       setLastMove({ from: made.from, to: made.to });
+      setClock((c) => (c.untimed ? c : press(c, Date.now())));
       syncBoard();
       soundForMove(made, game);
       checkGameEnd();
@@ -128,39 +163,6 @@ export function VsComputer() {
   useEffect(() => {
     movesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [history]);
-
-  // Clock countdown
-  useEffect(() => {
-    if (phase !== "playing") return;
-    const id = setInterval(() => {
-      const turn = gameRef.current.turn();
-      if (turn === "w") {
-        setWhiteTime((t) => {
-          if (t <= 1) return 0;
-          return t - 1;
-        });
-      } else {
-        setBlackTime((t) => {
-          if (t <= 1) return 0;
-          return t - 1;
-        });
-      }
-    }, 1000);
-    return () => clearInterval(id);
-  }, [phase]);
-
-  // Flag enforcement: end the game when either clock hits 0
-  useEffect(() => {
-    if (phase !== "playing") return;
-    const myTime = myColor === "w" ? whiteTime : blackTime;
-    const oppTime = myColor === "w" ? blackTime : whiteTime;
-    if (myTime === 0) {
-      finishGame(myColor === "w" ? "black" : "white", "timeout");
-    } else if (oppTime === 0 && gameRef.current.turn() !== myColor) {
-      finishGame(myColor === "w" ? "white" : "black", "timeout");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [whiteTime, blackTime, phase, myColor]);
 
   const syncBoard = () => {
     setBoard(gameRef.current.board());
@@ -184,15 +186,18 @@ export function VsComputer() {
   const finishGame = useCallback(
     async (result: "white" | "black" | "draw", reason: string) => {
       setPhase("over");
+      phaseRef.current = "over";
       setThinking(false);
+      setClock((c) => stopClock(c, Date.now()));
       const iWon =
         (result === "white" && myColor === "w") || (result === "black" && myColor === "b");
+      const detail = formatEndReason(reason) ?? reason;
       const text =
         result === "draw"
-          ? `Draw — ${reason}`
+          ? `Draw — ${detail}`
           : iWon
-            ? `You win — ${reason}`
-            : `Engine wins — ${reason}`;
+            ? `You win — ${detail}`
+            : `Engine wins — ${detail}`;
       setResultText(text);
       setGameResult(result === "draw" ? "draw" : iWon ? "win" : "loss");
       setShowResult(true);
@@ -245,20 +250,38 @@ export function VsComputer() {
     [user, myColor, level],
   );
 
+  // Flag fall. The clock itself is wall-clock anchored (lib/chess/clock.ts):
+  // the previous `setInterval(t => t - 1)` drifted, skipped from 2 to 0, and
+  // gained time whenever the tab was backgrounded. Declared after
+  // `finishGame` so it can depend on it honestly rather than suppressing
+  // the dependency check.
+  const onFlag = useCallback(
+    (color: "w" | "b") => {
+      if (phaseRef.current !== "playing") return;
+      const opponent: "w" | "b" = color === "w" ? "b" : "w";
+      // FIDE 6.9 — losing on time is only a loss if the opponent can mate.
+      if (!hasMatingMaterial(gameRef.current, opponent)) {
+        void finishGame("draw", "timeout_vs_insufficient");
+        return;
+      }
+      void finishGame(opponent === "w" ? "white" : "black", "timeout");
+    },
+    [finishGame],
+  );
+
+  const { whiteMs, blackMs } = useChessClock(clock, {
+    showTenths: settings.show_tenths,
+    onFlag,
+  });
+
+  // One terminal check, shared with the live board and local play, so the
+  // bot game cannot disagree with them about what ended a game or why.
+  // `gameRef.current` carries its full move history here, so repetition,
+  // fivefold and the move-count rules all resolve correctly.
   const checkGameEnd = useCallback(() => {
-    const game = gameRef.current;
-    if (!game.isGameOver()) return false;
-    if (game.isCheckmate()) {
-      finishGame(game.turn() === "w" ? "black" : "white", "checkmate");
-    } else if (game.isStalemate()) {
-      finishGame("draw", "stalemate");
-    } else if (game.isThreefoldRepetition()) {
-      finishGame("draw", "threefold repetition");
-    } else if (game.isInsufficientMaterial()) {
-      finishGame("draw", "insufficient material");
-    } else {
-      finishGame("draw", "fifty-move rule");
-    }
+    const terminal = terminalStateOf(gameRef.current);
+    if (!terminal) return false;
+    finishGame(terminal.result as "white" | "black" | "draw", terminal.reason);
     return true;
   }, [finishGame]);
 
@@ -272,6 +295,7 @@ export function VsComputer() {
 
   const startGame = () => {
     const color: "w" | "b" = side === "random" ? (Math.random() < 0.5 ? "w" : "b") : side;
+    const tc = TIME_CONTROLS[tcIdx];
     gameRef.current = new Chess();
     savedRef.current = false;
     setMyColor(color);
@@ -281,12 +305,18 @@ export function VsComputer() {
     setShowResult(false);
     setPendingPromotion(null);
     setPhase("playing");
+    phaseRef.current = "playing";
     setBoard(gameRef.current.board());
     setHistory([]);
     setSelected(null);
     setTargets([]);
-    setWhiteTime(900);
-    setBlackTime(900);
+    setClock(
+      startTurn(
+        createClock({ initialMs: tc.sec * 1000, incrementMs: tc.inc * 1000 }),
+        "w",
+        Date.now(),
+      ),
+    );
     if (color === "b") {
       setTimeout(() => {
         const worker = workerRef.current;
@@ -303,6 +333,7 @@ export function VsComputer() {
     try {
       const made = game.move({ from, to, promotion });
       setLastMove({ from: made.from, to: made.to });
+      setClock((c) => (c.untimed ? c : press(c, Date.now())));
       syncBoard();
       buzz();
       soundForMove(made, game);
@@ -443,6 +474,27 @@ export function VsComputer() {
             </div>
           </div>
 
+          <div className="mb-5">
+            <div className="mb-1.5 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              Time control
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {TIME_CONTROLS.map((t, i) => (
+                <button
+                  key={t.label}
+                  onClick={() => setTcIdx(i)}
+                  className={`rounded-lg border px-2 py-1.5 text-xs transition-colors ${
+                    tcIdx === i
+                      ? "border-gold/50 bg-gold/10 text-gold"
+                      : "border-white/5 bg-white/[0.02] hover:border-white/10"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <GoldButton className="w-full" onClick={startGame}>
             <Swords className="h-4 w-4" /> Begin the Battle
           </GoldButton>
@@ -463,8 +515,8 @@ export function VsComputer() {
   // ============ PLAYING / OVER ============
   const myName = profile?.full_name ?? profile?.username ?? "You";
   const myInitial = myName[0]?.toUpperCase() ?? "Y";
-  const myTime = myColor === "w" ? whiteTime : blackTime;
-  const oppTime = myColor === "w" ? blackTime : whiteTime;
+  const myTime = myColor === "w" ? whiteMs : blackMs;
+  const oppTime = myColor === "w" ? blackMs : whiteMs;
   const isMyTurn = phase === "playing" && gameRef.current.turn() === myColor && !thinking;
   const isOppTurn = phase === "playing" && gameRef.current.turn() !== myColor;
 
@@ -656,6 +708,7 @@ function ProfileCard({
   label: string;
   name: string;
   rating: number;
+  /** Remaining time in milliseconds. */
   time: number;
   active: boolean;
   icon: React.ReactNode;
@@ -663,7 +716,7 @@ function ProfileCard({
   capturedColor: "w" | "b";
   board: BoardCell[][];
 }) {
-  useClockAudio(Math.ceil(time), active);
+  useClockAudio(Math.ceil(time / 1000), active);
   return (
     <Card className="p-5 text-center">
       <div className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">{label}</div>
@@ -688,7 +741,7 @@ function ProfileCard({
             : "border-gold/20 text-foreground/70"
         }`}
       >
-        <ClockTime ms={time * 1000} active={active} />
+        <ClockTime ms={time} active={active} />
       </div>
       <div className="mt-3 flex justify-center">
         <CapturedPieces board={board} player={capturedColor} />

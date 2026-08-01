@@ -6,7 +6,10 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi"] },
+  // `public/engine` holds the vendored Stockfish WASM build, copied in by
+  // scripts/copy-engine.mjs. It is third-party generated output, so linting
+  // or reformatting it is both meaningless and destructive.
+  { ignores: ["dist", ".output", ".vinxi", "public/engine"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

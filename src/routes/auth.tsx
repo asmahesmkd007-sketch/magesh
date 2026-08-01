@@ -210,10 +210,11 @@ function AuthPage() {
               <button
                 key={m}
                 onClick={() => switchMode(m)}
-                className={`rounded-lg px-3 py-2.5 transition-all duration-300 font-medium ${mode === m
+                className={`rounded-lg px-3 py-2.5 transition-all duration-300 font-medium ${
+                  mode === m
                     ? "bg-gold/15 text-gold shadow-sm"
                     : "text-foreground/50 hover:text-foreground/80 hover:bg-white/5"
-                  }`}
+                }`}
               >
                 {m === "signin" ? "Sign in" : "Create account"}
               </button>
@@ -331,10 +332,11 @@ function AuthPage() {
 
               {error && (
                 <div
-                  className={`rounded-lg border px-4 py-3 text-sm flex items-start gap-2 ${error.startsWith("Account created")
+                  className={`rounded-lg border px-4 py-3 text-sm flex items-start gap-2 ${
+                    error.startsWith("Account created")
                       ? "border-emerald/30 bg-emerald/10 text-emerald"
                       : "border-destructive/30 bg-destructive/10 text-destructive"
-                    }`}
+                  }`}
                 >
                   <div className="mt-0.5">•</div>
                   <div>{error}</div>
@@ -460,8 +462,9 @@ function Input({
           minLength={minLength}
           disabled={disabled}
           autoComplete={autoComplete}
-          className={`w-full rounded-xl border border-gold/15 bg-black/40 py-3 pl-10 ${isPassword ? "pr-10" : "pr-4"
-            } text-sm text-ivory outline-none transition-all placeholder:text-foreground/30 focus:border-gold/40 focus:bg-black/60 focus:ring-1 focus:ring-gold/40 disabled:opacity-60 disabled:cursor-not-allowed`}
+          className={`w-full rounded-xl border border-gold/15 bg-black/40 py-3 pl-10 ${
+            isPassword ? "pr-10" : "pr-4"
+          } text-sm text-ivory outline-none transition-all placeholder:text-foreground/30 focus:border-gold/40 focus:bg-black/60 focus:ring-1 focus:ring-gold/40 disabled:opacity-60 disabled:cursor-not-allowed`}
         />
         {isPassword && (
           <button

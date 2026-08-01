@@ -24,12 +24,18 @@ export function PageShell({
   compact?: boolean;
 }) {
   return (
-    <div className="relative min-h-screen overflow-hidden pb-28 lg:pb-16">
+    <div
+      className={`relative overflow-hidden ${
+        compact ? "h-full max-h-full pb-0 flex flex-col justify-center" : "min-h-screen pb-28 lg:pb-16"
+      }`}
+    >
       <div className="pointer-events-none absolute inset-0 bg-page" />
       <div className="pointer-events-none absolute inset-0 opacity-50 royal-grid" />
       <div className="pointer-events-none absolute left-0 top-28 h-72 w-72 rounded-full hero-spotlight blur-3xl" />
       <div
-        className={`relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 ${compact ? "pt-2 md:pt-4" : "pt-10"}`}
+        className={`relative mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8 ${
+          compact ? "pt-1 md:pt-2 h-full flex flex-col justify-center overflow-hidden" : "pt-10"
+        }`}
       >
         {(title || eyebrow) && (
           <header className={compact ? "mb-4 md:mb-5" : "mb-10 md:mb-12"}>

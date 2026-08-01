@@ -6,6 +6,7 @@ import {
   Scripts,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -26,6 +27,27 @@ import {
 } from "@/lib/seo";
 import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
+
+// Last identity the app invalidated for. Module-scoped so it survives an
+// effect re-run: `null` legitimately means "signed out", and a signed-out
+// visitor receiving INITIAL_SESSION(null) is not an identity change, so
+// anonymous page loads now skip the invalidation pass entirely.
+let lastAuthUserId: string | null = null;
+
+const SEED_THROTTLE_KEY = "chessox:lastDailySeed";
+const SEED_THROTTLE_MS = 60 * 60 * 1000;
+
+/** True at most once an hour per browser. Best-effort; failures just allow the call. */
+function shouldSeedDailyTournaments(): boolean {
+  try {
+    const last = Number(localStorage.getItem(SEED_THROTTLE_KEY) ?? 0);
+    if (Number.isFinite(last) && Date.now() - last < SEED_THROTTLE_MS) return false;
+    localStorage.setItem(SEED_THROTTLE_KEY, String(Date.now()));
+  } catch {
+    /* private mode / storage disabled — fall through and just make the call */
+  }
+  return true;
+}
 
 function NotFoundComponent() {
   return (
@@ -182,18 +204,36 @@ function RootComponent() {
         // thenable but doesn't implement the full Promise interface, so
         // chaining .catch() straight onto it throws
         // "supabase.rpc(...).catch is not a function" on every page load.
-        Promise.resolve(
-          (supabase as unknown as { rpc: (fn: string) => Promise<unknown> }).rpc(
-            "seed_daily_tournaments",
-          ),
-        ).catch(() => {});
+        //
+        // Throttled per browser: this is a write RPC that every visitor was
+        // firing on every single page load, so the database did N seeding
+        // round-trips per user per session to discover there was nothing to
+        // seed. Daily tournaments only need seeding once a day, so one call
+        // per hour per browser is still far more often than necessary.
+        if (shouldSeedDailyTournaments()) {
+          Promise.resolve(
+            (supabase as unknown as { rpc: (fn: string) => Promise<unknown> }).rpc(
+              "seed_daily_tournaments",
+            ),
+          ).catch(() => {});
+        }
 
         // Pull the user's saved game settings so they follow them across devices.
         import("@/lib/settings/settings-sync").then((m) => m.loadSettingsOnce()).catch(() => {});
 
         const { data } = supabase.auth.onAuthStateChange((event, session) => {
-          router.invalidate();
-          if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+          // Only a real identity change invalidates. This used to run on
+          // every event, and `INITIAL_SESSION` fires on every page load —
+          // so each load re-ran every route loader and refetched every
+          // React Query cache entry milliseconds after the page had already
+          // rendered them, doubling the requests behind first paint.
+          // `TOKEN_REFRESHED` (hourly, same user) did the same for nothing.
+          const nextUserId = session?.user?.id ?? null;
+          if (nextUserId !== lastAuthUserId) {
+            lastAuthUserId = nextUserId;
+            router.invalidate();
+            if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+          }
 
           if (session?.user) {
             stopPresence?.();
@@ -226,17 +266,25 @@ function RootComponent() {
     };
   }, [router, queryClient]);
 
+  const isGameRoute = useRouterState({
+    select: (s) => s.location.pathname.startsWith("/game/"),
+  });
+
   return (
     <QueryClientProvider client={queryClient}>
       <SettingsEffects />
-      <div className="min-h-screen bg-background text-foreground">
+      <div
+        className={`bg-background text-foreground ${
+          isGameRoute ? "h-screen max-h-screen overflow-hidden flex flex-col" : "min-h-screen"
+        }`}
+      >
         <Navbar />
-        <main>
+        <main className={isGameRoute ? "flex-1 overflow-hidden" : ""}>
           <Outlet />
         </main>
-        <Footer />
-        <MobileNav />
-        <div className="h-16 lg:hidden" />
+        {!isGameRoute && <Footer />}
+        {!isGameRoute && <MobileNav />}
+        {!isGameRoute && <div className="h-16 lg:hidden" />}
         <Toaster theme="dark" position="top-right" richColors />
       </div>
     </QueryClientProvider>

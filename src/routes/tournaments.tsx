@@ -140,48 +140,47 @@ function Tournaments() {
   const [activeTab, setActiveTab] = useState<"live" | "upcoming">("upcoming");
   const [completed, setCompleted] = useState<Tournament[]>([]);
 
-const TIMERS = ["1+0", "3+0", "5+0"];
-const COIN_TIERS = [5, 10, 20, 30, 50, 80, 100, 200, 500];
+  const TIMERS = ["1+0", "3+0", "5+0"];
+  const COIN_TIERS = [5, 10, 20, 30, 50, 80, 100, 200, 500];
 
-function ensureAllCoinTiers(existing: Tournament[]): Tournament[] {
-  const result = [...existing];
-  const existingSet = new Set(
-    existing.map((t) => `${t.time_control}_${t.entry_fee_coins}`),
-  );
+  function ensureAllCoinTiers(existing: Tournament[]): Tournament[] {
+    const result = [...existing];
+    const existingSet = new Set(existing.map((t) => `${t.time_control}_${t.entry_fee_coins}`));
 
-  for (const tc of TIMERS) {
-    for (const c of COIN_TIERS) {
-      const key = `${tc}_${c}`;
-      if (!existingSet.has(key)) {
-        const totalPrize = Math.floor(16 * c * 0.9);
-        const p1 = Math.floor(totalPrize * 0.5);
-        const p2 = Math.floor(totalPrize * 0.3);
-        const p3 = totalPrize - p1 - p2;
-        const timeName = tc === "1+0" ? "1 Min Bullet" : tc === "3+0" ? "3 Min Blitz" : "5 Min Rapid";
+    for (const tc of TIMERS) {
+      for (const c of COIN_TIERS) {
+        const key = `${tc}_${c}`;
+        if (!existingSet.has(key)) {
+          const totalPrize = Math.floor(16 * c * 0.9);
+          const p1 = Math.floor(totalPrize * 0.5);
+          const p2 = Math.floor(totalPrize * 0.3);
+          const p3 = totalPrize - p1 - p2;
+          const timeName =
+            tc === "1+0" ? "1 Min Bullet" : tc === "3+0" ? "3 Min Blitz" : "5 Min Rapid";
 
-        result.push({
-          id: `auto-${tc.replace("+", "-")}-${c}`,
-          name: `${timeName} Arena (${c} Coins)`,
-          format: "swiss",
-          prize_pool: `${totalPrize} Coins`,
-          starts_at: new Date(Date.now() + 10 * 60000).toISOString(),
-          status: "upcoming",
-          player_count: 0,
-          max_players: 16,
-          cover_gradient: null,
-          time_control: tc,
-          entry_fee_coins: c,
-          prize_1st: p1,
-          prize_2nd: p2,
-          prize_3rd: p3,
-          created_at: new Date().toISOString(),
-        });
+          result.push({
+            id: `auto-${tc.replace("+", "-")}-${c}`,
+            name: `${timeName} Arena (${c} Coins)`,
+            format: "swiss",
+            prize_pool: `${totalPrize} Coins`,
+            starts_at: new Date(Date.now() + 10 * 60000).toISOString(),
+            status: "upcoming",
+            player_count: 0,
+            max_players: 16,
+            cover_gradient: null,
+            time_control: tc,
+            entry_fee_coins: c,
+            prize_1st: p1,
+            prize_2nd: p2,
+            prize_3rd: p3,
+            created_at: new Date().toISOString(),
+          });
+        }
       }
     }
-  }
 
-  return result;
-}
+    return result;
+  }
 
   const loadTournaments = useCallback(async () => {
     setError(null);
@@ -357,10 +356,7 @@ function ensureAllCoinTiers(existing: Tournament[]): Tournament[] {
     .sort((a, b) => (a.entry_fee_coins ?? 0) - (b.entry_fee_coins ?? 0));
 
   const hasContent =
-    oneMin.length > 0 ||
-    threeMin.length > 0 ||
-    fiveMin.length > 0 ||
-    otherTournaments.length > 0;
+    oneMin.length > 0 || threeMin.length > 0 || fiveMin.length > 0 || otherTournaments.length > 0;
 
   const renderSection = (title: string, data: Tournament[], indexOffset: number) => {
     if (data.length === 0) return null;

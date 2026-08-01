@@ -402,17 +402,17 @@ function registerHandlers(socket: AppSocket): void {
   });
 
   socket.on("game:rematch-offer", async ({ gameId }, ack) => {
-    const uid = userId();
-    if (!uid) return ack?.(fail("not_authenticated", "Sign in to offer rematch"));
+    try {
+      const uid = userId();
+      if (!uid) return ack?.(fail("not_authenticated", "Sign in to offer rematch"));
 
-    const game = await acquire(gameId);
-    if (!game) return ack?.(fail("not_found", "Game not found"));
-    if (!game.seatOf(uid)) return ack?.(fail("not_a_player", "Not a player in this game"));
+      const game = await acquire(gameId);
+      if (!game) return ack?.(fail("not_found", "Game not found"));
+      if (!game.seatOf(uid)) return ack?.(fail("not_a_player", "Not a player in this game"));
 
-    const existingOffer = rematchOffers.get(gameId);
+      const existingOffer = rematchOffers.get(gameId);
 
-    if (existingOffer && existingOffer !== uid) {
-      try {
+      if (existingOffer && existingOffer !== uid) {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const newGameId = crypto.randomUUID();
         const startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -445,14 +445,14 @@ function registerHandlers(socket: AppSocket): void {
         io?.to(rooms.spectators(gameId)).emit("game:rematch-accepted", payload);
 
         ack?.({ ok: true, data: { status: "accepted", newGameId } });
-      } catch (err) {
-        logger.error("Failed to create rematch game", { err, gameId });
-        ack?.(fail("internal", "Could not start rematch"));
+      } else {
+        rematchOffers.set(gameId, uid);
+        io?.to(rooms.players(gameId)).emit("game:rematch-offer", { gameId, offeredBy: uid });
+        ack?.({ ok: true, data: { status: "offered" } });
       }
-    } else {
-      rematchOffers.set(gameId, uid);
-      io?.to(rooms.players(gameId)).emit("game:rematch-offer", { gameId, offeredBy: uid });
-      ack?.({ ok: true, data: { status: "offered" } });
+    } catch (err) {
+      logger.error("Failed to process rematch offer", { err, gameId });
+      ack?.(fail("internal", err instanceof Error ? err.message : "Could not start rematch"));
     }
   });
 

@@ -8,7 +8,13 @@ import { CapturedPieces } from "@/components/site/CapturedPieces";
 import { ClockTime } from "@/components/site/ClockTime";
 import { useClockAudio } from "@/hooks/useClockAudio";
 import { useChessClock } from "@/hooks/useChessClock";
-import { createClock, press, restoreClock, formatMoveDuration, type ClockState } from "@/lib/chess/clock";
+import {
+  createClock,
+  press,
+  restoreClock,
+  formatMoveDuration,
+  type ClockState,
+} from "@/lib/chess/clock";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
 import { UserAvatar } from "@/components/site/UserAvatar";

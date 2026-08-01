@@ -26,7 +26,9 @@ export function PageShell({
   return (
     <div
       className={`relative overflow-hidden ${
-        compact ? "h-full max-h-full pb-0 flex flex-col justify-center" : "min-h-screen pb-28 lg:pb-16"
+        compact
+          ? "h-full max-h-full pb-0 flex flex-col justify-center"
+          : "min-h-screen pb-28 lg:pb-16"
       }`}
     >
       <div className="pointer-events-none absolute inset-0 bg-page" />

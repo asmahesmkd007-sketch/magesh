@@ -37,7 +37,11 @@ export function ConfirmModal({
           <X className="h-4 w-4" />
         </button>
 
-        {icon && <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gold/10 text-gold border border-gold/20">{icon}</div>}
+        {icon && (
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gold/10 text-gold border border-gold/20">
+            {icon}
+          </div>
+        )}
 
         <h3 className="font-display text-xl font-bold uppercase tracking-wide text-gradient-gold">
           {title}
@@ -48,10 +52,7 @@ export function ConfirmModal({
         </p>
 
         <div className="mt-6 flex items-center gap-3">
-          <GhostButton
-            onClick={onClose}
-            className="flex-1 border border-white/10 text-xs py-2.5"
-          >
+          <GhostButton onClick={onClose} className="flex-1 border border-white/10 text-xs py-2.5">
             {cancelText}
           </GhostButton>
           <button

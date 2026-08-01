@@ -1,15 +1,16 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Primitives";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import {
   createChallenge,
   sendChallenge,
   type TimeClass,
   type HostColor,
 } from "@/lib/api/gameClient";
-import { Copy, Crown, Users, Swords } from "lucide-react";
+import { Copy, Crown, Users, Swords, Loader2 } from "lucide-react";
 import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 import { useFriends } from "@/hooks/useFriends";
 import { UserAvatar } from "@/components/site/UserAvatar";
@@ -74,8 +75,69 @@ function PlayFriend() {
   const [creating, setCreating] = useState(false);
   const [challengingId, setChallengingId] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
+  const [createdGameId, setCreatedGameId] = useState<string | null>(null);
 
   const { friends } = useFriends(user?.id);
+
+  // Auto-redirect host to /game/$id as soon as opponent joins/accepts
+  useEffect(() => {
+    if (!createdGameId) return;
+
+    let redirected = false;
+
+    const checkStatus = async () => {
+      const { data } = await supabase
+        .from("games")
+        .select("status, white_id, black_id")
+        .eq("id", createdGameId)
+        .maybeSingle();
+
+      if (data && !redirected) {
+        if (data.status === "active" || (data.white_id && data.black_id)) {
+          redirected = true;
+          toast.success("Opponent joined! Entering game...");
+          navigate({ to: "/game/$id", params: { id: createdGameId } });
+        }
+      }
+    };
+
+    void checkStatus();
+
+    // Supabase Realtime channel listener for instant notification
+    const channel = supabase
+      .channel(`game_listen_${createdGameId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "games",
+          filter: `id=eq.${createdGameId}`,
+        },
+        (payload) => {
+          const updated = payload.new as { status?: string; white_id?: string; black_id?: string };
+          if (
+            (updated.status === "active" || (updated.white_id && updated.black_id)) &&
+            !redirected
+          ) {
+            redirected = true;
+            toast.success("Opponent joined! Entering game...");
+            navigate({ to: "/game/$id", params: { id: createdGameId } });
+          }
+        },
+      )
+      .subscribe();
+
+    // 1-second polling fallback
+    const interval = setInterval(() => {
+      void checkStatus();
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+      void supabase.removeChannel(channel);
+    };
+  }, [createdGameId, navigate]);
 
   if (!loading && !user) {
     return (
@@ -100,7 +162,9 @@ function PlayFriend() {
         isRated: false,
         hostColor: color,
       });
+      setCreatedGameId(gameId);
       setLink(`${window.location.origin}/game/${gameId}`);
+      toast.success("Challenge created! Waiting for opponent to join...");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create challenge.");
     } finally {
@@ -113,7 +177,7 @@ function PlayFriend() {
     const tc = TIME_CONTROLS[pick];
     setChallengingId(friendId);
     try {
-      await sendChallenge({
+      const chId = await sendChallenge({
         opponentId: friendId,
         timeClass: tc.class,
         timeControl: tc.tc,
@@ -122,6 +186,7 @@ function PlayFriend() {
         hostColor: "random",
         isRated: false,
       });
+      if (chId) setCreatedGameId(chId);
       toast.success("Challenge sent!");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to send challenge.");
@@ -221,7 +286,7 @@ function PlayFriend() {
                     <Copy className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="mt-5">
+                <div className="mt-5 flex flex-wrap items-center gap-3">
                   <GoldButton
                     onClick={() =>
                       navigate({ to: "/game/$id", params: { id: link.split("/").pop()! } })
@@ -229,6 +294,10 @@ function PlayFriend() {
                   >
                     Enter the Arena
                   </GoldButton>
+                  <div className="flex items-center gap-2 text-xs text-amber-400 font-medium animate-pulse">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Waiting for opponent... (Auto-redirecting)
+                  </div>
                 </div>
               </>
             ) : (

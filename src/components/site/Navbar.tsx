@@ -319,7 +319,7 @@ export function Navbar() {
             setMobileOpen((v) => !v);
             closeAllDropdowns();
           }}
-          className="grid h-11 w-11 place-items-center rounded-full border border-gold/20 bg-white/[0.03] lg:hidden"
+          className="ml-auto grid h-11 w-11 place-items-center rounded-full border border-gold/20 bg-white/[0.03] lg:hidden"
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>

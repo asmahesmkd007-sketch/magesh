@@ -529,7 +529,7 @@ export function VsComputer() {
           active: isOppTurn,
           icon: <Bot className="h-4 w-4" />,
           iconBg: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
-          capturedColor: "w" as const,
+          capturedColor: "b" as const,
           me: false,
         }
       : {
@@ -539,7 +539,7 @@ export function VsComputer() {
           active: isMyTurn,
           icon: myInitial,
           iconBg: "bg-gold/20 text-gold border border-gold/40",
-          capturedColor: "b" as const,
+          capturedColor: "w" as const,
           me: true,
         };
 
@@ -552,7 +552,7 @@ export function VsComputer() {
           active: isMyTurn,
           icon: myInitial,
           iconBg: "bg-gold/20 text-gold border border-gold/40",
-          capturedColor: "b" as const,
+          capturedColor: "w" as const,
           me: true,
         }
       : {
@@ -562,7 +562,7 @@ export function VsComputer() {
           active: isOppTurn,
           icon: <Bot className="h-4 w-4" />,
           iconBg: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
-          capturedColor: "w" as const,
+          capturedColor: "b" as const,
           me: false,
         };
 

@@ -90,7 +90,7 @@ function Room() {
         .select("id")
         .eq("host_id", user!.id)
         .in("status", ["waiting", "guest_joined", "starting"])
-        .single();
+        .maybeSingle();
       if (data) setActiveRoomId(data.id as string);
     }
     checkActiveRoom();

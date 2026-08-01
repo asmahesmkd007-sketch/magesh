@@ -324,7 +324,9 @@ function RoomWaiting() {
           }
 
           if (updated.status === "closed") {
-            toast.error("The host closed the room.");
+            if (updated.host_id !== user?.id) {
+              toast.error("The host closed the room.");
+            }
             navigate({ to: "/room" });
             return;
           }
@@ -395,9 +397,6 @@ function RoomWaiting() {
       cancelled = true;
       supabase.removeChannel(roomChannel);
       supabase.removeChannel(queueChannel);
-      // Clean up player on unmount. Note: the leave_public_room RPC safely ignores
-      // leave requests if the room is actively playing a match.
-      leaveRoom(roomId).catch(() => {});
     };
   }, [roomId, user?.id, authLoading]);
 

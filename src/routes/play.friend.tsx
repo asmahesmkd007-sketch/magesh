@@ -13,6 +13,7 @@ import {
 import { Copy, Crown, Users, Swords, Loader2 } from "lucide-react";
 import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 import { useFriends } from "@/hooks/useFriends";
+import { useChallenges } from "@/hooks/useChallenges";
 import { UserAvatar } from "@/components/site/UserAvatar";
 
 export const Route = createFileRoute("/play/friend")({
@@ -55,17 +56,17 @@ const TIME_CONTROLS: {
   sec: number;
   inc: number;
 }[] = [
-  { label: "1+0 Bullet", tc: "1+0", class: "bullet", sec: 60, inc: 0 },
-  { label: "2+1 Bullet", tc: "2+1", class: "bullet", sec: 120, inc: 1 },
-  { label: "3+0 Blitz", tc: "3+0", class: "blitz", sec: 180, inc: 0 },
-  { label: "3+2 Blitz", tc: "3+2", class: "blitz", sec: 180, inc: 2 },
-  { label: "5+0 Blitz", tc: "5+0", class: "blitz", sec: 300, inc: 0 },
-  { label: "5+3 Blitz", tc: "5+3", class: "blitz", sec: 300, inc: 3 },
-  { label: "10+0 Rapid", tc: "10+0", class: "rapid", sec: 600, inc: 0 },
-  { label: "10+5 Rapid", tc: "10+5", class: "rapid", sec: 600, inc: 5 },
-  { label: "15+10 Rapid", tc: "15+10", class: "rapid", sec: 900, inc: 10 },
-  { label: "30+0 Classical", tc: "30+0", class: "classical", sec: 1800, inc: 0 },
-];
+    { label: "1+0 Bullet", tc: "1+0", class: "bullet", sec: 60, inc: 0 },
+    { label: "2+1 Bullet", tc: "2+1", class: "bullet", sec: 120, inc: 1 },
+    { label: "3+0 Blitz", tc: "3+0", class: "blitz", sec: 180, inc: 0 },
+    { label: "3+2 Blitz", tc: "3+2", class: "blitz", sec: 180, inc: 2 },
+    { label: "5+0 Blitz", tc: "5+0", class: "blitz", sec: 300, inc: 0 },
+    { label: "5+3 Blitz", tc: "5+3", class: "blitz", sec: 300, inc: 3 },
+    { label: "10+0 Rapid", tc: "10+0", class: "rapid", sec: 600, inc: 0 },
+    { label: "10+5 Rapid", tc: "10+5", class: "rapid", sec: 600, inc: 5 },
+    { label: "15+10 Rapid", tc: "15+10", class: "rapid", sec: 900, inc: 10 },
+    { label: "30+0 Classical", tc: "30+0", class: "classical", sec: 1800, inc: 0 },
+  ];
 
 function PlayFriend() {
   const { user, loading } = useAuth();
@@ -78,22 +79,40 @@ function PlayFriend() {
   const [createdGameId, setCreatedGameId] = useState<string | null>(null);
 
   const { friends } = useFriends(user?.id);
+  useChallenges(user?.id);
 
-  // Auto-redirect host to /game/$id as soon as opponent joins/accepts
+  // Auto-redirect host to /game/$id as soon as opponent joins/accepts (for BOTH link games and direct friend challenges)
   useEffect(() => {
     if (!createdGameId) return;
 
     let redirected = false;
 
     const checkStatus = async () => {
-      const { data } = await supabase
+      if (redirected) return;
+
+      // 1. Check if createdGameId is a direct challenge ID in game_challenges
+      const { data: chalData } = await supabase
+        .from("game_challenges")
+        .select("status, game_id")
+        .eq("id", createdGameId)
+        .maybeSingle();
+
+      if (chalData && chalData.status === "accepted" && chalData.game_id && !redirected) {
+        redirected = true;
+        toast.success("Friend accepted your challenge! Entering game...");
+        navigate({ to: "/game/$id", params: { id: chalData.game_id } });
+        return;
+      }
+
+      // 2. Check if createdGameId is a direct game ID in games
+      const { data: gameData } = await supabase
         .from("games")
         .select("status, white_id, black_id")
         .eq("id", createdGameId)
         .maybeSingle();
 
-      if (data && !redirected) {
-        if (data.status === "active" || (data.white_id && data.black_id)) {
+      if (gameData && !redirected) {
+        if (gameData.status === "active" || (gameData.white_id && gameData.black_id)) {
           redirected = true;
           toast.success("Opponent joined! Entering game...");
           navigate({ to: "/game/$id", params: { id: createdGameId } });
@@ -103,9 +122,9 @@ function PlayFriend() {
 
     void checkStatus();
 
-    // Supabase Realtime channel listener for instant notification
-    const channel = supabase
-      .channel(`game_listen_${createdGameId}`)
+    // 1. Supabase Realtime channel listener for games table (Open link challenges)
+    const gameChannel = supabase
+      .channel(`play_friend_game_${createdGameId}`)
       .on(
         "postgres_changes",
         {
@@ -128,14 +147,37 @@ function PlayFriend() {
       )
       .subscribe();
 
-    // 1-second polling fallback
+    // 2. Supabase Realtime channel listener for game_challenges table (Direct friend challenges)
+    const chalChannel = supabase
+      .channel(`play_friend_chal_${createdGameId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "game_challenges",
+          filter: `id=eq.${createdGameId}`,
+        },
+        (payload) => {
+          const updated = payload.new as { status?: string; game_id?: string };
+          if (updated.status === "accepted" && updated.game_id && !redirected) {
+            redirected = true;
+            toast.success("Friend accepted your challenge! Entering game...");
+            navigate({ to: "/game/$id", params: { id: updated.game_id } });
+          }
+        },
+      )
+      .subscribe();
+
+    // 3. Fast 1-second Polling Fallback for rock-solid reliability
     const interval = setInterval(() => {
       void checkStatus();
     }, 1000);
 
     return () => {
       clearInterval(interval);
-      void supabase.removeChannel(channel);
+      void supabase.removeChannel(gameChannel);
+      void supabase.removeChannel(chalChannel);
     };
   }, [createdGameId, navigate]);
 
@@ -187,7 +229,7 @@ function PlayFriend() {
         isRated: false,
       });
       if (chId) setCreatedGameId(chId);
-      toast.success("Challenge sent!");
+      toast.success("Challenge sent! Waiting for friend to accept...");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to send challenge.");
     } finally {
@@ -221,11 +263,10 @@ function PlayFriend() {
                       <button
                         key={t.tc + t.label}
                         onClick={() => setPick(i)}
-                        className={`rounded-lg border px-2 py-1.5 text-xs transition ${
-                          i === pick
+                        className={`rounded-lg border px-2 py-1.5 text-xs transition ${i === pick
                             ? "border-gold bg-gold/10 text-gold"
                             : "border-white/10 hover:border-gold/40"
-                        }`}
+                          }`}
                       >
                         {t.tc}
                       </button>
@@ -242,11 +283,10 @@ function PlayFriend() {
               <button
                 key={c}
                 onClick={() => setColor(c)}
-                className={`rounded-xl border px-4 py-2 text-sm capitalize transition ${
-                  color === c
+                className={`rounded-xl border px-4 py-2 text-sm capitalize transition ${color === c
                     ? "border-gold bg-gold/10 text-gold"
                     : "border-white/10 hover:border-gold/40"
-                }`}
+                  }`}
               >
                 {c === "w" ? "White" : c === "b" ? "Black" : "Random"}
               </button>
@@ -286,7 +326,7 @@ function PlayFriend() {
                     <Copy className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="mt-5 flex flex-wrap items-center gap-3">
+                <div className="mt-5">
                   <GoldButton
                     onClick={() =>
                       navigate({ to: "/game/$id", params: { id: link.split("/").pop()! } })
@@ -294,10 +334,6 @@ function PlayFriend() {
                   >
                     Enter the Arena
                   </GoldButton>
-                  <div className="flex items-center gap-2 text-xs text-amber-400 font-medium animate-pulse">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Waiting for opponent... (Auto-redirecting)
-                  </div>
                 </div>
               </>
             ) : (
@@ -324,13 +360,12 @@ function PlayFriend() {
                           size="md"
                         />
                         <div
-                          className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#121418] ${
-                            friend.other_activity === "online"
+                          className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#121418] ${friend.other_activity === "online"
                               ? "bg-emerald-500"
                               : friend.other_activity === "playing"
                                 ? "bg-amber-500"
                                 : "bg-zinc-500"
-                          }`}
+                            }`}
                         />
                       </div>
                       <div className="flex flex-col text-left">

@@ -1,6 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
-import { toast } from "sonner";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   sendChallenge as sendChallengeRpc,
@@ -13,8 +11,6 @@ import type { ChallengeRow } from "@/types/friend";
 export function useChallenges(userId?: string | null) {
   const [challenges, setChallenges] = useState<ChallengeRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
-  const navigatedGameIdsRef = useRef<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -44,23 +40,13 @@ export function useChallenges(userId?: string | null) {
       uniqueIds.length > 0
         ? supabase.from("ratings").select("user_id,time_class,rating").in("user_id", uniqueIds)
         : Promise.resolve({
-            data: [] as { user_id: string; time_class: string; rating: number }[],
-          }),
+          data: [] as { user_id: string; time_class: string; rating: number }[],
+        }),
     ]);
     const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
     const ratingMap = new Map(
       (ratingRows ?? []).map((r) => [`${r.user_id}:${r.time_class}`, r.rating]),
     );
-
-    // Auto-navigate sender if an outgoing challenge was recently accepted
-    const acceptedOutgoing = data.find(
-      (r) => r.from_user_id === userId && r.status === "accepted" && r.game_id,
-    );
-    if (acceptedOutgoing?.game_id && !navigatedGameIdsRef.current.has(acceptedOutgoing.game_id)) {
-      navigatedGameIdsRef.current.add(acceptedOutgoing.game_id);
-      toast.success("Friend accepted your challenge! Entering game...");
-      navigate({ to: "/game/$id", params: { id: acceptedOutgoing.game_id } });
-    }
 
     setChallenges(
       data.map((r) => {
@@ -77,7 +63,7 @@ export function useChallenges(userId?: string | null) {
       }),
     );
     setLoading(false);
-  }, [userId, navigate]);
+  }, [userId]);
 
   useEffect(() => {
     load();
@@ -95,25 +81,7 @@ export function useChallenges(userId?: string | null) {
           table: "game_challenges",
           filter: `from_user_id=eq.${userId}`,
         },
-        (payload) => {
-          const updated = payload.new as {
-            status?: string;
-            game_id?: string | null;
-            from_user_id?: string;
-          } | null;
-
-          if (
-            updated?.from_user_id === userId &&
-            updated?.status === "accepted" &&
-            updated?.game_id &&
-            !navigatedGameIdsRef.current.has(updated.game_id)
-          ) {
-            navigatedGameIdsRef.current.add(updated.game_id);
-            toast.success("Friend accepted your challenge! Entering game...");
-            navigate({ to: "/game/$id", params: { id: updated.game_id } });
-          }
-          load();
-        },
+        () => load(),
       )
       .on(
         "postgres_changes",
@@ -129,7 +97,7 @@ export function useChallenges(userId?: string | null) {
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [userId, load, navigate]);
+  }, [userId, load]);
 
   async function sendChallenge(opponentId: string, opts: Omit<ChallengeOptions, "hostColor">) {
     const id = await sendChallengeRpc({ ...opts, hostColor: "random", opponentId });

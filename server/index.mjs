@@ -25,7 +25,7 @@
 import { createServer } from "node:http";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = resolve(fileURLToPath(import.meta.url), "..");
 const OUTPUT = resolve(here, "..", ".output");
@@ -34,9 +34,9 @@ const PUBLIC_DIR = join(OUTPUT, "public");
 const PORT = Number.parseInt(process.env.PORT ?? process.env.NITRO_PORT ?? "3000", 10);
 const HOST = process.env.HOST ?? process.env.NITRO_HOST ?? undefined;
 
-const { middleware } = await import(`file://${join(OUTPUT, "server", "index.mjs")}`);
+const { middleware } = await import(pathToFileURL(join(OUTPUT, "server", "index.mjs")).href);
 const { attachRealtime, shutdownRealtime } = await import(
-  `file://${join(OUTPUT, "server", "realtime.mjs")}`
+  pathToFileURL(join(OUTPUT, "server", "realtime.mjs")).href
 );
 
 const MIME = {

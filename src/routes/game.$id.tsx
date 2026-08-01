@@ -1092,9 +1092,9 @@ function LiveGame() {
         </div>
 
         {/* MAIN GAME CONTAINER (OPPONENT PROFILE + BOARD + PLAYER PROFILE) */}
-        <div className="flex-1 flex flex-col justify-between items-center px-2 py-1 overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col justify-center items-center px-1 py-0.5 overflow-hidden min-h-0 w-full">
           {/* 3. OPPONENT PROFILE */}
-          <div className="w-full max-w-[420px] flex-shrink-0">
+          <div className="w-full max-w-[min(100vw,calc(100vh-210px))] flex-shrink-0">
             <PlayerCard
               name={topPlayer.name}
               rating={topPlayer.rating}
@@ -1112,7 +1112,7 @@ function LiveGame() {
           </div>
 
           {/* 4. CHESS BOARD */}
-          <div className="w-full max-w-[420px] aspect-square relative flex items-center justify-center flex-shrink-0 my-auto">
+          <div className="w-full max-w-[min(100vw-8px,calc(100vh-210px))] aspect-square relative flex items-center justify-center flex-shrink-0 my-0.5">
             <InteractiveBoard
               board={displayBoard}
               orientation={orientation}
@@ -1142,7 +1142,7 @@ function LiveGame() {
           </div>
 
           {/* 5. PLAYER PROFILE */}
-          <div className="w-full max-w-[420px] flex-shrink-0">
+          <div className="w-full max-w-[min(100vw,calc(100vh-210px))] flex-shrink-0">
             <PlayerCard
               name={bottomPlayer.name}
               rating={bottomPlayer.rating}

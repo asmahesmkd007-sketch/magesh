@@ -11,7 +11,6 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 const NAV_AUTH = [
   { to: "/home", label: "Home" },
   { to: "/play", label: "Play" },
-  { to: "/watch", label: "Watch" },
   { to: "/puzzles", label: "Puzzles" },
   { to: "/tournaments", label: "Tournaments" },
 ] as const;
@@ -27,6 +26,7 @@ const COMMUNITY_ITEMS: readonly NavEntry[] = [
   { to: "/leaderboards", label: "Leaderboard" },
   { to: "/seasons", label: "Seasons" },
   { to: "/events", label: "Events", isComingSoon: true },
+  { to: "/watch", label: "Watch" },
 ];
 
 const MORE_ITEMS = [
@@ -361,18 +361,6 @@ export function Navbar() {
                   Play
                 </Link>
 
-                {/* 3. Watch */}
-                <Link
-                  to="/watch"
-                  onClick={() => setMobileOpen(false)}
-                  className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
-                    path.startsWith("/watch")
-                      ? "border-gold/40 bg-gold/15 text-gold"
-                      : "border-gold/15 bg-white/[0.03] text-foreground hover:bg-gold/10 hover:text-gold"
-                  }`}
-                >
-                  Watch
-                </Link>
 
                 {/* 4. Puzzles */}
                 <Link

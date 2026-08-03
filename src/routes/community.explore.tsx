@@ -7,7 +7,7 @@ import { Card } from "@/components/site/Primitives";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import { useCommunityFeed, useLeaderboard } from "@/hooks/useCommunity";
 import { searchUsers } from "@/lib/api/communityClient";
-import { FeedList } from "./community.index";
+import { FeedList } from "@/components/community/FeedList";
 import { seo, breadcrumbLd, collectionPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/community/explore")({

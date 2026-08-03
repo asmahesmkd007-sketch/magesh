@@ -163,7 +163,7 @@ export function organizationLd(): JsonLd {
     url: `${SITE_URL}/`,
     logo: {
       "@type": "ImageObject",
-      url: absoluteUrl("/chessox-icon.ico"),
+      url: absoluteUrl("/chessox-icon.png"),
       caption: "ChessOx logo",
     },
     image: absoluteUrl(DEFAULT_OG_IMAGE),

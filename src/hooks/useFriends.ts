@@ -43,34 +43,37 @@ export function useFriends(userId?: string | null) {
 
     const otherIds = data.map((r) => (r.requester_id === userId ? r.addressee_id : r.requester_id));
     const uniqueIds = [...new Set(otherIds)].filter((id): id is string => !!id);
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select(
-        "id,username,full_name,avatar_url,premium_active,premium_expires_at,country,is_online,last_seen,title",
-      )
-      .in("id", uniqueIds);
+    // profiles / ratings / live_games all key off `uniqueIds` and nothing
+    // else — they used to be three sequential awaits, which cost three
+    // serial round trips (~320 ms each against Supabase) on every friends
+    // load AND on every accept/decline/remove, since those all call load()
+    // afterwards. Issuing them together collapses that to one.
+    const [{ data: profiles }, { data: ratingRows }, { data: liveGames }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select(
+          "id,username,full_name,avatar_url,premium_active,premium_expires_at,country,is_online,last_seen,title",
+        )
+        .in("id", uniqueIds),
 
-    // Headline rating: the site's rapid rating (matches the default time
-    // class used across games/challenges), sourced from the real per-time-
-    // class `ratings` table — there is no `profiles.iq_rating` column.
-    const { data: ratingRows } =
+      // Headline rating: the site's rapid rating (matches the default time
+      // class used across games/challenges), sourced from the real per-time-
+      // class `ratings` table — there is no `profiles.iq_rating` column.
       uniqueIds.length > 0
-        ? await supabase
+        ? supabase
             .from("ratings")
             .select("user_id,rating")
             .eq("time_class", "rapid")
             .in("user_id", uniqueIds)
-        : { data: [] as { user_id: string; rating: number }[] };
-    const ratingByPlayer = new Map((ratingRows ?? []).map((r) => [r.user_id, r.rating]));
+        : Promise.resolve({ data: [] as { user_id: string; rating: number }[] }),
 
-    // "Playing now" comes from public.live_games, not from `games`: since
-    // spectator mode landed, an in-progress game's row is readable only by
-    // its two players (schema.sql SECTION 104). live_games is the
-    // position-free projection built for exactly this kind of lookup — it
-    // exposes who is playing without exposing the board.
-    const { data: liveGames } =
+      // "Playing now" comes from public.live_games, not from `games`: since
+      // spectator mode landed, an in-progress game's row is readable only by
+      // its two players (schema.sql SECTION 104). live_games is the
+      // position-free projection built for exactly this kind of lookup — it
+      // exposes who is playing without exposing the board.
       uniqueIds.length > 0
-        ? await (
+        ? (
             supabase as unknown as {
               from: (t: string) => {
                 select: (c: string) => {
@@ -84,7 +87,13 @@ export function useFriends(userId?: string | null) {
             .from("live_games")
             .select("id,white_id,black_id")
             .or(`white_id.in.(${uniqueIds.join(",")}),black_id.in.(${uniqueIds.join(",")})`)
-        : { data: [] as { id: string; white_id: string | null; black_id: string | null }[] };
+        : Promise.resolve({
+            data: [] as { id: string; white_id: string | null; black_id: string | null }[],
+          }),
+    ]);
+
+    const ratingByPlayer = new Map((ratingRows ?? []).map((r) => [r.user_id, r.rating]));
+
     const activeGameByPlayer = new Map<string, string>();
     for (const g of liveGames ?? []) {
       if (g.white_id) activeGameByPlayer.set(g.white_id, g.id);

@@ -120,7 +120,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "keywords",
         content:
-          "play chess online, online chess game, free online chess, chess puzzles, online chess tournament, chess leaderboard, learn chess online, online chess India",
+          "play chess online, online chess game, free online chess, chess puzzles, online chess tournament, chess ranking, learn chess online, online chess India",
       },
       {
         name: "robots",
@@ -154,15 +154,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
-      { rel: "icon", href: "/chessox-icon.ico", type: "image/x-icon", sizes: "any" },
-      { rel: "apple-touch-icon", href: "/chessox-icon.ico" },
+      { rel: "icon", href: "/chessox-icon.png", type: "image/png", sizes: "256x256" },
+      { rel: "apple-touch-icon", href: "/chessox-icon.png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap",
+        // Cinzel 800 dropped: `font-extrabold` has zero uses site-wide and no
+        // rule sets font-weight:800, so nothing could ever render it. 900 is
+        // kept — clans.index.tsx pairs font-black with font-display.
+        href: "https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;900&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap",
       },
     ],
   }),

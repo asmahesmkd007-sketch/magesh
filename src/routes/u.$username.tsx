@@ -24,7 +24,7 @@ import { Card, GhostButton, GoldButton } from "@/components/site/Primitives";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import { CommunityLayout } from "@/components/community/CommunityLayout";
 import { PostCard, ReportDialog } from "@/components/community/PostCard";
-import { FeedList } from "./community.index";
+import { FeedList } from "@/components/community/FeedList";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useCommunityActions,

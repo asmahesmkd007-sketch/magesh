@@ -6,7 +6,7 @@
 // Friends. Geographic scopes default to the viewer's own location, so a
 // player lands on a board they are actually on.
 // =====================================================================
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Loader2, Search, TrendingDown, TrendingUp } from "lucide-react";
@@ -88,11 +88,17 @@ export function RankingLeaderboard({ viewer }: { viewer: ViewerLocation }) {
             ? "Add your district in profile settings to see this board."
             : null;
 
+  // Every toggle — ELO/SP, time class, or any of the five scopes — changes
+  // the query key, which without placeholderData drops the board to a
+  // spinner for the ~320 ms refetch. Keeping the previous rows on screen
+  // means switching reads as an update rather than a reload; `isFetching`
+  // still drives the subtle loading affordance below.
   const eloQuery = useQuery({
     queryKey: ["elo-leaderboard", timeClass, scope, filters],
     queryFn: () => fetchEloLeaderboard(timeClass, scope, filters),
     enabled: system === "elo" && !blocked,
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 
   const spQuery = useQuery({
@@ -100,6 +106,7 @@ export function RankingLeaderboard({ viewer }: { viewer: ViewerLocation }) {
     queryFn: () => fetchSpLeaderboard(scope, filters),
     enabled: system === "sp" && !blocked,
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 
   const active = system === "elo" ? eloQuery : spQuery;
@@ -192,7 +199,13 @@ export function RankingLeaderboard({ viewer }: { viewer: ViewerLocation }) {
           The leaderboard could not be loaded. Try again in a moment.
         </p>
       ) : (
-        <div className="overflow-x-auto">
+        // While a toggle's refetch is in flight the previous rows stay put;
+        // dimming them signals "updating" without collapsing the layout.
+        <div
+          className={`overflow-x-auto transition-opacity duration-200 ${
+            active.isPlaceholderData ? "opacity-60" : "opacity-100"
+          }`}
+        >
           <table className="w-full min-w-[520px] text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-[10px] uppercase tracking-wider text-muted-foreground">

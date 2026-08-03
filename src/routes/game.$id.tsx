@@ -792,6 +792,10 @@ function LiveGame() {
   }, [live.rematchOffer, user?.id]);
 
   const handleRematchOffer = useCallback(async () => {
+    if (!user?.id) {
+      toast.info("Please sign in to offer a rematch!");
+      return;
+    }
     try {
       const res = await live.offerRematch();
       if (res.status === "accepted" && res.newGameId) {
@@ -803,7 +807,7 @@ function LiveGame() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Rematch request failed.");
     }
-  }, [live, navigate]);
+  }, [user?.id, live, navigate]);
 
   async function sendChat() {
     if (!chatInput.trim() || !user) return;

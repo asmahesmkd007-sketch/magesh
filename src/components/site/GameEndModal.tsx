@@ -112,11 +112,18 @@ export function GameEndModal({
               </Link>
             )
           ) : (
-            <Link to="/play" onClick={onClose}>
-              <GhostButton className="w-full border border-white/10">
-                <Play className="mr-2 h-4 w-4" /> New Game
-              </GhostButton>
-            </Link>
+            <>
+              <Link to="/play" onClick={onClose}>
+                <GhostButton className="w-full border border-white/10">
+                  <Play className="mr-2 h-4 w-4" /> New Game
+                </GhostButton>
+              </Link>
+              <Link to="/play" onClick={onClose}>
+                <GhostButton className="w-full border border-white/10 text-muted-foreground hover:text-foreground">
+                  <Home className="mr-2 h-4 w-4" /> Back to Home
+                </GhostButton>
+              </Link>
+            </>
           )}
         </div>
       </div>

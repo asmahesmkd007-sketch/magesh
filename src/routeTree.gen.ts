@@ -35,7 +35,6 @@ import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as NewsRouteImport } from './routes/news'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LearnRouteImport } from './routes/learn'
-import { Route as LeaderboardsRouteImport } from './routes/leaderboards'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as GrievancePolicyRouteImport } from './routes/grievance-policy'
 import { Route as FriendsRouteImport } from './routes/friends'
@@ -103,7 +102,6 @@ import { Route as AdminPuzzlesRouteImport } from './routes/admin.puzzles'
 import { Route as AdminPremiumRouteImport } from './routes/admin.premium'
 import { Route as AdminPoliciesRouteImport } from './routes/admin.policies'
 import { Route as AdminLogsRouteImport } from './routes/admin.logs'
-import { Route as AdminLeaderboardRouteImport } from './routes/admin.leaderboard'
 import { Route as AdminKycRouteImport } from './routes/admin.kyc'
 import { Route as AdminFeedbackRouteImport } from './routes/admin.feedback'
 import { Route as AdminCommunityRouteImport } from './routes/admin.community'
@@ -245,11 +243,6 @@ const LoginRoute = LoginRouteImport.update({
 const LearnRoute = LearnRouteImport.update({
   id: '/learn',
   path: '/learn',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LeaderboardsRoute = LeaderboardsRouteImport.update({
-  id: '/leaderboards',
-  path: '/leaderboards',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HomeRoute = HomeRouteImport.update({
@@ -588,11 +581,6 @@ const AdminLogsRoute = AdminLogsRouteImport.update({
   path: '/admin/logs',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminLeaderboardRoute = AdminLeaderboardRouteImport.update({
-  id: '/admin/leaderboard',
-  path: '/admin/leaderboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AdminKycRoute = AdminKycRouteImport.update({
   id: '/admin/kyc',
   path: '/admin/kyc',
@@ -678,7 +666,6 @@ export interface FileRoutesByFullPath {
   '/friends': typeof FriendsRoute
   '/grievance-policy': typeof GrievancePolicyRoute
   '/home': typeof HomeRoute
-  '/leaderboards': typeof LeaderboardsRoute
   '/learn': typeof LearnRoute
   '/login': typeof LoginRoute
   '/news': typeof NewsRouteWithChildren
@@ -713,7 +700,6 @@ export interface FileRoutesByFullPath {
   '/admin/community': typeof AdminCommunityRoute
   '/admin/feedback': typeof AdminFeedbackRoute
   '/admin/kyc': typeof AdminKycRoute
-  '/admin/leaderboard': typeof AdminLeaderboardRoute
   '/admin/logs': typeof AdminLogsRoute
   '/admin/policies': typeof AdminPoliciesRoute
   '/admin/premium': typeof AdminPremiumRoute
@@ -785,7 +771,6 @@ export interface FileRoutesByTo {
   '/friends': typeof FriendsRoute
   '/grievance-policy': typeof GrievancePolicyRoute
   '/home': typeof HomeRoute
-  '/leaderboards': typeof LeaderboardsRoute
   '/learn': typeof LearnRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
@@ -816,7 +801,6 @@ export interface FileRoutesByTo {
   '/admin/community': typeof AdminCommunityRoute
   '/admin/feedback': typeof AdminFeedbackRoute
   '/admin/kyc': typeof AdminKycRoute
-  '/admin/leaderboard': typeof AdminLeaderboardRoute
   '/admin/logs': typeof AdminLogsRoute
   '/admin/policies': typeof AdminPoliciesRoute
   '/admin/premium': typeof AdminPremiumRoute
@@ -891,7 +875,6 @@ export interface FileRoutesById {
   '/friends': typeof FriendsRoute
   '/grievance-policy': typeof GrievancePolicyRoute
   '/home': typeof HomeRoute
-  '/leaderboards': typeof LeaderboardsRoute
   '/learn': typeof LearnRoute
   '/login': typeof LoginRoute
   '/news': typeof NewsRouteWithChildren
@@ -926,7 +909,6 @@ export interface FileRoutesById {
   '/admin/community': typeof AdminCommunityRoute
   '/admin/feedback': typeof AdminFeedbackRoute
   '/admin/kyc': typeof AdminKycRoute
-  '/admin/leaderboard': typeof AdminLeaderboardRoute
   '/admin/logs': typeof AdminLogsRoute
   '/admin/policies': typeof AdminPoliciesRoute
   '/admin/premium': typeof AdminPremiumRoute
@@ -1002,7 +984,6 @@ export interface FileRouteTypes {
     | '/friends'
     | '/grievance-policy'
     | '/home'
-    | '/leaderboards'
     | '/learn'
     | '/login'
     | '/news'
@@ -1037,7 +1018,6 @@ export interface FileRouteTypes {
     | '/admin/community'
     | '/admin/feedback'
     | '/admin/kyc'
-    | '/admin/leaderboard'
     | '/admin/logs'
     | '/admin/policies'
     | '/admin/premium'
@@ -1109,7 +1089,6 @@ export interface FileRouteTypes {
     | '/friends'
     | '/grievance-policy'
     | '/home'
-    | '/leaderboards'
     | '/learn'
     | '/login'
     | '/notifications'
@@ -1140,7 +1119,6 @@ export interface FileRouteTypes {
     | '/admin/community'
     | '/admin/feedback'
     | '/admin/kyc'
-    | '/admin/leaderboard'
     | '/admin/logs'
     | '/admin/policies'
     | '/admin/premium'
@@ -1214,7 +1192,6 @@ export interface FileRouteTypes {
     | '/friends'
     | '/grievance-policy'
     | '/home'
-    | '/leaderboards'
     | '/learn'
     | '/login'
     | '/news'
@@ -1249,7 +1226,6 @@ export interface FileRouteTypes {
     | '/admin/community'
     | '/admin/feedback'
     | '/admin/kyc'
-    | '/admin/leaderboard'
     | '/admin/logs'
     | '/admin/policies'
     | '/admin/premium'
@@ -1324,7 +1300,6 @@ export interface RootRouteChildren {
   FriendsRoute: typeof FriendsRoute
   GrievancePolicyRoute: typeof GrievancePolicyRoute
   HomeRoute: typeof HomeRoute
-  LeaderboardsRoute: typeof LeaderboardsRoute
   LearnRoute: typeof LearnRoute
   LoginRoute: typeof LoginRoute
   NewsRoute: typeof NewsRouteWithChildren
@@ -1359,7 +1334,6 @@ export interface RootRouteChildren {
   AdminCommunityRoute: typeof AdminCommunityRoute
   AdminFeedbackRoute: typeof AdminFeedbackRoute
   AdminKycRoute: typeof AdminKycRoute
-  AdminLeaderboardRoute: typeof AdminLeaderboardRoute
   AdminLogsRoute: typeof AdminLogsRoute
   AdminPoliciesRoute: typeof AdminPoliciesRoute
   AdminPremiumRoute: typeof AdminPremiumRoute
@@ -1569,13 +1543,6 @@ declare module '@tanstack/react-router' {
       path: '/learn'
       fullPath: '/learn'
       preLoaderRoute: typeof LearnRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/leaderboards': {
-      id: '/leaderboards'
-      path: '/leaderboards'
-      fullPath: '/leaderboards'
-      preLoaderRoute: typeof LeaderboardsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/home': {
@@ -2047,13 +2014,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLogsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/leaderboard': {
-      id: '/admin/leaderboard'
-      path: '/admin/leaderboard'
-      fullPath: '/admin/leaderboard'
-      preLoaderRoute: typeof AdminLeaderboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/admin/kyc': {
       id: '/admin/kyc'
       path: '/admin/kyc'
@@ -2298,7 +2258,6 @@ const rootRouteChildren: RootRouteChildren = {
   FriendsRoute: FriendsRoute,
   GrievancePolicyRoute: GrievancePolicyRoute,
   HomeRoute: HomeRoute,
-  LeaderboardsRoute: LeaderboardsRoute,
   LearnRoute: LearnRoute,
   LoginRoute: LoginRoute,
   NewsRoute: NewsRouteWithChildren,
@@ -2333,7 +2292,6 @@ const rootRouteChildren: RootRouteChildren = {
   AdminCommunityRoute: AdminCommunityRoute,
   AdminFeedbackRoute: AdminFeedbackRoute,
   AdminKycRoute: AdminKycRoute,
-  AdminLeaderboardRoute: AdminLeaderboardRoute,
   AdminLogsRoute: AdminLogsRoute,
   AdminPoliciesRoute: AdminPoliciesRoute,
   AdminPremiumRoute: AdminPremiumRoute,

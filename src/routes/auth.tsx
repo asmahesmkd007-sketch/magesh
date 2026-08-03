@@ -156,9 +156,19 @@ function AuthPage() {
     <div className="flex min-h-[calc(100vh-80px)] w-full bg-[#0f0505]">
       {/* Left Side - Visual Hero (Hidden on small screens) */}
       <div className="relative hidden w-1/2 overflow-hidden lg:block border-r border-gold/15">
+        {/* Decorative panel, and its container is `hidden lg:block` — but an
+            <img> in the DOM is still fetched when an ancestor is display:none,
+            so every mobile sign-in was paying 188 KB for artwork it never
+            shows. `lazy` skips it while off-screen and still loads it
+            immediately on desktop, where it is in the initial viewport. The
+            sign-in form is the LCP here, not this image. */}
         <img
           src={heroRegal}
           alt="Premium chess set on the ChessOx sign-in page"
+          width={1920}
+          height={1080}
+          loading="lazy"
+          decoding="async"
           className="absolute inset-0 h-full w-full object-cover object-right"
         />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(15,5,5,0.1)_0%,rgba(15,5,5,0.95)_100%)]" />

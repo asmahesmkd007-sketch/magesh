@@ -82,12 +82,20 @@ function fail(code: RejectCode, message: string) {
   return { ok: false as const, code, message };
 }
 
+let io: AppServer | null = null;
+const rematchOffers = new Map<string, string>();
+const acceptedRematches = new Map<string, { newGameId: string; expiresAt: number }>();
+
 function snapshotFor(game: LiveGame, viewerId: string | null): GameStateSnapshot {
   const isPlayer = !!game.seatOf(viewerId);
   const delayMs = isPlayer ? 0 : spectatorDelayMs(game);
   const cutoff = Date.now() - delayMs;
   // A spectator's snapshot stops at the last move old enough to show.
   const moves = delayMs === 0 ? game.moves : game.moves.filter((m) => m.at <= cutoff);
+
+  const offeredBy = rematchOffers.get(game.gameId);
+  const accepted = acceptedRematches.get(game.gameId);
+  const validAccepted = accepted && accepted.expiresAt > Date.now() ? accepted.newGameId : null;
 
   return {
     gameId: game.gameId,
@@ -112,11 +120,10 @@ function snapshotFor(game: LiveGame, viewerId: string | null): GameStateSnapshot
     timeControl: game.timeControl,
     delaySeconds: delayMs / 1000,
     serverTime: Date.now(),
+    rematchOffer: offeredBy ? { offeredBy } : null,
+    rematchNewGameId: validAccepted,
   };
 }
-
-let io: AppServer | null = null;
-const rematchOffers = new Map<string, string>();
 
 export function getIo(): AppServer | null {
   return io;
@@ -410,12 +417,19 @@ function registerHandlers(socket: AppSocket): void {
       if (!game) return ack?.(fail("not_found", "Game not found"));
       if (!game.seatOf(uid)) return ack?.(fail("not_a_player", "Not a player in this game"));
 
+      const alreadyAccepted = acceptedRematches.get(gameId);
+      if (alreadyAccepted && alreadyAccepted.expiresAt > Date.now()) {
+        return ack?.({ ok: true, data: { status: "accepted", newGameId: alreadyAccepted.newGameId } });
+      }
+
       const existingOffer = rematchOffers.get(gameId);
 
       if (existingOffer && existingOffer !== uid) {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const newGameId = crypto.randomUUID();
         const startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        const initSecs = game.initialSeconds || 600;
+        const incSecs = Math.max(0, Math.round(game.clockSnapshot().incrementMs / 1000) || 0);
         const { error } = await (supabaseAdmin as any).from("games").insert({
           id: newGameId,
           white_id: game.black.userId,
@@ -424,14 +438,16 @@ function registerHandlers(socket: AppSocket): void {
           black_username: game.white.username,
           white_rating: game.black.rating,
           black_rating: game.white.rating,
-          white_time_ms: game.initialSeconds * 1000,
-          black_time_ms: game.initialSeconds * 1000,
-          initial_seconds: game.initialSeconds,
-          increment_seconds: Math.round(game.clockSnapshot().incrementMs / 1000),
-          time_control: game.timeControl,
+          white_time_ms: initSecs * 1000,
+          black_time_ms: initSecs * 1000,
+          initial_seconds: initSecs,
+          increment_seconds: incSecs,
+          time_control: game.timeControl || `${Math.round(initSecs / 60)}+${incSecs}`,
           time_class: inferTimeClass(game),
-          is_rated: game.isRated,
+          is_rated: Boolean(game.isRated),
           status: "active",
+          result: "ongoing",
+          pgn: "",
           turn: "w",
           fen: startFen,
           last_move_at: new Date().toISOString(),
@@ -439,6 +455,7 @@ function registerHandlers(socket: AppSocket): void {
         if (error) throw new Error(error.message);
 
         rematchOffers.delete(gameId);
+        acceptedRematches.set(gameId, { newGameId, expiresAt: Date.now() + 5 * 60_000 });
 
         const payload = { gameId, newGameId };
         io?.to(rooms.players(gameId)).emit("game:rematch-accepted", payload);

@@ -6374,6 +6374,11 @@ BEGIN
 
     -- Check if reset time has passed
     IF timezone('utc'::text, now()) >= v_stats.daily_reset_time THEN
+        -- Expire any uncompleted puzzle progress from previous day so it doesn't loop
+        UPDATE public.puzzle_progress
+        SET status = 'SKIPPED'
+        WHERE user_id = v_user_id AND status IN ('NOT_STARTED', 'IN_PROGRESS');
+
         UPDATE public.user_puzzle_stats 
         SET completed_today = 0, 
             daily_reset_time = timezone('utc'::text, now()) + interval '1 day'
@@ -6422,7 +6427,7 @@ BEGIN
         ORDER BY random()
         LIMIT 1;
 
-        -- Fallback if the specific puzzle type runs out
+        -- Fallback 1 if the specific puzzle type runs out
         IF NOT FOUND THEN
             SELECT p.* INTO v_puzzle
             FROM public.puzzles p
@@ -6432,8 +6437,18 @@ BEGIN
             LIMIT 1;
         END IF;
 
+        -- Fallback 2 if ALL puzzles in DB have been played (pool exhausted): cycle to least recently played
         IF NOT FOUND THEN
-            -- No more puzzles in DB!
+            SELECT p.* INTO v_puzzle
+            FROM public.puzzles p
+            JOIN public.puzzle_progress pp ON p.id = pp.puzzle_id AND pp.user_id = v_user_id
+            WHERE p.enabled = true
+            ORDER BY pp.last_viewed_time ASC, random()
+            LIMIT 1;
+        END IF;
+
+        IF NOT FOUND THEN
+            -- No puzzles in DB at all
             RETURN json_build_object(
                 'locked', FALSE,
                 'remaining_today', v_remaining,
@@ -6443,9 +6458,21 @@ BEGIN
             );
         END IF;
 
-        -- Create progress
-        INSERT INTO public.puzzle_progress (user_id, puzzle_id, board_fen)
-        VALUES (v_user_id, v_puzzle.id, v_puzzle.fen)
+        -- Create or reset progress for the selected puzzle
+        INSERT INTO public.puzzle_progress (user_id, puzzle_id, board_fen, status)
+        VALUES (v_user_id, v_puzzle.id, v_puzzle.fen, 'NOT_STARTED')
+        ON CONFLICT (user_id, puzzle_id) DO UPDATE SET
+            status = 'NOT_STARTED',
+            started_at = timezone('utc'::text, now()),
+            solved_at = NULL,
+            attempts = 0,
+            time_spent_ms = 0,
+            hint_used = FALSE,
+            wrong_moves_count = 0,
+            board_fen = EXCLUDED.board_fen,
+            step_index = 0,
+            last_move_played = NULL,
+            last_viewed_time = timezone('utc'::text, now())
         RETURNING * INTO v_progress;
     END IF;
 
@@ -22484,3 +22511,22 @@ CREATE INDEX IF NOT EXISTS idx_games_status_created
 CREATE INDEX IF NOT EXISTS idx_games_active_time_class
   ON public.games (time_class, last_move_at DESC)
   WHERE status = 'active';
+
+-- =====================================================================
+-- SECTION 201: REMOVE STANDALONE LEADERBOARD FEATURE
+-- ---------------------------------------------------------------------
+-- The player-facing /leaderboards page and its /admin/leaderboard
+-- counterpart are retired. The Ranking system (permanent ELO + Season
+-- Points, SECTION 102 — elo_leaderboard/sp_leaderboard, consumed by
+-- RankingLeaderboard.tsx on /rankings) is now the sole player
+-- progression board. Nothing else reads leaderboard_view or
+-- get_dynamic_leaderboard, so this is a clean drop.
+--
+-- Other objects that happen to share the word "leaderboard" —
+-- clan_leaderboard (Clans), community_leaderboard (Community),
+-- season_leaderboard (Seasons) — belong to unrelated features and are
+-- deliberately left alone.
+-- =====================================================================
+DROP FUNCTION IF EXISTS public.get_dynamic_leaderboard(text, text, text, text, text, integer, integer);
+DROP FUNCTION IF EXISTS public.get_dynamic_leaderboard(text, text, text, text, text, text, boolean, integer, integer);
+DROP VIEW IF EXISTS public.leaderboard_view CASCADE;

@@ -72,11 +72,17 @@ function LandingPage() {
       {/* HERO — left rail + title left, ornate board scene right */}
       <section className="relative min-h-[calc(100vh-80px)] overflow-hidden">
         {/* Background scene */}
+        {/* LCP element. Without an explicit priority the browser assigns
+            images a low initial priority and starts them behind the entry
+            JS/CSS, which delays the largest paint on the landing page by
+            roughly a round trip on real connections. */}
         <img
           src={heroRegal}
           alt="Play chess online on ChessOx — hand-carved rosewood chess set with ornate gold inlay"
           width={1920}
           height={1080}
+          fetchPriority="high"
+          decoding="async"
           className="absolute inset-0 h-full w-full object-cover object-right"
         />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,#160707_0%,rgba(22,7,7,0.95)_28%,rgba(22,7,7,0.55)_52%,rgba(22,7,7,0.1)_78%,transparent_100%)]" />

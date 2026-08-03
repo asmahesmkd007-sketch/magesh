@@ -2,6 +2,13 @@
 // to be a legal position ending in checkmate. Regenerate via scripts/generate-puzzles.
 // Each puzzle: FEN, UCI move sequence (solver / scripted reply / solver …), theme,
 // category, goal, rating, difficulty tier, theme tags, and a teaching explanation.
+import type { PuzzleDifficulty } from "./puzzleDifficulty";
+
+// Re-exported so callers that want the dataset and the banding can keep
+// importing both from here; importing only the banding should go straight
+// to ./puzzleDifficulty so the dataset below stays out of that bundle.
+export { DIFFICULTY_BANDS, difficultyOf, type PuzzleDifficulty } from "./puzzleDifficulty";
+
 export type Puzzle = {
   id: string;
   fen: string;
@@ -11,14 +18,7 @@ export type Puzzle = {
   rating: number;
   // Optional so lightweight DB projections (e.g. Puzzle Rush) can build partial rows.
   category?: string;
-  difficulty?:
-    | "Beginner"
-    | "Easy"
-    | "Intermediate"
-    | "Advanced"
-    | "Expert"
-    | "Master"
-    | "Grandmaster";
+  difficulty?: PuzzleDifficulty;
   themes?: string[];
   explanation?: string;
   // Additive metadata (optional so older callers/rows are unaffected).
@@ -27,20 +27,6 @@ export type Puzzle = {
   tags?: string[];
   status?: "active" | "disabled";
 };
-
-export const DIFFICULTY_BANDS: { label: Puzzle["difficulty"]; min: number; max: number }[] = [
-  { label: "Beginner", min: 0, max: 500 },
-  { label: "Easy", min: 500, max: 800 },
-  { label: "Intermediate", min: 800, max: 1200 },
-  { label: "Advanced", min: 1200, max: 1800 },
-  { label: "Expert", min: 1800, max: 2200 },
-  { label: "Master", min: 2200, max: 2600 },
-  { label: "Grandmaster", min: 2600, max: 9999 },
-];
-
-export function difficultyOf(rating: number): Puzzle["difficulty"] {
-  return DIFFICULTY_BANDS.find((b) => rating >= b.min && rating < b.max)?.label ?? "Master";
-}
 
 export const PUZZLES: Puzzle[] = [
   {

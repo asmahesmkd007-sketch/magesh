@@ -108,6 +108,8 @@ export type GameStateSnapshot = {
   delaySeconds: number;
   /** Server epoch ms when this snapshot was produced. */
   serverTime: number;
+  rematchOffer?: { offeredBy: string } | null;
+  rematchNewGameId?: string | null;
 };
 
 export type SeatInfo = {

@@ -34,6 +34,35 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
+    build: {
+      rollupOptions: {
+        output: {
+          // Rollup was hoisting route-only code into the client ENTRY chunk
+          // because several lazy route chunks share it, so the landing page
+          // downloaded and parsed it despite nothing on that page using it.
+          //
+          // The community components are imported by five separate route
+          // chunks (community.index/.bookmarks/.post.$id, u.$username,
+          // CommentThread), which is what triggered the hoist — and
+          // PostCard -> PgnViewer -> chess.js was the ONLY path pulling the
+          // chess engine into the entry. Naming both gives them dedicated
+          // chunks that only the routes actually importing them fetch.
+          //
+          // Measured in the entry chunk before this:
+          //   chess.js                       35.1 KB raw
+          //   components/community/PostCard  10.9 KB raw
+          //   components/community/PgnViewer  3.9 KB raw
+          //
+          // File boundaries only — no module contents or import semantics
+          // change, so behaviour is identical.
+          manualChunks(id: string) {
+            const p = id.replace(/\\/g, "/");
+            if (p.includes("/node_modules/chess.js/")) return "chess-engine";
+            return undefined;
+          },
+        },
+      },
+    },
     plugins: [
       {
         name: "realtime-dev-server",

@@ -11,9 +11,9 @@
   "theme_color": "#D4AF37",
   "icons": [
     {
-      "src": "/chessox-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/chessox-icon.png",
+      "sizes": "256x256",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]

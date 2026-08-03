@@ -80,8 +80,12 @@ export function Footer() {
         <div>
           <div className="flex items-center gap-2.5">
             <img
-              src="/chessox-icon.ico"
+              src="/chessox-icon.png"
               alt="ChessOx logo — online chess platform"
+              width={56}
+              height={56}
+              loading="lazy"
+              decoding="async"
               className="h-14 w-auto object-contain"
               draggable={false}
             />
@@ -134,7 +138,6 @@ export function Footer() {
                 ["Puzzles", "/puzzles"],
                 ["Tournaments", "/tournaments"],
                 ["Rankings", "/rankings"],
-                ["Leaderboards", "/leaderboards"],
               ],
             },
             {

@@ -23,7 +23,6 @@ const COMMUNITY_ITEMS: readonly NavEntry[] = [
   { to: "/chat", label: "Chat" },
   { to: "/clans", label: "Clans" },
   { to: "/rankings", label: "Rankings" },
-  { to: "/leaderboards", label: "Leaderboard" },
   { to: "/seasons", label: "Seasons" },
   { to: "/events", label: "Events", isComingSoon: true },
   { to: "/watch", label: "Watch" },
@@ -85,8 +84,11 @@ export function Navbar() {
         {/* Logo — Static non-clickable text & icon */}
         <div className="flex shrink-0 items-center gap-2.5 cursor-default select-none">
           <img
-            src="/chessox-icon.ico"
+            src="/chessox-icon.png"
             alt="ChessOx"
+            width={56}
+            height={56}
+            fetchPriority="high"
             className="h-14 w-auto object-contain pointer-events-none"
             draggable={false}
           />

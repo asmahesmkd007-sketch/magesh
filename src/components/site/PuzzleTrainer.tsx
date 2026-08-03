@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { ArrowRight, Eye, Flame, Lightbulb, Target, Clock, Loader2, Lock } from "lucide-react";
 import { Card, GoldButton, GhostButton } from "@/components/site/Primitives";
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
-import { difficultyOf } from "@/lib/chess/puzzles";
+import { difficultyOf } from "@/lib/chess/puzzleDifficulty";
 import { useAuth } from "@/hooks/useAuth";
 import { soundForChessMove } from "@/lib/audio/sounds";
 import { useDailyPuzzle, type PuzzleStatus } from "@/hooks/useDailyPuzzle";
@@ -61,6 +61,7 @@ export function PuzzleTrainer() {
         if (diff <= 0) {
           setTimeLeft("00:00:00");
           clearInterval(interval);
+          initializedPuzzleId.current = null;
           // Unlock automatically
           fetchDailyPuzzle();
         } else {
@@ -183,6 +184,7 @@ export function PuzzleTrainer() {
   // overlapping fetchDailyPuzzle() calls — fetchDailyPuzzle() itself also
   // guards against concurrent in-flight calls as a second layer of safety.
   const goToNextPuzzle = () => {
+    initializedPuzzleId.current = null;
     timers.current.forEach(clearTimeout);
     timers.current = [];
     fetchDailyPuzzle();

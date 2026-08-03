@@ -29,10 +29,15 @@ export function AuthShell({ title, subtitle, icon, children, step }: Props) {
     // footer off-screen and force a scroll on every step.
     <div className="relative grid min-h-[calc(100vh-80px)] place-items-center overflow-hidden px-4 py-10">
       {/* Backdrop */}
+      {/* Decorative backdrop, not the LCP. Async decode keeps a 1920x1080
+          JPEG off the main thread while the auth form becomes interactive. */}
       <img
         src={heroRegal}
         alt=""
         aria-hidden="true"
+        width={1920}
+        height={1080}
+        decoding="async"
         className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-20"
       />
       <div

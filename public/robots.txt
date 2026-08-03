@@ -1,5 +1,5 @@
 # robots.txt for ChessOx — https://www.chessox.com
-# Public chess content (play, puzzles, learn, tournaments, leaderboards, news,
+# Public chess content (play, puzzles, learn, tournaments, rankings, news,
 # community, policies) is open to crawlers. Personal, transactional and admin
 # screens are disallowed because they hold no useful public content.
 

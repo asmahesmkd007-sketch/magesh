@@ -28,7 +28,7 @@ import { UserAvatar } from "@/components/site/UserAvatar";
 import { FriendButton } from "@/components/friends/FriendButton";
 import type { CommunityPost, ReportReason } from "@/lib/api/communityClient";
 import { useCommunityActions } from "@/hooks/useCommunity";
-import { FenViewer, PgnViewer, PuzzleViewer } from "./PgnViewer";
+import { FenViewer, PgnViewer, PuzzleViewer } from "./LazyPostViewers";
 
 export function relTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();

@@ -27,15 +27,7 @@ import {
   Shield,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { LazyRatingProgressChart } from "@/components/profile/LazyRatingProgressChart";
 import { useAuth, useProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
@@ -426,12 +418,38 @@ function ProfilePage() {
     }
   }
 
+  // A centred spinner used to cover the whole page for the duration of the
+  // profile fetch (~320 ms round trip), so nothing about the page existed
+  // until it landed. This mirrors the real layout instead, so the structure
+  // paints immediately and only the values fill in.
   if (authLoading || profileLoading) {
     return (
       <PageShell>
-        <div className="grid place-items-center py-32">
-          <Loader2 className="h-8 w-8 animate-spin text-gold" />
-        </div>
+        <Card className="overflow-hidden">
+          <div className="h-32 w-full animate-pulse bg-white/[0.04] sm:h-40" />
+          <div className="p-6">
+            <div className="flex items-end gap-4">
+              <div className="-mt-16 h-24 w-24 shrink-0 animate-pulse rounded-full border-4 border-background bg-white/[0.06]" />
+              <div className="flex-1 space-y-2 pb-1">
+                <div className="h-6 w-48 animate-pulse rounded bg-white/[0.06]" />
+                <div className="h-4 w-32 animate-pulse rounded bg-white/[0.04]" />
+              </div>
+            </div>
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {["a", "b", "c", "d"].map((k) => (
+                <div key={k} className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+                  <div className="h-3 w-16 animate-pulse rounded bg-white/[0.06]" />
+                  <div className="mt-2 h-7 w-12 animate-pulse rounded bg-white/[0.06]" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+
+        <Card className="mt-8 p-6">
+          <div className="h-4 w-32 animate-pulse rounded bg-white/[0.06]" />
+          <div className="mt-4 h-60 w-full animate-pulse rounded-lg bg-white/[0.03]" />
+        </Card>
       </PageShell>
     );
   }
@@ -716,46 +734,7 @@ function ProfilePage() {
       <Card className="mt-8 p-6">
         <SectionTitle kicker="Form" title="Rating Progress" />
         <div className="h-60">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -16 }}>
-              <defs>
-                <linearGradient id="goldFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#d4af37" stopOpacity={0.5} />
-                  <stop offset="100%" stopColor="#d4af37" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis
-                dataKey="day"
-                tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                minTickGap={24}
-              />
-              <YAxis
-                tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                domain={["dataMin - 20", "dataMax + 20"]}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "rgba(16,8,8,0.95)",
-                  border: "1px solid rgba(212,175,55,0.3)",
-                  borderRadius: 12,
-                  fontSize: 12,
-                }}
-                labelStyle={{ color: "#d4af37" }}
-              />
-              <Area
-                type="monotone"
-                dataKey="rating"
-                stroke="#d4af37"
-                strokeWidth={2}
-                fill="url(#goldFill)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          <LazyRatingProgressChart data={chartData} />
         </div>
         {history.length < 2 && (
           <p className="mt-2 text-center text-xs text-muted-foreground">

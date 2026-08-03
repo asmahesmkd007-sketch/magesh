@@ -88,8 +88,8 @@ export function useLiveGame(gameId: string | null): LiveGameApi {
       // The snapshot supersedes any optimistic move: it either contains
       // it (accepted) or it doesn't (dropped while we were away).
       setPending(null);
-      setRematchOffer(null);
-      setRematchNewGameId(null);
+      setRematchOffer(state.rematchOffer ?? null);
+      setRematchNewGameId(state.rematchNewGameId ?? null);
       setConnection("live");
       setError(null);
     } catch (err) {
@@ -324,7 +324,7 @@ export function useLiveGame(gameId: string | null): LiveGameApi {
     const res = await request<
       "game:rematch-offer",
       { status: "offered" | "accepted"; newGameId?: string }
-    >("game:rematch-offer", { gameId });
+    >("game:rematch-offer", { gameId }, 15_000);
     if (res.status === "accepted" && res.newGameId) {
       setRematchNewGameId(res.newGameId);
     }

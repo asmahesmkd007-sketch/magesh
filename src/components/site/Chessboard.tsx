@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 type Props = {
   size?: "sm" | "md" | "lg";
   interactive?: boolean;
@@ -33,7 +35,11 @@ const INITIAL = [
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const RANKS = ["8", "7", "6", "5", "4", "3", "2", "1"];
 
-export function Chessboard({ size = "md", highlight = [] }: Props) {
+// Purely decorative — always the starting position. It builds 64 cells with
+// inline gradients, so without memo it rebuilt that whole subtree on every
+// parent render (home.tsx in particular re-renders on a lot of unrelated
+// state). Props are primitives at both call sites, so the comparison is free.
+export const Chessboard = memo(function Chessboard({ size = "md", highlight = [] }: Props) {
   const boardWidth =
     size === "lg"
       ? "w-full max-w-[760px]"
@@ -112,4 +118,4 @@ export function Chessboard({ size = "md", highlight = [] }: Props) {
       </div>
     </div>
   );
-}
+});

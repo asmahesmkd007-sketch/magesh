@@ -8,6 +8,7 @@ import {
   passwordMeetsPolicy,
   passwordSchema,
   passwordStrength,
+  passwordTier,
   usernameSchema,
   USERNAME_REGEX,
 } from "./password";
@@ -83,6 +84,47 @@ describe("passwordStrength", () => {
     const long = passwordStrength(`${VALID}Longer99!`);
     expect(long.score).toBeGreaterThanOrEqual(short.score);
     expect(long.score).toBe(4);
+  });
+});
+
+describe("passwordTier (Weak / Medium / Strong)", () => {
+  it("labels an empty or trivial password Weak", () => {
+    for (const weak of ["", "a", "abc", "password", "Abcdefgh"]) {
+      expect(passwordTier(weak).label).toBe("Weak");
+      expect(passwordTier(weak).level).toBe(0);
+    }
+  });
+
+  it("labels a policy-meeting but short password Medium", () => {
+    const medium = "Chess0x!"; // 8 chars, every rule met
+    expect(passwordMeetsPolicy(medium)).toBe(true);
+    expect(passwordTier(medium).label).toBe("Medium");
+  });
+
+  it("labels a long policy-meeting password Strong", () => {
+    expect(passwordTier(VALID).label).toBe("Strong"); // 12 chars, all rules
+    expect(passwordTier("Chess0x!RookBishop").label).toBe("Strong");
+  });
+
+  it("never calls a password that fails the policy Strong", () => {
+    const failing = [
+      "alllowercase123",
+      "ALLUPPERCASE123",
+      "NoSpecials12345",
+      "NoDigitsHere!!!!",
+      "Sh0rt!A",
+    ];
+    for (const password of failing) {
+      expect(passwordMeetsPolicy(password)).toBe(false);
+      expect(passwordTier(password).label).not.toBe("Strong");
+    }
+  });
+
+  it("agrees with the checklist shown beside it", () => {
+    // "Strong" is only reachable when zero rules are outstanding.
+    const strong = "Chess0x!RookMove";
+    expect(failedPasswordRules(strong)).toEqual([]);
+    expect(passwordTier(strong).label).toBe("Strong");
   });
 });
 

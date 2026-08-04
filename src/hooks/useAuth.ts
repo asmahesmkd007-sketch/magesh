@@ -10,8 +10,11 @@ export type Profile = {
   created_at: string;
   bio: string | null;
   country: string | null;
+  /** ISO 3166-1 alpha-2. Added with the searchable country selector; null on rows saved before it. */
+  country_code: string | null;
   state: string | null;
   district: string | null;
+  city: string | null;
   favorite_opening: string | null;
   avatar_url: string | null;
   banner_url: string | null;
@@ -166,10 +169,33 @@ async function loadProfile(userId: string): Promise<Profile | null> {
     .then(async ({ data }) => {
       let prof = data as Profile | null;
 
+      // Read Google OAuth Metadata from current user session
+      const { data: userData } = await supabase.auth.getUser();
+      const authUser = userData?.user;
+      const meta = authUser?.user_metadata;
+      const googleAvatar = (meta?.avatar_url || meta?.picture) as string | undefined;
+
+      if (!prof && authUser && authUser.id === userId) {
+        const email = authUser.email || "";
+        const fullName = (meta?.full_name || meta?.name || email.split("@")[0] || "User") as string;
+        const { generateUsername } = await import("@/lib/utils/profile");
+        const username = generateUsername(fullName);
+        const newProf = {
+          id: userId,
+          username,
+          full_name: fullName,
+          avatar_url: googleAvatar || null,
+        };
+        const { data: created } = await (supabase as any)
+          .from("profiles")
+          .insert(newProf)
+          .select("*")
+          .maybeSingle();
+        if (created) prof = created as Profile;
+      }
+
       if (prof) {
-        // Shim for local dev if migration hasn't run yet — some local DBs
-        // may still have the pre-rename `display_name` column instead of
-        // `full_name`.
+        // Shim for local dev if migration hasn't run yet
         const legacy = prof as unknown as { display_name?: string };
         if (!prof.full_name && legacy.display_name) {
           prof.full_name = legacy.display_name;
@@ -178,13 +204,23 @@ async function loadProfile(userId: string): Promise<Profile | null> {
         let needsUpdate = false;
         let newFullName = prof.full_name;
         let newUsername = prof.username;
+        let newAvatarUrl = prof.avatar_url;
 
-        if (!newFullName || newFullName.toLowerCase().startsWith("player")) {
-          // Get email prefix if possible
-          const { data: userData } = await supabase.auth.getUser();
-          const email = userData.user?.email || "";
-          newFullName = email.split("@")[0] || "User";
-          needsUpdate = true;
+        const googleName = (meta?.full_name || meta?.name) as string | undefined;
+
+        if (
+          !newFullName ||
+          newFullName.toLowerCase().startsWith("player") ||
+          (googleName && (newFullName === newUsername || newFullName === authUser?.email?.split("@")[0]))
+        ) {
+          if (googleName) {
+            newFullName = googleName;
+            needsUpdate = true;
+          } else {
+            const email = authUser?.email || "";
+            newFullName = email.split("@")[0] || "User";
+            needsUpdate = true;
+          }
         }
 
         if (!newUsername || newUsername.toLowerCase().startsWith("player")) {
@@ -193,40 +229,40 @@ async function loadProfile(userId: string): Promise<Profile | null> {
           needsUpdate = true;
         }
 
+        // Priority rules:
+        // Custom uploaded avatar (e.g. Supabase Storage / non-Google) -> KEEP IT!
+        // Google avatar -> Sync if current avatar is null or an outdated Google URL.
+        const currentAvatar = prof.avatar_url;
+        const isCustomUploaded =
+          currentAvatar &&
+          !currentAvatar.includes("googleusercontent.com") &&
+          !currentAvatar.includes("google.com");
+
+        if (!isCustomUploaded && googleAvatar && googleAvatar !== currentAvatar) {
+          newAvatarUrl = googleAvatar;
+          needsUpdate = true;
+        }
+
         if (needsUpdate && profileRepairClaimed.has(userId)) {
-          // Another simultaneously-mounted instance already claimed this
-          // repair — don't race it with a second, differently-random write.
           needsUpdate = false;
         } else if (needsUpdate) {
           profileRepairClaimed.add(userId);
         }
 
         if (needsUpdate) {
-          let { error } = await supabase
+          const updatePayload: Record<string, unknown> = {
+            full_name: newFullName,
+            username: newUsername,
+            avatar_url: newAvatarUrl,
+          };
+
+          let { error } = await (supabase as any)
             .from("profiles")
-            .update({ full_name: newFullName, username: newUsername })
+            .update(updatePayload)
             .eq("id", userId);
 
-          // Fallback for unmigrated local database — `display_name` isn't
-          // part of the generated Profile type, hence the loose client
-          // (same pattern as settings-sync.ts / adminClient.ts).
-          if (error && error.message.includes("full_name")) {
-            const legacyDb = supabase as unknown as {
-              from: (t: string) => {
-                update: (v: Record<string, unknown>) => {
-                  eq: (c: string, v: string) => Promise<{ error: typeof error }>;
-                };
-              };
-            };
-            const fallback = await legacyDb
-              .from("profiles")
-              .update({ display_name: newFullName, username: newUsername })
-              .eq("id", userId);
-            error = fallback.error;
-          }
-
           if (!error) {
-            prof = { ...prof, full_name: newFullName, username: newUsername };
+            prof = { ...prof, full_name: newFullName, username: newUsername, avatar_url: newAvatarUrl };
           }
         }
       }

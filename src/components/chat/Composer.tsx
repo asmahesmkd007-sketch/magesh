@@ -34,7 +34,7 @@ export function Composer({
   }
 
   const submit = () => {
-    const content = text.trim();
+    const content = text.trim().slice(0, 200);
     if (!content) return;
     send.mutate(
       { channelId, content, replyToId: replyTo?.id ?? null },
@@ -86,28 +86,44 @@ export function Composer({
               />
             )}
           </div>
-          <textarea
-            ref={inputRef}
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              const now = Date.now();
-              if (user && now - lastTypingSent.current > 2000) {
-                lastTypingSent.current = now;
-                sendTyping((user.user_metadata?.full_name as string) || user.email || "Someone");
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                submit();
-              }
-            }}
-            placeholder="Message…"
-            rows={1}
-            maxLength={2000}
-            className="max-h-32 flex-1 resize-none rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2.5 text-sm outline-none placeholder:text-muted-foreground focus:border-gold/40"
-          />
+          <div className="relative flex-1">
+            <textarea
+              ref={inputRef}
+              value={text}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val.length <= 200) {
+                  setText(val);
+                } else {
+                  setText(val.slice(0, 200));
+                }
+                const now = Date.now();
+                if (user && now - lastTypingSent.current > 2000) {
+                  lastTypingSent.current = now;
+                  sendTyping((user.user_metadata?.full_name as string) || user.email || "Someone");
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  submit();
+                }
+              }}
+              placeholder="Message…"
+              rows={1}
+              maxLength={200}
+              className="max-h-32 w-full resize-none rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2.5 text-sm outline-none placeholder:text-muted-foreground focus:border-gold/40"
+            />
+            {text.length > 140 && (
+              <span
+                className={`absolute right-3 bottom-2 text-[10px] font-mono ${
+                  text.length >= 200 ? "text-red-400 font-bold" : "text-gold/70"
+                }`}
+              >
+                {text.length}/200
+              </span>
+            )}
+          </div>
           <button
             type="button"
             onClick={submit}

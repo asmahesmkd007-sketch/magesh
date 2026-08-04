@@ -127,3 +127,35 @@ export function passwordStrength(password: string): PasswordStrength {
   ];
   return table[score as 0 | 1 | 2 | 3 | 4];
 }
+
+// ── Three-tier meter (Weak / Medium / Strong) ────────────────────────
+
+export type PasswordTier = {
+  /** 0 Weak · 1 Medium · 2 Strong — usable as a segment count. */
+  level: 0 | 1 | 2;
+  label: "Weak" | "Medium" | "Strong";
+  barClass: string;
+  textClass: string;
+};
+
+/** A password below this length is capped at "Medium" however varied. */
+const STRONG_MIN_LENGTH = 12;
+
+/**
+ * The coarse Weak / Medium / Strong meter used on the create-password
+ * screens. Scored from PASSWORD_RULES, so "Strong" is unreachable
+ * without meeting the policy in full — the meter can never contradict
+ * the checklist sitting next to it.
+ */
+export function passwordTier(password: string): PasswordTier {
+  const met = PASSWORD_RULES.filter((rule) => rule.test(password)).length;
+  const all = met === PASSWORD_RULES.length;
+
+  if (all && password.length >= STRONG_MIN_LENGTH) {
+    return { level: 2, label: "Strong", barClass: "bg-emerald-500", textClass: "text-emerald-400" };
+  }
+  if (all || (met >= PASSWORD_RULES.length - 1 && password.length >= PASSWORD_MIN_LENGTH)) {
+    return { level: 1, label: "Medium", barClass: "bg-amber-500", textClass: "text-amber-400" };
+  }
+  return { level: 0, label: "Weak", barClass: "bg-red-500", textClass: "text-red-400" };
+}

@@ -1,7 +1,8 @@
 import { Crown, Shield, User, Loader2, ShieldAlert } from "lucide-react";
 import type { ClanRole } from "@/types/clan";
 import { gradientFromSlug } from "@/lib/clan";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useResolvedAvatarUrl } from "@/components/site/UserAvatar";
 
 /** Square clan emblem: logo image or gradient monogram fallback. */
 export function ClanEmblem({
@@ -15,9 +16,17 @@ export function ClanEmblem({
   logoUrl: string | null;
   className?: string;
 }) {
-  if (logoUrl) {
+  const [hasError, setHasError] = useState(false);
+  useEffect(() => setHasError(false), [logoUrl]);
+
+  if (logoUrl && !hasError) {
     return (
-      <img src={logoUrl} alt={name} className={`${className} object-cover bg-black/50 shrink-0`} />
+      <img
+        src={logoUrl}
+        alt={name}
+        className={`${className} object-cover bg-black/50 shrink-0`}
+        onError={() => setHasError(true)}
+      />
     );
   }
   return (
@@ -29,7 +38,7 @@ export function ClanEmblem({
   );
 }
 
-/** Circular member avatar with monogram fallback. */
+/** Circular member avatar with image fallback. */
 export function MemberAvatar({
   username,
   avatarUrl,
@@ -39,15 +48,25 @@ export function MemberAvatar({
   avatarUrl: string | null | undefined;
   className?: string;
 }) {
-  if (avatarUrl) {
+  const [hasError, setHasError] = useState(false);
+  const primaryUrl = useResolvedAvatarUrl(avatarUrl);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [primaryUrl]);
+
+  if (primaryUrl && !hasError) {
     return (
       <img
-        src={avatarUrl}
-        alt=""
+        src={primaryUrl}
+        alt={username ?? "Member"}
         className={`${className} rounded-full object-cover bg-white/5 shrink-0`}
+        referrerPolicy="no-referrer"
+        onError={() => setHasError(true)}
       />
     );
   }
+
   return (
     <div
       className={`${className} grid place-items-center rounded-full bg-white/5 font-display text-gold shrink-0`}

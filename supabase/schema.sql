@@ -607,7 +607,12 @@ BEGIN
   END LOOP;
 
   INSERT INTO public.profiles (id, username, full_name, avatar_url)
-  VALUES (NEW.id, v_username, v_full_name, NEW.raw_user_meta_data->>'avatar_url');
+  VALUES (
+    NEW.id,
+    v_username,
+    v_full_name,
+    COALESCE(NEW.raw_user_meta_data->>'avatar_url', NEW.raw_user_meta_data->>'picture')
+  );
 
   INSERT INTO public.user_roles (user_id, role) VALUES (NEW.id, 'user');
 
@@ -22530,3 +22535,138 @@ CREATE INDEX IF NOT EXISTS idx_games_active_time_class
 DROP FUNCTION IF EXISTS public.get_dynamic_leaderboard(text, text, text, text, text, integer, integer);
 DROP FUNCTION IF EXISTS public.get_dynamic_leaderboard(text, text, text, text, text, text, boolean, integer, integer);
 DROP VIEW IF EXISTS public.leaderboard_view CASCADE;
+
+-- =====================================================================
+-- SECTION 202: STORAGE BUCKETS & PUBLIC POLICIES (Avatars & Banners)
+-- =====================================================================
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true),
+       ('banners', 'banners', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Public SELECT policies on storage.objects so avatars & banners are readable by all users
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'storage' AND tablename = 'objects') THEN
+    EXECUTE 'DROP POLICY IF EXISTS "Public Access to Avatars" ON storage.objects';
+    EXECUTE 'CREATE POLICY "Public Access to Avatars" ON storage.objects FOR SELECT USING (bucket_id = ''avatars'')';
+
+    EXECUTE 'DROP POLICY IF EXISTS "Authenticated User Avatar Upload" ON storage.objects';
+    EXECUTE 'CREATE POLICY "Authenticated User Avatar Upload" ON storage.objects FOR INSERT WITH CHECK (bucket_id = ''avatars'' AND auth.uid() IS NOT NULL)';
+
+    EXECUTE 'DROP POLICY IF EXISTS "Public Access to Banners" ON storage.objects';
+    EXECUTE 'CREATE POLICY "Public Access to Banners" ON storage.objects FOR SELECT USING (bucket_id = ''banners'')';
+
+    EXECUTE 'DROP POLICY IF EXISTS "Authenticated User Banner Upload" ON storage.objects';
+    EXECUTE 'CREATE POLICY "Authenticated User Banner Upload" ON storage.objects FOR INSERT WITH CHECK (bucket_id = ''banners'' AND auth.uid() IS NOT NULL)';
+  END IF;
+END $$;
+
+
+-- =====================================================================
+-- SECTION 203: ONBOARDING — country code + a way to record completion
+-- ---------------------------------------------------------------------
+-- Two gaps the production onboarding form ran into:
+--
+--  1. Only the country NAME was stored. Names change (Swaziland ->
+--     Eswatini, Turkey -> Türkiye) and cannot be matched against an ISO
+--     list reliably, so the selector could not re-select what the player
+--     had already saved. `country_code` is the stable key; `country`
+--     stays as the display name every existing read path uses.
+--
+--  2. `user_accounts.profile_completed` is server-owned: SECTION 105.2
+--     grants the client SELECT only, and 105.7 additionally reverts any
+--     client-side write to the identity columns. The onboarding page was
+--     upserting that row directly from the browser, which RLS rejected —
+--     silently, because the client never inspected the returned error.
+--     Onboarding therefore never actually recorded completion. The
+--     SECURITY DEFINER function below is the supported path: it can only
+--     ever touch the CALLER's own row, and only the three columns that
+--     onboarding legitimately owns.
+-- =====================================================================
+
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS country_code TEXT DEFAULT '';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS city TEXT DEFAULT '';
+
+CREATE INDEX IF NOT EXISTS idx_profiles_country_code
+  ON public.profiles (country_code) WHERE country_code <> '';
+
+-- Marks onboarding finished for the calling user. Returns true when a
+-- row was updated. Cannot be pointed at anyone else: the WHERE clause is
+-- auth.uid(), not a parameter.
+CREATE OR REPLACE FUNCTION public.complete_onboarding(
+  p_timezone TEXT DEFAULT NULL,
+  p_language TEXT DEFAULT NULL
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_email TEXT;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'not authenticated';
+  END IF;
+
+  UPDATE public.user_accounts SET
+    profile_completed  = true,
+    timezone           = COALESCE(NULLIF(p_timezone, ''), timezone),
+    preferred_language = COALESCE(NULLIF(p_language, ''), preferred_language),
+    updated_at         = now()
+  WHERE id = v_uid;
+
+  IF FOUND THEN
+    RETURN true;
+  END IF;
+
+  -- No mirror row yet (an account created before SECTION 105, or one
+  -- whose trigger insert was rolled back). Create it from auth.users
+  -- rather than trusting anything the client sent.
+  SELECT email INTO v_email FROM auth.users WHERE id = v_uid;
+  IF v_email IS NULL THEN
+    RETURN false;
+  END IF;
+
+  INSERT INTO public.user_accounts (
+    id, email, provider, email_verified, password_created,
+    profile_completed, timezone, preferred_language
+  )
+  SELECT
+    u.id,
+    u.email,
+    CASE
+      WHEN EXISTS (SELECT 1 FROM auth.identities i
+                    WHERE i.user_id = u.id AND i.provider = 'google')
+       AND NOT EXISTS (SELECT 1 FROM auth.identities i
+                    WHERE i.user_id = u.id AND i.provider = 'email')
+      THEN 'google' ELSE 'email'
+    END,
+    u.email_confirmed_at IS NOT NULL,
+    u.encrypted_password IS NOT NULL AND u.encrypted_password <> '',
+    true,
+    NULLIF(p_timezone, ''),
+    NULLIF(p_language, '')
+  FROM auth.users u
+  WHERE u.id = v_uid
+  -- The existing row is referenced by the table's bare name here; a
+  -- schema-qualified form is not what ON CONFLICT DO UPDATE expects.
+  ON CONFLICT (id) DO UPDATE SET
+    profile_completed  = true,
+    timezone           = COALESCE(EXCLUDED.timezone, user_accounts.timezone),
+    preferred_language = COALESCE(EXCLUDED.preferred_language, user_accounts.preferred_language),
+    updated_at         = now();
+
+  RETURN true;
+END; $fn$;
+
+REVOKE ALL ON FUNCTION public.complete_onboarding(TEXT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.complete_onboarding(TEXT, TEXT) TO authenticated, service_role;
+
+-- Verification — both rows should read 'ok'.
+SELECT
+  CASE WHEN EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'country_code'
+  ) THEN 'ok' ELSE 'MISSING' END                          AS profiles_country_code,
+  CASE WHEN to_regproc('public.complete_onboarding') IS NOT NULL
+       THEN 'ok' ELSE 'MISSING' END                       AS complete_onboarding;

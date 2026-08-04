@@ -71,6 +71,11 @@ export function JoinRoomModal({
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">Room ID</label>
             <input
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-lpignore="true"
               value={roomId}
               onChange={(e) => {
                 setRoomId(e.target.value);
@@ -86,6 +91,10 @@ export function JoinRoomModal({
               <label className="mb-1 block text-xs text-muted-foreground">Password</label>
               <input
                 type="password"
+                autoComplete="new-password"
+                autoCorrect="off"
+                autoCapitalize="off"
+                data-lpignore="true"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);

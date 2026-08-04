@@ -103,6 +103,14 @@ function Search() {
         <SearchIcon className="ml-2 h-5 w-5 text-muted-foreground" />
         <input
           autoFocus
+          type="search"
+          name="site_global_search"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          data-lpignore="true"
+          data-form-type="other"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           className="flex-1 bg-transparent px-2 py-2 text-base outline-none"

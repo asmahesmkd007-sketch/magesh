@@ -88,22 +88,42 @@ export function useChannelRealtime(channelId: string | undefined) {
   const queryClient = useQueryClient();
   useEffect(() => {
     if (!channelId) return;
+
     const ch = supabase
-      .channel(`chat:${channelId}`)
+      .channel(`chat_realtime:${channelId}`)
+      .on("broadcast", { event: "new_message" }, ({ payload }) => {
+        if (!payload || !payload.id) return;
+        const msg = payload as ChatMessage;
+        queryClient.setQueryData<{ pages: ChatMessage[][]; pageParams: unknown[] }>(
+          ["chat_feed", channelId],
+          (old) => {
+            if (!old) return old;
+            const exists = old.pages.some((page) => page.some((m) => m.id === msg.id));
+            if (exists) return old;
+            return {
+              ...old,
+              pages: [[msg, ...old.pages[0]], ...old.pages.slice(1)],
+            };
+          },
+        );
+      })
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "chat_messages",
-          filter: `channel_id=eq.${channelId}`,
         },
-        () => queryClient.invalidateQueries({ queryKey: ["chat_feed", channelId] }),
+        () => {
+          queryClient.refetchQueries({ queryKey: ["chat_feed", channelId] });
+          queryClient.refetchQueries({ queryKey: ["chat_my_channels"] });
+        },
       )
-      .on("postgres_changes", { event: "*", schema: "public", table: "chat_reactions" }, () =>
-        queryClient.invalidateQueries({ queryKey: ["chat_feed", channelId] }),
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "chat_reactions" }, () => {
+        queryClient.refetchQueries({ queryKey: ["chat_feed", channelId] });
+      })
       .subscribe();
+
     return () => {
       supabase.removeChannel(ch);
     };
@@ -209,9 +229,22 @@ export function useChatActions() {
     onSuccess: (msg, { channelId }) => {
       queryClient.setQueryData<{ pages: ChatMessage[][]; pageParams: unknown[] }>(
         ["chat_feed", channelId],
-        (old) => (old ? { ...old, pages: [[msg, ...old.pages[0]], ...old.pages.slice(1)] } : old),
+        (old) => {
+          if (!old) return old;
+          const exists = old.pages.some((page) => page.some((m) => m.id === msg.id));
+          if (exists) return old;
+          return { ...old, pages: [[msg, ...old.pages[0]], ...old.pages.slice(1)] };
+        },
       );
-      queryClient.invalidateQueries({ queryKey: ["chat_my_channels"] });
+      queryClient.refetchQueries({ queryKey: ["chat_my_channels"] });
+
+      // Broadcast to all connected clients for instant message delivery
+      const bch = supabase.channel(`chat_realtime:${channelId}`);
+      bch.send({
+        type: "broadcast",
+        event: "new_message",
+        payload: msg,
+      });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to send message"),
   });

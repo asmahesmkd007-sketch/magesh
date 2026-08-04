@@ -5,6 +5,7 @@ import { Loader2, MessageCircle, Pin, Search, X } from "lucide-react";
 import { useChannelFeed, useChannelRealtime, usePinnedMessages } from "@/hooks/useChat";
 import * as api from "@/lib/api/chatClient";
 import type { ChatMessage } from "@/lib/api/chatClient";
+import { getSenderDisplayName } from "@/lib/api/chatClient";
 import { MessageBubble } from "./MessageBubble";
 
 export function MessageList({
@@ -110,7 +111,7 @@ export function MessageList({
         <div className="max-h-40 space-y-1 overflow-y-auto border-b border-white/10 bg-gold/[0.03] p-2">
           {pinned.map((m) => (
             <div key={m.id} className="rounded-lg px-2 py-1 text-xs">
-              <span className="text-gold">{m.author.full_name}:</span> {m.content}
+              <span className="text-gold font-semibold">{getSenderDisplayName(m.author)}:</span> {m.content}
             </div>
           ))}
         </div>
@@ -124,9 +125,21 @@ export function MessageList({
                 No messages match "{query}".
               </p>
             ) : (
-              results.map((m) => (
-                <MessageBubble key={m.id} message={m} isStaff={isStaff} onReply={onReply} />
-              ))
+              results.map((m, idx) => {
+                const isGrouped =
+                  idx > 0 &&
+                  results[idx - 1].user_id === m.user_id &&
+                  new Date(m.created_at).getTime() - new Date(results[idx - 1].created_at).getTime() < 300000;
+                return (
+                  <MessageBubble
+                    key={m.id}
+                    message={m}
+                    isStaff={isStaff}
+                    onReply={onReply}
+                    isGrouped={isGrouped}
+                  />
+                );
+              })
             )}
           </div>
         ) : isLoading ? (
@@ -147,9 +160,21 @@ export function MessageList({
               </div>
             )}
             <div className="space-y-0.5">
-              {messages.map((m) => (
-                <MessageBubble key={m.id} message={m} isStaff={isStaff} onReply={onReply} />
-              ))}
+              {messages.map((m, idx) => {
+                const isGrouped =
+                  idx > 0 &&
+                  messages[idx - 1].user_id === m.user_id &&
+                  new Date(m.created_at).getTime() - new Date(messages[idx - 1].created_at).getTime() < 300000;
+                return (
+                  <MessageBubble
+                    key={m.id}
+                    message={m}
+                    isStaff={isStaff}
+                    onReply={onReply}
+                    isGrouped={isGrouped}
+                  />
+                );
+              })}
             </div>
             <div ref={bottomRef} />
           </>

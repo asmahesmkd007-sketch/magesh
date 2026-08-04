@@ -141,6 +141,10 @@ export function CreateRoomModal({
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">Room name *</label>
             <input
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              data-lpignore="true"
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={60}
@@ -151,6 +155,10 @@ export function CreateRoomModal({
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">Room ID *</label>
             <input
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              data-lpignore="true"
               value={roomId}
               onChange={(e) => {
                 setRoomIdTouched(true);

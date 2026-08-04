@@ -5,6 +5,19 @@ import { useAuth } from "@/hooks/useAuth";
 import { getChatMessages, sendChatMessage, deleteChatMessage, markChatRead } from "@/lib/clanApi";
 import { MemberAvatar, PanelEmpty } from "@/components/clan/ClanPrimitives";
 import type { ClanChatMessage, ClanRole } from "@/types/clan";
+import { getSenderDisplayName } from "@/lib/api/chatClient";
+import { UserAvatar } from "@/components/site/UserAvatar";
+
+function relTime(iso?: string) {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+}
 
 interface Props {
   clanId: string;
@@ -172,7 +185,7 @@ export function ChatPanel({ clanId, myRole }: Props) {
             No messages yet. Be the first to say hello!
           </div>
         ) : (
-          messages.map((msg) => {
+          messages.map((msg, idx) => {
             if (msg.content_type === "system") {
               return (
                 <div key={msg.id} className="flex justify-center">
@@ -185,35 +198,50 @@ export function ChatPanel({ clanId, myRole }: Props) {
             const isMe = msg.sender_id === user?.id;
             const canDelete = isMe || myRole === "leader" || myRole === "co_leader";
             const quoted = msg.reply_to ? messageById.get(msg.reply_to) : null;
+            const displayName = getSenderDisplayName(msg.profiles);
+            const isGrouped =
+              idx > 0 &&
+              messages[idx - 1].sender_id === msg.sender_id &&
+              messages[idx - 1].content_type !== "system" &&
+              new Date(msg.created_at).getTime() - new Date(messages[idx - 1].created_at).getTime() < 300000;
+
             return (
               <div
                 key={msg.id}
-                className={`flex max-w-[80%] gap-3 ${isMe ? "ml-auto flex-row-reverse" : ""}`}
+                className={`flex max-w-[85%] gap-2.5 ${isMe ? "ml-auto flex-row-reverse" : ""}`}
               >
-                {!isMe && (
-                  <MemberAvatar
-                    username={msg.profiles?.username}
+                {!isGrouped ? (
+                  <UserAvatar
+                    displayName={displayName}
                     avatarUrl={msg.profiles?.avatar_url}
-                    className="h-8 w-8 text-xs"
+                    size="sm"
+                    className="shrink-0"
                   />
+                ) : (
+                  <div className="w-8 shrink-0" />
                 )}
                 <div className={`group flex flex-col ${isMe ? "items-end" : "items-start"}`}>
-                  {!isMe && (
-                    <span className="mb-1 ml-1 text-xs text-muted-foreground">
-                      {msg.profiles?.username}
-                    </span>
+                  {!isGrouped && (
+                    <div className="mb-1 flex items-baseline gap-2 px-1">
+                      <span className="text-xs font-semibold text-white">
+                        {displayName}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {relTime(msg.created_at)}
+                      </span>
+                    </div>
                   )}
                   {quoted && (
                     <div
                       className={`mb-1 max-w-full truncate rounded-lg border-l-2 border-gold/50 bg-black/20 px-2 py-1 text-[11px] text-muted-foreground ${isMe ? "text-right" : ""}`}
                     >
-                      {quoted.profiles?.username ?? "Someone"}:{" "}
+                      {getSenderDisplayName(quoted.profiles)}:{" "}
                       {quoted.content_type === "system" ? quoted.content : quoted.content}
                     </div>
                   )}
                   <div className={`flex items-center gap-2 ${isMe ? "flex-row-reverse" : ""}`}>
                     <div
-                      className={`rounded-2xl px-4 py-2 text-sm ${isMe ? "rounded-tr-sm bg-gold text-black" : "rounded-tl-sm bg-white/10 text-white"}`}
+                      className={`rounded-2xl px-4 py-2 text-sm ${isMe ? "rounded-tr-sm bg-gold text-black font-medium" : "rounded-tl-sm bg-white/10 text-white"}`}
                     >
                       {msg.content}
                     </div>
@@ -271,9 +299,9 @@ export function ChatPanel({ clanId, myRole }: Props) {
           className="flex-1 rounded-full border border-white/10 bg-black/40 px-4 py-2.5 text-sm text-white outline-none transition-colors focus:border-gold/50 placeholder:text-muted-foreground"
           placeholder="Send a message to your clan..."
           value={input}
-          maxLength={2000}
+          maxLength={200}
           onChange={(e) => {
-            setInput(e.target.value);
+            setInput(e.target.value.slice(0, 200));
             notifyTyping();
           }}
         />

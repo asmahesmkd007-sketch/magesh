@@ -203,7 +203,14 @@ function ClansPage() {
         <div className="relative flex-1 group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-gold transition-colors" />
           <input
-            type="text"
+            type="search"
+            name="clan_search_no_autofill"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            data-lpignore="true"
+            data-form-type="other"
             placeholder="Search by clan name or tag..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}

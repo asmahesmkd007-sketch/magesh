@@ -34,6 +34,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet, useWalletTransactions } from "@/hooks/useWallet";
 import { useBankDetails } from "@/hooks/useBankDetails";
+import { lookupIfsc, isValidIfscFormat, type IfscDetails } from "@/lib/ifsc";
 import { useWithdrawalRequests, submitWithdrawal, cancelWithdrawal } from "@/hooks/useWithdrawal";
 import type { TransactionType } from "@/lib/api/walletClient";
 import type { WithdrawalRequest } from "@/hooks/useWithdrawal";
@@ -178,7 +179,6 @@ function MaskedAccountInput({
 }
 
 // ── Bank Setup Modal ──────────────────────────────────────────────────
-type IfscDetails = { BANK: string; BRANCH: string; ADDRESS: string };
 
 function BankSetupModal({ onSuccess }: { onSuccess: () => void }) {
   const { user } = useAuth();
@@ -192,6 +192,7 @@ function BankSetupModal({ onSuccess }: { onSuccess: () => void }) {
   const [ifscDetails, setIfscDetails] = useState<IfscDetails | null>(null);
   const [isVerifyingIfsc, setIsVerifyingIfsc] = useState(false);
   const [ifscError, setIfscError] = useState("");
+  const [isOfflineOrError, setIsOfflineOrError] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const accountsMatch = accountNumber && confirmAccount && accountNumber === confirmAccount;
@@ -200,25 +201,40 @@ function BankSetupModal({ onSuccess }: { onSuccess: () => void }) {
 
   useEffect(() => {
     const code = ifsc.trim().toUpperCase();
-    if (code.length !== 11) {
+    if (!code || code.length < 11) {
       setIfscDetails(null);
       setIfscError("");
+      setIsOfflineOrError(false);
       return;
     }
+
+    if (!isValidIfscFormat(code)) {
+      setIfscDetails(null);
+      setIfscError("Invalid IFSC Code. Format must be 4 letters, '0', and 6 alphanumeric characters.");
+      setIsOfflineOrError(false);
+      return;
+    }
+
     const id = setTimeout(async () => {
       setIsVerifyingIfsc(true);
       setIfscError("");
-      try {
-        const res = await fetch(`https://ifsc.razorpay.com/${code}`);
-        if (!res.ok) throw new Error("Invalid IFSC");
-        setIfscDetails(await res.json());
-      } catch {
+      setIsOfflineOrError(false);
+
+      const res = await lookupIfsc(code);
+
+      if (res.success) {
+        setIfscDetails(res.details);
+        setIfscError("");
+        setIsOfflineOrError(false);
+      } else {
         setIfscDetails(null);
-        setIfscError("Invalid IFSC Code. Please check and try again.");
-      } finally {
-        setIsVerifyingIfsc(false);
+        setIfscError(res.error);
+        setIsOfflineOrError(!!res.isOfflineOrError);
       }
-    }, 500);
+
+      setIsVerifyingIfsc(false);
+    }, 350);
+
     return () => clearTimeout(id);
   }, [ifsc]);
 
@@ -346,14 +362,20 @@ function BankSetupModal({ onSuccess }: { onSuccess: () => void }) {
                   )}
                 </div>
                 {ifscError && (
-                  <div className="flex items-center gap-1.5 text-xs text-rose-400">
-                    <XCircle className="h-3.5 w-3.5" /> {ifscError}
+                  <div className={`flex items-center gap-1.5 text-xs ${isOfflineOrError ? "text-amber-400" : "text-rose-400"}`}>
+                    {isOfflineOrError ? <AlertCircle className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />} {ifscError}
                   </div>
                 )}
                 {ifscDetails && !isVerifyingIfsc && (
-                  <div className="flex items-center gap-1.5 text-xs text-emerald-400">
-                    <ShieldCheck className="h-3.5 w-3.5" /> {ifscDetails.BANK} —{" "}
-                    {ifscDetails.BRANCH}
+                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2.5 text-xs text-emerald-400 space-y-1">
+                    <div className="flex items-center gap-1.5 font-semibold">
+                      <ShieldCheck className="h-3.5 w-3.5 shrink-0" /> {ifscDetails.BANK} — {ifscDetails.BRANCH}
+                    </div>
+                    {(ifscDetails.CITY || ifscDetails.STATE) && (
+                      <div className="text-[11px] text-emerald-300/80 pl-5">
+                        {[ifscDetails.CITY, ifscDetails.STATE].filter(Boolean).join(", ")}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

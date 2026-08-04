@@ -187,6 +187,9 @@ function RoomCard({ room, isPrivate }: { room: ChatChannel; isPrivate: boolean }
           {isPrivate && (
             <input
               type="password"
+              name="room_card_secret_pass"
+              autoComplete="new-password"
+              data-lpignore="true"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
@@ -268,6 +271,12 @@ export function PublicRoomsList() {
 
   return (
     <div className="space-y-3">
+      {/* Trap inputs to prevent Chrome autofill from targeting search fields */}
+      <div className="hidden" aria-hidden="true">
+        <input type="text" name="fake_username_trap" tabIndex={-1} autoComplete="username" defaultValue="" />
+        <input type="password" name="fake_password_trap" tabIndex={-1} autoComplete="current-password" defaultValue="" />
+      </div>
+
       <RoomToolbar
         mode="public"
         onCreate={() => setCreating(true)}
@@ -276,6 +285,16 @@ export function PublicRoomsList() {
       <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-3 py-2">
         <Search className="h-3.5 w-3.5 text-muted-foreground" />
         <input
+          type="search"
+          name="public_room_search_filter_query"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          data-lpignore="true"
+          data-form-type="other"
+          readOnly
+          onFocus={(e) => e.target.removeAttribute("readonly")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by room name or ID…"
@@ -313,6 +332,12 @@ export function PrivateRoomsList() {
 
   return (
     <div className="space-y-3">
+      {/* Trap inputs to prevent Chrome autofill from targeting search fields */}
+      <div className="hidden" aria-hidden="true">
+        <input type="text" name="fake_username_trap" tabIndex={-1} autoComplete="username" defaultValue="" />
+        <input type="password" name="fake_password_trap" tabIndex={-1} autoComplete="current-password" defaultValue="" />
+      </div>
+
       <RoomToolbar
         mode="private"
         onCreate={() => setCreating(true)}
@@ -321,6 +346,16 @@ export function PrivateRoomsList() {
       <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-3 py-2">
         <Search className="h-3.5 w-3.5 text-muted-foreground" />
         <input
+          type="search"
+          name="private_room_search_filter_query"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          data-lpignore="true"
+          data-form-type="other"
+          readOnly
+          onFocus={(e) => e.target.removeAttribute("readonly")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by room name or ID…"

@@ -33,9 +33,30 @@ export type ChannelRole = "owner" | "moderator" | "member";
 export type ChatUserLite = {
   id: string;
   username: string;
-  full_name: string;
+  display_name?: string | null;
+  full_name?: string | null;
   avatar_url: string | null;
 };
+
+/**
+ * Returns sender's display name according to fallback hierarchy:
+ * 1. profile.full_name
+ * 2. profile.display_name
+ * 3. profile.username
+ * 4. "Unknown Player"
+ */
+export function getSenderDisplayName(
+  user?: {
+    display_name?: string | null;
+    full_name?: string | null;
+    username?: string | null;
+  } | null,
+): string {
+  if (user?.full_name && user.full_name.trim()) return user.full_name.trim();
+  if (user?.display_name && user.display_name.trim()) return user.display_name.trim();
+  if (user?.username && user.username.trim()) return user.username.trim();
+  return "Unknown Player";
+}
 
 export type ChatChannel = {
   id: string;
@@ -607,9 +628,10 @@ export const sendMessage = async (
   replyToId?: string | null,
 ) => {
   const resolved = await resolveChannelId(channelId);
+  const cleanContent = content.trim().slice(0, 200);
   return rpc<ChatMessage>("chat_send_message", {
     p_channel: resolved,
-    p_content: content,
+    p_content: cleanContent,
     p_reply_to: replyToId ?? null,
   });
 };

@@ -10,6 +10,7 @@ import { FriendButton } from "@/components/friends/FriendButton";
 import { useAuth } from "@/hooks/useAuth";
 import { useChatActions } from "@/hooks/useChat";
 import type { ChatMessage } from "@/lib/api/chatClient";
+import { getSenderDisplayName } from "@/lib/api/chatClient";
 import { EmojiPicker } from "./EmojiPicker";
 import { ReportDialog } from "./ReportDialog";
 
@@ -49,10 +50,12 @@ export function MessageBubble({
   message,
   isStaff,
   onReply,
+  isGrouped = false,
 }: {
   message: ChatMessage;
   isStaff: boolean;
   onReply: (msg: ChatMessage) => void;
+  isGrouped?: boolean;
 }) {
   const { user } = useAuth();
   const actions = useChatActions();
@@ -61,35 +64,48 @@ export function MessageBubble({
   const [reporting, setReporting] = useState(false);
   const isOwn = user?.id === message.user_id;
 
+  const displayName = getSenderDisplayName(message.author);
+  const username = message.author?.username || "unknown";
+
   return (
-    <div className="group flex gap-2.5 rounded-xl px-2 py-1.5 hover:bg-white/[0.03]">
-      <Link to="/u/$username" params={{ username: message.author.username }} className="shrink-0">
-        <UserAvatar
-          avatarUrl={message.author.avatar_url}
-          displayName={message.author.full_name}
-          size="sm"
-        />
-      </Link>
+    <div
+      className={`group flex gap-2.5 rounded-xl px-2 hover:bg-white/[0.03] ${
+        isGrouped ? "py-0.5" : "py-1.5"
+      }`}
+    >
+      {!isGrouped ? (
+        <Link to="/u/$username" params={{ username }} className="shrink-0">
+          <UserAvatar
+            avatarUrl={message.author?.avatar_url}
+            displayName={displayName}
+            size="sm"
+          />
+        </Link>
+      ) : (
+        <div className="w-8 shrink-0" />
+      )}
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <Link
-            to="/u/$username"
-            params={{ username: message.author.username }}
-            className="text-sm font-medium hover:underline"
-          >
-            {message.author.full_name}
-          </Link>
-          <span className="text-[11px] text-muted-foreground">{relTime(message.created_at)}</span>
-          {message.is_pinned && <Pin className="h-3 w-3 text-gold" />}
-          {!isOwn && (
-            <FriendButton
-              targetUserId={message.user_id}
-              targetName={message.author.full_name}
-              className="h-5 w-5"
-              compact
-            />
-          )}
-        </div>
+        {!isGrouped && (
+          <div className="flex items-baseline gap-2">
+            <Link
+              to="/u/$username"
+              params={{ username }}
+              className="text-sm font-semibold hover:underline text-foreground"
+            >
+              {displayName}
+            </Link>
+            <span className="text-[11px] text-muted-foreground">{relTime(message.created_at)}</span>
+            {message.is_pinned && <Pin className="h-3 w-3 text-gold" />}
+            {!isOwn && (
+              <FriendButton
+                targetUserId={message.user_id}
+                targetName={displayName}
+                className="h-5 w-5"
+                compact
+              />
+            )}
+          </div>
+        )}
         {message.reply_to && (
           <div className="mt-0.5 truncate border-l-2 border-gold/30 pl-2 text-xs text-muted-foreground">
             {message.reply_to.author_name}: {message.reply_to.content}
@@ -97,6 +113,11 @@ export function MessageBubble({
         )}
         <div className="mt-0.5 text-[15px] leading-snug">
           <RichContent text={message.content} />
+          {isGrouped && (
+            <span className="ml-2 text-[10px] text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+              {relTime(message.created_at)}
+            </span>
+          )}
         </div>
         {message.reactions && message.reactions.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-1">

@@ -15,6 +15,7 @@ import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Prim
 import { useAuth } from "@/hooks/useAuth";
 import { useBankDetails } from "@/hooks/useBankDetails";
 import { noindexSeo } from "@/lib/seo";
+import { lookupIfsc, isValidIfscFormat, type IfscDetails } from "@/lib/ifsc";
 
 export const Route = createFileRoute("/wallet/bank")({
   head: () =>
@@ -25,14 +26,6 @@ export const Route = createFileRoute("/wallet/bank")({
     ),
   component: BankDetailsPage,
 });
-
-type IfscDetails = {
-  BANK: string;
-  BRANCH: string;
-  ADDRESS: string;
-  STATE: string;
-  DISTRICT: string;
-};
 
 // Custom input that masks all but last 4 characters using a transparent input overlay trick
 function MaskedAccountInput({
@@ -80,6 +73,7 @@ function BankDetailsPage() {
   const [ifscDetails, setIfscDetails] = useState<IfscDetails | null>(null);
   const [isVerifyingIfsc, setIsVerifyingIfsc] = useState(false);
   const [ifscError, setIfscError] = useState("");
+  const [isOfflineOrError, setIsOfflineOrError] = useState(false);
 
   // Submission state
   const [isSaving, setIsSaving] = useState(false);
@@ -100,45 +94,62 @@ function BankDetailsPage() {
         BANK: bankAccount.bank_name,
         BRANCH: bankAccount.branch_name,
         ADDRESS: bankAccount.branch_address,
+        CITY: "",
         STATE: "",
-        DISTRICT: "",
+        IFSC: bankAccount.ifsc_code,
       });
-      // We don't pre-fill account number, they must enter it again to update
     }
   }, [bankAccount]);
 
-  // Debounced IFSC Lookup
+  // Debounced IFSC Lookup (350ms)
   useEffect(() => {
     const code = ifsc.trim().toUpperCase();
-    if (code.length !== 11) {
+
+    if (!code) {
       setIfscDetails(null);
       setIfscError("");
+      setIsOfflineOrError(false);
       return;
     }
 
-    // Skip fetch if it's already the saved one
-    if (bankAccount && code === bankAccount.ifsc_code && !ifscDetails?.STATE) {
-      // It's the loaded one, keep it as is unless they change it
+    if (code.length < 11) {
+      setIfscDetails(null);
+      setIfscError("");
+      setIsOfflineOrError(false);
+      return;
+    }
+
+    if (!isValidIfscFormat(code)) {
+      setIfscDetails(null);
+      setIfscError("Invalid IFSC Code. Format must be 4 letters, '0', and 6 alphanumeric characters.");
+      setIsOfflineOrError(false);
+      return;
+    }
+
+    // Skip fetch if it's already pre-filled from saved bank account
+    if (bankAccount && code === bankAccount.ifsc_code && ifscDetails?.BANK) {
       return;
     }
 
     const timeoutId = setTimeout(async () => {
       setIsVerifyingIfsc(true);
       setIfscError("");
-      try {
-        const res = await fetch(`https://ifsc.razorpay.com/${code}`);
-        if (!res.ok) {
-          throw new Error("Invalid IFSC Code");
-        }
-        const data = await res.json();
-        setIfscDetails(data);
-      } catch (err) {
+      setIsOfflineOrError(false);
+
+      const res = await lookupIfsc(code);
+
+      if (res.success) {
+        setIfscDetails(res.details);
+        setIfscError("");
+        setIsOfflineOrError(false);
+      } else {
         setIfscDetails(null);
-        setIfscError("Invalid IFSC Code. Please check and try again.");
-      } finally {
-        setIsVerifyingIfsc(false);
+        setIfscError(res.error);
+        setIsOfflineOrError(!!res.isOfflineOrError);
       }
-    }, 500);
+
+      setIsVerifyingIfsc(false);
+    }, 350);
 
     return () => clearTimeout(timeoutId);
   }, [ifsc, bankAccount]);
@@ -286,8 +297,8 @@ function BankDetailsPage() {
                     )}
                   </div>
                   {ifscError && (
-                    <div className="flex items-center gap-1.5 text-xs text-rose-400">
-                      <XCircle className="h-3.5 w-3.5" /> {ifscError}
+                    <div className={`flex items-center gap-1.5 text-xs ${isOfflineOrError ? "text-amber-400" : "text-rose-400"}`}>
+                      {isOfflineOrError ? <AlertCircle className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />} {ifscError}
                     </div>
                   )}
                   {ifscDetails && !isVerifyingIfsc && (
@@ -374,17 +385,31 @@ function BankDetailsPage() {
             {ifscDetails ? (
               <div className="space-y-3 text-sm">
                 <div>
-                  <div className="text-xs text-muted-foreground mb-0.5">Bank</div>
-                  <div className="font-medium">{ifscDetails.BANK}</div>
+                  <div className="text-xs text-muted-foreground mb-0.5">Bank Name</div>
+                  <div className="font-medium text-foreground">{ifscDetails.BANK}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground mb-0.5">Branch</div>
-                  <div className="font-medium">{ifscDetails.BRANCH}</div>
+                  <div className="font-medium text-foreground">{ifscDetails.BRANCH}</div>
                 </div>
-                <div>
-                  <div className="text-xs text-muted-foreground mb-0.5">Address</div>
-                  <div className="text-muted-foreground leading-relaxed">{ifscDetails.ADDRESS}</div>
-                </div>
+                {ifscDetails.CITY && (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-0.5">City</div>
+                    <div className="font-medium text-foreground">{ifscDetails.CITY}</div>
+                  </div>
+                )}
+                {ifscDetails.STATE && (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-0.5">State</div>
+                    <div className="font-medium text-foreground">{ifscDetails.STATE}</div>
+                  </div>
+                )}
+                {ifscDetails.ADDRESS && (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-0.5">Address</div>
+                    <div className="text-muted-foreground text-xs leading-relaxed">{ifscDetails.ADDRESS}</div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-sm text-muted-foreground flex flex-col items-center justify-center py-6 text-center opacity-60">

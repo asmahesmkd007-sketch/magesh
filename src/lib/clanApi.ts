@@ -229,7 +229,7 @@ export async function getChatMessages(clanId: string): Promise<ClanChatMessage[]
   const { data, error } = await clanDb
     .from("clan_messages")
     .select(
-      "id,sender_id,content,content_type,reply_to,created_at,profiles:sender_id(username,avatar_url)",
+      "id,sender_id,content,content_type,reply_to,created_at,profiles:sender_id(username,display_name,full_name,avatar_url)",
     )
     .eq("clan_id", clanId)
     .is("deleted_at", null)

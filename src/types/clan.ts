@@ -73,7 +73,12 @@ export type ClanChatMessage = {
   content_type: "text" | "system";
   reply_to: string | null;
   created_at: string;
-  profiles?: { username: string; avatar_url: string | null } | null;
+  profiles?: {
+    username: string;
+    display_name?: string | null;
+    full_name?: string | null;
+    avatar_url: string | null;
+  } | null;
 };
 
 export type ClanWarStatus = "pending" | "accepted" | "active" | "finished";

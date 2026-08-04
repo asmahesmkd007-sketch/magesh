@@ -28,6 +28,7 @@ import { FriendButton } from "@/components/friends/FriendButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameSettings } from "@/hooks/useGameSettings";
+import { getSenderDisplayName } from "@/lib/api/chatClient";
 import { playGameSound, soundForChessMove } from "@/lib/audio/sounds";
 import { buzz } from "@/lib/haptics";
 // Only matchmaking remains an HTTP RPC — joining a seat is a Supabase
@@ -153,11 +154,19 @@ function LiveGame() {
   }, [moves.length]);
 
   const [whiteProfile, setWhiteProfile] = useState<{
+    id?: string;
+    username?: string;
+    display_name?: string | null;
+    full_name?: string | null;
     premium_active?: boolean;
     premium_expires_at?: string | null;
     avatar_url?: string | null;
   } | null>(null);
   const [blackProfile, setBlackProfile] = useState<{
+    id?: string;
+    username?: string;
+    display_name?: string | null;
+    full_name?: string | null;
     premium_active?: boolean;
     premium_expires_at?: string | null;
     avatar_url?: string | null;
@@ -344,7 +353,7 @@ function LiveGame() {
     let active = true;
     void supabase
       .from("profiles")
-      .select("id, premium_active, premium_expires_at, avatar_url")
+      .select("id, username, display_name, full_name, premium_active, premium_expires_at, avatar_url")
       .in("id", pids)
       .then(({ data: profs }) => {
         if (!active || !profs) return;
@@ -1377,24 +1386,73 @@ function LiveGame() {
                             No chat messages yet. Say hello!
                           </div>
                         ) : (
-                          chat.map((msg) => {
+                          chat.map((msg, idx) => {
                             const isMe = msg.user_id === user?.id;
+                            const profile =
+                              msg.user_id === whiteId
+                                ? whiteProfile
+                                : msg.user_id === blackId
+                                  ? blackProfile
+                                  : null;
+                            const displayName = getSenderDisplayName(
+                              profile ?? { username: msg.username },
+                            );
+                            const avatarUrl = profile?.avatar_url;
+                            const isGrouped =
+                              idx > 0 &&
+                              chat[idx - 1].user_id === msg.user_id &&
+                              new Date(msg.created_at).getTime() -
+                                new Date(chat[idx - 1].created_at).getTime() <
+                                300000;
+                            const timeStr = msg.created_at
+                              ? new Date(msg.created_at).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : "";
                             return (
                               <div
                                 key={msg.id}
-                                className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
+                                className={`flex max-w-[85%] gap-2 ${
+                                  isMe ? "ml-auto flex-row-reverse" : ""
+                                }`}
                               >
-                                <div className="text-[10px] text-muted-foreground mb-0.5 px-1">
-                                  {msg.username}
-                                </div>
+                                {!isGrouped ? (
+                                  <UserAvatar
+                                    displayName={displayName}
+                                    avatarUrl={avatarUrl}
+                                    size="xs"
+                                    className="shrink-0 mt-0.5"
+                                  />
+                                ) : (
+                                  <div className="w-7 shrink-0" />
+                                )}
                                 <div
-                                  className={`rounded-2xl px-3 py-1.5 text-xs max-w-[85%] break-words ${
-                                    isMe
-                                      ? "bg-gradient-to-r from-amber-500 to-gold text-[#0B0D10] font-medium"
-                                      : "bg-white/10 text-foreground border border-white/10"
+                                  className={`group flex flex-col ${
+                                    isMe ? "items-end" : "items-start"
                                   }`}
                                 >
-                                  {msg.body}
+                                  {!isGrouped && (
+                                    <div className="mb-0.5 flex items-baseline gap-1.5 px-1">
+                                      <span className="text-[11px] font-semibold text-foreground">
+                                        {displayName}
+                                      </span>
+                                      {timeStr && (
+                                        <span className="text-[9px] text-muted-foreground">
+                                          {timeStr}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                  <div
+                                    className={`rounded-2xl px-3 py-1.5 text-xs break-words ${
+                                      isMe
+                                        ? "bg-gradient-to-r from-amber-500 to-gold text-[#0B0D10] font-medium"
+                                        : "bg-white/10 text-foreground border border-white/10"
+                                    }`}
+                                  >
+                                    {msg.body}
+                                  </div>
                                 </div>
                               </div>
                             );
@@ -1428,8 +1486,9 @@ function LiveGame() {
                           <input
                             type="text"
                             value={chatInput}
-                            onChange={(e) => setChatInput(e.target.value)}
+                            onChange={(e) => setChatInput(e.target.value.slice(0, 200))}
                             placeholder="Type a message..."
+                            maxLength={200}
                             className="flex-1 bg-black/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-gold/50"
                           />
                           <button
@@ -1745,24 +1804,73 @@ function LiveGame() {
                         No chat messages yet. Say hello!
                       </div>
                     ) : (
-                      chat.map((msg) => {
+                      chat.map((msg, idx) => {
                         const isMe = msg.user_id === user?.id;
+                        const profile =
+                          msg.user_id === whiteId
+                            ? whiteProfile
+                            : msg.user_id === blackId
+                              ? blackProfile
+                              : null;
+                        const displayName = getSenderDisplayName(
+                          profile ?? { username: msg.username },
+                        );
+                        const avatarUrl = profile?.avatar_url;
+                        const isGrouped =
+                          idx > 0 &&
+                          chat[idx - 1].user_id === msg.user_id &&
+                          new Date(msg.created_at).getTime() -
+                            new Date(chat[idx - 1].created_at).getTime() <
+                            300000;
+                        const timeStr = msg.created_at
+                          ? new Date(msg.created_at).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "";
                         return (
                           <div
                             key={msg.id}
-                            className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
+                            className={`flex max-w-[85%] gap-2 ${
+                              isMe ? "ml-auto flex-row-reverse" : ""
+                            }`}
                           >
-                            <div className="text-[10px] text-muted-foreground mb-0.5">
-                              {msg.username}
-                            </div>
+                            {!isGrouped ? (
+                              <UserAvatar
+                                displayName={displayName}
+                                avatarUrl={avatarUrl}
+                                size="xs"
+                                className="shrink-0 mt-0.5"
+                              />
+                            ) : (
+                              <div className="w-7 shrink-0" />
+                            )}
                             <div
-                              className={`rounded-xl px-3 py-1.5 max-w-[85%] break-words ${
-                                isMe
-                                  ? "bg-gold text-[#0B0D10] font-medium"
-                                  : "bg-white/10 text-foreground border border-white/10"
+                              className={`group flex flex-col ${
+                                isMe ? "items-end" : "items-start"
                               }`}
                             >
-                              {msg.body}
+                              {!isGrouped && (
+                                <div className="mb-0.5 flex items-baseline gap-1.5 px-1">
+                                  <span className="text-[11px] font-semibold text-foreground">
+                                    {displayName}
+                                  </span>
+                                  {timeStr && (
+                                    <span className="text-[9px] text-muted-foreground">
+                                      {timeStr}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              <div
+                                className={`rounded-xl px-3 py-1.5 max-w-[85%] break-words ${
+                                  isMe
+                                    ? "bg-gold text-[#0B0D10] font-medium"
+                                    : "bg-white/10 text-foreground border border-white/10"
+                                }`}
+                              >
+                                {msg.body}
+                              </div>
                             </div>
                           </div>
                         );
@@ -1796,8 +1904,9 @@ function LiveGame() {
                       <input
                         type="text"
                         value={chatInput}
-                        onChange={(e) => setChatInput(e.target.value)}
+                        onChange={(e) => setChatInput(e.target.value.slice(0, 200))}
                         placeholder="Type a message..."
+                        maxLength={200}
                         className="flex-1 bg-black/50 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-gold/50"
                       />
                       <button

@@ -20,7 +20,16 @@ import { USERNAME_REGEX } from "@/lib/auth/password";
 import heroRegal from "@/assets/hero-regal.jpg";
 import { noindexSeo } from "@/lib/seo";
 
+type AuthSearch = {
+  redirect?: string;
+  mode?: "signin" | "signup";
+};
+
 export const Route = createFileRoute("/auth")({
+  validateSearch: (search: Record<string, unknown>): AuthSearch => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+    mode: search.mode === "signup" ? "signup" : search.mode === "signin" ? "signin" : undefined,
+  }),
   head: () =>
     noindexSeo(
       "Sign In or Create a Free Account — ChessOx",
@@ -49,8 +58,18 @@ function friendlyAuthError(e: unknown): string {
   return msg;
 }
 
+function getSafeTarget(target?: string): string {
+  if (target && target.startsWith("/") && !target.startsWith("//")) {
+    return target;
+  }
+  return "/home";
+}
+
 function AuthPage() {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const search = Route.useSearch();
+  const targetPath = getSafeTarget(search.redirect);
+
+  const [mode, setMode] = useState<"signin" | "signup">(search.mode ?? "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
@@ -60,16 +79,25 @@ function AuthPage() {
   const navigate = useNavigate();
   const router = useRouter();
 
+  // Sync mode if search param changes
+  useEffect(() => {
+    if (search.mode && search.mode !== mode) {
+      setMode(search.mode);
+    }
+  }, [search.mode, mode]);
+
   // ---- Registration: email verification link (signup only) -----------------
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [resendIn, setResendIn] = useState(0);
   const [resendBusy, setResendBusy] = useState(false);
   const [resendNote, setResendNote] = useState<string | null>(null);
 
-  // Already authenticated — check profile completion
+  // Already authenticated — redirect to targetPath or /home
   useEffect(() => {
-    if (session) navigate({ to: "/home" });
-  }, [session, navigate]);
+    if (session) {
+      navigate({ to: targetPath });
+    }
+  }, [session, navigate, targetPath]);
 
   // Countdown ticker for the resend cooldown.
   useEffect(() => {
@@ -127,7 +155,7 @@ function AuthPage() {
       });
       if (error) throw error;
       router.invalidate();
-      navigate({ to: "/home" });
+      navigate({ to: targetPath });
     } catch (e) {
       setError(friendlyAuthError(e));
     } finally {
@@ -139,10 +167,14 @@ function AuthPage() {
     setError(null);
     setBusy(true);
     try {
+      const redirectUrl =
+        window.location.origin +
+        "/auth" +
+        (search.redirect ? `?redirect=${encodeURIComponent(search.redirect)}` : "");
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: window.location.origin + "/auth",
+          redirectTo: redirectUrl,
         },
       });
       if (error) throw error;

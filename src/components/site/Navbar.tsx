@@ -185,10 +185,8 @@ export function Navbar() {
               return (
                 <Link
                   key={n.to}
-                  // Always link to the real public page. These three pages render
-                  // fine for signed-out visitors (each gates its own actions), and
-                  // MobileNav already links straight to them.
-                  to={n.to}
+                  to="/login"
+                  search={{ redirect: n.to }}
                   className={`rounded-full px-4 py-2 text-sm transition-colors ${
                     active
                       ? "border border-gold/30 bg-gold/10 text-gold"
@@ -313,13 +311,13 @@ export function Navbar() {
           ) : (
             <>
               <Link
-                to="/auth"
+                to="/login"
                 className="rounded-full border border-gold/30 px-4 py-2 text-sm font-medium text-gold hover:bg-gold/10"
               >
                 Sign in
               </Link>
               <Link
-                to="/auth"
+                to="/signup"
                 className="rounded-full gradient-gold px-4 py-2 text-sm font-medium text-background"
               >
                 Sign up
@@ -544,28 +542,32 @@ export function Navbar() {
               /* GUEST VIEW */
               <>
                 <Link
-                  to="/watch"
+                  to="/login"
+                  search={{ redirect: "/watch" }}
                   onClick={() => setMobileOpen(false)}
                   className="rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
                 >
                   Watch
                 </Link>
                 <Link
-                  to="/community"
+                  to="/login"
+                  search={{ redirect: "/community" }}
                   onClick={() => setMobileOpen(false)}
                   className="rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
                 >
                   Community
                 </Link>
                 <Link
-                  to="/news"
+                  to="/login"
+                  search={{ redirect: "/news" }}
                   onClick={() => setMobileOpen(false)}
                   className="rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
                 >
                   News
                 </Link>
                 <Link
-                  to="/tournaments"
+                  to="/login"
+                  search={{ redirect: "/tournaments" }}
                   onClick={() => setMobileOpen(false)}
                   className="rounded-xl border border-gold/15 bg-white/[0.03] px-4 py-3 text-sm text-foreground"
                 >
@@ -573,14 +575,14 @@ export function Navbar() {
                 </Link>
                 <div className="grid grid-cols-2 gap-2 pt-2">
                   <Link
-                    to="/auth"
+                    to="/login"
                     onClick={() => setMobileOpen(false)}
                     className="rounded-xl border border-gold/30 px-3 py-3 text-center text-sm font-medium text-gold"
                   >
                     Sign in
                   </Link>
                   <Link
-                    to="/auth"
+                    to="/signup"
                     onClick={() => setMobileOpen(false)}
                     className="rounded-xl gradient-gold px-3 py-3 text-center text-sm font-medium text-background"
                   >

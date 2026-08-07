@@ -105,7 +105,8 @@ function LandingPage() {
             <div className="mt-10 flex flex-wrap items-center gap-4 sm:gap-6">
               {/* PLAY NOW emerald plate */}
               <Link
-                to="/play"
+                to={user ? "/play" : "/login"}
+                search={user ? undefined : { redirect: "/play" }}
                 className="group relative inline-flex h-[58px] items-center justify-center"
                 aria-label="Play chess online"
               >
@@ -120,7 +121,8 @@ function LandingPage() {
 
               {/* Join Community CTA */}
               <Link
-                to="/community"
+                to={user ? "/community" : "/login"}
+                search={user ? undefined : { redirect: "/community" }}
                 className="group relative inline-flex h-[58px] items-center justify-center"
               >
                 <span className="absolute inset-0 rounded-[14px] bg-gold/10" />
@@ -133,7 +135,7 @@ function LandingPage() {
               {!user && (
                 <div className="flex w-full flex-wrap items-center gap-4 sm:w-auto sm:gap-6 pt-2 sm:pt-0">
                   <Link
-                    to="/auth"
+                    to="/signup"
                     className="group inline-flex items-center gap-2 font-display text-sm uppercase tracking-[0.2em] text-gold/80 hover:text-gold sm:text-base"
                   >
                     <span className="border-b border-transparent pb-0.5 group-hover:border-gold">
@@ -142,7 +144,7 @@ function LandingPage() {
                   </Link>
 
                   <Link
-                    to="/auth"
+                    to="/login"
                     className="group inline-flex items-center gap-2 font-display text-sm uppercase tracking-[0.2em] text-gold/80 hover:text-gold sm:text-base"
                   >
                     <span className="border-b border-transparent pb-0.5 group-hover:border-gold">
@@ -170,7 +172,8 @@ function LandingPage() {
             Featured Tournaments
           </h2>
           <Link
-            to="/tournaments"
+            to={user ? "/tournaments" : "/login"}
+            search={user ? undefined : { redirect: "/tournaments" }}
             className="text-xs uppercase tracking-[0.24em] text-gold/70 hover:text-gold"
           >
             View all →
@@ -199,7 +202,8 @@ function LandingPage() {
                   Coin entry · top 3 share the pool
                 </div>
                 <Link
-                  to="/auth"
+                  to={user ? "/tournaments" : "/login"}
+                  search={user ? undefined : { redirect: "/tournaments" }}
                   className="mt-4 grid h-9 place-items-center rounded-md border border-gold/30 bg-gold/10 text-[11px] uppercase tracking-[0.24em] text-gold hover:bg-gold/20"
                 >
                   Join Now

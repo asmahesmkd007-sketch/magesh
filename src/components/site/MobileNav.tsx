@@ -22,25 +22,27 @@ const AUTH_ITEMS = [
   { to: "/profile", label: "Profile", icon: User },
 ] as const;
 
-const GUEST_ITEMS = [
-  { to: "/", label: "Home", icon: Home },
-  { to: "/community", label: "Community", icon: Users },
-  { to: "/news", label: "News", icon: Newspaper },
-  { to: "/tournaments", label: "Tourneys", icon: Trophy },
-  { to: "/auth", label: "Sign in", icon: LogIn },
-] as const;
+type GuestItem = {
+  to: string;
+  target: string;
+  redirect?: string;
+  label: string;
+  icon: typeof Home;
+};
+
+const GUEST_ITEMS: readonly GuestItem[] = [
+  { to: "/", target: "/", label: "Home", icon: Home },
+  { to: "/community", target: "/login", redirect: "/community", label: "Community", icon: Users },
+  { to: "/news", target: "/login", redirect: "/news", label: "News", icon: Newspaper },
+  { to: "/tournaments", target: "/login", redirect: "/tournaments", label: "Tourneys", icon: Trophy },
+  { to: "/login", target: "/login", label: "Sign in", icon: LogIn },
+];
 
 export function MobileNav() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { user } = useAuth();
   const navRef = useRef<HTMLElement>(null);
 
-  // Publish this bar's real height so full-height panes (chat) can subtract it
-  // instead of guessing. The height is not a constant: signed-in renders six
-  // columns instead of five, so a long label like "How To Use" wraps to a
-  // second line at 320px and the bar grows. A hardcoded token drifts silently
-  // and the bar starts covering the message composer. `lg:hidden` makes this
-  // measure 0 at lg, which is also the correct value there.
   useEffect(() => {
     const el = navRef.current;
     if (!el) return;
@@ -55,32 +57,54 @@ export function MobileNav() {
     };
   }, [user]);
 
-  const ITEMS = user ? AUTH_ITEMS : GUEST_ITEMS;
   return (
     <nav
       ref={navRef}
       className="fixed inset-x-0 bottom-0 z-50 border-t border-gold/12 bg-background/88 backdrop-blur-xl lg:hidden"
     >
       <ul className={`mx-auto grid max-w-md px-2 py-1 ${user ? "grid-cols-6" : "grid-cols-5"}`}>
-        {ITEMS.map((item) => {
-          const active = item.to === "/" ? path === "/" : path.startsWith(item.to);
-          const Icon = item.icon;
-          return (
-            <li key={item.label}>
-              <Link
-                to={item.to}
-                className={`flex flex-col items-center gap-1 rounded-xl py-2 text-[10px] ${active ? "text-gold" : "text-muted-foreground"}`}
-              >
-                <span
-                  className={`grid h-8 w-8 place-items-center rounded-full ${active ? "bg-gold/12" : "bg-white/[0.03]"}`}
+        {user ? (
+          AUTH_ITEMS.map((item) => {
+            const active = path.startsWith(item.to);
+            const Icon = item.icon;
+            return (
+              <li key={item.label}>
+                <Link
+                  to={item.to}
+                  className={`flex flex-col items-center gap-1 rounded-xl py-2 text-[10px] ${active ? "text-gold" : "text-muted-foreground"}`}
                 >
-                  <Icon className="h-4 w-4" />
-                </span>
-                {item.label}
-              </Link>
-            </li>
-          );
-        })}
+                  <span
+                    className={`grid h-8 w-8 place-items-center rounded-full ${active ? "bg-gold/12" : "bg-white/[0.03]"}`}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  {item.label}
+                </Link>
+              </li>
+            );
+          })
+        ) : (
+          GUEST_ITEMS.map((item) => {
+            const active = item.to === "/" ? path === "/" : path.startsWith(item.to);
+            const Icon = item.icon;
+            return (
+              <li key={item.label}>
+                <Link
+                  to={item.target}
+                  search={item.redirect ? { redirect: item.redirect } : undefined}
+                  className={`flex flex-col items-center gap-1 rounded-xl py-2 text-[10px] ${active ? "text-gold" : "text-muted-foreground"}`}
+                >
+                  <span
+                    className={`grid h-8 w-8 place-items-center rounded-full ${active ? "bg-gold/12" : "bg-white/[0.03]"}`}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  {item.label}
+                </Link>
+              </li>
+            );
+          })
+        )}
       </ul>
     </nav>
   );

@@ -41,6 +41,8 @@ import { playGameSound } from "@/lib/audio/sounds";
 import { PASSWORD_RULES } from "@/lib/auth/password";
 import { noindexSeo } from "@/lib/seo";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
+
 export const Route = createFileRoute("/settings")({
   head: () =>
     noindexSeo(
@@ -48,7 +50,11 @@ export const Route = createFileRoute("/settings")({
       "Manage your ChessOx account, board and piece themes, sound, and gameplay preferences.",
       "noindex, nofollow",
     ),
-  component: Settings,
+  component: () => (
+    <RequireAuth>
+      <Settings />
+    </RequireAuth>
+  ),
 });
 
 const TABS = ["Profile", "Game Settings", "Security", "Bank Account"] as const;

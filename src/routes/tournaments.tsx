@@ -21,6 +21,8 @@ import { ensureTournamentSlots, joinTournamentPaid } from "@/lib/api/walletClien
 import { toast } from "sonner";
 import { seo, breadcrumbLd, collectionPageLd } from "@/lib/seo";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
+
 export const Route = createFileRoute("/tournaments")({
   head: () =>
     seo({
@@ -50,7 +52,11 @@ export const Route = createFileRoute("/tournaments")({
         ]),
       ],
     }),
-  component: Tournaments,
+  component: () => (
+    <RequireAuth>
+      <Tournaments />
+    </RequireAuth>
+  ),
 });
 
 type Tournament = {

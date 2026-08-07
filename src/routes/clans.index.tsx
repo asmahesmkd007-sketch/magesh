@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import type { ClanSummary } from "@/types/clan";
 import { seo, breadcrumbLd, collectionPageLd } from "@/lib/seo";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
+
 export const Route = createFileRoute("/clans/")({
   head: () =>
     seo({
@@ -39,7 +41,11 @@ export const Route = createFileRoute("/clans/")({
         ]),
       ],
     }),
-  component: ClansPage,
+  component: () => (
+    <RequireAuth>
+      <ClansPage />
+    </RequireAuth>
+  ),
 });
 
 const PAGE_SIZE = 24;

@@ -18,6 +18,7 @@ import { useLiveGames } from "@/hooks/useLiveGames";
 import { TIME_CLASS_LABEL } from "@/lib/spectator/delay";
 import type { LiveGameSort, TimeClass } from "@/lib/spectator/types";
 import { seo } from "@/lib/seo";
+import { RequireAuth } from "@/components/auth/RequireAuth";
 
 export const Route = createFileRoute("/watch/")({
   head: () =>
@@ -35,7 +36,11 @@ export const Route = createFileRoute("/watch/")({
       ],
       path: "/watch",
     }),
-  component: WatchIndex,
+  component: () => (
+    <RequireAuth>
+      <WatchIndex />
+    </RequireAuth>
+  ),
 });
 
 const TIME_CLASSES: TimeClass[] = ["bullet", "blitz", "rapid", "classical"];

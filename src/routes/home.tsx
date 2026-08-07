@@ -30,6 +30,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { StreakCard } from "@/components/site/StreakCard";
 import { noindexSeo } from "@/lib/seo";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
+
 export const Route = createFileRoute("/home")({
   // Personalised dashboard — kept out of the index, but crawlers still follow
   // its links through to the public play, puzzle and tournament pages.
@@ -38,7 +40,11 @@ export const Route = createFileRoute("/home")({
       "Your Chess Dashboard — ChessOx",
       "Your ChessOx dashboard: ratings, recent games, daily streak and quick links to play chess online, solve puzzles and enter tournaments.",
     ),
-  component: HomePage,
+  component: () => (
+    <RequireAuth>
+      <HomePage />
+    </RequireAuth>
+  ),
 });
 
 type RatingRow = {

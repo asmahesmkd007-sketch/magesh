@@ -32,13 +32,19 @@ import { ChallengeModal } from "@/components/friends/ChallengeModal";
 import type { FriendRow } from "@/types/friend";
 import { noindexSeo } from "@/lib/seo";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
+
 export const Route = createFileRoute("/friends")({
   head: () =>
     noindexSeo(
       "Chess Friends — ChessOx",
       "Manage your chess friends on ChessOx: friend requests, challenges and club invites.",
     ),
-  component: FriendsPage,
+  component: () => (
+    <RequireAuth>
+      <FriendsPage />
+    </RequireAuth>
+  ),
 });
 
 type SectionKey = "friends" | "requests" | "challenges" | "clan-invites" | "add";

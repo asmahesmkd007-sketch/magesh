@@ -30,11 +30,17 @@ import { openingLabel } from "@/lib/spectator/openings";
 import { computeLiveStats } from "@/lib/spectator/stats";
 import { noindexSeo } from "@/lib/seo";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
+
 export const Route = createFileRoute("/watch/$id")({
   // Individual live games are transient and player-owned; they should not
   // be indexed, only linked.
   head: () => noindexSeo("Watch Live Chess — ChessOx", "Spectate a live chess game on ChessOx."),
-  component: WatchGame,
+  component: () => (
+    <RequireAuth>
+      <WatchGame />
+    </RequireAuth>
+  ),
 });
 
 function WatchGame() {

@@ -44,6 +44,8 @@ import { ActivityPanel } from "@/components/clan/ActivityPanel";
 import type { Clan, ClanAward, ClanMember, ClanRole } from "@/types/clan";
 import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
+
 export const Route = createFileRoute("/clan/$slug")({
   head: ({ params }) => {
     const path = `/clan/${params.slug}`;
@@ -67,7 +69,11 @@ export const Route = createFileRoute("/clan/$slug")({
       ],
     });
   },
-  component: ClanDashboard,
+  component: () => (
+    <RequireAuth>
+      <ClanDashboard />
+    </RequireAuth>
+  ),
 });
 
 type Tab = "home" | "members" | "chat" | "wars" | "activity" | "settings";

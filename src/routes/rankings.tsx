@@ -9,6 +9,8 @@ import { SeasonRules } from "@/components/ranking/SeasonRules";
 import { useAuth, useProfile } from "@/hooks/useAuth";
 import { seo, breadcrumbLd, collectionPageLd } from "@/lib/seo";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
+
 export const Route = createFileRoute("/rankings")({
   head: () =>
     seo({
@@ -38,7 +40,11 @@ export const Route = createFileRoute("/rankings")({
         ]),
       ],
     }),
-  component: Rankings,
+  component: () => (
+    <RequireAuth>
+      <Rankings />
+    </RequireAuth>
+  ),
 });
 
 type Tab = "boards" | "hall" | "rules";

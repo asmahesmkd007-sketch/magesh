@@ -53,13 +53,19 @@ import {
 import { ConnectionBadge, Countdown, StatusBadge } from "@/components/tournament/bits";
 import { noindexSeo } from "@/lib/seo";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
+
 export const Route = createFileRoute("/arena/$id")({
   head: () =>
     noindexSeo(
       "Tournament Arena — ChessOx",
       "The live arena for an online chess tournament on ChessOx.",
     ),
-  component: ArenaPage,
+  component: () => (
+    <RequireAuth>
+      <ArenaPage />
+    </RequireAuth>
+  ),
 });
 
 // =====================================================================

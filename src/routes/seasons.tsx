@@ -47,6 +47,8 @@ import {
 import { SeasonShield } from "@/components/ranking/SeasonShield";
 import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
+
 export const Route = createFileRoute("/seasons")({
   head: () =>
     seo({
@@ -75,7 +77,11 @@ export const Route = createFileRoute("/seasons")({
         ]),
       ],
     }),
-  component: SeasonsPage,
+  component: () => (
+    <RequireAuth>
+      <SeasonsPage />
+    </RequireAuth>
+  ),
 });
 
 // =====================================================================

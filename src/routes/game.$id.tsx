@@ -68,9 +68,15 @@ import {
 } from "lucide-react";
 import { noindexSeo } from "@/lib/seo";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
+
 export const Route = createFileRoute("/game/$id")({
   head: () => noindexSeo("Live Chess Game — ChessOx", "A live online chess game on ChessOx."),
-  component: LiveGame,
+  component: () => (
+    <RequireAuth>
+      <LiveGame />
+    </RequireAuth>
+  ),
 });
 
 type GameRow = {

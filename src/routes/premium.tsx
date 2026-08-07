@@ -15,6 +15,8 @@ import { creditPremiumBonus } from "@/lib/api/walletClient";
 import { toast } from "sonner";
 import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
+
 export const Route = createFileRoute("/premium")({
   head: () =>
     seo({
@@ -43,7 +45,11 @@ export const Route = createFileRoute("/premium")({
         ]),
       ],
     }),
-  component: Premium,
+  component: () => (
+    <RequireAuth>
+      <Premium />
+    </RequireAuth>
+  ),
 });
 
 // Coin amounts granted per plan (base). Server adds +10 bonus on top.

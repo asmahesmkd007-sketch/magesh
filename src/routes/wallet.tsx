@@ -40,6 +40,8 @@ import type { TransactionType } from "@/lib/api/walletClient";
 import type { WithdrawalRequest } from "@/hooks/useWithdrawal";
 import { noindexSeo } from "@/lib/seo";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
+
 export const Route = createFileRoute("/wallet")({
   head: () =>
     noindexSeo(
@@ -47,7 +49,11 @@ export const Route = createFileRoute("/wallet")({
       "Your ChessOx wallet, withdrawals, and transaction history.",
       "noindex, nofollow",
     ),
-  component: WalletPage,
+  component: () => (
+    <RequireAuth>
+      <WalletPage />
+    </RequireAuth>
+  ),
 });
 
 // ── Transaction filter types ─────────────────────────────────────────

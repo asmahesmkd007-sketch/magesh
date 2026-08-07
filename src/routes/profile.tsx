@@ -45,6 +45,8 @@ const SEASON_REWARD_LABEL: Record<string, string> = {
   top_100: "🥉 Top 100",
 };
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
+
 export const Route = createFileRoute("/profile")({
   head: () =>
     noindexSeo(
@@ -55,7 +57,11 @@ export const Route = createFileRoute("/profile")({
   validateSearch: (search: Record<string, unknown>) => ({
     id: typeof search.id === "string" ? search.id : undefined,
   }),
-  component: ProfilePage,
+  component: () => (
+    <RequireAuth>
+      <ProfilePage />
+    </RequireAuth>
+  ),
 });
 
 type Rating = {

@@ -1,4 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
+import { useAuth } from "@/hooks/useAuth";
 
 // Social media icon components — inline SVGs for zero extra dependencies
 function IconFacebook({ className }: { className?: string }) {
@@ -71,7 +72,8 @@ const SOCIAL_LINKS = [
 
 export function Footer() {
   const location = useLocation();
-  const isLandingOrAuthPage = location.pathname === "/" || location.pathname === "/auth";
+  const { user } = useAuth();
+  const isLandingOrAuthPage = location.pathname === "/" || location.pathname === "/auth" || location.pathname === "/login" || location.pathname === "/signup";
 
   return (
     <footer className="mt-12 border-t border-gold/12 bg-[linear-gradient(180deg,rgba(32,8,8,0.8),rgba(16,4,4,0.95))]">
@@ -120,16 +122,72 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Nav link groups or Big Watermark on landing page/auth */}
-        {isLandingOrAuthPage && (
+        {/* Public Footer (Logged out) */}
+        {!user ? (
+          <>
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.24em] text-gold/75">About</div>
+              <ul className="mt-2.5 space-y-1.5 text-xs text-foreground/85">
+                <li>
+                  <Link to="/about" className="transition-colors hover:text-gold">
+                    About Us
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/about-chess" className="transition-colors hover:text-gold">
+                    About Chess
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/editorial-team" className="transition-colors hover:text-gold">
+                    Editorial Team
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.24em] text-gold/75">Support</div>
+              <ul className="mt-2.5 space-y-1.5 text-xs text-foreground/85">
+                <li>
+                  <Link to="/contact-grievance-policy" className="transition-colors hover:text-gold">
+                    Contact & Grievance
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/feedback" className="transition-colors hover:text-gold">
+                    Feedback
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.24em] text-gold/75">Policies</div>
+              <ul className="mt-2.5 space-y-1.5 text-xs text-foreground/85">
+                <li>
+                  <Link to="/privacy-policy" className="transition-colors hover:text-gold">
+                    Privacy Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/terms-and-conditions" className="transition-colors hover:text-gold">
+                    Terms & Conditions
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/fair-play-anti-cheating-policy" className="transition-colors hover:text-gold">
+                    Fair Play Policy
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </>
+        ) : isLandingOrAuthPage ? (
           <div className="hidden md:flex md:col-span-3 flex-col items-center justify-center opacity-10 pointer-events-none select-none">
             <div className="font-display text-[5rem] lg:text-[7rem] leading-none tracking-[0.15em] text-gold text-center whitespace-nowrap">
               CHESSOX
             </div>
           </div>
-        )}
-
-        {!isLandingOrAuthPage &&
+        ) : (
           [
             {
               title: "Platform",
@@ -175,7 +233,8 @@ export function Footer() {
                 ))}
               </ul>
             </div>
-          ))}
+          ))
+        )}
       </div>
 
       {/* Policies */}

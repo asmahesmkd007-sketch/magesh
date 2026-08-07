@@ -37,13 +37,19 @@ import { ACHIEVEMENT_LABELS, fetchFollowList, fetchUserComments } from "@/lib/ap
 import type { CommunityUserLite } from "@/lib/api/communityClient";
 import { noindexSeo } from "@/lib/seo";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
+
 export const Route = createFileRoute("/u/$username")({
   head: ({ params }) =>
     noindexSeo(
       `@${params.username} — Chess Player Profile | ChessOx`,
       `The ChessOx profile of @${params.username}: chess ratings, results, achievements and recent games.`,
     ),
-  component: PublicProfile,
+  component: () => (
+    <RequireAuth>
+      <PublicProfile />
+    </RequireAuth>
+  ),
 });
 
 type Tab = "posts" | "media" | "comments" | "achievements";

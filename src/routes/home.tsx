@@ -228,19 +228,19 @@ function HomePage() {
       </div>
 
       {/* Live Ratings */}
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {[
           { cls: "blitz", icon: Zap },
           { cls: "rapid", icon: Timer },
           { cls: "bullet", icon: Rocket },
           { cls: "classical", icon: Hourglass },
         ].map(({ cls, icon: Icon }) => (
-          <Card key={cls} className="p-5">
+          <Card key={cls} className="p-4 sm:p-5">
             <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground capitalize">
               <Icon className="h-4 w-4 text-gold/70" />
               {cls}
             </div>
-            <div className="mt-2 font-display text-3xl text-gradient-gold">
+            <div className="mt-2 font-display text-2xl sm:text-3xl text-gradient-gold">
               {statsLoading ? (
                 <span className="inline-block h-8 w-20 animate-pulse rounded bg-gold/10" />
               ) : (
@@ -253,7 +253,7 @@ function HomePage() {
 
       {/* Quick Actions */}
       <SectionTitle kicker="Begin" title="Quick Actions" />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {[
           { icon: Users, t: "Quick Match", d: "Find an opponent", to: "/play" as const },
           { icon: Swords, t: "Play Friend", d: "Challenge by link", to: "/play/friend" as const },
@@ -266,12 +266,12 @@ function HomePage() {
           { icon: Brain, t: "Analysis", d: "Review your game", to: "/analysis" as const },
         ].map((a) => (
           <Link to={a.to} key={a.t}>
-            <Card className="p-5 transition-transform hover:-translate-y-1 cursor-pointer">
+            <Card className="p-4 sm:p-5 h-full transition-transform hover:-translate-y-1 cursor-pointer">
               <div className="grid h-10 w-10 place-items-center rounded-lg gradient-gold text-[#0B0D10]">
                 <a.icon className="h-5 w-5" />
               </div>
-              <div className="mt-3 font-display text-lg">{a.t}</div>
-              <div className="text-sm text-muted-foreground">{a.d}</div>
+              <div className="mt-3 font-display text-base sm:text-lg">{a.t}</div>
+              <div className="text-xs sm:text-sm text-muted-foreground">{a.d}</div>
             </Card>
           </Link>
         ))}

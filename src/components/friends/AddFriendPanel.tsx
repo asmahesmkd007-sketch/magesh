@@ -13,6 +13,7 @@ import {
 import { Card, GoldButton } from "@/components/site/Primitives";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
+import { SeasonShield } from "@/components/ranking/SeasonShield";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { SearchProfile } from "@/types/friend";
@@ -270,14 +271,13 @@ export function AddFriendPanel({
               premiumExpiresAt={p.premium_expires_at}
             />
           </div>
-          <div className="text-xs text-muted-foreground">
-            @{p.username}
-            {typeof p.rating === "number" && <> · {p.rating} rating</>}
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <span>@{p.username}</span>
+            <SeasonShield sp={p.season_points ?? p.rating ?? 0} size="xs" variant="chip" />
             {!!p.mutual_count && (
-              <>
-                {" "}
+              <span>
                 · {p.mutual_count} mutual friend{p.mutual_count === 1 ? "" : "s"}
-              </>
+              </span>
             )}
           </div>
         </div>

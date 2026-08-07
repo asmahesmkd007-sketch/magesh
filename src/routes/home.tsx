@@ -160,7 +160,15 @@ function HomePage() {
                 <Loader2 className="h-5 w-5 animate-spin text-background" />
               </div>
             ) : (
-              <UserAvatar avatarUrl={profile?.avatar_url} displayName={displayName} size="lg" />
+              <UserAvatar
+                avatarUrl={
+                  profile?.avatar_url ||
+                  (user?.user_metadata?.avatar_url as string | undefined) ||
+                  (user?.user_metadata?.picture as string | undefined)
+                }
+                displayName={displayName}
+                size="lg"
+              />
             )}
             <div>
               <div className="font-display text-xs uppercase tracking-[0.3em] text-gold">

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Bell, ChevronDown, LogOut, Menu, Search, X, Coins, ShieldCheck } from "lucide-react";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
 import { UserAvatar } from "@/components/site/UserAvatar";
+import { SeasonShield } from "@/components/ranking/SeasonShield";
 import { useAuth, useProfile, signOut } from "@/hooks/useAuth";
 import { useNotificationCount } from "@/hooks/useNotificationCount";
 import { useWallet } from "@/hooks/useWallet";
@@ -241,14 +242,19 @@ export function Navbar() {
                   setCommunityMenu(false);
                   setMoreMenu(false);
                 }}
-                className="flex items-center gap-2 rounded-full border border-gold/25 bg-white/[0.03] py-1 pl-1 pr-3 text-sm"
+                className="flex items-center gap-2 rounded-full border border-gold/25 bg-white/[0.03] py-1 pl-1.5 pr-3 text-sm"
               >
+                <SeasonShield sp={profile?.season_points ?? 0} rungId={profile?.rung_id} size="xs" variant="icon" />
                 <UserAvatar
-                  avatarUrl={profile?.avatar_url}
+                  avatarUrl={
+                    profile?.avatar_url ||
+                    (user?.user_metadata?.avatar_url as string | undefined) ||
+                    (user?.user_metadata?.picture as string | undefined)
+                  }
                   displayName={profile?.full_name ?? user.email}
                   size="sm"
                 />
-                <span className="max-w-[100px] truncate text-foreground flex items-center">
+                <span className="max-w-[100px] truncate text-foreground flex items-center gap-1">
                   {profile?.full_name ?? user.email?.split("@")[0]}
                   <PremiumBadge
                     premiumActive={profile?.premium_active}
@@ -257,7 +263,10 @@ export function Navbar() {
                 </span>
               </button>
               {userMenu && (
-                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-gold/20 bg-background/95 p-1 shadow-xl backdrop-blur-xl">
+                <div className="absolute right-0 mt-2 w-56 rounded-xl border border-gold/20 bg-background/95 p-2 shadow-xl backdrop-blur-xl space-y-1">
+                  <div className="flex items-center gap-2 px-2 py-1.5 border-b border-white/10 pb-2">
+                    <SeasonShield sp={profile?.season_points ?? 0} rungId={profile?.rung_id} size="sm" variant="chip" />
+                  </div>
                   <MenuLink to="/profile" label="Profile" onClick={() => setUserMenu(false)} />
                   <MenuLink to="/dashboard" label="Dashboard" onClick={() => setUserMenu(false)} />
                   <MenuLink

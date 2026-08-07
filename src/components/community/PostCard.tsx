@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import { Card } from "@/components/site/Primitives";
 import { UserAvatar } from "@/components/site/UserAvatar";
+import { SeasonShield } from "@/components/ranking/SeasonShield";
 import { FriendButton } from "@/components/friends/FriendButton";
 import type { CommunityPost, ReportReason } from "@/lib/api/communityClient";
 import { useCommunityActions } from "@/hooks/useCommunity";
@@ -240,6 +241,7 @@ export function PostCard({ post, detail = false }: { post: CommunityPost; detail
               <span className="rounded bg-gold/15 px-1 text-[10px] text-gold">{a.title}</span>
             )}
             <span className="truncate text-xs text-muted-foreground">@{a?.username}</span>
+            <SeasonShield sp={a?.season_points ?? a?.iq_level ?? 0} size="xs" variant="chip" />
             <span className="text-xs text-muted-foreground">· {relTime(post.created_at)}</span>
             {TYPE_LABEL[post.post_type] && (
               <span className="rounded-full border border-emerald/30 bg-emerald/10 px-2 py-px text-[10px] text-emerald">

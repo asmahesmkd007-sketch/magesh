@@ -824,9 +824,9 @@ function BankAccountTab({
                 <div className="flex items-center gap-1 font-semibold">
                   <ShieldCheck className="h-3.5 w-3.5 shrink-0" /> {ifscDetails.BANK} — {ifscDetails.BRANCH}
                 </div>
-                {(ifscDetails.CITY || ifscDetails.STATE) && (
+                {(ifscDetails.CITY || ifscDetails.DISTRICT || ifscDetails.STATE) && (
                   <div className="text-[11px] text-emerald-300/80 pl-4.5">
-                    {[ifscDetails.CITY, ifscDetails.STATE].filter(Boolean).join(", ")}
+                    {[ifscDetails.CITY, ifscDetails.DISTRICT, ifscDetails.STATE].filter((val, idx, arr) => val && arr.indexOf(val) === idx).join(", ")}
                   </div>
                 )}
               </div>

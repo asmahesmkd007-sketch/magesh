@@ -72,6 +72,8 @@ export type TournamentEntry = {
   avatar_url: string | null;
   country: string | null;
   iq_rating: number | null;
+  season_points?: number | null;
+  rung_id?: string | null;
   is_online: boolean | null;
   premium_active: boolean | null;
   premium_expires_at: string | null;

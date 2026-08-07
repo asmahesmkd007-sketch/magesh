@@ -80,6 +80,16 @@
   --font-display: "Cinzel", "Cormorant Garamond", Georgia, serif;
   --font-sans: "Outfit", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Chrome heights used by full-height panes (chat). Keep these in sync with
+     the components that own them, or panes will over/undershoot the fold:
+       --nav-h        Navbar.tsx  — inner row is `h-18` (72px) + 1px border-b.
+       --mobile-nav-h MobileNav.tsx — `lg:hidden` fixed bottom bar. The value
+                      here is only the pre-hydration fallback; MobileNav
+                      measures itself and overwrites it, because the bar grows
+                      when a six-column signed-in label wraps at 320px. */
+  --nav-h: 73px;
+  --mobile-nav-h: 76px;
 }
 
 .dark {
@@ -140,6 +150,28 @@
 }
 
 @layer utilities {
+  /* Full-height app pane that sits under the sticky navbar and above the
+     fixed mobile nav.
+
+     `100vh` on mobile means the LARGE viewport (toolbars retracted), so a
+     `100vh`-sized pane is always taller than what the user can actually see
+     — anything anchored to its bottom edge (a composer, an input) lands
+     below the fold and, inside an `overflow-hidden` pane, can never be
+     scrolled to. `100dvh` tracks the viewport as the toolbars move, so the
+     declaration below overrides the fallback wherever it is supported. */
+  .app-pane-h {
+    height: calc(100vh - var(--nav-h) - var(--mobile-nav-h) - env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - var(--nav-h) - var(--mobile-nav-h) - env(safe-area-inset-bottom, 0px));
+  }
+
+  @media (min-width: 1024px) {
+    /* MobileNav is `lg:hidden`, so the pane reclaims that space at lg. */
+    .app-pane-h {
+      height: calc(100vh - var(--nav-h));
+      height: calc(100dvh - var(--nav-h));
+    }
+  }
+
   .bg-page {
     background:
       radial-gradient(

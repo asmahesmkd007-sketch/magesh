@@ -13,6 +13,7 @@ import {
 import { Card, GoldButton, GhostButton, Pill } from "@/components/site/Primitives";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
+import { SeasonShield } from "@/components/ranking/SeasonShield";
 import type { FriendRow } from "@/types/friend";
 
 function relTime(iso?: string | null) {
@@ -104,6 +105,7 @@ export function FriendCard({
           </div>
           <div className="text-xs text-muted-foreground">@{friend.other_username}</div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <SeasonShield sp={friend.other_season_points ?? friend.other_rating ?? 0} size="xs" variant="chip" />
             <Pill tone={status.tone}>
               {status.icon && <status.icon className="h-3 w-3" />}
               {status.label}

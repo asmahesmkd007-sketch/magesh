@@ -22,6 +22,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Card, GhostButton, GoldButton } from "@/components/site/Primitives";
 import { UserAvatar } from "@/components/site/UserAvatar";
+import { SeasonShield } from "@/components/ranking/SeasonShield";
 import { CommunityLayout } from "@/components/community/CommunityLayout";
 import { PostCard, ReportDialog } from "@/components/community/PostCard";
 import { FeedList } from "@/components/community/FeedList";
@@ -217,13 +218,22 @@ function PublicProfile() {
         </div>
         <div className="px-4 pb-5 sm:px-6">
           <div className="-mt-10 flex items-end justify-between">
-            <UserAvatar
-              avatarUrl={profile.avatar_url}
-              displayName={profile.full_name}
-              size="xl"
-              className="border-4 border-[#0d0f13]"
-              shape="rounded-2xl"
-            />
+            <div className="flex items-center gap-4">
+              <UserAvatar
+                avatarUrl={profile.avatar_url}
+                displayName={profile.full_name}
+                size="xl"
+                className="border-4 border-[#0d0f13]"
+                shape="rounded-2xl"
+              />
+              <SeasonShield
+                sp={profile.season_points ?? 0}
+                rungId={profile.rung_id}
+                size="lg"
+                variant="full"
+                className="shrink-0 mt-6"
+              />
+            </div>
             <div className="flex items-center gap-2 pb-1">
               {isOwn ? (
                 <Link to="/settings">

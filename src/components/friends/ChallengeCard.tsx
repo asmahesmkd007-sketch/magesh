@@ -3,6 +3,7 @@ import { Swords, Check, X, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Card, GoldButton, GhostButton, Pill } from "@/components/site/Primitives";
 import { UserAvatar } from "@/components/site/UserAvatar";
+import { SeasonShield } from "@/components/ranking/SeasonShield";
 import type { ChallengeRow } from "@/types/friend";
 
 const GAME_TYPE_LABELS: Record<string, string> = {
@@ -56,18 +57,16 @@ export function IncomingChallengeCard({
         <UserAvatar avatarUrl={challenge.other_avatar_url} displayName={name} size="sm" />
       </Link>
       <div className="min-w-0 flex-1">
-        <div className="text-sm">
+        <div className="flex flex-wrap items-center gap-1.5 text-sm">
           <Link
             to="/profile"
             search={{ id: challenge.other_id }}
             className="font-medium hover:text-gold"
           >
             {name}
-          </Link>{" "}
-          challenged you
-          {typeof challenge.other_rating === "number" && (
-            <span className="text-muted-foreground"> · {challenge.other_rating} rating</span>
-          )}
+          </Link>
+          <span className="text-muted-foreground">challenged you</span>
+          <SeasonShield sp={challenge.other_rating ?? 0} size="xs" variant="chip" />
         </div>
         <div className="mt-1 flex flex-wrap gap-1.5">
           <Pill tone="gold">

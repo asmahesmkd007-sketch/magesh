@@ -4,6 +4,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
+  ArrowLeft,
   Globe2,
   Hash,
   Info,
@@ -64,7 +65,16 @@ export function ChannelView({ channel }: { channel: ChatChannel }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+      <div className="flex shrink-0 items-center gap-2 border-b border-white/10 px-2 py-3 sm:gap-3 sm:px-4">
+        {/* Back to the room list. Below md the shell shows one pane at a time,
+            so this is the only way back; at md the list is always on screen. */}
+        <Link
+          to="/chat"
+          aria-label="Back to all chats"
+          className="-ml-1 grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-white/[0.05] hover:text-gold md:hidden"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
         {channel.type === "global" && (
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full gradient-gold text-background text-base">
             {channel.icon ?? <Globe2 className="h-4 w-4" />}
@@ -175,7 +185,7 @@ export function ChannelView({ channel }: { channel: ChatChannel }) {
       </div>
 
       {channel.type === "room" && !channel.is_private && !channel.is_member && user && (
-        <div className="flex items-center justify-between gap-3 border-b border-gold/20 bg-gold/[0.04] px-4 py-2.5">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gold/20 bg-gold/[0.04] px-4 py-2.5">
           <span className="text-xs text-muted-foreground">Join this room to post messages.</span>
           <GoldButton
             onClick={() => actions.joinRoom.mutate(channel.id)}
@@ -189,7 +199,7 @@ export function ChannelView({ channel }: { channel: ChatChannel }) {
 
       <MessageList channelId={channel.id} isStaff={isStaff} onReply={setReplyTo} />
       {typingNames.length > 0 && (
-        <div className="px-4 pb-1 text-[11px] italic text-muted-foreground">
+        <div className="shrink-0 px-4 pb-1 text-[11px] italic text-muted-foreground">
           {typingNames.slice(0, 3).join(", ")} {typingNames.length === 1 ? "is" : "are"} typing…
         </div>
       )}

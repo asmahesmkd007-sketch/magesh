@@ -58,6 +58,8 @@ export type CommunityAuthor = {
   premium_tier: string | null;
   community_score: number;
   iq_level: number | null;
+  season_points?: number | null;
+  rung_id?: string | null;
   followers_count: number;
 };
 
@@ -107,7 +109,7 @@ export type CommunityComment = {
   created_at: string;
   author: Pick<
     CommunityAuthor,
-    "id" | "username" | "full_name" | "avatar_url" | "premium_tier" | "community_score"
+    "id" | "username" | "full_name" | "avatar_url" | "premium_tier" | "community_score" | "iq_level" | "season_points" | "rung_id"
   > | null;
   my_reaction: "like" | "dislike" | null;
 };
@@ -128,6 +130,8 @@ export type CommunityProfile = {
   twitter_url: string | null;
   premium_tier: string | null;
   iq_level: number | null;
+  season_points?: number | null;
+  rung_id?: string | null;
   community_score: number;
   created_at: string;
   followers_count: number;

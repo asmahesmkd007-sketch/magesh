@@ -8,6 +8,7 @@ import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveB
 import { CapturedPieces } from "@/components/site/CapturedPieces";
 import { ClockTime } from "@/components/site/ClockTime";
 import { PromotionPicker } from "@/components/site/PromotionPicker";
+import { SeasonShield } from "@/components/ranking/SeasonShield";
 import { useGameSettings } from "@/hooks/useGameSettings";
 import { useClockAudio } from "@/hooks/useClockAudio";
 import { useChessClock } from "@/hooks/useChessClock";
@@ -119,6 +120,55 @@ export function VsComputer() {
   const tokenRef = useRef(0);
   const savedRef = useRef(false);
   const movesEndRef = useRef<HTMLDivElement>(null);
+  const moveListRef = useRef<HTMLDivElement>(null);
+  const mainColumnRef = useRef<HTMLDivElement>(null);
+  const boardWrapperRef = useRef<HTMLDivElement>(null);
+  const [lockedBoardSize, setLockedBoardSize] = useState<number | null>(null);
+
+  const calculateBoardSize = useCallback(() => {
+    if (!mainColumnRef.current) return;
+    const parentWidth = mainColumnRef.current.clientWidth;
+    if (!parentWidth) return;
+
+    const isMobile = window.innerWidth < 1024;
+    // Overhead accounts for top player bar (52px), bottom player bar (52px), gap (12px), page padding/header
+    const verticalOverhead = isMobile ? 190 : 210;
+    const availableHeight = window.innerHeight - verticalOverhead;
+
+    const baseSettingWidth =
+      settings.board_size === "small" ? 480 : settings.board_size === "large" ? 720 : 600;
+    const maxBoardSettingWidth = Math.round(baseSettingWidth * (settings.board_zoom / 100));
+
+    const maxAllowed = Math.max(
+      220,
+      Math.min(parentWidth, availableHeight, maxBoardSettingWidth),
+    );
+    const targetSize = Math.floor(maxAllowed);
+
+    setLockedBoardSize(targetSize);
+  }, [settings.board_size, settings.board_zoom]);
+
+  // Recalculate board dimensions when phase transitions to playing or orientation flips
+  useEffect(() => {
+    if (phase === "playing") {
+      calculateBoardSize();
+    }
+  }, [phase, myColor, calculateBoardSize]);
+
+  // Recalculate board dimensions ONLY on window resize or device orientation change
+  useEffect(() => {
+    const handleResize = () => {
+      if (phaseRef.current === "playing") {
+        calculateBoardSize();
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+    };
+  }, [calculateBoardSize]);
 
   const onEngineMoveRef = useRef<(move: EngineMove | null) => void>(() => {});
 
@@ -161,7 +211,9 @@ export function VsComputer() {
   };
 
   useEffect(() => {
-    movesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (moveListRef.current) {
+      moveListRef.current.scrollTop = moveListRef.current.scrollHeight;
+    }
   }, [history]);
 
   const syncBoard = () => {
@@ -569,9 +621,12 @@ export function VsComputer() {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px] items-center justify-center max-w-5xl mx-auto py-1">
       {/* MAIN COLUMN (OPPONENT PROFILE + BOARD + PLAYER PROFILE) */}
-      <div className="flex flex-col items-center gap-1.5 w-full">
+      <div ref={mainColumnRef} className="flex flex-col items-center gap-1.5 w-full">
         {/* Top Player (Opponent when White, You when Black) */}
-        <div className="w-full max-w-[min(100%,calc(100vh-210px))] flex-shrink-0">
+        <div
+          className="w-full flex-shrink-0"
+          style={lockedBoardSize ? { maxWidth: `${lockedBoardSize}px` } : { maxWidth: "min(100%, calc(100vh - 210px))" }}
+        >
           <PlayerBar
             name={topPlayer.name}
             rating={topPlayer.rating}
@@ -586,7 +641,15 @@ export function VsComputer() {
         </div>
 
         {/* Chess Board */}
-        <div className="w-full max-w-[min(100%,calc(100vh-210px))] aspect-square relative flex items-center justify-center flex-shrink-0">
+        <div
+          ref={boardWrapperRef}
+          style={
+            lockedBoardSize
+              ? { width: `${lockedBoardSize}px`, height: `${lockedBoardSize}px`, maxWidth: "100%" }
+              : undefined
+          }
+          className="w-full aspect-square relative flex items-center justify-center flex-shrink-0 mx-auto transition-none"
+        >
           <InteractiveBoard
             board={board}
             orientation={myColor}
@@ -615,7 +678,10 @@ export function VsComputer() {
         </div>
 
         {/* Bottom Player (You when White, Opponent when Black) */}
-        <div className="w-full max-w-[min(100%,calc(100vh-210px))] flex-shrink-0">
+        <div
+          className="w-full flex-shrink-0"
+          style={lockedBoardSize ? { maxWidth: `${lockedBoardSize}px` } : { maxWidth: "min(100%, calc(100vh - 210px))" }}
+        >
           <PlayerBar
             name={bottomPlayer.name}
             rating={bottomPlayer.rating}
@@ -633,7 +699,7 @@ export function VsComputer() {
       {/* RIGHT SIDEBAR (STATUS + MOVE LIST + GAME ACTIONS) */}
       <div className="space-y-3 shrink-0">
         {/* Game Status Banner */}
-        <div className="rounded-xl border border-gold/20 bg-black/60 p-2.5 text-center">
+        <div className="rounded-xl border border-gold/20 bg-black/60 p-2.5 text-center min-h-[54px] flex flex-col justify-center shrink-0">
           <div className="text-xs uppercase tracking-[0.2em] font-semibold text-muted-foreground">
             {phase === "over"
               ? resultText
@@ -645,10 +711,12 @@ export function VsComputer() {
                     ? "Your turn"
                     : "Awaiting opponent…"}
           </div>
-          {thinking && (
+          {thinking ? (
             <div className="mt-1 flex items-center justify-center gap-1.5 text-xs text-gold/80 animate-pulse">
               <Sparkles className="h-3.5 w-3.5" /> Engine thinking...
             </div>
+          ) : (
+            <div className="mt-1 h-4" />
           )}
         </div>
 
@@ -660,7 +728,10 @@ export function VsComputer() {
               {history.length} ply
             </span>
           </div>
-          <div className="grid max-h-[min(240px,calc(100vh-380px))] grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1 overflow-y-auto pr-2 text-xs font-mono scrollbar-thin">
+          <div
+            ref={moveListRef}
+            className="grid max-h-[min(240px,calc(100vh-380px))] grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1 overflow-y-auto pr-2 text-xs font-mono scrollbar-thin"
+          >
             {movePairs.length === 0 && (
               <div className="col-span-3 text-xs text-muted-foreground italic">
                 No moves yet — make the opening move.
@@ -768,32 +839,29 @@ function PlayerBar({
   useClockAudio(Math.ceil(time / 1000), active);
   return (
     <div
-      className={`flex items-center justify-between px-3 py-2 rounded-xl border transition-all ${
+      className={`flex items-center justify-between px-3 py-2 rounded-xl border transition-all h-[52px] shrink-0 ${
         active
           ? "border-gold/50 bg-gold/10 shadow-md shadow-gold/10"
           : "border-white/10 bg-black/60"
       }`}
     >
       <div className="flex items-center gap-2.5 min-w-0">
-        <div
-          className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${iconBg} font-display text-sm font-bold`}
-        >
-          {icon}
-        </div>
+        <SeasonShield sp={rating} size="xs" variant="icon" className="shrink-0" />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="truncate font-display text-sm font-semibold text-foreground">
               {name}
             </span>
             {me && (
-              <span className="rounded bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-gold border border-gold/30">
+              <span className="rounded bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-gold border border-gold/30 shrink-0">
                 You
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{rating} Elo</span>
-            <CapturedPieces board={board} player={capturedColor} className="inline-flex ml-1" />
+          <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0 overflow-hidden">
+            <SeasonShield sp={rating} size="xs" variant="chip" tierOnly />
+            <span className="shrink-0">{rating} SP</span>
+            <CapturedPieces board={board} player={capturedColor} className="inline-flex ml-1 overflow-hidden shrink-0" />
           </div>
         </div>
       </div>

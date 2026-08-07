@@ -17,7 +17,7 @@ export function MemberPanel({ channel, onClose }: { channel: ChatChannel; onClos
   const isStaff = channel.my_role === "owner" || channel.my_role === "moderator";
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-black/50" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex justify-end bg-black/50" onClick={onClose}>
       <div
         className="flex h-full w-full max-w-xs flex-col border-l border-white/10 bg-[#0d0f13]"
         onClick={(e) => e.stopPropagation()}

@@ -14,6 +14,7 @@ import {
 import { GoldButton, GhostButton, Pill } from "@/components/site/Primitives";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
+import { SeasonShield } from "@/components/ranking/SeasonShield";
 import { ACHIEVEMENT_LABELS } from "@/lib/api/communityClient";
 import { useFriendProfile } from "@/hooks/useFriendProfile";
 import type { FriendRow } from "@/types/friend";
@@ -106,6 +107,7 @@ export function FriendProfileDrawer({
 
         <div className="flex items-center gap-4 pr-8">
           <UserAvatar avatarUrl={friend.other_avatar_url} displayName={name} size="lg" />
+          <SeasonShield sp={friend.other_season_points ?? friend.other_rating ?? 0} size="md" variant="card" className="shrink-0" />
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               {friend.other_title && (

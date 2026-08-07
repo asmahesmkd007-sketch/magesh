@@ -60,9 +60,9 @@ type RpcMap = {
     args: { p_match_id: string };
     returns: null;
   };
-  ensure_upcoming_tournaments: {
+  ensure_tournament_slots: {
     args: Record<string, never>;
-    returns: null;
+    returns: { checked: number; created: number };
   };
 };
 
@@ -146,7 +146,11 @@ export function cancelTournament(tournamentId: string): Promise<null> {
 /**
  * Ensure every tournament category has at least one UPCOMING tournament.
  * Call on page load and periodically for auto-recovery.
+ *
+ * Must be ensure_tournament_slots, not ensure_upcoming_tournaments: the
+ * latter is service_role-only, so calling it from the browser always fails
+ * with "permission denied for function" and no arenas ever get created.
  */
-export function ensureTournamentSlots(): Promise<null> {
-  return callRpc("ensure_upcoming_tournaments", {});
+export function ensureTournamentSlots(): Promise<{ checked: number; created: number }> {
+  return callRpc("ensure_tournament_slots", {});
 }

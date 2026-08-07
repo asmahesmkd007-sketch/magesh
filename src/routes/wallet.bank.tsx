@@ -398,6 +398,12 @@ function BankDetailsPage() {
                     <div className="font-medium text-foreground">{ifscDetails.CITY}</div>
                   </div>
                 )}
+                {ifscDetails.DISTRICT && (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-0.5">District</div>
+                    <div className="font-medium text-foreground">{ifscDetails.DISTRICT}</div>
+                  </div>
+                )}
                 {ifscDetails.STATE && (
                   <div>
                     <div className="text-xs text-muted-foreground mb-0.5">State</div>

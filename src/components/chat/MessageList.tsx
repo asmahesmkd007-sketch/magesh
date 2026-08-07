@@ -60,7 +60,7 @@ export function MessageList({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
+      <div className="flex shrink-0 items-center gap-2 border-b border-white/10 px-3 py-2">
         {searching ? (
           <div className="flex flex-1 items-center gap-2">
             <Search className="h-4 w-4 text-muted-foreground" />
@@ -69,7 +69,10 @@ export function MessageList({
               value={query}
               onChange={(e) => runSearch(e.target.value)}
               placeholder="Search this conversation…"
-              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              /* text-base below sm: iOS Safari auto-zooms the page when a
+                 focused input's font-size is under 16px, which blows the
+                 fixed-height chat layout past the viewport. */
+              className="flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-sm"
             />
             <button
               type="button"
@@ -108,7 +111,7 @@ export function MessageList({
       </div>
 
       {showPinned && !searching && (
-        <div className="max-h-40 space-y-1 overflow-y-auto border-b border-white/10 bg-gold/[0.03] p-2">
+        <div className="max-h-40 shrink-0 space-y-1 overflow-y-auto overscroll-contain border-b border-white/10 bg-gold/[0.03] p-2">
           {pinned.map((m) => (
             <div key={m.id} className="rounded-lg px-2 py-1 text-xs">
               <span className="text-gold font-semibold">{getSenderDisplayName(m.author)}:</span> {m.content}
@@ -117,7 +120,12 @@ export function MessageList({
         </div>
       )}
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 py-2">
+      {/* min-h-0 keeps this the pane that shrinks: without it the flex item's
+          auto min-height floors at its content, so a long thread pushes the
+          composer off the bottom instead of scrolling here. overscroll-contain
+          stops a scroll that hits the end from chaining to the page, which on
+          mobile retracts the URL bar and resizes the viewport mid-scroll. */}
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">
         {results !== null ? (
           <div className="space-y-1">
             {results.length === 0 ? (

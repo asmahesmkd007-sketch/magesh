@@ -35,7 +35,8 @@ describe("IFSC Validation & Lookup", () => {
       const res = await lookupIfsc("INVALID_CODE");
       expect(res.success).toBe(false);
       if (!res.success) {
-        expect(res.error).toContain("Invalid IFSC Code");
+        expect(res.error).toBe("Invalid IFSC Code");
+        expect(res.isOfflineOrError).toBe(false);
       }
     });
 
@@ -45,6 +46,7 @@ describe("IFSC Validation & Lookup", () => {
         BRANCH: "MANNACHANALLUR",
         ADDRESS: "DIST TIRUVARUR STATE TAMILNADU",
         CITY: "TIRUVARUR",
+        DISTRICT: "TIRUVARUR",
         STATE: "TAMIL NADU",
         IFSC: "SBIN0011937",
       };
@@ -61,7 +63,12 @@ describe("IFSC Validation & Lookup", () => {
         expect(res.details.BANK).toBe("State Bank of India");
         expect(res.details.BRANCH).toBe("MANNACHANALLUR");
         expect(res.details.CITY).toBe("TIRUVARUR");
+        expect(res.details.DISTRICT).toBe("TIRUVARUR");
         expect(res.details.STATE).toBe("TAMIL NADU");
+        expect(res.logData?.requestUrl).toBeDefined();
+        expect(res.logData?.httpStatus).toBe(200);
+        expect(res.logData?.parsingResult).toBeDefined();
+        expect(res.logData?.finalUiState).toBe("Verified");
       }
 
       vi.unstubAllGlobals();
@@ -76,21 +83,23 @@ describe("IFSC Validation & Lookup", () => {
       const res = await lookupIfsc("ABCD0000000");
       expect(res.success).toBe(false);
       if (!res.success) {
-        expect(res.error).toBe("Invalid IFSC Code. Please check and try again.");
-        expect(res.isOfflineOrError).toBeFalsy();
+        expect(res.error).toBe("Invalid IFSC Code");
+        expect(res.isOfflineOrError).toBe(false);
+        expect(res.logData?.finalUiState).toBe("Invalid IFSC Code");
       }
 
       vi.unstubAllGlobals();
     });
 
-    it("handles network failure gracefully without marking IFSC invalid", async () => {
+    it("handles network failure gracefully as service unavailable", async () => {
       vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
 
       const res = await lookupIfsc("WXYZ0012345");
       expect(res.success).toBe(false);
       if (!res.success) {
-        expect(res.error).toBe("Unable to verify IFSC at the moment.");
+        expect(res.error).toBe("Verification service temporarily unavailable.");
         expect(res.isOfflineOrError).toBe(true);
+        expect(res.logData?.finalUiState).toBe("Verification service temporarily unavailable.");
       }
 
       vi.unstubAllGlobals();

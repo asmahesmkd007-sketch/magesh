@@ -1,14 +1,6 @@
--- =====================================================================
 -- ChessOx — Master Schema (Idempotent)
--- =====================================================================
--- Safe to run on a fresh OR existing Supabase project.
--- Uses IF NOT EXISTS / DROP IF EXISTS / CREATE OR REPLACE throughout
--- so re-running never errors on duplicate objects.
---===========================================================
 
--- =====================================================================
--- SECTION 1: ENUMS
--- =====================================================================
+-- Section 1: ENUMS
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role') THEN
@@ -34,17 +26,13 @@ BEGIN
   END IF;
 END $$;
 
--- =====================================================================
--- SECTION 2: UTILITY TRIGGER FUNCTION
--- =====================================================================
+-- Section 2: UTILITY TRIGGER FUNCTION
 CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
 REVOKE EXECUTE ON FUNCTION public.set_updated_at() FROM PUBLIC, anon, authenticated;
 
--- =====================================================================
--- SECTION 3: PROFILES
--- =====================================================================
+-- Section 3: PROFILES
 CREATE TABLE IF NOT EXISTS public.profiles (
   id           UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   username     TEXT UNIQUE NOT NULL,
@@ -105,9 +93,7 @@ BEGIN
   END IF;
 END $$;
 
--- =====================================================================
--- SECTION 4: USER ROLES
--- =====================================================================
+-- Section 4: USER ROLES
 CREATE TABLE IF NOT EXISTS public.user_roles (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -131,13 +117,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.has_role(UUID, public.app_role) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.has_role(UUID, public.app_role) TO authenticated, service_role;
 
--- Zero-arg convenience wrapper: "is the CURRENT caller an admin". The clan
--- system's RLS policies and admin_delete_clan() call this, but it was never
--- defined anywhere in the schema — every query against a policy using it
--- failed outright with "function public.is_admin() does not exist" (a hard
--- parse-time error, not just an access-denied), and admin_delete_clan()
--- could never be called. Defined here (immediately after has_role, which it
--- wraps) so it exists before its first use further down this file.
+-- Helper: Check if current caller has admin role
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT public.has_role(auth.uid(), 'admin')
@@ -145,10 +125,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.is_admin() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 5: RATINGS
--- (Default 100)
--- =====================================================================
+-- Section 5: RATINGS
 CREATE TABLE IF NOT EXISTS public.ratings (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -177,10 +154,7 @@ DROP POLICY IF EXISTS "Users insert own ratings" ON public.ratings;
 CREATE POLICY "Users insert own ratings"
   ON public.ratings FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- =====================================================================
--- SECTION 6: GAMES
--- (All writes via RPCs or service-role server fn.)
--- =====================================================================
+-- Section 6: GAMES
 CREATE TABLE IF NOT EXISTS public.games (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   white_id         UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -225,9 +199,7 @@ DROP POLICY IF EXISTS "Games are public" ON public.games;
 CREATE POLICY "Games are public"
   ON public.games FOR SELECT TO anon, authenticated USING (true);
 
--- =====================================================================
--- SECTION 7: GAME MOVES
--- =====================================================================
+-- Section 7: GAME MOVES
 CREATE TABLE IF NOT EXISTS public.game_moves (
   id          BIGSERIAL PRIMARY KEY,
   game_id     UUID NOT NULL REFERENCES public.games(id) ON DELETE CASCADE,
@@ -247,9 +219,7 @@ DROP POLICY IF EXISTS "moves readable" ON public.game_moves;
 CREATE POLICY "moves readable"
   ON public.game_moves FOR SELECT TO anon, authenticated USING (true);
 
--- =====================================================================
--- SECTION 8: GAME CHAT
--- =====================================================================
+-- Section 8: GAME CHAT
 CREATE TABLE IF NOT EXISTS public.game_chat (
   id         BIGSERIAL PRIMARY KEY,
   game_id    UUID NOT NULL REFERENCES public.games(id) ON DELETE CASCADE,
@@ -269,9 +239,7 @@ DROP POLICY IF EXISTS "chat insert self" ON public.game_chat;
 CREATE POLICY "chat insert self"
   ON public.game_chat FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
 
--- =====================================================================
--- SECTION 9: MATCHMAKING POOL
--- =====================================================================
+-- Section 9: MATCHMAKING POOL
 CREATE TABLE IF NOT EXISTS public.matchmaking_pool (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id          UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -299,9 +267,7 @@ DROP POLICY IF EXISTS "pool own update" ON public.matchmaking_pool;
 CREATE POLICY "pool own update"
   ON public.matchmaking_pool FOR UPDATE TO authenticated USING (auth.uid() = user_id);
 
--- =====================================================================
--- SECTION 10: PUZZLES
--- =====================================================================
+-- Section 10: PUZZLES
 CREATE TABLE IF NOT EXISTS public.puzzles (
   id         TEXT PRIMARY KEY,
   fen        TEXT NOT NULL,
@@ -321,9 +287,7 @@ DROP POLICY IF EXISTS "Puzzles public read" ON public.puzzles;
 CREATE POLICY "Puzzles public read"
   ON public.puzzles FOR SELECT USING (true);
 
--- =====================================================================
--- SECTION 11: PUZZLE ATTEMPTS
--- =====================================================================
+-- Section 11: PUZZLE ATTEMPTS
 CREATE TABLE IF NOT EXISTS public.puzzle_attempts (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -345,9 +309,7 @@ DROP POLICY IF EXISTS "Users insert own attempts" ON public.puzzle_attempts;
 CREATE POLICY "Users insert own attempts"
   ON public.puzzle_attempts FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- =====================================================================
--- SECTION 12: FRIENDS
--- =====================================================================
+-- Section 12: FRIENDS
 CREATE TABLE IF NOT EXISTS public.friends (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   requester_id  UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -382,9 +344,7 @@ CREATE TRIGGER trg_friends_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
--- =====================================================================
--- SECTION 15: TOURNAMENTS
--- =====================================================================
+-- Section 15: TOURNAMENTS
 CREATE TABLE IF NOT EXISTS public.tournaments (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug            TEXT UNIQUE NOT NULL,
@@ -424,9 +384,7 @@ CREATE POLICY "Admins update tournaments"
   ON public.tournaments FOR UPDATE
   USING (public.has_role(auth.uid(), 'admin'));
 
--- =====================================================================
--- SECTION 16: TOURNAMENT ENTRIES
--- =====================================================================
+-- Section 16: TOURNAMENT ENTRIES
 CREATE TABLE IF NOT EXISTS public.tournament_entries (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tournament_id  UUID NOT NULL REFERENCES public.tournaments(id) ON DELETE CASCADE,
@@ -454,9 +412,7 @@ CREATE POLICY "entries own delete"
   ON public.tournament_entries FOR DELETE TO authenticated
   USING (auth.uid() = user_id);
 
--- =====================================================================
--- SECTION 17: NEWS ARTICLES
--- =====================================================================
+-- Section 17: NEWS ARTICLES
 CREATE TABLE IF NOT EXISTS public.news_articles (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug          TEXT UNIQUE NOT NULL,
@@ -495,9 +451,7 @@ CREATE POLICY "Admins manage news del"
   ON public.news_articles FOR DELETE
   USING (public.has_role(auth.uid(), 'admin'));
 
--- =====================================================================
--- SECTION 18: NOTIFICATIONS
--- =====================================================================
+-- Section 18: NOTIFICATIONS
 CREATE TABLE IF NOT EXISTS public.notifications (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -529,9 +483,7 @@ DROP POLICY IF EXISTS "service can insert notifications" ON public.notifications
 CREATE POLICY "service can insert notifications"
   ON public.notifications FOR INSERT TO service_role WITH CHECK (true);
 
--- =====================================================================
--- SECTION 19: SUBSCRIPTIONS
--- =====================================================================
+-- Section 19: SUBSCRIPTIONS
 CREATE TABLE IF NOT EXISTS public.subscriptions (
   id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id                UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -554,9 +506,7 @@ CREATE TRIGGER trg_subs_updated_at
   BEFORE UPDATE ON public.subscriptions
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
--- =====================================================================
--- SECTION 20: RATING HISTORY
--- =====================================================================
+-- Section 20: RATING HISTORY
 CREATE TABLE IF NOT EXISTS public.rating_history (
   id         BIGSERIAL PRIMARY KEY,
   user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -576,11 +526,8 @@ CREATE POLICY "users read own rating history"
   ON public.rating_history FOR SELECT TO authenticated
   USING (auth.uid() = user_id);
 
--- =====================================================================
--- SECTION 21: SIGNUP TRIGGER
--- Creates profile, role, ratings, subscription, and wallet for each
--- new auth.users row. Uses CREATE OR REPLACE so it is safe to re-run.
--- =====================================================================
+-- Section 21: SIGNUP TRIGGER
+-- Creates profile, role, ratings, subscription, and wallet for each new auth.us...
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -644,9 +591,7 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- =====================================================================
--- SECTION 22: HELPER RPC — CURRENT RATING
--- =====================================================================
+-- Section 22: HELPER RPC — CURRENT RATING
 CREATE OR REPLACE FUNCTION public.current_rating(
   p_user_id    UUID,
   p_time_class public.time_class
@@ -660,19 +605,10 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.current_rating(UUID, public.time_class) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.current_rating(UUID, public.time_class) TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 23: APPLY ELO CHANGE (v2)
--- ---------------------------------------------------------------------
--- The REVOKE/GRANT for this function live with its actual CREATE OR
--- REPLACE FUNCTION definition further down (SECTION 23b, ~line 3469),
--- since a GRANT/REVOKE on a function that doesn't exist yet is a hard
--- error on a fresh database (unlike function bodies, which are late-bound
--- and don't validate table/function references until first execution).
--- =====================================================================
+-- Section 23: APPLY ELO CHANGE (v2)
+-- The REVOKE/GRANT for this function live with its actual CREATE OR REPLACE FUN...
 
--- =====================================================================
--- SECTION 24: RPC — CREATE CHALLENGE
--- =====================================================================
+-- Section 24: RPC — CREATE CHALLENGE
 CREATE OR REPLACE FUNCTION public.create_challenge(
   p_time_class      public.time_class,
   p_time_control    TEXT,
@@ -729,9 +665,7 @@ GRANT EXECUTE ON FUNCTION
   public.create_challenge(public.time_class, TEXT, INT, INT, BOOLEAN, TEXT)
   TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 25: RPC — JOIN GAME
--- =====================================================================
+-- Section 25: RPC — JOIN GAME
 CREATE OR REPLACE FUNCTION public.join_game(p_game_id UUID)
 RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -769,9 +703,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.join_game(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.join_game(UUID) TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 26: RPC — MATCHMAKE
--- =====================================================================
+-- Section 26: RPC — MATCHMAKE
 CREATE OR REPLACE FUNCTION public.matchmake(
   p_time_class        public.time_class,
   p_time_control      TEXT,
@@ -873,9 +805,7 @@ GRANT EXECUTE ON FUNCTION
   public.matchmake(public.time_class, TEXT, INT, INT)
   TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 27: RPC — LEAVE QUEUE
--- =====================================================================
+-- Section 27: RPC — LEAVE QUEUE
 CREATE OR REPLACE FUNCTION public.leave_queue()
 RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
   DELETE FROM public.matchmaking_pool WHERE user_id = auth.uid();
@@ -883,9 +813,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.leave_queue() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.leave_queue() TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 28: RPC — RESIGN GAME
--- =====================================================================
+-- Section 28: RPC — RESIGN GAME
 CREATE OR REPLACE FUNCTION public.resign_game(p_game_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -921,9 +849,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.resign_game(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.resign_game(UUID) TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 29: RPC — RESPOND DRAW (offer or accept)
--- =====================================================================
+-- Section 29: RPC — RESPOND DRAW (offer or accept)
 CREATE OR REPLACE FUNCTION public.respond_draw(p_game_id UUID)
 RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -956,16 +882,8 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.respond_draw(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.respond_draw(UUID) TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 30: RPC — CLAIM TIMEOUT
--- ---------------------------------------------------------------------
--- FIDE 6.9: when a flag falls, the opponent only wins if they could still
--- checkmate "by any possible series of legal moves". Against a bare king,
--- or a king with a single minor piece, no mate is possible and the game is
--- drawn. `has_mating_material` mirrors the TypeScript implementation in
--- src/lib/chess/rules.ts so the RPC and the server move handler cannot
--- reach different verdicts about the same position.
--- =====================================================================
+-- Section 30: RPC — CLAIM TIMEOUT
+-- FIDE 6.9: when a flag falls, the opponent only wins if they could still check...
 CREATE OR REPLACE FUNCTION public.has_mating_material(p_fen TEXT, p_color TEXT)
 RETURNS BOOLEAN LANGUAGE plpgsql IMMUTABLE AS $$
 DECLARE
@@ -991,8 +909,7 @@ BEGIN
 
   -- A pawn can promote and a rook/queen mates outright.
   IF v_pawns > 0 OR v_majors > 0 THEN RETURN TRUE; END IF;
-  -- Two minors can mate (incl. two knights, where a helpmate exists);
-  -- a single minor cannot.
+-- Two minors can mate (incl
   RETURN (v_bishops + v_knights) >= 2;
 END; $$;
 
@@ -1056,9 +973,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.claim_timeout(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.claim_timeout(UUID) TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 31: RPC — SAVE COMPUTER GAME
--- =====================================================================
+-- Section 31: RPC — SAVE COMPUTER GAME
 CREATE OR REPLACE FUNCTION public.save_computer_game(
   p_my_color    TEXT,
   p_result      public.game_result,
@@ -1100,10 +1015,8 @@ GRANT EXECUTE ON FUNCTION
   public.save_computer_game(TEXT, public.game_result, TEXT, INT, TEXT)
   TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 32: REALTIME PUBLICATIONS
+-- Section 32: REALTIME PUBLICATIONS
 -- Each table is added only if not already a member of the publication.
--- =====================================================================
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'games') THEN
@@ -1126,9 +1039,7 @@ BEGIN
   END IF;
 END $$;
 
--- =====================================================================
--- SECTION 33: WALLETS
--- =====================================================================
+-- Section 33: WALLETS
 CREATE TABLE IF NOT EXISTS public.wallets (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id      UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -1151,9 +1062,7 @@ CREATE TRIGGER trg_wallets_updated_at
   BEFORE UPDATE ON public.wallets
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
--- =====================================================================
--- SECTION 34: WALLET TRANSACTIONS
--- =====================================================================
+-- Section 34: WALLET TRANSACTIONS
 CREATE TABLE IF NOT EXISTS public.wallet_transactions (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -1186,9 +1095,7 @@ BEGIN
   END IF;
 END $$;
 
--- =====================================================================
--- SECTION 35: RPC — CREDIT PREMIUM BONUS
--- =====================================================================
+-- Section 35: RPC — CREDIT PREMIUM BONUS
 CREATE OR REPLACE FUNCTION public.credit_premium_bonus(
   p_plan_name       TEXT,
   p_base_coins      INT,
@@ -1240,9 +1147,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.credit_premium_bonus(TEXT, INT, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.credit_premium_bonus(TEXT, INT, TEXT) TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 36: RPC — JOIN TOURNAMENT PAID
--- =====================================================================
+-- Section 36: RPC — JOIN TOURNAMENT PAID
 DROP FUNCTION IF EXISTS public.join_tournament_paid(UUID);
 CREATE OR REPLACE FUNCTION public.join_tournament_paid(p_tournament_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -1305,9 +1210,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.join_tournament_paid(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.join_tournament_paid(UUID) TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 37: RPC — DISTRIBUTE TOURNAMENT PRIZES (admin only)
--- =====================================================================
+-- Section 37: RPC — DISTRIBUTE TOURNAMENT PRIZES (admin only)
 CREATE OR REPLACE FUNCTION public.distribute_tournament_prizes(
   p_tournament_id UUID,
   p_1st_user_id   UUID,
@@ -1375,9 +1278,7 @@ REVOKE EXECUTE ON FUNCTION
 GRANT EXECUTE ON FUNCTION
   public.distribute_tournament_prizes(UUID, UUID, UUID, UUID) TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 38: RPC — ADMIN CREDIT / DEBIT WALLET
--- =====================================================================
+-- Section 38: RPC — ADMIN CREDIT / DEBIT WALLET
 CREATE OR REPLACE FUNCTION public.admin_credit_wallet(
   p_target_user_id UUID,
   p_amount         INT,
@@ -1448,9 +1349,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.admin_debit_wallet(UUID, INT, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_debit_wallet(UUID, INT, TEXT) TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 39: REALTIME FOR WALLET TABLES
--- =====================================================================
+-- Section 39: REALTIME FOR WALLET TABLES
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'wallets') THEN
@@ -1461,9 +1360,7 @@ BEGIN
   END IF;
 END $$;
 
--- =====================================================================
--- SECTION 40: PUBLIC ROOMS
--- =====================================================================
+-- Section 40: PUBLIC ROOMS
 CREATE TABLE IF NOT EXISTS public.public_rooms (
   id                TEXT PRIMARY KEY,
   host_id           UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -1497,9 +1394,7 @@ CREATE POLICY "Room members and open rooms are visible"
   ON public.public_rooms FOR SELECT TO authenticated
   USING (true);
 
--- =====================================================================
--- SECTION 41: create_public_room RPC
--- =====================================================================
+-- Section 41: create_public_room RPC
 CREATE OR REPLACE FUNCTION public.create_public_room(
   p_time_control      TEXT    DEFAULT '10+0',
   p_time_class        TEXT    DEFAULT 'rapid',
@@ -1556,9 +1451,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.create_public_room(TEXT,TEXT,INT,INT,TEXT,BOOLEAN) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.create_public_room(TEXT,TEXT,INT,INT,TEXT,BOOLEAN) TO authenticated;
 
--- =====================================================================
--- SECTION 42: join_public_room RPC
--- =====================================================================
+-- Section 42: join_public_room RPC
 CREATE OR REPLACE FUNCTION public.join_public_room(
   p_room_id TEXT
 ) RETURNS VOID
@@ -1583,8 +1476,7 @@ BEGIN
   -- Already joined as guest — idempotent no-op
   IF v_room.guest_id = v_uid THEN RETURN; END IF;
 
-  -- Check full before checking status so callers get consistent "Room is full"
-  -- and can branch to join_room_queue instead.
+-- Check full before checking status so callers get consistent "Room is full" an...
   IF v_room.guest_id IS NOT NULL OR v_room.status = 'guest_joined' THEN
     RAISE EXCEPTION 'Room is full';
   END IF;
@@ -1599,9 +1491,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.join_public_room(TEXT) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.join_public_room(TEXT) TO authenticated;
 
--- =====================================================================
--- SECTION 43: leave_public_room RPC (with queue auto-promotion)
--- =====================================================================
+-- Section 43: leave_public_room RPC (with queue auto-promotion)
 CREATE OR REPLACE FUNCTION public.leave_public_room(
   p_room_id TEXT
 ) RETURNS VOID
@@ -1658,9 +1548,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.leave_public_room(TEXT) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.leave_public_room(TEXT) TO authenticated;
 
--- =====================================================================
--- SECTION 44: start_room_match RPC
--- =====================================================================
+-- Section 44: start_room_match RPC
 CREATE OR REPLACE FUNCTION public.start_room_match(
   p_room_id TEXT
 ) RETURNS UUID
@@ -1736,9 +1624,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.start_room_match(TEXT) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.start_room_match(TEXT) TO authenticated;
 
--- =====================================================================
--- SECTION 45: REALTIME FOR PUBLIC ROOMS
--- =====================================================================
+-- Section 45: REALTIME FOR PUBLIC ROOMS
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -1749,9 +1635,7 @@ BEGIN
   END IF;
 END $$;
 
--- =====================================================================
--- SECTION 46: USER STREAKS
--- =====================================================================
+-- Section 46: USER STREAKS
 CREATE TABLE IF NOT EXISTS public.user_streaks (
   user_id               UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   current_login_streak  INT         NOT NULL DEFAULT 0,
@@ -1772,11 +1656,8 @@ CREATE POLICY "Users view own streaks"
   ON public.user_streaks FOR SELECT TO authenticated
   USING (user_id = auth.uid());
 
--- =====================================================================
--- SECTION 47: update_login_streak RPC
--- Called from the frontend on every SIGNED_IN auth event.
--- Idempotent: calling multiple times on the same calendar day is a no-op.
--- =====================================================================
+-- Section 47: update_login_streak RPC
+-- Called from the frontend on every SIGNED_IN auth event
 CREATE OR REPLACE FUNCTION public.update_login_streak()
 RETURNS VOID
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -1818,11 +1699,8 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.update_login_streak() FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.update_login_streak() TO authenticated;
 
--- =====================================================================
--- SECTION 48: match streak trigger
--- Fires automatically when games.ended_at is set (NULL → non-NULL).
--- Updates both players' match streaks.
--- =====================================================================
+-- Section 48: match streak trigger
+-- Fires automatically when games.ended_at is set (NULL → non-NULL)
 CREATE OR REPLACE FUNCTION public.update_match_streak_for_user(p_uid UUID)
 RETURNS VOID
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -1876,9 +1754,7 @@ CREATE TRIGGER trg_game_finished_streak
   AFTER UPDATE ON public.games
   FOR EACH ROW EXECUTE FUNCTION public.handle_game_finished_streak();
 
--- =====================================================================
--- SECTION 49: REALTIME FOR USER STREAKS
--- =====================================================================
+-- Section 49: REALTIME FOR USER STREAKS
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -1889,11 +1765,8 @@ BEGIN
   END IF;
 END $$;
 
--- =====================================================================
--- SECTION 50: RPC — SAVE COMPUTER GAME (with moves)
--- Replaces the old 5-param version so individual moves are persisted.
--- p_moves is JSONB array of {ply, san, uci, fen_after} objects.
--- =====================================================================
+-- Section 50: RPC — SAVE COMPUTER GAME (with moves)
+-- Replaces the old 5-param version so individual moves are persisted
 DROP FUNCTION IF EXISTS public.save_computer_game(TEXT, public.game_result, TEXT, INT, TEXT);
 CREATE OR REPLACE FUNCTION public.save_computer_game(
   p_my_color    TEXT,
@@ -1948,12 +1821,8 @@ GRANT EXECUTE ON FUNCTION
   public.save_computer_game(TEXT, public.game_result, TEXT, INT, TEXT, JSONB)
   TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 51: RPC — SAVE LOCAL GAME
--- Persists a finished pass-and-play game. The logged-in user is
--- associated with p_my_color so the game appears in their history.
--- p_moves is JSONB array of {ply, san, uci, fen_after} objects.
--- =====================================================================
+-- Section 51: RPC — SAVE LOCAL GAME
+-- Persists a finished pass-and-play game
 CREATE OR REPLACE FUNCTION public.save_local_game(
   p_my_color        TEXT,
   p_opponent_name   TEXT,
@@ -2008,9 +1877,7 @@ GRANT EXECUTE ON FUNCTION
   public.save_local_game(TEXT, TEXT, public.game_result, TEXT, TEXT, INT, JSONB)
   TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 52: PERFORMANCE INDEXES FOR MATCH HISTORY
--- =====================================================================
+-- Section 52: PERFORMANCE INDEXES FOR MATCH HISTORY
 CREATE INDEX IF NOT EXISTS idx_games_white_ended
   ON public.games (white_id, ended_at DESC)
   WHERE ended_at IS NOT NULL;
@@ -2018,12 +1885,8 @@ CREATE INDEX IF NOT EXISTS idx_games_black_ended
   ON public.games (black_id, ended_at DESC)
   WHERE ended_at IS NOT NULL;
 
--- =====================================================================
--- SECTION 53: ENRICH game_moves + FIX RPCs
--- Adds fen_before and move-flag columns to game_moves.
--- Recreates save_computer_game and save_local_game with p_final_fen
--- and a richer p_moves JSONB format that includes the new fields.
--- =====================================================================
+-- Section 53: ENRICH game_moves + FIX RPCs
+-- Adds fen_before and move-flag columns to game_moves
 
 -- Add new columns to game_moves (safe to re-run)
 ALTER TABLE public.game_moves
@@ -2166,9 +2029,7 @@ GRANT EXECUTE ON FUNCTION
   public.save_local_game(TEXT, TEXT, public.game_result, TEXT, TEXT, INT, TEXT, JSONB)
   TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 54: GAME ANALYSIS — schema additions
--- =====================================================================
+-- Section 54: GAME ANALYSIS — schema additions
 
 -- Additional columns on game_moves for engine annotations
 ALTER TABLE public.game_moves
@@ -2279,9 +2140,7 @@ GRANT EXECUTE ON FUNCTION
   public.save_game_analysis(UUID, NUMERIC, NUMERIC, INT, INT, INT, INT, TEXT, JSONB)
   TO authenticated, service_role;
 
--- =====================================================================
--- SECTION 55: ROOM WAITING QUEUE
--- =====================================================================
+-- Section 55: ROOM WAITING QUEUE
 
 -- Queue table: holds users waiting to enter a room as guest
 CREATE TABLE IF NOT EXISTS public.room_queue (
@@ -2330,9 +2189,7 @@ BEGIN
   END IF;
 END $$;
 
--- =====================================================================
--- SECTION 56: join_room_queue RPC
--- =====================================================================
+-- Section 56: join_room_queue RPC
 CREATE OR REPLACE FUNCTION public.join_room_queue(p_room_id TEXT)
 RETURNS INT
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -2367,9 +2224,7 @@ END; $$;
 REVOKE ALL ON FUNCTION public.join_room_queue(TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.join_room_queue(TEXT) TO authenticated;
 
--- =====================================================================
--- SECTION 57: leave_room_queue RPC
--- =====================================================================
+-- Section 57: leave_room_queue RPC
 CREATE OR REPLACE FUNCTION public.leave_room_queue(p_room_id TEXT)
 RETURNS VOID
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -2390,10 +2245,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public.leave_room_queue(TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.leave_room_queue(TEXT) TO authenticated;
 
--- =====================================================================
--- SECTION 58: DATA REPAIR (RUN ONCE)
+-- Section 58: DATA REPAIR (RUN ONCE)
 -- Repair any users missing a profile or having a null/empty username.
--- =====================================================================
 DO $$
 DECLARE
   r RECORD;
@@ -2414,9 +2267,7 @@ BEGIN
   WHERE username IS NULL OR trim(username) = '';
 END $$;
 
--- =====================================================================
--- SECTION 59: TOURNAMENT AUTO-CREATION SYSTEM
--- =====================================================================
+-- Section 59: TOURNAMENT AUTO-CREATION SYSTEM
 
 -- 1. Create a Unique Index to prevent multiple 'upcoming' tournaments per category
 DROP INDEX IF EXISTS unique_upcoming_tournaments;
@@ -2512,9 +2363,7 @@ EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'pg_cron not available or failed to schedule';
 END $$;
 
--- =====================================================================
--- SECTION 60: TOURNAMENT FLOW REWORK
--- =====================================================================
+-- Section 60: TOURNAMENT FLOW REWORK
 
 -- 1. Make starts_at nullable so Upcoming tournaments don't need a countdown
 ALTER TABLE public.tournaments ALTER COLUMN starts_at DROP NOT NULL;
@@ -2674,9 +2523,7 @@ EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'pg_cron not available or failed to schedule';
 END $$;
 
--- =====================================================================
--- SECTION 61: PREMIUM BADGE STATUS SYNC
--- =====================================================================
+-- Section 61: PREMIUM BADGE STATUS SYNC
 
 -- 1. Add premium status columns to profiles
 ALTER TABLE public.profiles 
@@ -2732,9 +2579,7 @@ EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'pg_cron not available or failed to schedule';
 END $$;
 
--- =====================================================================
--- SECTION 62: STORAGE BUCKETS
--- =====================================================================
+-- Section 62: STORAGE BUCKETS
 
 INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT (id) DO NOTHING;
 INSERT INTO storage.buckets (id, name, public) VALUES ('banners', 'banners', true) ON CONFLICT (id) DO NOTHING;
@@ -2755,9 +2600,7 @@ CREATE POLICY "Anyone can upload a banner." ON storage.objects FOR INSERT WITH C
 DROP POLICY IF EXISTS "Anyone can update a banner." ON storage.objects;
 CREATE POLICY "Anyone can update a banner." ON storage.objects FOR UPDATE WITH CHECK (bucket_id = 'banners');
 
--- =====================================================================
--- SECTION 63: BANK ACCOUNTS
--- =====================================================================
+-- Section 63: BANK ACCOUNTS
 
 -- Ensure pgcrypto is enabled
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
@@ -2840,9 +2683,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.save_bank_account(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.save_bank_account(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated, service_role;
 
--- ==========================================
 -- COMMUNITY SYSTEM
--- ==========================================
 
 -- 1. Tables
 
@@ -3277,9 +3118,7 @@ BEGIN
 END;
 $$;
 
--- =====================================================================
 -- Auto-seed Daily Tournaments RPC
--- =====================================================================
 
 CREATE OR REPLACE FUNCTION public.seed_daily_tournaments()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -3387,8 +3226,7 @@ BEGIN
   -- Anti-abuse: Run only once per game
   IF v_game.iq_applied THEN RETURN; END IF;
 
-  -- Time class must be rated eligible (optional friend match exclusion handled by is_rated flag usually)
-  -- But we enforce explicitly: bullet, blitz, rapid, classical (correspondence too if standard)
+-- Time class must be rated eligible (optional friend match exclusion handled by...
   IF v_game.time_class NOT IN ('bullet', 'blitz', 'rapid', 'classical') THEN RETURN; END IF;
 
   -- Fetch current IQ ratings
@@ -3535,8 +3373,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.apply_iq_change(UUID) TO anon, authenticated, service_role;
 
--- 5. Modify apply_elo_change to automatically trigger apply_iq_change
---    This ensures that ALL game end conditions (resignation, timeout, draw, etc.) automatically apply IQ!
+-- 5
 CREATE OR REPLACE FUNCTION public.apply_elo_change(p_game_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -3614,7 +3451,7 @@ BEGIN
   -- NEW: Automatically trigger IQ updates
   PERFORM public.apply_iq_change(p_game_id);
 END; $$;
--- SECTION 23b: matching grant for the SECTION 23 header above — see note there.
+-- Section 23b: matching grant for the SECTION 23 header above — see note there.
 REVOKE EXECUTE ON FUNCTION public.apply_elo_change(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.apply_elo_change(UUID) TO authenticated, service_role;
 
@@ -3691,11 +3528,7 @@ DROP POLICY IF EXISTS "Users can view own puzzle progress" ON public.user_puzzle
 CREATE POLICY "Users can view own puzzle progress" ON public.user_puzzle_progress FOR SELECT USING (auth.uid() = user_id);
 
 
--- =====================================================================
--- SECTION: PUZZLE LIBRARY EXPANSION (500+ puzzles, rotation, admin RPCs)
--- Idempotent: folds in metadata columns + admin RPCs that previously only
--- existed in the unmerged migrations_puzzles.sql draft. Safe to re-run.
--- =====================================================================
+-- SECTION: PUZZLE LIBRARY EXPANSION (500+ puzzles, rotation, admin RPCs) Idempo...
 
 -- ── puzzles: additional metadata columns (additive, non-breaking) ──────
 ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'Tactics';
@@ -3711,30 +3544,17 @@ CREATE INDEX IF NOT EXISTS idx_puzzles_category ON public.puzzles(category);
 CREATE INDEX IF NOT EXISTS idx_puzzles_enabled ON public.puzzles(enabled);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_puzzles_slug ON public.puzzles(slug) WHERE slug IS NOT NULL;
 
--- Only expose enabled puzzles to normal clients; admins/service_role see all
--- via SECURITY DEFINER RPCs, so the public read policy is narrowed here.
+-- Only expose enabled puzzles to normal clients; admins/service_role see all vi...
 DROP POLICY IF EXISTS "Puzzles public read" ON public.puzzles;
 CREATE POLICY "Puzzles public read"
   ON public.puzzles FOR SELECT USING (enabled = true);
 
--- ── user_puzzle_stats: puzzle ELO rating (default 100, matching the
---    rating-default-100 convention used elsewhere in this schema) ──────
 ALTER TABLE public.user_puzzle_stats ADD COLUMN IF NOT EXISTS puzzle_rating INT NOT NULL DEFAULT 100;
 
 
 
--- ── Admin RPCs for /admin/puzzles (were referenced by src/lib/api/adminClient.ts
---    but never defined anywhere — added here rather than a new migration file) ──
---
--- p_id is TEXT, not UUID: public.puzzles.id is a TEXT primary key (e.g.
--- "p-back-rank-mate-350"), not a UUID, and it has no DEFAULT — so creating a
--- new puzzle also has to generate an id here. p_moves is TEXT (the admin UI
--- edits it as one space-separated UCI string, per AdminPuzzle.moves) but
--- public.puzzles.moves is TEXT[], so it's converted via string_to_array on
--- the way in/out. These were previously typed against an older, incompatible
--- generation of the puzzles table (UUID id, TEXT moves) that no longer
--- exists after the DROP TABLE CASCADE further down this file — every one of
--- these RPCs failed at runtime as a result.
+-- ── Admin RPCs for /admin/puzzles (were referenced by src/lib/api/adminClient....
+-- p_id is TEXT, not UUID: public.puzzles.id is a TEXT primary key (e.g
 DROP FUNCTION IF EXISTS public.admin_upsert_puzzle(UUID, TEXT, TEXT, INT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT[], BOOLEAN);
 DROP FUNCTION IF EXISTS public.admin_set_puzzle_enabled(UUID, BOOLEAN);
 DROP FUNCTION IF EXISTS public.admin_delete_puzzle(UUID);
@@ -3804,10 +3624,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.admin_delete_puzzle(TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_delete_puzzle(TEXT) TO authenticated, service_role;
 
--- Upserts on id (falling back to slug, then a generated id) so re-running
--- "Seed Bundled" from the admin UI updates existing rows instead of erroring
--- on the primary key — same idempotent pattern as the built-in seed INSERT
--- further down this file.
+-- Upserts on id (falling back to slug, then a generated id) so re-running "Seed...
 CREATE OR REPLACE FUNCTION public.admin_bulk_import_puzzles(p_items JSONB)
 RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -4045,21 +3862,8 @@ END;
 $body$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
--- =====================================================================
 -- CHAT SUBSYSTEM
--- ---------------------------------------------------------------------
--- Backs src/lib/api/chatClient.ts (Global Chat + Custom Rooms + Direct
--- Messages) and src/routes/admin.chat.tsx. Prior audit (AUDIT_REPORT.md)
--- found ~16+ RPCs plus a backing table referenced by the frontend with
--- no SQL definition anywhere in schema.sql or migrations. This migration
--- creates the full additive backend: chat_channels, chat_channel_members,
--- chat_messages, chat_message_reactions, chat_reports tables, and every
--- RPC the client/admin route calls, matching exact param names/order and
--- return shapes. Follows the same conventions as public.game_chat
--- (schema.sql ~line 224) and public.community_comments (~line 2848) for
--- table/RLS style, and admin_credit_wallet/has_role for the admin gate.
--- Purely additive: no DROP of anything pre-existing.
--- =====================================================================
+-- Backs src/lib/api/chatClient.ts (Global Chat + Custom Rooms + Direct Messages...
 
 -- ── 1. Core tables ────────────────────────────────────────────────────
 
@@ -4071,8 +3875,7 @@ CREATE TABLE IF NOT EXISTS public.chat_channels (
   description  TEXT DEFAULT '',
   is_private   BOOLEAN NOT NULL DEFAULT false,
   owner_id     UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  -- For DM channels: canonical pair (least(user), greatest(user)) so a
-  -- unique index can prevent duplicate DM channels between two users.
+-- For DM channels: canonical pair (least(user), greatest(user)) so a unique ind...
   dm_user_a    UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   dm_user_b    UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -4139,12 +3942,7 @@ CREATE TABLE IF NOT EXISTS public.chat_reports (
 
 CREATE INDEX IF NOT EXISTS idx_chat_reports_status ON public.chat_reports(status);
 
--- ── 2. RLS ────────────────────────────────────────────────────────────
--- All reads/writes to these tables happen through SECURITY DEFINER RPCs
--- below (mirrors the game_chat / community_comments pattern of a public
--- SELECT policy plus RPC-gated writes). Direct table access from the
--- client is only used by admin.chat.tsx for chat_reports (admin-only
--- SELECT), everything else goes through chatClient.ts RPCs.
+-- ── 2
 
 ALTER TABLE public.chat_channels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_channel_members ENABLE ROW LEVEL SECURITY;
@@ -4152,9 +3950,7 @@ ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_message_reactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_reports ENABLE ROW LEVEL SECURITY;
 
--- Public rooms/global are readable by anyone; DMs/private rooms only by
--- members. Used as a fallback if the frontend ever queries these tables
--- directly; the RPCs below do their own visibility checks internally.
+-- Public rooms/global are readable by anyone; DMs/private rooms only by members
 DROP POLICY IF EXISTS "chat_channels_select" ON public.chat_channels;
 CREATE POLICY "chat_channels_select" ON public.chat_channels
   FOR SELECT USING (
@@ -4204,8 +4000,7 @@ CREATE POLICY "chat_message_reactions_select_members" ON public.chat_message_rea
     )
   );
 
--- Reports: only admins and the reporter may read; only authenticated
--- users may create (via RPC, which sets reporter_id = auth.uid()).
+-- Reports: only admins and the reporter may read; only authenticated users may ...
 DROP POLICY IF EXISTS "chat_reports_select_admin_or_own" ON public.chat_reports;
 CREATE POLICY "chat_reports_select_admin_or_own" ON public.chat_reports
   FOR SELECT USING (
@@ -4285,10 +4080,7 @@ BEGIN
   RETURN v_id;
 END; $$;
 
--- Named composite type (NOT the same as a RETURNS TABLE(...) signature,
--- which is local to a single function and cannot be reused as a type
--- elsewhere) so both the row-builder helper and every public RPC below
--- can share one shape: matches ChatChannel in chatClient.ts.
+-- Named composite type (NOT the same as a RETURNS TABLE(...) signature, which i...
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'chat_channel_row') THEN
     CREATE TYPE public.chat_channel_row AS (
@@ -4865,18 +4657,9 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.admin_resolve_chat_report(UUID, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_resolve_chat_report(UUID, TEXT) TO authenticated, service_role;
 
--- =====================================================================
 -- CHAT SUBSYSTEM — ROOM SYSTEM UPGRADE
--- ---------------------------------------------------------------------
--- Adds: 14 permanent/system rooms (World Chat + 11 language General
--- Chats + New Player Chat + a "coming soon" Location Chat), Public/
--- Private room browsing with Room ID + search, password-protected
--- private rooms (pgcrypto, server-side only — hash never leaves the
--- DB), and richer chat_channel_row fields (room_code, icon,
--- max_members, online_count, is_permanent, coming_soon,
--- password_protected). Purely additive on top of the CHAT SUBSYSTEM
+-- Adds: 14 permanent/system rooms (World Chat + 11 language General Chats + New...
 -- section above; no existing object is dropped/renamed.
--- =====================================================================
 
 -- ── 1. New columns on chat_channels ──────────────────────────────────
 ALTER TABLE public.chat_channels ADD COLUMN IF NOT EXISTS room_code TEXT;
@@ -4895,9 +4678,7 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_chat_channels_name_search ON public.chat_channels(name);
 CREATE INDEX IF NOT EXISTS idx_chat_channels_permanent ON public.chat_channels(is_permanent) WHERE is_permanent = true;
 
--- ── 2. Seed the 13 permanent room-type channels ──────────────────────
--- (World Chat is the pre-existing 'global' type channel, upgraded to
--- permanent below — not duplicated here.)
+-- ── 2
 INSERT INTO public.chat_channels (type, slug, name, description, is_private, is_permanent, icon, sort_order)
 VALUES
 
@@ -4971,9 +4752,7 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- Re-declare the row-builder so the SELECT list matches the now-wider
--- type (new columns appended at the end, matching ALTER TYPE ADD
--- ATTRIBUTE ordering above).
+-- Re-declare the row-builder so the SELECT list matches the now-wider type (new...
 CREATE OR REPLACE FUNCTION public._chat_channel_row(p_channel_id UUID, p_user UUID)
 RETURNS SETOF public.chat_channel_row
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
@@ -5022,10 +4801,7 @@ BEGIN
   RETURN v_code;
 END; $$;
 
--- ── 6. Permanent rooms list (Global filter, Column 2) ────────────────
--- Auto-joins the caller to every permanent room (per spec: "every
--- registered user can join, everyone can read/send"), except the
--- coming-soon Location Chat.
+-- ── 6
 DROP FUNCTION IF EXISTS public.chat_permanent_rooms();
 CREATE OR REPLACE FUNCTION public.chat_permanent_rooms()
 RETURNS SETOF public.chat_channel_row
@@ -5068,8 +4844,7 @@ CREATE OR REPLACE FUNCTION public.chat_discover_private_rooms(p_search TEXT DEFA
 RETURNS SETOF public.chat_channel_row
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  -- Metadata only (name/owner/counts/last message) — password_hash is
-  -- never selected into chat_channel_row, so it can never leak here.
+-- Metadata only (name/owner/counts/last message) — password_hash is never selec...
   RETURN QUERY
   SELECT r.* FROM public.chat_channels c
   CROSS JOIN LATERAL public._chat_channel_row(c.id, auth.uid()) r
@@ -5124,9 +4899,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.chat_create_room(TEXT, TEXT, BOOLEAN, TEXT, INT, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.chat_create_room(TEXT, TEXT, BOOLEAN, TEXT, INT, TEXT) TO authenticated, service_role;
 
--- ── 9. Join a private room — Room ID + password, validated server-side
--- only. The hash is compared inside this SECURITY DEFINER function and
--- never returned to the client (chat_channel_row has no hash column).
+-- ── 9
 DROP FUNCTION IF EXISTS public.chat_join_private_room(TEXT, TEXT);
 CREATE OR REPLACE FUNCTION public.chat_join_private_room(p_room_code TEXT, p_password TEXT)
 RETURNS public.chat_channel_row
@@ -5196,8 +4969,7 @@ BEGIN
   DELETE FROM public.chat_channels WHERE id = p_channel AND type = 'room';
 END; $$;
 
--- Also block joining a permanent room's public-join RPC as a no-op
--- guard (they are auto-joined via chat_permanent_rooms already).
+-- Also block joining a permanent room's public-join RPC as a no-op guard (they ...
 CREATE OR REPLACE FUNCTION public.chat_join_room(p_channel UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -5212,10 +4984,7 @@ BEGIN
   VALUES (p_channel, auth.uid(), 'member')
   ON CONFLICT (channel_id, user_id) DO NOTHING;
 END; $$;
--- =====================================================================
 -- SECTION: PUZZLE PROGRESS AND DAILY LIMITS
--- =====================================================================
--- =====================================================================
 -- 1. Create a view that joins all the player stats together by pivoting the ratings table
 DROP VIEW IF EXISTS public.leaderboard_view CASCADE;
 CREATE OR REPLACE VIEW public.leaderboard_view AS
@@ -5845,9 +5614,7 @@ GRANT EXECUTE ON FUNCTION public.get_dynamic_leaderboard(text, text, text, text,
 
 
 
--- =====================================================================
--- SECTION 25: CLAN SYSTEM
--- =====================================================================
+-- Section 25: CLAN SYSTEM
 
 DO $$ 
 BEGIN
@@ -6074,9 +5841,7 @@ END $$;
 
 
 
--- =====================================================================
 -- CLAN RPC FUNCTIONS
--- =====================================================================
 
 DROP FUNCTION IF EXISTS public.clan_create(TEXT, TEXT, TEXT, TEXT, TEXT, public.clan_privacy, TEXT, TEXT);
 DROP FUNCTION IF EXISTS public.clan_create(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
@@ -6188,9 +5953,7 @@ GRANT EXECUTE ON FUNCTION public.clan_approve_join(UUID) TO authenticated;
 
 -- (More RPCs like clan_declare_war, clan_calculate_war_results can be added, but this covers the core requirement for phase 1)
 
--- =====================================================================
 -- CLAN MEMBER MANAGEMENT RPC FUNCTIONS
--- =====================================================================
 
 CREATE OR REPLACE FUNCTION public.clan_promote_member(p_clan_id UUID, p_user_id UUID)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -6250,9 +6013,7 @@ BEGIN
 END;
 $$;
 GRANT EXECUTE ON FUNCTION public.clan_kick_member(UUID, UUID) TO authenticated;
--- =====================================================================
 -- PUZZLE LIBRARY EXPANSION
--- =====================================================================
 
 DROP TABLE IF EXISTS public.puzzle_progress CASCADE;
 DROP TABLE IF EXISTS public.user_puzzle_progress CASCADE;
@@ -6270,12 +6031,7 @@ CREATE TABLE IF NOT EXISTS public.puzzles (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Metadata columns the admin puzzle-management UI depends on (theme,
--- category, difficulty, explanation, enabled, slug). The DROP TABLE CASCADE
--- above wipes any columns previously added by ALTER TABLE on the old
--- `puzzles` table, so without re-adding these here, admin_upsert_puzzle /
--- admin_bulk_import_puzzles / adminClient.ts's listPuzzles() all fail at
--- runtime with "column does not exist".
+-- Metadata columns the admin puzzle-management UI depends on (theme, category, ...
 ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS theme TEXT NOT NULL DEFAULT 'Tactics';
 ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'Tactics';
 ALTER TABLE public.puzzles ADD COLUMN IF NOT EXISTS difficulty TEXT NOT NULL DEFAULT 'Intermediate';
@@ -6291,11 +6047,7 @@ CREATE INDEX IF NOT EXISTS idx_puzzles_category ON public.puzzles(category);
 CREATE INDEX IF NOT EXISTS idx_puzzles_enabled ON public.puzzles(enabled);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_puzzles_slug ON public.puzzles(slug) WHERE slug IS NOT NULL;
 
--- DROP TABLE ... CASCADE above also wipes RLS/grants on the old table.
--- puzzles.rush.tsx and adminClient.ts's listPuzzles() both query this table
--- directly (not through a SECURITY DEFINER RPC), so without this restored
--- they get "permission denied for table puzzles" and Rush silently falls
--- back to its bundled local puzzle set every time.
+-- DROP TABLE ..
 ALTER TABLE public.puzzles ENABLE ROW LEVEL SECURITY;
 GRANT SELECT ON public.puzzles TO anon, authenticated;
 GRANT ALL ON public.puzzles TO service_role;
@@ -6318,10 +6070,7 @@ CREATE TABLE IF NOT EXISTS public.user_puzzle_stats (
     last_active TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Restored after the CASCADE above wiped RLS/grants. profile.tsx reads
--- *another* user's puzzle stats directly (public profile view, same as
--- ratings/tournament_entries there), so this is a public read, not
--- owner-only, to keep that existing feature working.
+-- Restored after the CASCADE above wiped RLS/grants
 ALTER TABLE public.user_puzzle_stats ENABLE ROW LEVEL SECURITY;
 GRANT SELECT, INSERT, UPDATE ON public.user_puzzle_stats TO authenticated;
 GRANT ALL ON public.user_puzzle_stats TO service_role;
@@ -6346,11 +6095,7 @@ CREATE TABLE IF NOT EXISTS public.puzzle_progress (
     UNIQUE(user_id, puzzle_id)
 );
 
--- Restored after the CASCADE above wiped RLS/grants. Only ever read/written
--- through the SECURITY DEFINER get_daily_puzzle()/update_puzzle_progress()
--- RPCs today (which bypass grants), but every other user-owned table in
--- this schema has RLS enabled — matching that here too as defense-in-depth
--- and for any future direct query against this table.
+-- Restored after the CASCADE above wiped RLS/grants
 ALTER TABLE public.puzzle_progress ENABLE ROW LEVEL SECURITY;
 GRANT SELECT, INSERT, UPDATE ON public.puzzle_progress TO authenticated;
 GRANT ALL ON public.puzzle_progress TO service_role;
@@ -6416,8 +6161,7 @@ BEGIN
     IF FOUND THEN
         SELECT * INTO v_puzzle FROM public.puzzles WHERE id = v_progress.puzzle_id;
     ELSE
-        -- Find a new puzzle based on progress (1st: Mate in 1, 2nd: Mate in 2, 3rd: Mate in 3)
-        -- enabled = true so puzzles the admin has disabled are never served.
+-- Find a new puzzle based on progress (1st: Mate in 1, 2nd: Mate in 2, 3rd: Mat...
         SELECT p.* INTO v_puzzle
         FROM public.puzzles p
         LEFT JOIN public.puzzle_progress pp ON p.id = pp.puzzle_id AND pp.user_id = v_user_id
@@ -6526,14 +6270,7 @@ BEGIN
         RAISE EXCEPTION 'Progress not found';
     END IF;
 
-    -- Capture the pre-update status: v_progress gets overwritten by the
-    -- RETURNING clause below, so this is the only way to later tell whether
-    -- this call is the one that *newly* transitions the puzzle into a
-    -- terminal state (previously this was read off v_progress AFTER the
-    -- UPDATE, which made the "newly terminal" check compare v_new_status
-    -- against itself and always evaluate false — completed_today, streaks
-    -- and xp never incremented, and the daily lock / Mate-in-1→2→3 rotation
-    -- that reads completed_today never advanced).
+-- Capture the pre-update status: v_progress gets overwritten by the RETURNING c...
     v_old_status := v_progress.status;
 
     -- Don't allow changing status if already solved/skipped
@@ -6587,16 +6324,10 @@ INSERT INTO public.puzzles (id, fen, moves, rating, themes, goal) VALUES
 ('puzzle_004', '4r1k1/1p3ppp/p7/3p4/8/2P1b1P1/PP2RP1P/R5K1 w - - 0 23', ARRAY['a1e1', 'e3f2', 'g1f2'], 1600, ARRAY['pin', 'endgame'], 'Find the best move')
 ON CONFLICT (id) DO UPDATE SET fen = EXCLUDED.fen, moves = EXCLUDED.moves, goal = EXCLUDED.goal, themes = EXCLUDED.themes;
 
--- =====================================================================
--- SECTION 26: CLAN SYSTEM — REWRITE FIXES
--- Corrects bugs found in the original Section 25 (clan_leaderboard was a
--- stale materialized view, clan_messages used chat_id while every client
--- query used clan_id, clan_wars had no INSERT/UPDATE policy, there was no
--- awards table, and leaving as leader had no safe transfer path).
--- =====================================================================
+-- Section 26: CLAN SYSTEM — REWRITE FIXES
+-- Corrects bugs found in the original Section 25 (clan_leaderboard was a stale ...
 
--- Live member counts: a materialized view does not reflect joins/leaves
--- until manually refreshed, which breaks "update instantly" requirements.
+-- Live member counts: a materialized view does not reflect joins/leaves until m...
 DO $$
 BEGIN
     DROP VIEW IF EXISTS public.clan_leaderboard CASCADE;
@@ -6620,8 +6351,7 @@ ORDER BY c.clan_score DESC, c.war_wins DESC, c.clan_rating DESC;
 
 GRANT SELECT ON public.clan_leaderboard TO authenticated, anon;
 
--- Rename clan_messages.chat_id -> clan_id to match every client query and
--- remove the indirection through clan_chat for read/write filters.
+-- Rename clan_messages.chat_id -> clan_id to match every client query and remov...
 DO $$
 BEGIN
   IF EXISTS (
@@ -6679,11 +6409,7 @@ CREATE INDEX IF NOT EXISTS idx_clan_awards_clan_id ON public.clan_awards(clan_id
 ALTER TABLE public.clan_awards ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Clan awards viewable by everyone" ON public.clan_awards;
 CREATE POLICY "Clan awards viewable by everyone" ON public.clan_awards FOR SELECT USING (true);
--- clan_awards was created after this file's blanket `GRANT ... ON ALL
--- TABLES IN SCHEMA public` (see the PUBLIC ROOM / community grant further
--- down), so it never got a table-level grant — the RLS policy above was
--- unreachable (no baseline privilege to even attempt the query), breaking
--- clanApi.ts's getClanAwards() with "Failed to load awards" for every clan.
+-- clan_awards was created after this file's blanket `GRANT ..
 GRANT SELECT ON public.clan_awards TO anon, authenticated;
 GRANT ALL ON public.clan_awards TO service_role;
 
@@ -6692,10 +6418,7 @@ CREATE INDEX IF NOT EXISTS idx_clans_name_lower ON public.clans (LOWER(name));
 CREATE INDEX IF NOT EXISTS idx_clans_country ON public.clans (country);
 CREATE INDEX IF NOT EXISTS idx_clan_members_clan_id ON public.clan_members (clan_id);
 
--- Safe leave/transfer: if the leader leaves and members remain, leadership
--- transfers to the longest-serving co-leader (or member); if the leaver was
--- the last member, the clan (and its dependents, via ON DELETE CASCADE) is
--- removed. This keeps "leader can never disappear" true across refreshes.
+-- Safe leave/transfer: if the leader leaves and members remain, leadership tran...
 CREATE OR REPLACE FUNCTION public.clan_leave(p_clan_id UUID)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -6728,9 +6451,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.clan_leave(UUID) TO authenticated;
 
--- =====================================================================
--- SECTION 27: CLAN SYSTEM V2 — EDIT & LEADERSHIP RPCs
--- =====================================================================
+-- Section 27: CLAN SYSTEM V2 — EDIT & LEADERSHIP RPCs
 
 -- Leader edits clan details. NULL params keep the current value.
 CREATE OR REPLACE FUNCTION public.clan_update_details(
@@ -6817,21 +6538,10 @@ GRANT EXECUTE ON FUNCTION public.clan_disband(UUID) TO authenticated;
 
 
 
--- =====================================================================
 -- MIGRATION 20260713000014: ABOUT / POLICIES / FEEDBACK CMS TABLES
--- =====================================================================
--- Fixes AUDIT_REPORT.md MEDIUM finding #8. src/lib/api/aboutClient.ts,
--- src/lib/api/policyClient.ts, and src/lib/api/feedbackClient.ts each
--- reference a table that does not exist in schema.sql or migrations
--- (about_articles, policies + policy_versions, feedbacks). All three
--- clients already degrade gracefully to localStorage when the table is
--- missing, so this was non-fatal, but adding the real tables lets content
--- persist server-side and sync across devices/admins as intended.
--- =====================================================================
+-- Fixes AUDIT_REPORT.md MEDIUM finding #8
 
--- ---------------------------------------------------------------------
 -- about_articles
--- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.about_articles (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title        TEXT NOT NULL,
@@ -6876,9 +6586,7 @@ CREATE TRIGGER trg_about_articles_updated_at
   BEFORE UPDATE ON public.about_articles
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
--- ---------------------------------------------------------------------
 -- policies + policy_versions
--- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.policies (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   policy_type  TEXT NOT NULL UNIQUE,
@@ -6945,9 +6653,7 @@ CREATE POLICY "Admins insert policy history"
   ON public.policy_versions FOR INSERT TO authenticated
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
--- ---------------------------------------------------------------------
 -- feedbacks
--- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.feedbacks (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -6970,29 +6676,11 @@ DROP POLICY IF EXISTS "Users submit feedback" ON public.feedbacks;
 CREATE POLICY "Users submit feedback"
   ON public.feedbacks FOR INSERT TO authenticated
   WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
--- =====================================================================
 -- MIGRATION 20260713000013: COMMUNITY FOLLOW / MODERATION TABLES
--- =====================================================================
--- Fixes AUDIT_REPORT.md MEDIUM finding #5. src/lib/api/communityClient.ts and
--- src/routes/community.bookmarks.tsx reference six tables that do not exist
--- anywhere in schema.sql or migrations: community_blocks, community_bookmarks,
--- community_follows, community_hidden_posts, community_mutes,
--- community_reports. Core posting (community_posts/community_reactions/
--- community_comments/community_saved_posts) already exists and is untouched.
--- Note: community_bookmarks (with a `collection` label, used by the bookmarks
--- page) is functionally close to the existing community_saved_posts but is a
--- distinct, already-referenced table in the frontend — added as-is rather
--- than silently repointing callers at community_saved_posts.
---
--- This migration only creates tables + RLS. The RPCs communityClient.ts calls
--- against these tables (community_toggle_follow, community_toggle_bookmark,
--- admin_resolve_report, etc.) beyond what's implemented here are a larger,
--- separate gap — see the Fix Pass 2 note in AUDIT_REPORT.md.
--- =====================================================================
+-- Fixes AUDIT_REPORT.md MEDIUM finding #5
+-- This migration only creates tables + RLS
 
--- ---------------------------------------------------------------------
 -- community_follows
--- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.community_follows (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   follower_id  UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -7022,9 +6710,7 @@ CREATE POLICY "Users remove own follows"
   ON public.community_follows FOR DELETE TO authenticated
   USING (auth.uid() = follower_id);
 
--- ---------------------------------------------------------------------
 -- community_bookmarks (labelled collections; distinct from community_saved_posts)
--- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.community_bookmarks (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -7045,9 +6731,7 @@ CREATE POLICY "Users manage own bookmarks"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
--- ---------------------------------------------------------------------
 -- community_hidden_posts ("hide this post for me")
--- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.community_hidden_posts (
   user_id    UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   post_id    UUID NOT NULL REFERENCES public.community_posts(id) ON DELETE CASCADE,
@@ -7065,9 +6749,7 @@ CREATE POLICY "Users manage own hidden posts"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
--- ---------------------------------------------------------------------
 -- community_mutes (mute another user's content without blocking)
--- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.community_mutes (
   user_id    UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   muted_id   UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -7086,9 +6768,7 @@ CREATE POLICY "Users manage own mutes"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
--- ---------------------------------------------------------------------
 -- community_blocks (block another user)
--- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.community_blocks (
   user_id    UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   blocked_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -7107,10 +6787,7 @@ CREATE POLICY "Users manage own blocks"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
--- ---------------------------------------------------------------------
--- community_reports (post/comment/user reports within the community feature,
--- distinct from the platform-wide public.reports table)
--- ---------------------------------------------------------------------
+-- community_reports (post/comment/user reports within the community feature, di...
 CREATE TABLE IF NOT EXISTS public.community_reports (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reporter_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -7140,10 +6817,7 @@ CREATE POLICY "Users insert own reports"
   ON public.community_reports FOR INSERT TO authenticated
   WITH CHECK (auth.uid() = reporter_id);
 
--- ---------------------------------------------------------------------
--- RPC: admin_resolve_report(p_report_id, p_status) — pairs with
--- community_reports, called from communityClient.ts resolveReport()
--- ---------------------------------------------------------------------
+-- RPC: admin_resolve_report(p_report_id, p_status) — pairs with community_repor...
 CREATE OR REPLACE FUNCTION public.admin_resolve_report(
   p_report_id UUID,
   p_status    TEXT
@@ -7167,17 +6841,8 @@ END; $$;
 
 REVOKE EXECUTE ON FUNCTION public.admin_resolve_report(UUID, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_resolve_report(UUID, TEXT) TO authenticated, service_role;
--- =====================================================================
 -- MIGRATION 20260713000012: PLATFORM REPORTS (bug / fair-play / abuse)
--- =====================================================================
--- Fixes AUDIT_REPORT.md MEDIUM finding #9. src/routes/report.tsx inserts
--- directly into public.reports; src/routes/admin.reports.tsx selects from it
--- and calls public.admin_resolve_platform_report(p_report_id, p_status).
--- This is a distinct, simpler table from the community-specific
--- public.community_reports created in the companion community migration —
--- report.tsx covers user/post/comment/game/bug reports platform-wide, not
--- just community posts.
--- =====================================================================
+-- Fixes AUDIT_REPORT.md MEDIUM finding #9
 
 CREATE TABLE IF NOT EXISTS public.reports (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -7210,9 +6875,7 @@ CREATE POLICY "Users insert own reports"
   ON public.reports FOR INSERT TO authenticated
   WITH CHECK (auth.uid() = reporter_id);
 
--- ---------------------------------------------------------------------
 -- RPC: admin_resolve_platform_report(p_report_id, p_status)
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.admin_resolve_platform_report(
   p_report_id UUID,
   p_status    TEXT
@@ -7236,16 +6899,8 @@ END; $$;
 
 REVOKE EXECUTE ON FUNCTION public.admin_resolve_platform_report(UUID, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_resolve_platform_report(UUID, TEXT) TO authenticated, service_role;
--- =====================================================================
 -- MIGRATION 20260713000011: USER_SETTINGS TABLE
--- =====================================================================
--- Fixes AUDIT_REPORT.md MEDIUM finding #6. src/lib/settings/settings-sync.ts
--- upserts/reads public.user_settings — one typed column per key in
--- src/lib/settings/schema.ts (SETTING_KEYS), no JSON blob, so this table's
--- columns mirror GameSettings exactly. Column set intentionally matches
--- schema.ts's DEFAULTS object so persistSettingsToDb()/loadSettingsFromDb()
--- work unmodified.
--- =====================================================================
+-- Fixes AUDIT_REPORT.md MEDIUM finding #6
 
 CREATE TABLE IF NOT EXISTS public.user_settings (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -7385,30 +7040,12 @@ DROP TRIGGER IF EXISTS trg_user_settings_updated_at ON public.user_settings;
 CREATE TRIGGER trg_user_settings_updated_at
   BEFORE UPDATE ON public.user_settings
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
--- =====================================================================
 -- MIGRATION 20260713000010: WITHDRAWAL / BANK-DETAILS FLOW
--- =====================================================================
--- Fixes AUDIT_REPORT.md HIGH finding #7. Frontend (src/hooks/useBankDetails.ts,
--- src/hooks/useWithdrawal.ts, src/routes/wallet.tsx, wallet.bank.tsx,
--- admin.withdrawals.tsx) expects:
---   table  public.bank_details          (NOT the existing public.bank_accounts)
---   rpc    public.save_bank_details(...)
---   table  public.withdrawal_requests
---   rpc    public.submit_withdrawal_request(p_amount)
---   rpc    public.cancel_withdrawal_request(p_request_id)
---   rpc    public.admin_approve_withdrawal(p_request_id)
---   rpc    public.admin_reject_withdrawal(p_request_id, p_reason)
---   rpc    public.admin_get_withdrawal_requests(p_status)
--- None of these exist in schema.sql or prior migrations (public.bank_accounts /
--- public.save_bank_account from SECTION 63 are a different, unused pair — left
--- untouched). This migration adds the missing pieces additively.
--- =====================================================================
+-- Fixes AUDIT_REPORT.md HIGH finding #7
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
--- ---------------------------------------------------------------------
 -- 1. bank_details table (one row per user; matches useBankDetails.ts shape)
--- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.bank_details (
   id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id                   UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -7490,9 +7127,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.save_bank_details(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.save_bank_details(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 2. withdrawal_requests table
--- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.withdrawal_requests (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id          UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -7532,9 +7167,7 @@ BEGIN
   END IF;
 END $$;
 
--- ---------------------------------------------------------------------
 -- 3. RPC: submit_withdrawal_request(p_amount) — escrows funds immediately
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.submit_withdrawal_request(p_amount INT)
 RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -7587,9 +7220,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.submit_withdrawal_request(INT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.submit_withdrawal_request(INT) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 4. RPC: cancel_withdrawal_request(p_request_id) — user-initiated, refunds
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.cancel_withdrawal_request(UUID);
 CREATE OR REPLACE FUNCTION public.cancel_withdrawal_request(p_request_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -7629,9 +7260,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.cancel_withdrawal_request(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.cancel_withdrawal_request(UUID) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 5. RPC: admin_approve_withdrawal(p_request_id) — admin marks transferred
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.admin_approve_withdrawal(uuid);
 CREATE OR REPLACE FUNCTION public.admin_approve_withdrawal(p_request_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -7657,9 +7286,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.admin_approve_withdrawal(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_approve_withdrawal(UUID) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 6. RPC: admin_reject_withdrawal(p_request_id, p_reason) — refunds user
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.admin_reject_withdrawal(uuid, text);
 CREATE OR REPLACE FUNCTION public.admin_reject_withdrawal(p_request_id UUID, p_reason TEXT DEFAULT NULL)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -7711,9 +7338,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.admin_reject_withdrawal(UUID, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_reject_withdrawal(UUID, TEXT) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 7. RPC: admin_get_withdrawal_requests(p_status) — joined admin view
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.admin_get_withdrawal_requests(p_status TEXT DEFAULT NULL)
 RETURNS TABLE (
   id             UUID,
@@ -7761,18 +7386,8 @@ END; $$;
 
 REVOKE EXECUTE ON FUNCTION public.admin_get_withdrawal_requests(TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_get_withdrawal_requests(TEXT) TO authenticated, service_role;
--- =====================================================================
 -- TOURNAMENT_MATCHES
--- ---------------------------------------------------------------------
--- Backs the bracket UI in src/routes/tournament.$id.tsx, which selects
--- id,round,slot,player1_id,player2_id,game_id,winner_id,status filtered
--- by tournament_id and ordered by round, and subscribes to postgres_changes
--- on this table (filter tournament_id=eq.<id>) for live bracket updates.
--- Prior audit (AUDIT_REPORT.md) found no definition for this table
--- anywhere in schema.sql or migrations. Purely additive: no DROP.
--- Follows the same conventions as tournaments/tournament_entries
--- (schema.sql SECTION 15/16).
--- =====================================================================
+-- Backs the bracket UI in src/routes/tournament.$id.tsx, which selects id,round...
 
 CREATE TABLE IF NOT EXISTS public.tournament_matches (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -7800,14 +7415,12 @@ GRANT ALL ON public.tournament_matches TO service_role;
 
 ALTER TABLE public.tournament_matches ENABLE ROW LEVEL SECURITY;
 
--- Public read, consistent with tournaments/tournament_entries being open
--- to anon/authenticated (bracket is public info once a tournament goes live).
+-- Public read, consistent with tournaments/tournament_entries being open to ano...
 DROP POLICY IF EXISTS "Tournament matches public read" ON public.tournament_matches;
 CREATE POLICY "Tournament matches public read"
   ON public.tournament_matches FOR SELECT USING (true);
 
--- Writes are restricted to admins (bracket generation/progression is a
--- server-side/admin operation), same as "Admins update tournaments".
+-- Writes are restricted to admins (bracket generation/progression is a server-s...
 DROP POLICY IF EXISTS "Admins insert tournament matches" ON public.tournament_matches;
 CREATE POLICY "Admins insert tournament matches"
   ON public.tournament_matches FOR INSERT
@@ -7818,8 +7431,7 @@ CREATE POLICY "Admins update tournament matches"
   ON public.tournament_matches FOR UPDATE
   USING (public.has_role(auth.uid(), 'admin'));
 
--- updated_at maintenance trigger, following the same style used elsewhere
--- in schema.sql for tables with an updated_at column.
+-- updated_at maintenance trigger, following the same style used elsewhere in sc...
 CREATE OR REPLACE FUNCTION public._tournament_matches_touch_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
@@ -7832,8 +7444,7 @@ CREATE TRIGGER trg_tournament_matches_touch_updated_at
   BEFORE UPDATE ON public.tournament_matches
   FOR EACH ROW EXECUTE FUNCTION public._tournament_matches_touch_updated_at();
 
--- Realtime: the route subscribes to postgres_changes on this table
--- (channel `tournament_detail:<id>`, filter tournament_id=eq.<id>).
+-- Realtime: the route subscribes to postgres_changes on this table (channel `to...
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -7843,21 +7454,8 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.tournament_matches;
   END IF;
 END $$;
--- =====================================================================
 -- CHAT SUBSYSTEM
--- ---------------------------------------------------------------------
--- Backs src/lib/api/chatClient.ts (Global Chat + Custom Rooms + Direct
--- Messages) and src/routes/admin.chat.tsx. Prior audit (AUDIT_REPORT.md)
--- found ~16+ RPCs plus a backing table referenced by the frontend with
--- no SQL definition anywhere in schema.sql or migrations. This migration
--- creates the full additive backend: chat_channels, chat_channel_members,
--- chat_messages, chat_message_reactions, chat_reports tables, and every
--- RPC the client/admin route calls, matching exact param names/order and
--- return shapes. Follows the same conventions as public.game_chat
--- (schema.sql ~line 224) and public.community_comments (~line 2848) for
--- table/RLS style, and admin_credit_wallet/has_role for the admin gate.
--- Purely additive: no DROP of anything pre-existing.
--- =====================================================================
+-- Backs src/lib/api/chatClient.ts (Global Chat + Custom Rooms + Direct Messages...
 
 -- ── 1. Core tables ────────────────────────────────────────────────────
 
@@ -7869,8 +7467,7 @@ CREATE TABLE IF NOT EXISTS public.chat_channels (
   description  TEXT DEFAULT '',
   is_private   BOOLEAN NOT NULL DEFAULT false,
   owner_id     UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  -- For DM channels: canonical pair (least(user), greatest(user)) so a
-  -- unique index can prevent duplicate DM channels between two users.
+-- For DM channels: canonical pair (least(user), greatest(user)) so a unique ind...
   dm_user_a    UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   dm_user_b    UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -7937,12 +7534,7 @@ CREATE TABLE IF NOT EXISTS public.chat_reports (
 
 CREATE INDEX IF NOT EXISTS idx_chat_reports_status ON public.chat_reports(status);
 
--- ── 2. RLS ────────────────────────────────────────────────────────────
--- All reads/writes to these tables happen through SECURITY DEFINER RPCs
--- below (mirrors the game_chat / community_comments pattern of a public
--- SELECT policy plus RPC-gated writes). Direct table access from the
--- client is only used by admin.chat.tsx for chat_reports (admin-only
--- SELECT), everything else goes through chatClient.ts RPCs.
+-- ── 2
 
 ALTER TABLE public.chat_channels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_channel_members ENABLE ROW LEVEL SECURITY;
@@ -7950,9 +7542,7 @@ ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_message_reactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_reports ENABLE ROW LEVEL SECURITY;
 
--- Public rooms/global are readable by anyone; DMs/private rooms only by
--- members. Used as a fallback if the frontend ever queries these tables
--- directly; the RPCs below do their own visibility checks internally.
+-- Public rooms/global are readable by anyone; DMs/private rooms only by members
 DROP POLICY IF EXISTS "chat_channels_select" ON public.chat_channels;
 CREATE POLICY "chat_channels_select" ON public.chat_channels
   FOR SELECT USING (
@@ -8002,8 +7592,7 @@ CREATE POLICY "chat_message_reactions_select_members" ON public.chat_message_rea
     )
   );
 
--- Reports: only admins and the reporter may read; only authenticated
--- users may create (via RPC, which sets reporter_id = auth.uid()).
+-- Reports: only admins and the reporter may read; only authenticated users may ...
 DROP POLICY IF EXISTS "chat_reports_select_admin_or_own" ON public.chat_reports;
 CREATE POLICY "chat_reports_select_admin_or_own" ON public.chat_reports
   FOR SELECT USING (
@@ -8072,10 +7661,7 @@ BEGIN
   RETURN v_id;
 END; $$;
 
--- Named composite type (NOT the same as a RETURNS TABLE(...) signature,
--- which is local to a single function and cannot be reused as a type
--- elsewhere) so both the row-builder helper and every public RPC below
--- can share one shape: matches ChatChannel in chatClient.ts.
+-- Named composite type (NOT the same as a RETURNS TABLE(...) signature, which i...
 DO $$ BEGIN
   DROP TYPE IF EXISTS public.chat_channel_row CASCADE;
   CREATE TYPE public.chat_channel_row AS (
@@ -8620,20 +8206,8 @@ BEGIN
 END; $$;
 REVOKE EXECUTE ON FUNCTION public.admin_resolve_chat_report(UUID, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_resolve_chat_report(UUID, TEXT) TO authenticated, service_role;
--- =====================================================================
 -- SEASONS BACKEND
--- ---------------------------------------------------------------------
--- Backs src/lib/api/seasonsClient.ts (routes /seasons and /admin/seasons).
--- Prior audit (AUDIT_REPORT.md, "Fix Pass") found none of the RPCs the
--- client calls exist anywhere in schema.sql or migrations. This migration
--- creates the full additive backend: seasons table, per-season snapshot
--- table (season_rankings), history table (season_history), and every RPC
--- the client expects, matching its exact param names/order and return
--- shapes. Follows the same SECURITY DEFINER + has_role('admin') pattern
--- used by admin_credit_wallet/admin_debit_wallet (schema.sql ~line 1358)
--- and the leaderboard_view pattern (schema.sql ~line 3302) for rewards/
--- ranking math. Purely additive: no DROP, no ALTER that removes anything.
--- =====================================================================
+-- Backs src/lib/api/seasonsClient.ts (routes /seasons and /admin/seasons)
 
 -- ── 1. Core tables ────────────────────────────────────────────────────
 
@@ -8652,8 +8226,7 @@ CREATE TABLE IF NOT EXISTS public.seasons (
 
 CREATE INDEX IF NOT EXISTS idx_seasons_status ON public.seasons(status);
 
--- Per-season leaderboard snapshot, refreshed live while a season is
--- 'live'/'paused' and frozen (ranks locked) once 'ended'.
+-- Per-season leaderboard snapshot, refreshed live while a season is 'live'/'pau...
 CREATE TABLE IF NOT EXISTS public.season_rankings (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   season_id        UUID NOT NULL REFERENCES public.seasons(id) ON DELETE CASCADE,
@@ -8671,8 +8244,7 @@ CREATE INDEX IF NOT EXISTS idx_season_rankings_season_rank
 CREATE INDEX IF NOT EXISTS idx_season_rankings_user
   ON public.season_rankings(user_id);
 
--- Final, immutable record written when a season ends (admin_end_season).
--- Backs season_history_for_user.
+-- Final, immutable record written when a season ends (admin_end_season)
 CREATE TABLE IF NOT EXISTS public.season_history (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   season_id      UUID NOT NULL REFERENCES public.seasons(id) ON DELETE CASCADE,
@@ -8692,10 +8264,7 @@ ALTER TABLE public.seasons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.season_rankings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.season_history ENABLE ROW LEVEL SECURITY;
 
--- Everyone can read seasons/rankings/history (leaderboards are public,
--- consistent with leaderboard_view/get_dynamic_leaderboard being open to
--- anon/authenticated). All writes only ever happen via SECURITY DEFINER
--- functions below, so no INSERT/UPDATE/DELETE policies are granted here.
+-- Everyone can read seasons/rankings/history (leaderboards are public, consiste...
 DROP POLICY IF EXISTS "seasons_select_all" ON public.seasons;
 CREATE POLICY "seasons_select_all" ON public.seasons
   FOR SELECT USING (true);
@@ -8708,10 +8277,7 @@ DROP POLICY IF EXISTS "season_history_select_all" ON public.season_history;
 CREATE POLICY "season_history_select_all" ON public.season_history
   FOR SELECT USING (true);
 
--- These three tables were created after this file's blanket `GRANT ... ON
--- ALL TABLES IN SCHEMA public` and never got their own table-level grant —
--- the "everyone can read" policies above were unreachable without it (no
--- baseline privilege to even attempt the query, regardless of RLS).
+-- These three tables were created after this file's blanket `GRANT ..
 GRANT SELECT ON public.seasons, public.season_rankings, public.season_history
   TO anon, authenticated;
 GRANT ALL ON public.seasons, public.season_rankings, public.season_history TO service_role;
@@ -8737,12 +8303,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.list_seasons() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.list_seasons() TO anon, authenticated, service_role;
 
--- Guarded: this is the first of three season_leaderboard definitions in
--- this file, and later ones (SECTION 77.9) change the RETURNS TABLE shape
--- (adds prev_rank/season_iq/tier/etc., rank becomes BIGINT). CREATE OR
--- REPLACE cannot change a function's return shape, so on a database that
--- already has a later version installed, this first definition needs its
--- own DROP to avoid 42P13. Harmless no-op on a truly empty database.
+-- Guarded: this is the first of three season_leaderboard definitions in this fi...
 DROP FUNCTION IF EXISTS public.season_leaderboard(UUID, TEXT, TEXT, TEXT, TEXT, INT, INT);
 CREATE OR REPLACE FUNCTION public.season_leaderboard(
   p_season_id UUID,
@@ -8846,9 +8407,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.season_history_for_user(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.season_history_for_user(UUID) TO anon, authenticated, service_role;
 
--- ── 3. Internal helper: recompute rankings for a season ──────────────
--- Ranks all profiles by iq_level desc using the same "overall_rating"
--- concept as leaderboard_view (highest active time-class rating).
+-- ── 3
 CREATE OR REPLACE FUNCTION public._season_recompute_rankings(p_season_id UUID)
 RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -8880,10 +8439,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public._season_recompute_rankings(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._season_recompute_rankings(UUID) TO service_role;
 
--- ── 4. Admin write RPCs ───────────────────────────────────────────────
--- All follow the admin_credit_wallet pattern: allow service_role calls
--- (auth.uid() IS NULL) and require has_role(auth.uid(), 'admin') for any
--- authenticated caller.
+-- ── 4
 
 CREATE OR REPLACE FUNCTION public.admin_create_season(
   p_name  TEXT,
@@ -9071,16 +8627,9 @@ BEGIN
 END; $$;
 REVOKE EXECUTE ON FUNCTION public.admin_end_season(UUID, BOOLEAN) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_end_season(UUID, BOOLEAN) TO authenticated, service_role;
--- =====================================================================
--- HOTFIX: leaderboard_view / get_dynamic_leaderboard referenced columns
--- and a table that were never created (p.community_score, p.iq_level,
--- public.community_achievements). This caused:
---   ERROR: 42703: column p.community_score does not exist
--- =====================================================================
+-- HOTFIX: leaderboard_view / get_dynamic_leaderboard referenced columns and a t...
 
--- 1. Add the missing profile columns.
---    iq_level mirrors the existing iq_rating column (kept in sync via
---    trigger below) rather than duplicating rating logic elsewhere.
+-- 1
 
 -- Backfill iq_level from the existing iq_rating so current standings aren't reset.
 UPDATE public.profiles SET iq_level = iq_rating WHERE iq_level = 100 AND iq_rating <> 100;
@@ -9098,9 +8647,7 @@ CREATE TRIGGER trg_sync_iq_level
   BEFORE INSERT OR UPDATE OF iq_rating ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.sync_iq_level();
 
--- 2. community_achievements never existed; the community feature ships
---    posts/reactions/comments but no achievements table. Create a minimal
---    table so the leaderboard's achievements_count subquery resolves.
+-- 2
 CREATE TABLE IF NOT EXISTS public.community_achievements (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -9117,8 +8664,7 @@ DROP POLICY IF EXISTS "Achievements public read" ON public.community_achievement
 CREATE POLICY "Achievements public read"
   ON public.community_achievements FOR SELECT USING (true);
 
--- 3. Re-run leaderboard_view and get_dynamic_leaderboard now that their
---    dependencies exist (bodies unchanged from schema.sql SECTION 19-20).
+-- 3
 CREATE OR REPLACE VIEW public.leaderboard_view AS
 WITH user_ratings AS (
   SELECT
@@ -9277,29 +8823,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION public.get_dynamic_leaderboard(text, text, text, text, text, integer, integer) TO anon, authenticated, service_role;
 
--- =====================================================================
--- SECTION 74: TOURNAMENT ENGINE — LIVE TR PAGE (2026-07-14)
--- ---------------------------------------------------------------------
--- Everything the live tournament (TR) page needs that SECTIONS 15/16/36/
--- 59/60 did not provide:
---   • per-entry match stats (W/L/D, piece points, time used, status)
---   • tournament_activity feed table (realtime)
---   • the four RPCs the client already imports but that had no backend:
---       refund_tournament_entry, cancel_tournament, handle_no_show,
---       ensure_tournament_slots
---   • the actual knockout engine: round generation, game creation,
---     result capture (trigger on games), advancement, byes, draw
---     tiebreaks, prize payout, notifications, activity logging
---   • tournament_clock_sweep() pg_cron job that force-finishes
---     tournament games whose clock is dead (covers no-shows)
---   • get_tournament_state(): the page's single-round-trip state RPC
--- All engine internals are SECURITY DEFINER with EXECUTE revoked from
--- anon/authenticated; players interact only through the public RPCs.
--- =====================================================================
+-- Section 74: TOURNAMENT ENGINE — LIVE TR PAGE (2026-07-14)
+-- Everything the live tournament (TR) page needs that SECTIONS 15/16/36/ 59/60 ...
 
--- ---------------------------------------------------------------------
 -- 74.1 Columns
--- ---------------------------------------------------------------------
 ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS current_round    INT NOT NULL DEFAULT 0;
 ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS total_rounds     INT NOT NULL DEFAULT 0;
 ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS min_players      INT NOT NULL DEFAULT 2;
@@ -9322,16 +8849,12 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- Direct INSERT/DELETE on tournament_entries let clients skip the paid
--- join / refund RPCs (and the player_count bookkeeping). Close the hole:
--- every entry write now goes through SECURITY DEFINER functions.
+-- Direct INSERT/DELETE on tournament_entries let clients skip the paid join / r...
 DROP POLICY IF EXISTS "entries own insert" ON public.tournament_entries;
 DROP POLICY IF EXISTS "entries own delete" ON public.tournament_entries;
 REVOKE INSERT, DELETE ON public.tournament_entries FROM authenticated;
 
--- ---------------------------------------------------------------------
 -- 74.2 Activity feed table (drives the TR page's live activity section)
--- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.tournament_activity (
   id            BIGSERIAL PRIMARY KEY,
   tournament_id UUID NOT NULL REFERENCES public.tournaments(id) ON DELETE CASCADE,
@@ -9349,11 +8872,9 @@ ALTER TABLE public.tournament_activity ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Tournament activity public read" ON public.tournament_activity;
 CREATE POLICY "Tournament activity public read"
   ON public.tournament_activity FOR SELECT USING (true);
--- No INSERT policies on purpose: only SECURITY DEFINER engine functions
--- and the service role write activity rows.
+-- No INSERT policies on purpose: only SECURITY DEFINER engine functions and the...
 
--- Realtime: the TR page subscribes to postgres_changes on all four
--- tournament tables (tournament_matches was added in an earlier section).
+-- Realtime: the TR page subscribes to postgres_changes on all four tournament t...
 DO $$
 DECLARE v_tbl TEXT;
 BEGIN
@@ -9367,9 +8888,7 @@ BEGIN
   END LOOP;
 END $$;
 
--- ---------------------------------------------------------------------
 -- 74.3 Internal helpers
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public._tournament_log(UUID, TEXT, TEXT, UUID, JSONB);
 CREATE OR REPLACE FUNCTION public._tournament_log(
   p_tournament_id UUID,
@@ -9427,9 +8946,7 @@ EXCEPTION WHEN OTHERS THEN
   o_initial_seconds := 300; o_increment_seconds := 0; o_time_class := 'blitz'::public.time_class;
 END; $$;
 
--- Creates the live game for one pairing. Colors are assigned randomly;
--- the row mirrors what create_challenge + join_game would produce so the
--- existing game page, move handler, and clocks work unchanged.
+-- Creates the live game for one pairing
 DROP FUNCTION IF EXISTS public._tournament_create_game(public.tournaments, UUID, UUID);
 CREATE OR REPLACE FUNCTION public._tournament_create_game(
   p_tournament public.tournaments,
@@ -9471,14 +8988,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public._tournament_create_game(public.tournaments, UUID, UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._tournament_create_game(public.tournaments, UUID, UUID) TO service_role;
 
--- ---------------------------------------------------------------------
 -- 74.4 Round generation
--- ---------------------------------------------------------------------
--- Pairs the next round of the knockout bracket and spawns its games.
--- Round 1 seeds all entrants in random order; later rounds take the
--- winners of the previous round in slot order. An odd player out gets a
--- bye (auto-advance). Caller must hold (or be able to take) the
--- tournament row lock — every caller here locks it first.
+-- Pairs the next round of the knockout bracket and spawns its games
 DROP FUNCTION IF EXISTS public._tournament_start_round(UUID);
 CREATE OR REPLACE FUNCTION public._tournament_start_round(p_tournament_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -9557,9 +9068,7 @@ END; $$;
 REVOKE ALL ON FUNCTION public._tournament_start_round(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._tournament_start_round(UUID) TO service_role;
 
--- ---------------------------------------------------------------------
 -- 74.5 Prize payout + completion
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public._tournament_award_prize(public.tournaments, UUID, INT, TEXT);
 CREATE OR REPLACE FUNCTION public._tournament_award_prize(
   p_tournament public.tournaments,
@@ -9607,8 +9116,7 @@ END; $$;
 REVOKE ALL ON FUNCTION public._tournament_award_prize(public.tournaments, UUID, INT, TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._tournament_award_prize(public.tournaments, UUID, INT, TEXT) TO service_role;
 
--- Called when the final has produced a winner: assigns places, pays
--- prizes idempotently, stamps the tournament completed, and notifies.
+-- Called when the final has produced a winner: assigns places, pays prizes idem...
 DROP FUNCTION IF EXISTS public._tournament_complete(UUID);
 CREATE OR REPLACE FUNCTION public._tournament_complete(p_tournament_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -9704,14 +9212,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public._tournament_complete(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._tournament_complete(UUID) TO service_role;
 
--- ---------------------------------------------------------------------
 -- 74.6 Result capture: games → bracket advancement
--- ---------------------------------------------------------------------
--- Fires once per game on the NULL → NOT NULL transition of ended_at
--- (same convention as trg_game_finished_streak), regardless of HOW the
--- game ended: checkmate/draw via makeMove, resign_game, claim_timeout,
--- handle_no_show, or the clock sweep. Draws advance whoever kept more
--- clock — knockout rounds always need exactly one winner.
+-- Fires once per game on the NULL → NOT NULL transition of ended_at (same conve...
 DROP TRIGGER IF EXISTS trg_tournament_game_finished ON public.games;
 DROP FUNCTION IF EXISTS public.handle_tournament_game_finished();
 CREATE OR REPLACE FUNCTION public.handle_tournament_game_finished()
@@ -9818,9 +9320,7 @@ CREATE TRIGGER trg_tournament_game_finished
   WHEN (OLD.ended_at IS NULL AND NEW.ended_at IS NOT NULL)
   EXECUTE FUNCTION public.handle_tournament_game_finished();
 
--- ---------------------------------------------------------------------
 -- 74.7 Locked → live now also builds Round 1
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.transition_locked_tournaments()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -9847,13 +9347,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public.transition_locked_tournaments() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.transition_locked_tournaments() TO service_role, anon, authenticated;
 
--- ---------------------------------------------------------------------
 -- 74.8 Clock sweep: force-finish tournament games with dead clocks
--- ---------------------------------------------------------------------
--- The move handler only settles a flag when someone calls it; if a
--- player walks away, this sweep ends the game (covers no-shows too:
--- white never moving simply runs white's clock out). Ending the game
--- fires trg_tournament_game_finished, which advances the bracket.
+-- The move handler only settles a flag when someone calls it; if a player walks...
 DROP FUNCTION IF EXISTS public.tournament_clock_sweep();
 CREATE OR REPLACE FUNCTION public.tournament_clock_sweep()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -9909,9 +9404,7 @@ EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'pg_cron not available — schedule tournament_clock_sweep manually';
 END $$;
 
--- ---------------------------------------------------------------------
 -- 74.9 Player RPC: withdraw + refund (client: refundTournamentEntry)
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.refund_tournament_entry(UUID);
 CREATE OR REPLACE FUNCTION public.refund_tournament_entry(p_tournament_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -9964,9 +9457,7 @@ END; $$;
 REVOKE ALL ON FUNCTION public.refund_tournament_entry(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.refund_tournament_entry(UUID) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 74.10 Admin RPC: cancel + refund everyone (client: cancelTournament)
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.cancel_tournament(UUID);
 CREATE OR REPLACE FUNCTION public.cancel_tournament(p_tournament_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -9986,8 +9477,7 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'Tournament not found'; END IF;
   IF v_t.status IN ('completed', 'cancelled') THEN RAISE EXCEPTION 'Tournament already ended'; END IF;
 
-  -- Mark cancelled and detach matches BEFORE force-finishing games so
-  -- trg_tournament_game_finished skips them (tournament is not live).
+-- Mark cancelled and detach matches BEFORE force-finishing games so trg_tournam...
   UPDATE public.tournaments SET status = 'cancelled', ends_at = now() WHERE id = p_tournament_id;
   UPDATE public.tournament_matches SET status = 'finished'
   WHERE tournament_id = p_tournament_id AND status IN ('pending', 'active');
@@ -10032,9 +9522,7 @@ END; $$;
 REVOKE ALL ON FUNCTION public.cancel_tournament(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.cancel_tournament(UUID) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 74.11 Player RPC: claim a no-show win early (client: claimNoShow)
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.handle_no_show(UUID);
 CREATE OR REPLACE FUNCTION public.handle_no_show(p_match_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -10060,8 +9548,7 @@ BEGIN
   IF v_g.status <> 'active' THEN RAISE EXCEPTION 'Game already finished'; END IF;
 
   v_opp := CASE WHEN v_g.white_id = v_uid THEN v_g.black_id ELSE v_g.white_id END;
-  -- White claiming against black must have opened the game first —
-  -- otherwise black never had a turn to miss.
+-- White claiming against black must have opened the game first — otherwise blac...
   IF v_g.white_id = v_uid AND v_g.moves_count = 0 THEN
     RAISE EXCEPTION 'Make your first move first';
   END IF;
@@ -10083,9 +9570,7 @@ END; $$;
 REVOKE ALL ON FUNCTION public.handle_no_show(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.handle_no_show(UUID) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 74.12 RPC: ensure_tournament_slots (client: ensureTournamentSlots)
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.ensure_tournament_slots();
 CREATE OR REPLACE FUNCTION public.ensure_tournament_slots()
 RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -10101,13 +9586,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public.ensure_tournament_slots() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.ensure_tournament_slots() TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 74.13 join_tournament_paid v3
--- ---------------------------------------------------------------------
--- Same contract as SECTION 60's version plus:
---   • entry-attempt-scoped idempotency key, so join → withdraw → join
---     no longer collides with the old fixed key (unique violation)
---   • activity feed entries for player_joined / tournament_locked
+-- Same contract as SECTION 60's version plus: • entry-attempt-scoped idempotenc...
 DROP FUNCTION IF EXISTS public.join_tournament_paid(UUID);
 CREATE OR REPLACE FUNCTION public.join_tournament_paid(p_tournament_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -10145,9 +9625,7 @@ BEGIN
       RAISE EXCEPTION 'Insufficient wallet balance';
     END IF;
 
-    -- Attempt-scoped key: the 'Already registered' guard above (under the
-    -- tournament row lock) is what prevents double-charging; the key just
-    -- has to be unique per successful join.
+-- Attempt-scoped key: the 'Already registered' guard above (under the tournamen...
     SELECT count(*) + 1 INTO v_attempt FROM public.wallet_transactions
     WHERE user_id = v_uid AND type = 'tournament_entry' AND reference_id = p_tournament_id::text;
     v_ikey := 'tourn_entry_' || v_uid::text || '_' || p_tournament_id::text || '_' || v_attempt;
@@ -10203,11 +9681,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public.join_tournament_paid(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.join_tournament_paid(UUID) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 74.14 Auto-created tournaments are knockout, not swiss
--- ---------------------------------------------------------------------
--- Identical to SECTION 60's ensure_upcoming_tournaments except the format
--- now says what the engine actually runs: single-elimination knockout.
+-- Identical to SECTION 60's ensure_upcoming_tournaments except the format now s...
 CREATE OR REPLACE FUNCTION public.ensure_upcoming_tournaments()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -10255,9 +9730,7 @@ END; $$;
 REVOKE ALL ON FUNCTION public.ensure_upcoming_tournaments() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.ensure_upcoming_tournaments() TO service_role;
 
--- Replenishment trigger (SECTION 59) recreated here so a fresh upcoming
--- tournament appears the instant one locks, even on databases where the
--- original trigger was never applied or points at a stale function.
+-- Replenishment trigger (SECTION 59) recreated here so a fresh upcoming tournam...
 CREATE OR REPLACE FUNCTION public.trg_auto_create_tournament()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -10274,15 +9747,8 @@ CREATE TRIGGER on_tournament_status_change
   WHEN (OLD.status = 'upcoming' AND NEW.status IN ('locked', 'live', 'completed', 'cancelled'))
   EXECUTE FUNCTION public.trg_auto_create_tournament();
 
--- ---------------------------------------------------------------------
 -- 74.15 get_tournament_state — the TR page's one-round-trip state RPC
--- ---------------------------------------------------------------------
--- Returns the entire page state in a single call: tournament row,
--- entries joined with profiles, matches joined with game snapshots
--- (enough for live boards, clocks and the recent-matches list), the
--- activity feed, and the server clock for drift-free countdowns.
--- All of this data is public-read under RLS anyway; SECURITY DEFINER
--- just spares five round trips.
+-- Returns the entire page state in a single call: tournament row, entries joine...
 DROP FUNCTION IF EXISTS public.get_tournament_state(UUID);
 CREATE OR REPLACE FUNCTION public.get_tournament_state(p_tournament_id UUID)
 RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
@@ -10444,36 +9910,11 @@ EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'pg_cron not available — schedule tournament_1min_warning manually';
 END $$;
 
--- =====================================================================
--- SECTION 75: TR ARENA — POINT SYSTEM, CAPTURES, ABORT, ADMIN (2026-07-15)
--- ---------------------------------------------------------------------
--- Layers the arena experience on top of the SECTION 74 knockout engine
--- WITHOUT changing its structure (registration, locking, bracket,
--- advancement, prizes and cancellation all keep working exactly as-is):
---   • arena scoring: WIN +5 / LOSS −5 / DRAW +2 (replaces 1 / 0.5)
---   • live piece-capture bonuses (P+2 N+8 B+5 R+5 Q+10), computed
---     server-side from the authoritative FENs on every recorded move,
---     credited instantly to tournament_entries.score / piece_points and
---     logged per capture in tournament_captured_pieces (realtime)
---   • fastest_win_ms tiebreak column; leaderboard order is now
---     points → wins → fewest losses → fastest win
---   • abort_game(): chess.com-style abort (≤1 move played, once per
---     player per match; tournament matches get a fresh replacement game)
---   • decline_draw(): explicitly clear an opponent's draw offer
---   • client-safe grants for transition_locked_tournaments and
---     tournament_clock_sweep so the UI can nudge them when pg_cron is
---     unavailable (both are idempotent and validate everything inside)
---   • admin_tr_overview / admin_tr_finance for the admin TR panel
--- All scoring happens in SECURITY DEFINER triggers/functions — clients
--- never write points.
--- =====================================================================
+-- Section 75: TR ARENA — POINT SYSTEM, CAPTURES, ABORT, ADMIN (2026-07-15)
+-- Layers the arena experience on top of the SECTION 74 knockout engine WITHOUT ...
 
--- ---------------------------------------------------------------------
 -- 75.1 Columns
--- ---------------------------------------------------------------------
--- The server move handler (game.functions.ts) already writes these on
--- every move; declare them idempotently so the capture trigger and any
--- fresh database have them.
+-- The server move handler (game.functions.ts) already writes these on every mov...
 ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS fen_before   TEXT;
 ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS time_used_ms INT;
 ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS is_capture   BOOLEAN NOT NULL DEFAULT false;
@@ -10483,9 +9924,7 @@ ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS is_castling  BOOLEAN NOT 
 
 ALTER TABLE public.tournament_entries ADD COLUMN IF NOT EXISTS fastest_win_ms BIGINT;
 
--- ---------------------------------------------------------------------
 -- 75.2 Captured pieces ledger (drives the live bonus ticker)
--- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.tournament_captured_pieces (
   id            BIGSERIAL PRIMARY KEY,
   tournament_id UUID NOT NULL REFERENCES public.tournaments(id) ON DELETE CASCADE,
@@ -10536,9 +9975,7 @@ DROP POLICY IF EXISTS "TR aborts public read" ON public.tournament_match_aborts;
 CREATE POLICY "TR aborts public read"
   ON public.tournament_match_aborts FOR SELECT USING (true);
 
--- ---------------------------------------------------------------------
 -- 75.3 Arena point rules
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public._tr_piece_bonus(TEXT);
 CREATE OR REPLACE FUNCTION public._tr_piece_bonus(p_piece TEXT)
 RETURNS INT LANGUAGE sql IMMUTABLE AS $$
@@ -10547,9 +9984,7 @@ RETURNS INT LANGUAGE sql IMMUTABLE AS $$
     WHEN 'r' THEN 5 WHEN 'q' THEN 10 ELSE 0 END;
 $$;
 
--- Which victim-side piece disappeared between two FENs. Promotions only
--- change the mover's own material, so diffing the victim colour is exact
--- (covers en passant too). At most one piece can vanish per legal move.
+-- Which victim-side piece disappeared between two FENs
 DROP FUNCTION IF EXISTS public._tr_captured_piece(TEXT, TEXT, TEXT);
 CREATE OR REPLACE FUNCTION public._tr_captured_piece(
   p_before TEXT, p_after TEXT, p_victim_color TEXT
@@ -10571,9 +10006,7 @@ BEGIN
   RETURN NULL;
 END; $$;
 
--- ---------------------------------------------------------------------
 -- 75.4 Live capture bonus: fires on every recorded move
--- ---------------------------------------------------------------------
 DROP TRIGGER IF EXISTS trg_tournament_move ON public.game_moves;
 DROP FUNCTION IF EXISTS public.handle_tournament_move();
 CREATE OR REPLACE FUNCTION public.handle_tournament_move()
@@ -10621,12 +10054,8 @@ CREATE TRIGGER trg_tournament_move
   AFTER INSERT ON public.game_moves
   FOR EACH ROW EXECUTE FUNCTION public.handle_tournament_move();
 
--- ---------------------------------------------------------------------
 -- 75.5 Finish scoring v2: WIN +5 / LOSS −5 / DRAW +2, fastest-win tiebreak
--- ---------------------------------------------------------------------
--- Same structure as SECTION 74's version; only the scoring block and the
--- tiebreak bookkeeping changed. piece_points is now fed exclusively by
--- the capture trigger above (it used to add end-of-game material).
+-- Same structure as SECTION 74's version; only the scoring block and the tiebre...
 CREATE OR REPLACE FUNCTION public.handle_tournament_game_finished()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -10671,8 +10100,7 @@ BEGIN
   v_duration_ms := GREATEST(0,
     (EXTRACT(EPOCH FROM (COALESCE(NEW.ended_at, now()) - NEW.created_at)) * 1000)::BIGINT);
 
-  -- Arena points: WIN +5, LOSS −5, DRAW both +2 (the clock-tiebreak
-  -- "winner" of a draw still advances the bracket but scores it as a draw).
+-- Arena points: WIN +5, LOSS −5, DRAW both +2 (the clock-tiebreak "winner" of a...
   UPDATE public.tournament_entries SET
     wins   = wins   + CASE WHEN NOT v_is_draw AND user_id = v_winner THEN 1 ELSE 0 END,
     losses = losses + CASE WHEN NOT v_is_draw AND user_id = v_loser  THEN 1 ELSE 0 END,
@@ -10731,9 +10159,7 @@ BEGIN
   RETURN NEW;
 END; $$;
 
--- ---------------------------------------------------------------------
 -- 75.6 Final placings use the arena tiebreaks
--- ---------------------------------------------------------------------
 -- points → wins → fewest losses → fastest win, per the arena rules.
 CREATE OR REPLACE FUNCTION public._tournament_complete(p_tournament_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -10828,13 +10254,8 @@ BEGIN
     v_champion, jsonb_build_object('winner', v_name));
 END; $$;
 
--- ---------------------------------------------------------------------
 -- 75.7 abort_game — chess.com-style abort
--- ---------------------------------------------------------------------
--- Allowed while at most one move has been played. Tournament matches get
--- a fresh replacement game for the same pairing (colors re-drawn); each
--- player may abort a given match only once — after that, resign is the
--- only way out. Casual games simply end as 'aborted' with no rating.
+-- Allowed while at most one move has been played
 DROP FUNCTION IF EXISTS public.abort_game(UUID);
 CREATE OR REPLACE FUNCTION public.abort_game(p_game_id UUID)
 RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -10871,8 +10292,7 @@ BEGIN
       RAISE EXCEPTION 'You already aborted this match once — resign instead';
     END;
 
-    -- Fresh board for the same pairing, re-pointed BEFORE the old game is
-    -- ended so trg_tournament_game_finished no longer matches it.
+-- Fresh board for the same pairing, re-pointed BEFORE the old game is ended so ...
     v_new := public._tournament_create_game(v_t, v_m.player1_id, v_m.player2_id);
     UPDATE public.tournament_matches SET game_id = v_new WHERE id = v_m.id;
 
@@ -10904,9 +10324,7 @@ END; $$;
 REVOKE ALL ON FUNCTION public.abort_game(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.abort_game(UUID) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 75.8 decline_draw — explicitly refuse an opponent's draw offer
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.decline_draw(UUID);
 CREATE OR REPLACE FUNCTION public.decline_draw(p_game_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -10928,20 +10346,12 @@ END; $$;
 REVOKE ALL ON FUNCTION public.decline_draw(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.decline_draw(UUID) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 75.9 Client-safe grants for the cron fallbacks
--- ---------------------------------------------------------------------
--- Both functions are idempotent, validate all state transitions inside,
--- and take SKIP LOCKED row locks — so letting a signed-in client nudge
--- them is safe, and keeps tournaments moving when pg_cron is unavailable
--- (the tournaments page already calls transition_locked_tournaments as a
--- countdown-zero fallback).
+-- Both functions are idempotent, validate all state transitions inside, and tak...
 GRANT EXECUTE ON FUNCTION public.transition_locked_tournaments() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.tournament_clock_sweep() TO authenticated;
 
--- ---------------------------------------------------------------------
 -- 75.10 get_tournament_state v2 — arena ordering + captures feed
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.get_tournament_state(UUID);
 CREATE OR REPLACE FUNCTION public.get_tournament_state(p_tournament_id UUID)
 RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
@@ -11025,9 +10435,7 @@ BEGIN
 END; $$;
 GRANT EXECUTE ON FUNCTION public.get_tournament_state(UUID) TO anon, authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 75.11 Admin TR panel RPCs
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.admin_tr_overview(TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT);
 CREATE OR REPLACE FUNCTION public.admin_tr_overview(
   p_status TEXT        DEFAULT NULL,
@@ -11088,8 +10496,7 @@ BEGIN
       WHERE tm.tournament_id = t.id
     ) ms ON true
     LEFT JOIN LATERAL (
-      -- Abort events come from the ledger: an aborted game gets replaced
-      -- and un-referenced by its match, so the join above can't see it.
+-- Abort events come from the ledger: an aborted game gets replaced and un-refer...
       SELECT count(*) AS aborted
       FROM public.tournament_match_aborts a
       JOIN public.tournament_matches tm2 ON tm2.id = a.match_id
@@ -11154,36 +10561,11 @@ GRANT EXECUTE ON FUNCTION public.admin_tr_finance(UUID) TO authenticated, servic
 
 
 
--- =====================================================================
--- SECTION 75: TR ARENA — POINT SYSTEM, CAPTURES, ABORT, ADMIN (2026-07-15)
--- ---------------------------------------------------------------------
--- Layers the arena experience on top of the SECTION 74 knockout engine
--- WITHOUT changing its structure (registration, locking, bracket,
--- advancement, prizes and cancellation all keep working exactly as-is):
---   • arena scoring: WIN +5 / LOSS −5 / DRAW +2 (replaces 1 / 0.5)
---   • live piece-capture bonuses (P+2 N+8 B+5 R+5 Q+10), computed
---     server-side from the authoritative FENs on every recorded move,
---     credited instantly to tournament_entries.score / piece_points and
---     logged per capture in tournament_captured_pieces (realtime)
---   • fastest_win_ms tiebreak column; leaderboard order is now
---     points → wins → fewest losses → fastest win
---   • abort_game(): chess.com-style abort (≤1 move played, once per
---     player per match; tournament matches get a fresh replacement game)
---   • decline_draw(): explicitly clear an opponent's draw offer
---   • client-safe grants for transition_locked_tournaments and
---     tournament_clock_sweep so the UI can nudge them when pg_cron is
---     unavailable (both are idempotent and validate everything inside)
---   • admin_tr_overview / admin_tr_finance for the admin TR panel
--- All scoring happens in SECURITY DEFINER triggers/functions — clients
--- never write points.
--- =====================================================================
+-- Section 75: TR ARENA — POINT SYSTEM, CAPTURES, ABORT, ADMIN (2026-07-15)
+-- Layers the arena experience on top of the SECTION 74 knockout engine WITHOUT ...
 
--- ---------------------------------------------------------------------
 -- 75.1 Columns
--- ---------------------------------------------------------------------
--- The server move handler (game.functions.ts) already writes these on
--- every move; declare them idempotently so the capture trigger and any
--- fresh database have them.
+-- The server move handler (game.functions.ts) already writes these on every mov...
 ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS fen_before   TEXT;
 ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS time_used_ms INT;
 ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS is_capture   BOOLEAN NOT NULL DEFAULT false;
@@ -11193,9 +10575,7 @@ ALTER TABLE public.game_moves ADD COLUMN IF NOT EXISTS is_castling  BOOLEAN NOT 
 
 ALTER TABLE public.tournament_entries ADD COLUMN IF NOT EXISTS fastest_win_ms BIGINT;
 
--- ---------------------------------------------------------------------
 -- 75.2 Captured pieces ledger (drives the live bonus ticker)
--- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.tournament_captured_pieces (
   id            BIGSERIAL PRIMARY KEY,
   tournament_id UUID NOT NULL REFERENCES public.tournaments(id) ON DELETE CASCADE,
@@ -11246,9 +10626,7 @@ DROP POLICY IF EXISTS "TR aborts public read" ON public.tournament_match_aborts;
 CREATE POLICY "TR aborts public read"
   ON public.tournament_match_aborts FOR SELECT USING (true);
 
--- ---------------------------------------------------------------------
 -- 75.3 Arena point rules
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public._tr_piece_bonus(TEXT);
 CREATE OR REPLACE FUNCTION public._tr_piece_bonus(p_piece TEXT)
 RETURNS INT LANGUAGE sql IMMUTABLE AS $$
@@ -11257,9 +10635,7 @@ RETURNS INT LANGUAGE sql IMMUTABLE AS $$
     WHEN 'r' THEN 5 WHEN 'q' THEN 10 ELSE 0 END;
 $$;
 
--- Which victim-side piece disappeared between two FENs. Promotions only
--- change the mover's own material, so diffing the victim colour is exact
--- (covers en passant too). At most one piece can vanish per legal move.
+-- Which victim-side piece disappeared between two FENs
 DROP FUNCTION IF EXISTS public._tr_captured_piece(TEXT, TEXT, TEXT);
 CREATE OR REPLACE FUNCTION public._tr_captured_piece(
   p_before TEXT, p_after TEXT, p_victim_color TEXT
@@ -11281,9 +10657,7 @@ BEGIN
   RETURN NULL;
 END; $$;
 
--- ---------------------------------------------------------------------
 -- 75.4 Live capture bonus: fires on every recorded move
--- ---------------------------------------------------------------------
 DROP TRIGGER IF EXISTS trg_tournament_move ON public.game_moves;
 DROP FUNCTION IF EXISTS public.handle_tournament_move();
 CREATE OR REPLACE FUNCTION public.handle_tournament_move()
@@ -11331,12 +10705,8 @@ CREATE TRIGGER trg_tournament_move
   AFTER INSERT ON public.game_moves
   FOR EACH ROW EXECUTE FUNCTION public.handle_tournament_move();
 
--- ---------------------------------------------------------------------
 -- 75.5 Finish scoring v2: WIN +5 / LOSS −5 / DRAW +2, fastest-win tiebreak
--- ---------------------------------------------------------------------
--- Same structure as SECTION 74's version; only the scoring block and the
--- tiebreak bookkeeping changed. piece_points is now fed exclusively by
--- the capture trigger above (it used to add end-of-game material).
+-- Same structure as SECTION 74's version; only the scoring block and the tiebre...
 CREATE OR REPLACE FUNCTION public.handle_tournament_game_finished()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -11381,8 +10751,7 @@ BEGIN
   v_duration_ms := GREATEST(0,
     (EXTRACT(EPOCH FROM (COALESCE(NEW.ended_at, now()) - NEW.created_at)) * 1000)::BIGINT);
 
-  -- Arena points: WIN +5, LOSS −5, DRAW both +2 (the clock-tiebreak
-  -- "winner" of a draw still advances the bracket but scores it as a draw).
+-- Arena points: WIN +5, LOSS −5, DRAW both +2 (the clock-tiebreak "winner" of a...
   UPDATE public.tournament_entries SET
     wins   = wins   + CASE WHEN NOT v_is_draw AND user_id = v_winner THEN 1 ELSE 0 END,
     losses = losses + CASE WHEN NOT v_is_draw AND user_id = v_loser  THEN 1 ELSE 0 END,
@@ -11441,9 +10810,7 @@ BEGIN
   RETURN NEW;
 END; $$;
 
--- ---------------------------------------------------------------------
 -- 75.6 Final placings use the arena tiebreaks
--- ---------------------------------------------------------------------
 -- points → wins → fewest losses → fastest win, per the arena rules.
 CREATE OR REPLACE FUNCTION public._tournament_complete(p_tournament_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -11538,13 +10905,8 @@ BEGIN
     v_champion, jsonb_build_object('winner', v_name));
 END; $$;
 
--- ---------------------------------------------------------------------
 -- 75.7 abort_game — chess.com-style abort
--- ---------------------------------------------------------------------
--- Allowed while at most one move has been played. Tournament matches get
--- a fresh replacement game for the same pairing (colors re-drawn); each
--- player may abort a given match only once — after that, resign is the
--- only way out. Casual games simply end as 'aborted' with no rating.
+-- Allowed while at most one move has been played
 DROP FUNCTION IF EXISTS public.abort_game(UUID);
 CREATE OR REPLACE FUNCTION public.abort_game(p_game_id UUID)
 RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -11581,8 +10943,7 @@ BEGIN
       RAISE EXCEPTION 'You already aborted this match once — resign instead';
     END;
 
-    -- Fresh board for the same pairing, re-pointed BEFORE the old game is
-    -- ended so trg_tournament_game_finished no longer matches it.
+-- Fresh board for the same pairing, re-pointed BEFORE the old game is ended so ...
     v_new := public._tournament_create_game(v_t, v_m.player1_id, v_m.player2_id);
     UPDATE public.tournament_matches SET game_id = v_new WHERE id = v_m.id;
 
@@ -11614,9 +10975,7 @@ END; $$;
 REVOKE ALL ON FUNCTION public.abort_game(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.abort_game(UUID) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 75.8 decline_draw — explicitly refuse an opponent's draw offer
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.decline_draw(UUID);
 CREATE OR REPLACE FUNCTION public.decline_draw(p_game_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -11638,20 +10997,12 @@ END; $$;
 REVOKE ALL ON FUNCTION public.decline_draw(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.decline_draw(UUID) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 75.9 Client-safe grants for the cron fallbacks
--- ---------------------------------------------------------------------
--- Both functions are idempotent, validate all state transitions inside,
--- and take SKIP LOCKED row locks — so letting a signed-in client nudge
--- them is safe, and keeps tournaments moving when pg_cron is unavailable
--- (the tournaments page already calls transition_locked_tournaments as a
--- countdown-zero fallback).
+-- Both functions are idempotent, validate all state transitions inside, and tak...
 GRANT EXECUTE ON FUNCTION public.transition_locked_tournaments() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.tournament_clock_sweep() TO authenticated;
 
--- ---------------------------------------------------------------------
 -- 75.10 get_tournament_state v2 — arena ordering + captures feed
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.get_tournament_state(UUID);
 CREATE OR REPLACE FUNCTION public.get_tournament_state(p_tournament_id UUID)
 RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
@@ -11735,9 +11086,7 @@ BEGIN
 END; $$;
 GRANT EXECUTE ON FUNCTION public.get_tournament_state(UUID) TO anon, authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 75.11 Admin TR panel RPCs
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.admin_tr_overview(TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT);
 CREATE OR REPLACE FUNCTION public.admin_tr_overview(
   p_status TEXT        DEFAULT NULL,
@@ -11798,8 +11147,7 @@ BEGIN
       WHERE tm.tournament_id = t.id
     ) ms ON true
     LEFT JOIN LATERAL (
-      -- Abort events come from the ledger: an aborted game gets replaced
-      -- and un-referenced by its match, so the join above can't see it.
+-- Abort events come from the ledger: an aborted game gets replaced and un-refer...
       SELECT count(*) AS aborted
       FROM public.tournament_match_aborts a
       JOIN public.tournament_matches tm2 ON tm2.id = a.match_id
@@ -11854,8 +11202,7 @@ BEGIN
 END; $$;
 REVOKE ALL ON FUNCTION public.admin_tr_finance(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_tr_finance(UUID) TO authenticated, service_role;
--- 3. Re-run leaderboard_view and get_dynamic_leaderboard now that their
---    dependencies exist (bodies unchanged from schema.sql SECTION 19-20).
+-- 3
 CREATE OR REPLACE VIEW public.leaderboard_view AS
 WITH user_ratings AS (
   SELECT
@@ -12019,26 +11366,10 @@ GRANT EXECUTE ON FUNCTION public.get_dynamic_leaderboard(text, text, text, text,
 DROP FUNCTION IF EXISTS public.get_dynamic_leaderboard(text, text, text, text, text, text, boolean, integer, integer);
 
 
--- =====================================================================
--- SECTION 28: CLAN SYSTEM V3 — PRODUCTION REBUILD
--- ---------------------------------------------------------------------
--- Ground-up hardening of the clan backend (frontend rebuilt in the same
--- pass). Fixes found in audit of Sections 25–27 + live DB:
---   • profiles(...) embeds failed: clan tables FK'd auth.users while
---     PostgREST needs a direct FK to profiles (community/friends pattern)
---   • member cap was 20, hardcoded in clan_approve_join, and NOT checked
---     at all for public joins (cap bypass); now 50, row-locked, everywhere
---   • clan names were not unique; tag format was unenforced server-side
---   • reject/join-request + chat delete + declare war were raw table
---     writes from the client; all privileged mutations are now RPCs
---   • no activity log, no notifications, no read status, no soft delete
--- Everything below is idempotent and matches migration
--- clan_system_v3_production_rebuild applied to the live DB.
--- =====================================================================
+-- Section 28: CLAN SYSTEM V3 — PRODUCTION REBUILD
+-- Ground-up hardening of the clan backend (frontend rebuilt in the same pass)
 
--- ---------------------------------------------------------------------
 -- 28.1  STRUCTURE — clans
--- ---------------------------------------------------------------------
 ALTER TABLE public.clans DROP CONSTRAINT IF EXISTS clans_max_members_check;
 ALTER TABLE public.clans ALTER COLUMN max_members SET DEFAULT 50;
 UPDATE public.clans SET max_members = 50 WHERE max_members <> 50;
@@ -12064,10 +11395,7 @@ DROP INDEX IF EXISTS idx_clans_name_lower;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_clans_name_lower ON public.clans (LOWER(name));
 CREATE INDEX IF NOT EXISTS idx_clans_rank ON public.clans (clan_score DESC, war_wins DESC, clan_rating DESC);
 
--- ---------------------------------------------------------------------
--- 28.2  STRUCTURE — members / requests / messages (FKs repointed to
--- profiles so PostgREST profile embeds resolve, like community/friends)
--- ---------------------------------------------------------------------
+-- 28.2  STRUCTURE — members / requests / messages (FKs repointed to profiles so...
 ALTER TABLE public.clan_members DROP CONSTRAINT IF EXISTS clan_members_user_id_fkey;
 ALTER TABLE public.clan_members
   ADD CONSTRAINT clan_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
@@ -12107,9 +11435,7 @@ DO $$ BEGIN
 END $$;
 CREATE INDEX IF NOT EXISTS idx_clan_messages_clan_time ON public.clan_messages (clan_id, created_at DESC);
 
--- ---------------------------------------------------------------------
 -- 28.3  NEW TABLES — activity trail + deletion log
--- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.clan_activity (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   clan_id    UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
@@ -12152,9 +11478,7 @@ ALTER TABLE public.clan_deletion_log ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Admins view clan deletion log" ON public.clan_deletion_log;
 CREATE POLICY "Admins view clan deletion log" ON public.clan_deletion_log FOR SELECT USING (public.is_admin());
 
--- ---------------------------------------------------------------------
 -- 28.4  TRIGGERS — live member_count + message integrity
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public._clan_sync_member_count()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -12193,9 +11517,7 @@ CREATE TRIGGER trg_clan_message_guard
   BEFORE INSERT ON public.clan_messages
   FOR EACH ROW EXECUTE FUNCTION public._clan_message_guard();
 
--- ---------------------------------------------------------------------
 -- 28.5  LEADERBOARD VIEW — counter column + global rank
--- ---------------------------------------------------------------------
 DROP VIEW IF EXISTS public.clan_leaderboard;
 CREATE VIEW public.clan_leaderboard AS
 SELECT
@@ -12207,11 +11529,8 @@ SELECT
 FROM public.clans c;
 GRANT SELECT ON public.clan_leaderboard TO authenticated, anon;
 
--- ---------------------------------------------------------------------
 -- 28.6  RLS — reads stay open where public, privileged writes RPC-only
--- ---------------------------------------------------------------------
--- Join requests: admins can audit; approve/reject now go through RPCs so
--- the direct UPDATE path is closed.
+-- Join requests: admins can audit; approve/reject now go through RPCs so the di...
 DROP POLICY IF EXISTS "Officers manage join requests" ON public.clan_join_requests;
 DROP POLICY IF EXISTS "View own join requests" ON public.clan_join_requests;
 CREATE POLICY "View own join requests" ON public.clan_join_requests FOR SELECT USING (
@@ -12221,10 +11540,7 @@ CREATE POLICY "View own join requests" ON public.clan_join_requests FOR SELECT U
   )
 );
 
--- Messages: members read their clan's chat (admins can audit, incl. the
--- soft-deleted rows); sending stays a direct INSERT (RLS-gated, fast
--- path) but only as 'text' — system events are minted by RPCs alone.
--- Hard DELETE and direct UPDATE are closed; deletion is clan_delete_message.
+-- Messages: members read their clan's chat (admins can audit, incl
 DROP POLICY IF EXISTS "Clan members can chat" ON public.clan_messages;
 CREATE POLICY "Clan members can chat" ON public.clan_messages FOR SELECT USING (
   public.is_admin() OR EXISTS (
@@ -12255,9 +11571,7 @@ BEGIN
   END IF;
 END $$;
 
--- ---------------------------------------------------------------------
 -- 28.7  INTERNAL HELPERS (not client-callable)
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public._clan_notify(p_user_id UUID, p_kind TEXT, p_title TEXT, p_body TEXT, p_link TEXT)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -12305,9 +11619,7 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public._clan_system_message(UUID, UUID, TEXT) FROM PUBLIC, anon, authenticated;
 
--- ---------------------------------------------------------------------
 -- 28.8  RPCs — lifecycle (create / join / requests)
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.clan_create(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
 CREATE OR REPLACE FUNCTION public.clan_create(
   p_name TEXT,
@@ -12535,9 +11847,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.clan_reject_join(UUID) TO authenticated;
 
--- ---------------------------------------------------------------------
 -- 28.9  RPCs — membership management
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.clan_promote_member(UUID, UUID);
 CREATE OR REPLACE FUNCTION public.clan_promote_member(p_clan_id UUID, p_user_id UUID)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -12629,8 +11939,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.clan_kick_member(UUID, UUID) TO authenticated;
 
--- Spec: the leader must transfer leadership before leaving. Leaving as
--- the last member deletes (and logs) the clan.
+-- Spec: the leader must transfer leadership before leaving
 DROP FUNCTION IF EXISTS public.clan_leave(UUID);
 CREATE OR REPLACE FUNCTION public.clan_leave(p_clan_id UUID)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -12697,9 +12006,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.clan_transfer_leadership(UUID, UUID) TO authenticated;
 
--- ---------------------------------------------------------------------
 -- 28.10  RPCs — clan settings / disband (leader only, per spec)
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.clan_update_details(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
 CREATE OR REPLACE FUNCTION public.clan_update_details(
   p_clan_id UUID,
@@ -12780,9 +12087,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.clan_disband(UUID) TO authenticated;
 
--- ---------------------------------------------------------------------
 -- 28.11  RPCs — chat (soft delete + read status)
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.clan_delete_message(p_message_id UUID)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -12817,9 +12122,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.clan_mark_read(UUID) TO authenticated;
 
--- ---------------------------------------------------------------------
 -- 28.12  RPCs — wars (declare: leader only; respond: defender leader)
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.clan_declare_war(p_defender_clan_id UUID)
 RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -12902,9 +12205,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.clan_respond_war(UUID, BOOLEAN) TO authenticated;
 
--- ---------------------------------------------------------------------
 -- 28.13  RPC — admin clan removal (audited)
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.admin_delete_clan(p_clan_id UUID, p_reason TEXT DEFAULT '')
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -12933,24 +12234,8 @@ $$;
 GRANT EXECUTE ON FUNCTION public.admin_delete_clan(UUID, TEXT) TO authenticated;
 
 
--- =====================================================================
--- SECTION 29: CLAN SYSTEM V3 — HARDENING PASS
--- ---------------------------------------------------------------------
--- 1) Postgres grants EXECUTE on new functions to PUBLIC by default, so
---    every clan RPC created in Section 28 was silently callable by the
---    unauthenticated `anon` role via PostgREST (flagged by the security
---    advisor). Each RPC already checks auth.uid() IS NULL and rejects,
---    but that's not defense in depth — explicitly revoke PUBLIC/anon.
--- 2) Drop four orphaned functions from an abandoned earlier clan-war
---    design (increment_clan_wars, update_clan_war_scores,
---    start_clan_war_matches, update_clan_member_count). They reference
---    columns/tables that do not exist on the current schema
---    (clans.war_points, clans.total_members, clan_wars.score_a/score_b/
---    lineup_a/lineup_b, clan_war_matches) — calling any of them errors
---    at runtime. Confirmed unreferenced by any client code.
--- 3) _clan_sync_member_count is a trigger-only helper; it doesn't need
---    direct RPC exposure at all.
--- =====================================================================
+-- Section 29: CLAN SYSTEM V3 — HARDENING PASS
+-- 1) Postgres grants EXECUTE on new functions to PUBLIC by default, so every cl...
 
 DROP FUNCTION IF EXISTS public.increment_clan_wars(UUID, BOOLEAN);
 DROP FUNCTION IF EXISTS public.update_clan_war_scores(UUID, INT, INT);
@@ -12985,26 +12270,10 @@ END $$;
 
 
 
--- =====================================================================
--- SECTION 28: CLAN SYSTEM V3 — PRODUCTION REBUILD
--- ---------------------------------------------------------------------
--- Ground-up hardening of the clan backend (frontend rebuilt in the same
--- pass). Fixes found in audit of Sections 25–27 + live DB:
---   • profiles(...) embeds failed: clan tables FK'd auth.users while
---     PostgREST needs a direct FK to profiles (community/friends pattern)
---   • member cap was 20, hardcoded in clan_approve_join, and NOT checked
---     at all for public joins (cap bypass); now 50, row-locked, everywhere
---   • clan names were not unique; tag format was unenforced server-side
---   • reject/join-request + chat delete + declare war were raw table
---     writes from the client; all privileged mutations are now RPCs
---   • no activity log, no notifications, no read status, no soft delete
--- Everything below is idempotent and matches migration
--- clan_system_v3_production_rebuild applied to the live DB.
--- =====================================================================
+-- Section 28: CLAN SYSTEM V3 — PRODUCTION REBUILD
+-- Ground-up hardening of the clan backend (frontend rebuilt in the same pass)
 
--- ---------------------------------------------------------------------
 -- 28.1  STRUCTURE — clans
--- ---------------------------------------------------------------------
 ALTER TABLE public.clans DROP CONSTRAINT IF EXISTS clans_max_members_check;
 ALTER TABLE public.clans ALTER COLUMN max_members SET DEFAULT 50;
 UPDATE public.clans SET max_members = 50 WHERE max_members <> 50;
@@ -13030,10 +12299,7 @@ DROP INDEX IF EXISTS idx_clans_name_lower;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_clans_name_lower ON public.clans (LOWER(name));
 CREATE INDEX IF NOT EXISTS idx_clans_rank ON public.clans (clan_score DESC, war_wins DESC, clan_rating DESC);
 
--- ---------------------------------------------------------------------
--- 28.2  STRUCTURE — members / requests / messages (FKs repointed to
--- profiles so PostgREST profile embeds resolve, like community/friends)
--- ---------------------------------------------------------------------
+-- 28.2  STRUCTURE — members / requests / messages (FKs repointed to profiles so...
 ALTER TABLE public.clan_members DROP CONSTRAINT IF EXISTS clan_members_user_id_fkey;
 ALTER TABLE public.clan_members
   ADD CONSTRAINT clan_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
@@ -13069,9 +12335,7 @@ DO $$ BEGIN
 END $$;
 CREATE INDEX IF NOT EXISTS idx_clan_messages_clan_time ON public.clan_messages (clan_id, created_at DESC);
 
--- ---------------------------------------------------------------------
 -- 28.3  NEW TABLES — activity trail + deletion log
--- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.clan_activity (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   clan_id    UUID NOT NULL REFERENCES public.clans(id) ON DELETE CASCADE,
@@ -13114,9 +12378,7 @@ ALTER TABLE public.clan_deletion_log ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Admins view clan deletion log" ON public.clan_deletion_log;
 CREATE POLICY "Admins view clan deletion log" ON public.clan_deletion_log FOR SELECT USING (public.is_admin());
 
--- ---------------------------------------------------------------------
 -- 28.4  TRIGGERS — live member_count + message integrity
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public._clan_sync_member_count()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -13155,9 +12417,7 @@ CREATE TRIGGER trg_clan_message_guard
   BEFORE INSERT ON public.clan_messages
   FOR EACH ROW EXECUTE FUNCTION public._clan_message_guard();
 
--- ---------------------------------------------------------------------
 -- 28.5  LEADERBOARD VIEW — counter column + global rank
--- ---------------------------------------------------------------------
 DROP VIEW IF EXISTS public.clan_leaderboard;
 CREATE VIEW public.clan_leaderboard AS
 SELECT
@@ -13169,11 +12429,8 @@ SELECT
 FROM public.clans c;
 GRANT SELECT ON public.clan_leaderboard TO authenticated, anon;
 
--- ---------------------------------------------------------------------
 -- 28.6  RLS — reads stay open where public, privileged writes RPC-only
--- ---------------------------------------------------------------------
--- Join requests: admins can audit; approve/reject now go through RPCs so
--- the direct UPDATE path is closed.
+-- Join requests: admins can audit; approve/reject now go through RPCs so the di...
 DROP POLICY IF EXISTS "Officers manage join requests" ON public.clan_join_requests;
 DROP POLICY IF EXISTS "View own join requests" ON public.clan_join_requests;
 CREATE POLICY "View own join requests" ON public.clan_join_requests FOR SELECT USING (
@@ -13183,10 +12440,7 @@ CREATE POLICY "View own join requests" ON public.clan_join_requests FOR SELECT U
   )
 );
 
--- Messages: members read their clan's chat (admins can audit, incl. the
--- soft-deleted rows); sending stays a direct INSERT (RLS-gated, fast
--- path) but only as 'text' — system events are minted by RPCs alone.
--- Hard DELETE and direct UPDATE are closed; deletion is clan_delete_message.
+-- Messages: members read their clan's chat (admins can audit, incl
 DROP POLICY IF EXISTS "Clan members can chat" ON public.clan_messages;
 CREATE POLICY "Clan members can chat" ON public.clan_messages FOR SELECT USING (
   public.is_admin() OR EXISTS (
@@ -13217,9 +12471,7 @@ BEGIN
   END IF;
 END $$;
 
--- ---------------------------------------------------------------------
 -- 28.7  INTERNAL HELPERS (not client-callable)
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public._clan_notify(p_user_id UUID, p_kind TEXT, p_title TEXT, p_body TEXT, p_link TEXT)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -13267,9 +12519,7 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public._clan_system_message(UUID, UUID, TEXT) FROM PUBLIC, anon, authenticated;
 
--- ---------------------------------------------------------------------
 -- 28.8  RPCs — lifecycle (create / join / requests)
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.clan_create(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
 CREATE OR REPLACE FUNCTION public.clan_create(
   p_name TEXT,
@@ -13497,9 +12747,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.clan_reject_join(UUID) TO authenticated;
 
--- ---------------------------------------------------------------------
 -- 28.9  RPCs — membership management
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.clan_promote_member(UUID, UUID);
 CREATE OR REPLACE FUNCTION public.clan_promote_member(p_clan_id UUID, p_user_id UUID)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -13591,8 +12839,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.clan_kick_member(UUID, UUID) TO authenticated;
 
--- Spec: the leader must transfer leadership before leaving. Leaving as
--- the last member deletes (and logs) the clan.
+-- Spec: the leader must transfer leadership before leaving
 DROP FUNCTION IF EXISTS public.clan_leave(UUID);
 CREATE OR REPLACE FUNCTION public.clan_leave(p_clan_id UUID)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -13659,9 +12906,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.clan_transfer_leadership(UUID, UUID) TO authenticated;
 
--- ---------------------------------------------------------------------
 -- 28.10  RPCs — clan settings / disband (leader only, per spec)
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.clan_update_details(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
 CREATE OR REPLACE FUNCTION public.clan_update_details(
   p_clan_id UUID,
@@ -13742,9 +12987,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.clan_disband(UUID) TO authenticated;
 
--- ---------------------------------------------------------------------
 -- 28.11  RPCs — chat (soft delete + read status)
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.clan_delete_message(p_message_id UUID)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -13779,9 +13022,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.clan_mark_read(UUID) TO authenticated;
 
--- ---------------------------------------------------------------------
 -- 28.12  RPCs — wars (declare: leader only; respond: defender leader)
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.clan_declare_war(p_defender_clan_id UUID)
 RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -13864,9 +13105,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.clan_respond_war(UUID, BOOLEAN) TO authenticated;
 
--- ---------------------------------------------------------------------
 -- 28.13  RPC — admin clan removal (audited)
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.admin_delete_clan(p_clan_id UUID, p_reason TEXT DEFAULT '')
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -13893,24 +13132,8 @@ BEGIN
 END;
 $$;
 GRANT EXECUTE ON FUNCTION public.admin_delete_clan(UUID, TEXT) TO authenticated;
--- =====================================================================
--- SECTION 29: CLAN SYSTEM V3 — HARDENING PASS
--- ---------------------------------------------------------------------
--- 1) Postgres grants EXECUTE on new functions to PUBLIC by default, so
---    every clan RPC created in Section 28 was silently callable by the
---    unauthenticated `anon` role via PostgREST (flagged by the security
---    advisor). Each RPC already checks auth.uid() IS NULL and rejects,
---    but that's not defense in depth — explicitly revoke PUBLIC/anon.
--- 2) Drop fourcheck a orphaned functions from an abandoned earlier clan-war
---    design (increment_clan_wars, update_clan_war_scores,
---    start_clan_war_matches, update_clan_member_count). They reference
---    columns/tables that do not exist on the current schema
---    (clans.war_points, clans.total_members, clan_wars.score_a/score_b/
---    lineup_a/lineup_b, clan_war_matches) — calling any of them errors
---    at runtime. Confirmed unreferenced by any client code.
--- 3) _clan_sync_member_count is a trigger-only helper; it doesn't need
---    direct RPC exposure at all.
--- =====================================================================
+-- Section 29: CLAN SYSTEM V3 — HARDENING PASS
+-- 1) Postgres grants EXECUTE on new functions to PUBLIC by default, so every cl...
 
 DROP FUNCTION IF EXISTS public.increment_clan_wars(UUID, BOOLEAN);
 DROP FUNCTION IF EXISTS public.update_clan_war_scores(UUID, INT, INT);
@@ -13940,9 +13163,7 @@ BEGIN
     EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated;', r.sig);
   END LOOP;
 END $$;
--- =====================================================================
--- SECTION 30: CLAN INVITE LINKS
--- =====================================================================
+-- Section 30: CLAN INVITE LINKS
 
 CREATE TABLE IF NOT EXISTS public.clan_invite_links (
   token UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -14047,9 +13268,7 @@ GRANT EXECUTE ON FUNCTION public.redeem_clan_invite_link(UUID) TO authenticated;
 
 
 
--- =====================================================================
--- SECTION 30: CLAN INVITE LINKS
--- =====================================================================
+-- Section 30: CLAN INVITE LINKS
 
 CREATE TABLE IF NOT EXISTS public.clan_invite_links (
   token UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -14154,8 +13373,7 @@ GRANT EXECUTE ON FUNCTION public.redeem_clan_invite_link(UUID) TO authenticated;
 
 -- FIX FOR WORLD CHAT AUTO-JOIN
 
--- 1. Ensure World Chat has the correct type ('global') and is public.
--- This ensures the auto-join logic correctly identifies it.
+-- 1
 UPDATE public.chat_channels 
 SET type = 'global', is_private = false, is_permanent = true 
 WHERE slug = 'global';
@@ -14211,37 +13429,12 @@ REVOKE EXECUTE ON FUNCTION public.chat_send_message(UUID, TEXT, UUID) FROM PUBLI
 GRANT EXECUTE ON FUNCTION public.chat_send_message(UUID, TEXT, UUID) TO authenticated, service_role;
 
 
--- =====================================================================
--- SECTION 76: KNOCKOUT V3 — RANDOM RE-PAIRING, PLATFORM REVENUE,
+-- Section 76: KNOCKOUT V3 — RANDOM RE-PAIRING, PLATFORM REVENUE,
 --             FIRST-MOVE CLOCK RULE (2026-07-19)
--- ---------------------------------------------------------------------
--- Pure-knockout upgrades layered on SECTIONS 74/75. Registration,
--- locking, arena scoring, captures, aborts and cancellation are all
--- untouched — only the pieces below change:
---   • _tournament_start_round v3: EVERY round re-shuffles the remaining
---     players randomly (no fixed bracket, no slot-order advancement)
---   • tournament_platform_revenue ledger + booking inside
---     _tournament_complete: the platform's cut (gross entry fees minus
---     prizes actually paid) is recorded exactly once per tournament,
---     logged to the activity feed, and readable by admins only
---   • prize auto-derivation: a paid tournament whose prize columns were
---     never configured splits its gross pool 40% / 25% / 15% (champion /
---     runner-up / third) at completion; the ~20% remainder becomes the
---     platform's cut
---   • tournament_clock_sweep v2: 0-move tournament boards settle as
---     no-shows after a 2-minute grace. The TS move handler now gives
---     White's first move for free (clocks start when White opens), so
---     the sweep can no longer rely on White's clock running before move 1
--- =====================================================================
+-- Pure-knockout upgrades layered on SECTIONS 74/75
 
--- ---------------------------------------------------------------------
 -- 76.1 _tournament_start_round v3 — pure random pairing every round
--- ---------------------------------------------------------------------
--- Same contract and locking as v1 (74.4): caller holds the tournament
--- row lock; byes auto-advance the odd player out; games/notifications/
--- activity are produced identically. The ONLY change: rounds after the
--- first shuffle the previous round's winners with ORDER BY random()
--- instead of advancing them in bracket-slot order.
+-- Same contract and locking as v1 (74.4): caller holds the tournament row lock;...
 CREATE OR REPLACE FUNCTION public._tournament_start_round(p_tournament_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -14265,8 +13458,7 @@ BEGIN
     FROM public.tournament_entries
     WHERE tournament_id = p_tournament_id AND status = 'active';
   ELSE
-    -- Fresh random pairings every round: shuffle the survivors instead
-    -- of walking the previous round's slots.
+-- Fresh random pairings every round: shuffle the survivors instead of walking t...
     SELECT array_agg(winner_id ORDER BY random()) INTO v_players
     FROM public.tournament_matches
     WHERE tournament_id = p_tournament_id
@@ -14323,12 +13515,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public._tournament_start_round(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._tournament_start_round(UUID) TO service_role;
 
--- ---------------------------------------------------------------------
 -- 76.2 Platform revenue ledger
--- ---------------------------------------------------------------------
--- One row per completed paid tournament. UNIQUE(tournament_id) is the
--- duplicate-payout guard; _tournament_complete additionally only runs
--- while the tournament is still 'live'.
+-- One row per completed paid tournament
 CREATE TABLE IF NOT EXISTS public.tournament_platform_revenue (
   id            BIGSERIAL PRIMARY KEY,
   tournament_id UUID NOT NULL UNIQUE REFERENCES public.tournaments(id) ON DELETE CASCADE,
@@ -14344,19 +13532,10 @@ DROP POLICY IF EXISTS "Platform revenue admin read" ON public.tournament_platfor
 CREATE POLICY "Platform revenue admin read"
   ON public.tournament_platform_revenue FOR SELECT
   USING (public.has_role(auth.uid(), 'admin'));
--- No INSERT/UPDATE policies on purpose: only the SECURITY DEFINER
--- completion path and the service role write revenue rows.
+-- No INSERT/UPDATE policies on purpose: only the SECURITY DEFINER completion pa...
 
--- ---------------------------------------------------------------------
 -- 76.3 _tournament_complete v3 — prizes + platform revenue booking
--- ---------------------------------------------------------------------
--- SECTION 75's arena-tiebreak version plus:
---   • gross pool measured from the wallet ledger (entries minus refunds),
---     so withdrawn players never inflate the pot
---   • prize amounts derived as 40/25/15% of gross when the tournament was
---     created without any configured prizes
---   • the remainder (gross − prizes actually paid) booked to
---     tournament_platform_revenue exactly once, with an activity entry
+-- SECTION 75's arena-tiebreak version plus: • gross pool measured from the wall...
 CREATE OR REPLACE FUNCTION public._tournament_complete(p_tournament_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -14426,8 +13605,7 @@ BEGIN
   ) ranked
   WHERE e.tournament_id = p_tournament_id AND e.user_id = ranked.user_id;
 
-  -- Gross pool from the ledger: entry fees are negative amounts, refunds
-  -- positive — net collected is the sum of both, sign-flipped.
+-- Gross pool from the ledger: entry fees are negative amounts, refunds positive...
   SELECT COALESCE(-SUM(amount), 0) INTO v_gross
   FROM public.wallet_transactions
   WHERE reference_id = p_tournament_id::text
@@ -14453,8 +13631,7 @@ BEGIN
   PERFORM public._tournament_award_prize(v_t, v_third,    v_t.prize_3rd, '3rd');
   PERFORM public._tournament_award_prize(v_t, v_fourth,   v_t.prize_4th, '4th');
 
-  -- Book the platform's cut once. _tournament_award_prize is idempotent,
-  -- so summing the ledger counts each prize exactly once.
+-- Book the platform's cut once
   IF v_gross > 0 THEN
     SELECT COALESCE(SUM(amount), 0) INTO v_prizes_paid
     FROM public.wallet_transactions
@@ -14502,16 +13679,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public._tournament_complete(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._tournament_complete(UUID) TO service_role;
 
--- ---------------------------------------------------------------------
 -- 76.4 tournament_clock_sweep v2 — fast no-show settlement
--- ---------------------------------------------------------------------
--- The TS move handler now gives White's first move for free, so White's
--- clock never runs before move 1 and a flag can no longer settle a
--- 0-move board. Instead: any tournament game still on 0 moves 2 minutes
--- after creation is a no-show — Black wins (mirrors handle_no_show's
--- 90-second claim, just automated). Games with moves keep the original
--- dead-clock rule, which fires trg_tournament_game_finished and advances
--- the bracket either way.
+-- The TS move handler now gives White's first move for free, so White's clock n...
 CREATE OR REPLACE FUNCTION public.tournament_clock_sweep()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -14566,11 +13735,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public.tournament_clock_sweep() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.tournament_clock_sweep() TO service_role, authenticated;
 
--- ---------------------------------------------------------------------
 -- 76.5 admin_tr_overview v2 — platform revenue column
--- ---------------------------------------------------------------------
--- Identical to SECTION 75's version plus platform_revenue joined from
--- the SECTION 76 ledger, so /admin/tr shows the house cut per tournament.
+-- Identical to SECTION 75's version plus platform_revenue joined from the SECTI...
 CREATE OR REPLACE FUNCTION public.admin_tr_overview(
   p_status TEXT        DEFAULT NULL,
   p_search TEXT        DEFAULT NULL,
@@ -14632,8 +13798,7 @@ BEGIN
       WHERE tm.tournament_id = t.id
     ) ms ON true
     LEFT JOIN LATERAL (
-      -- Abort events come from the ledger: an aborted game gets replaced
-      -- and un-referenced by its match, so the join above can't see it.
+-- Abort events come from the ledger: an aborted game gets replaced and un-refer...
       SELECT count(*) AS aborted
       FROM public.tournament_match_aborts a
       JOIN public.tournament_matches tm2 ON tm2.id = a.match_id
@@ -14660,15 +13825,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public.admin_tr_overview(TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_tr_overview(TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 76.6 Round-by-round progression: the 10-second intermission
--- ---------------------------------------------------------------------
--- The next round must NOT start the instant the last board finishes.
--- Instead the finish trigger stamps tournaments.next_round_at 10 seconds
--- out and stops; advance_pending_rounds() (76.7) does the actual pairing
--- once that moment passes. Clients render the stamp as the full-screen
--- "Round N Complete" countdown overlay. The final round is exempt — the
--- tournament completes (prizes, placings, archive) immediately.
+-- The next round must NOT start the instant the last board finishes
 ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS next_round_at TIMESTAMPTZ;
 
 CREATE OR REPLACE FUNCTION public.handle_tournament_game_finished()
@@ -14716,8 +13874,7 @@ BEGIN
   v_duration_ms := GREATEST(0,
     (EXTRACT(EPOCH FROM (COALESCE(NEW.ended_at, now()) - NEW.created_at)) * 1000)::BIGINT);
 
-  -- Arena points: WIN +5, LOSS −5, DRAW both +2 (the clock-tiebreak
-  -- "winner" of a draw still advances the bracket but scores it as a draw).
+-- Arena points: WIN +5, LOSS −5, DRAW both +2 (the clock-tiebreak "winner" of a...
   UPDATE public.tournament_entries SET
     wins   = wins   + CASE WHEN NOT v_is_draw AND user_id = v_winner THEN 1 ELSE 0 END,
     losses = losses + CASE WHEN NOT v_is_draw AND user_id = v_loser  THEN 1 ELSE 0 END,
@@ -14770,9 +13927,7 @@ BEGIN
         NULL, jsonb_build_object('round', v_t.current_round, 'final', true));
       PERFORM public._tournament_complete(v_t.id);
     ELSE
-      -- Round-by-round rule: stamp the intermission instead of pairing now.
-      -- Every board in this round is done; the whole field waits out the
-      -- same 10 seconds and advances together via advance_pending_rounds().
+-- Round-by-round rule: stamp the intermission instead of pairing now
       v_next_at := now() + interval '10 seconds';
       UPDATE public.tournaments SET next_round_at = v_next_at WHERE id = v_t.id;
       PERFORM public._tournament_log(
@@ -14785,13 +13940,8 @@ BEGIN
   RETURN NEW;
 END; $$;
 
--- ---------------------------------------------------------------------
 -- 76.7 advance_pending_rounds — fires the pairing once the 10s are up
--- ---------------------------------------------------------------------
--- Idempotent and race-safe: SKIP LOCKED + the next_round_at <= now()
--- guard mean that when every arena client calls this at countdown zero,
--- exactly one caller pairs the round and the rest no-op. Cron backstops
--- it for tournaments nobody is watching.
+-- Idempotent and race-safe: SKIP LOCKED + the next_round_at <= now() guard mean...
 CREATE OR REPLACE FUNCTION public.advance_pending_rounds()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -14821,12 +13971,8 @@ EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'pg_cron not available — schedule advance_pending_rounds manually';
 END $$;
 
--- ---------------------------------------------------------------------
 -- 76.8 _tournament_start_round v4 — clears the intermission stamp
--- ---------------------------------------------------------------------
--- Identical to 76.1 (random re-pairing every round) plus next_round_at
--- is reset in the same UPDATE, so a round can never start while the
--- overlay stamp is still live.
+-- Identical to 76.1 (random re-pairing every round) plus next_round_at is reset...
 CREATE OR REPLACE FUNCTION public._tournament_start_round(p_tournament_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -14850,8 +13996,7 @@ BEGIN
     FROM public.tournament_entries
     WHERE tournament_id = p_tournament_id AND status = 'active';
   ELSE
-    -- Fresh random pairings every round: shuffle the survivors instead
-    -- of walking the previous round's slots.
+-- Fresh random pairings every round: shuffle the survivors instead of walking t...
     SELECT array_agg(winner_id ORDER BY random()) INTO v_players
     FROM public.tournament_matches
     WHERE tournament_id = p_tournament_id
@@ -14917,37 +14062,12 @@ GRANT EXECUTE ON FUNCTION public._tournament_start_round(UUID) TO service_role;
 
 
 
--- =====================================================================
--- SECTION 76: KNOCKOUT V3 — RANDOM RE-PAIRING, PLATFORM REVENUE,
+-- Section 76: KNOCKOUT V3 — RANDOM RE-PAIRING, PLATFORM REVENUE,
 --             FIRST-MOVE CLOCK RULE (2026-07-19)
--- ---------------------------------------------------------------------
--- Pure-knockout upgrades layered on SECTIONS 74/75. Registration,
--- locking, arena scoring, captures, aborts and cancellation are all
--- untouched — only the pieces below change:
---   • _tournament_start_round v3: EVERY round re-shuffles the remaining
---     players randomly (no fixed bracket, no slot-order advancement)
---   • tournament_platform_revenue ledger + booking inside
---     _tournament_complete: the platform's cut (gross entry fees minus
---     prizes actually paid) is recorded exactly once per tournament,
---     logged to the activity feed, and readable by admins only
---   • prize auto-derivation: a paid tournament whose prize columns were
---     never configured splits its gross pool 40% / 25% / 15% (champion /
---     runner-up / third) at completion; the ~20% remainder becomes the
---     platform's cut
---   • tournament_clock_sweep v2: 0-move tournament boards settle as
---     no-shows after a 2-minute grace. The TS move handler now gives
---     White's first move for free (clocks start when White opens), so
---     the sweep can no longer rely on White's clock running before move 1
--- =====================================================================
+-- Pure-knockout upgrades layered on SECTIONS 74/75
 
--- ---------------------------------------------------------------------
 -- 76.1 _tournament_start_round v3 — pure random pairing every round
--- ---------------------------------------------------------------------
--- Same contract and locking as v1 (74.4): caller holds the tournament
--- row lock; byes auto-advance the odd player out; games/notifications/
--- activity are produced identically. The ONLY change: rounds after the
--- first shuffle the previous round's winners with ORDER BY random()
--- instead of advancing them in bracket-slot order.
+-- Same contract and locking as v1 (74.4): caller holds the tournament row lock;...
 CREATE OR REPLACE FUNCTION public._tournament_start_round(p_tournament_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -14971,8 +14091,7 @@ BEGIN
     FROM public.tournament_entries
     WHERE tournament_id = p_tournament_id AND status = 'active';
   ELSE
-    -- Fresh random pairings every round: shuffle the survivors instead
-    -- of walking the previous round's slots.
+-- Fresh random pairings every round: shuffle the survivors instead of walking t...
     SELECT array_agg(winner_id ORDER BY random()) INTO v_players
     FROM public.tournament_matches
     WHERE tournament_id = p_tournament_id
@@ -15029,12 +14148,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public._tournament_start_round(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._tournament_start_round(UUID) TO service_role;
 
--- ---------------------------------------------------------------------
 -- 76.2 Platform revenue ledger
--- ---------------------------------------------------------------------
--- One row per completed paid tournament. UNIQUE(tournament_id) is the
--- duplicate-payout guard; _tournament_complete additionally only runs
--- while the tournament is still 'live'.
+-- One row per completed paid tournament
 CREATE TABLE IF NOT EXISTS public.tournament_platform_revenue (
   id            BIGSERIAL PRIMARY KEY,
   tournament_id UUID NOT NULL UNIQUE REFERENCES public.tournaments(id) ON DELETE CASCADE,
@@ -15050,19 +14165,10 @@ DROP POLICY IF EXISTS "Platform revenue admin read" ON public.tournament_platfor
 CREATE POLICY "Platform revenue admin read"
   ON public.tournament_platform_revenue FOR SELECT
   USING (public.has_role(auth.uid(), 'admin'));
--- No INSERT/UPDATE policies on purpose: only the SECURITY DEFINER
--- completion path and the service role write revenue rows.
+-- No INSERT/UPDATE policies on purpose: only the SECURITY DEFINER completion pa...
 
--- ---------------------------------------------------------------------
 -- 76.3 _tournament_complete v3 — prizes + platform revenue booking
--- ---------------------------------------------------------------------
--- SECTION 75's arena-tiebreak version plus:
---   • gross pool measured from the wallet ledger (entries minus refunds),
---     so withdrawn players never inflate the pot
---   • prize amounts derived as 40/25/15% of gross when the tournament was
---     created without any configured prizes
---   • the remainder (gross − prizes actually paid) booked to
---     tournament_platform_revenue exactly once, with an activity entry
+-- SECTION 75's arena-tiebreak version plus: • gross pool measured from the wall...
 CREATE OR REPLACE FUNCTION public._tournament_complete(p_tournament_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -15132,8 +14238,7 @@ BEGIN
   ) ranked
   WHERE e.tournament_id = p_tournament_id AND e.user_id = ranked.user_id;
 
-  -- Gross pool from the ledger: entry fees are negative amounts, refunds
-  -- positive — net collected is the sum of both, sign-flipped.
+-- Gross pool from the ledger: entry fees are negative amounts, refunds positive...
   SELECT COALESCE(-SUM(amount), 0) INTO v_gross
   FROM public.wallet_transactions
   WHERE reference_id = p_tournament_id::text
@@ -15159,8 +14264,7 @@ BEGIN
   PERFORM public._tournament_award_prize(v_t, v_third,    v_t.prize_3rd, '3rd');
   PERFORM public._tournament_award_prize(v_t, v_fourth,   v_t.prize_4th, '4th');
 
-  -- Book the platform's cut once. _tournament_award_prize is idempotent,
-  -- so summing the ledger counts each prize exactly once.
+-- Book the platform's cut once
   IF v_gross > 0 THEN
     SELECT COALESCE(SUM(amount), 0) INTO v_prizes_paid
     FROM public.wallet_transactions
@@ -15208,16 +14312,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public._tournament_complete(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._tournament_complete(UUID) TO service_role;
 
--- ---------------------------------------------------------------------
 -- 76.4 tournament_clock_sweep v2 — fast no-show settlement
--- ---------------------------------------------------------------------
--- The TS move handler now gives White's first move for free, so White's
--- clock never runs before move 1 and a flag can no longer settle a
--- 0-move board. Instead: any tournament game still on 0 moves 2 minutes
--- after creation is a no-show — Black wins (mirrors handle_no_show's
--- 90-second claim, just automated). Games with moves keep the original
--- dead-clock rule, which fires trg_tournament_game_finished and advances
--- the bracket either way.
+-- The TS move handler now gives White's first move for free, so White's clock n...
 CREATE OR REPLACE FUNCTION public.tournament_clock_sweep()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -15272,11 +14368,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public.tournament_clock_sweep() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.tournament_clock_sweep() TO service_role, authenticated;
 
--- ---------------------------------------------------------------------
 -- 76.5 admin_tr_overview v2 — platform revenue column
--- ---------------------------------------------------------------------
--- Identical to SECTION 75's version plus platform_revenue joined from
--- the SECTION 76 ledger, so /admin/tr shows the house cut per tournament.
+-- Identical to SECTION 75's version plus platform_revenue joined from the SECTI...
 CREATE OR REPLACE FUNCTION public.admin_tr_overview(
   p_status TEXT        DEFAULT NULL,
   p_search TEXT        DEFAULT NULL,
@@ -15338,8 +14431,7 @@ BEGIN
       WHERE tm.tournament_id = t.id
     ) ms ON true
     LEFT JOIN LATERAL (
-      -- Abort events come from the ledger: an aborted game gets replaced
-      -- and un-referenced by its match, so the join above can't see it.
+-- Abort events come from the ledger: an aborted game gets replaced and un-refer...
       SELECT count(*) AS aborted
       FROM public.tournament_match_aborts a
       JOIN public.tournament_matches tm2 ON tm2.id = a.match_id
@@ -15366,15 +14458,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public.admin_tr_overview(TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_tr_overview(TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 76.6 Round-by-round progression: the 10-second intermission
--- ---------------------------------------------------------------------
--- The next round must NOT start the instant the last board finishes.
--- Instead the finish trigger stamps tournaments.next_round_at 10 seconds
--- out and stops; advance_pending_rounds() (76.7) does the actual pairing
--- once that moment passes. Clients render the stamp as the full-screen
--- "Round N Complete" countdown overlay. The final round is exempt — the
--- tournament completes (prizes, placings, archive) immediately.
+-- The next round must NOT start the instant the last board finishes
 ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS next_round_at TIMESTAMPTZ;
 
 CREATE OR REPLACE FUNCTION public.handle_tournament_game_finished()
@@ -15422,8 +14507,7 @@ BEGIN
   v_duration_ms := GREATEST(0,
     (EXTRACT(EPOCH FROM (COALESCE(NEW.ended_at, now()) - NEW.created_at)) * 1000)::BIGINT);
 
-  -- Arena points: WIN +5, LOSS −5, DRAW both +2 (the clock-tiebreak
-  -- "winner" of a draw still advances the bracket but scores it as a draw).
+-- Arena points: WIN +5, LOSS −5, DRAW both +2 (the clock-tiebreak "winner" of a...
   UPDATE public.tournament_entries SET
     wins   = wins   + CASE WHEN NOT v_is_draw AND user_id = v_winner THEN 1 ELSE 0 END,
     losses = losses + CASE WHEN NOT v_is_draw AND user_id = v_loser  THEN 1 ELSE 0 END,
@@ -15476,9 +14560,7 @@ BEGIN
         NULL, jsonb_build_object('round', v_t.current_round, 'final', true));
       PERFORM public._tournament_complete(v_t.id);
     ELSE
-      -- Round-by-round rule: stamp the intermission instead of pairing now.
-      -- Every board in this round is done; the whole field waits out the
-      -- same 10 seconds and advances together via advance_pending_rounds().
+-- Round-by-round rule: stamp the intermission instead of pairing now
       v_next_at := now() + interval '10 seconds';
       UPDATE public.tournaments SET next_round_at = v_next_at WHERE id = v_t.id;
       PERFORM public._tournament_log(
@@ -15491,13 +14573,8 @@ BEGIN
   RETURN NEW;
 END; $$;
 
--- ---------------------------------------------------------------------
 -- 76.7 advance_pending_rounds — fires the pairing once the 10s are up
--- ---------------------------------------------------------------------
--- Idempotent and race-safe: SKIP LOCKED + the next_round_at <= now()
--- guard mean that when every arena client calls this at countdown zero,
--- exactly one caller pairs the round and the rest no-op. Cron backstops
--- it for tournaments nobody is watching.
+-- Idempotent and race-safe: SKIP LOCKED + the next_round_at <= now() guard mean...
 CREATE OR REPLACE FUNCTION public.advance_pending_rounds()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -15527,12 +14604,8 @@ EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'pg_cron not available — schedule advance_pending_rounds manually';
 END $$;
 
--- ---------------------------------------------------------------------
 -- 76.8 _tournament_start_round v4 — clears the intermission stamp
--- ---------------------------------------------------------------------
--- Identical to 76.1 (random re-pairing every round) plus next_round_at
--- is reset in the same UPDATE, so a round can never start while the
--- overlay stamp is still live.
+-- Identical to 76.1 (random re-pairing every round) plus next_round_at is reset...
 CREATE OR REPLACE FUNCTION public._tournament_start_round(p_tournament_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -15556,8 +14629,7 @@ BEGIN
     FROM public.tournament_entries
     WHERE tournament_id = p_tournament_id AND status = 'active';
   ELSE
-    -- Fresh random pairings every round: shuffle the survivors instead
-    -- of walking the previous round's slots.
+-- Fresh random pairings every round: shuffle the survivors instead of walking t...
     SELECT array_agg(winner_id ORDER BY random()) INTO v_players
     FROM public.tournament_matches
     WHERE tournament_id = p_tournament_id
@@ -15615,33 +14687,10 @@ END; $$;
 REVOKE ALL ON FUNCTION public._tournament_start_round(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._tournament_start_round(UUID) TO service_role;
 
--- =====================================================================
--- SECTION 77: SEASON IQ ENGINE — PUBG-STYLE MONTHLY SEASONS (2026-07-20)
--- ---------------------------------------------------------------------
--- Upgrades the SEASONS BACKEND (tables seasons / season_rankings /
--- season_history + admin lifecycle RPCs) from "mirror of lifetime IQ"
--- to a true seasonal ranking system:
---   • season_iq: per-season points that START AT 0 every season and are
---     earned from in-season activity only (games, upsets, checkmates,
---     win streaks, daily activity, puzzles, accuracy, tournaments) via
---     an idempotent ledger (season_iq_events)
---   • 8-tier ladder (Beginner → Chessox Legend) via season_tier()
---   • season_leaderboard v2: live window-ranked, trend (prev_rank),
---     win rate, games, tier — global/country/state/district scopes
---   • monthly automation: season_rollover() ends an expired season,
---     freezes history, awards badges + special achievements, updates
---     permanent career records, and starts the next 1-month season
---     (also bootstraps Season 1 on an empty table)
---   • permanent career: profiles.career_highest_iq(+season),
---     career_best_rank(+season), season_badges jsonb — never reset
---   • career_summaries(uuid[]): batch career info for search results
--- Historical season_history rows are never deleted or rewritten after
--- a season ends; only the live season's rankings ever change.
--- =====================================================================
+-- Section 77: SEASON IQ ENGINE — PUBG-STYLE MONTHLY SEASONS (2026-07-20)
+-- Compute seasonal SP rung and division
 
--- ---------------------------------------------------------------------
 -- 77.1 Columns + ledger table
--- ---------------------------------------------------------------------
 ALTER TABLE public.season_rankings
   ADD COLUMN IF NOT EXISTS season_iq        INT  NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS prev_rank        INT,
@@ -15663,8 +14712,7 @@ ALTER TABLE public.season_history
   ADD COLUMN IF NOT EXISTS best_win_streak INT NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS tier            TEXT;
 
--- Permanent career records — written only when a season is finalized,
--- and only ever improved, never reset.
+-- Permanent career records — written only when a season is finalized, and only ...
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS career_highest_iq        INT NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS career_highest_iq_season INT,
@@ -15672,8 +14720,7 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS career_best_rank_season  INT,
   ADD COLUMN IF NOT EXISTS season_badges            JSONB NOT NULL DEFAULT '[]'::jsonb;
 
--- Every point ever earned, one row per award. The UNIQUE key is the
--- anti-double-award guard (e.g. a game can pay its winner exactly once).
+-- Every point ever earned, one row per award
 CREATE TABLE IF NOT EXISTS public.season_iq_events (
   id         BIGSERIAL PRIMARY KEY,
   season_id  UUID NOT NULL REFERENCES public.seasons(id) ON DELETE CASCADE,
@@ -15695,9 +14742,7 @@ CREATE POLICY "Season IQ events own read"
   ON public.season_iq_events FOR SELECT USING (auth.uid() = user_id);
 -- Writes only via the SECURITY DEFINER award function below.
 
--- ---------------------------------------------------------------------
 -- 77.2 Tier ladder
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.season_tier(p_iq INT)
 RETURNS TEXT LANGUAGE sql IMMUTABLE AS $$
   SELECT CASE
@@ -15713,13 +14758,8 @@ RETURNS TEXT LANGUAGE sql IMMUTABLE AS $$
 $$;
 GRANT EXECUTE ON FUNCTION public.season_tier(INT) TO anon, authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 77.3 The award primitive
--- ---------------------------------------------------------------------
--- Books points into the CURRENT LIVE season only. Idempotent per
--- (kind, ref): replaying the same event is a silent no-op, so triggers
--- can fire safely under retries. No live season → no-op (off-season
--- play simply earns nothing).
+-- Books points into the CURRENT LIVE season only
 CREATE OR REPLACE FUNCTION public._season_award_iq(
   p_user   UUID,
   p_kind   TEXT,
@@ -15754,14 +14794,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public._season_award_iq(UUID, TEXT, INT, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._season_award_iq(UUID, TEXT, INT, TEXT, JSONB) TO service_role;
 
--- ---------------------------------------------------------------------
 -- 77.4 Earning: finished games
--- ---------------------------------------------------------------------
--- Skill-weighted, not volume-weighted: a win pays 20, beating a
--- stronger player pays up to +40 more, checkmates +5, and every win
--- during a 3+ streak +5. Losses pay 2 (participation), draws 5. The
--- first game of the (UTC) day adds a +10 daily-activity bonus. Aborts /
--- no-shows / sub-2-move games earn nothing — no idle farming.
+-- Anti-farming and fair play checks
 CREATE OR REPLACE FUNCTION public.handle_season_game_finished()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -15853,11 +14887,8 @@ CREATE TRIGGER trg_season_game_finished
   WHEN (OLD.ended_at IS NULL AND NEW.ended_at IS NOT NULL)
   EXECUTE FUNCTION public.handle_season_game_finished();
 
--- ---------------------------------------------------------------------
 -- 77.5 Earning: puzzles
--- ---------------------------------------------------------------------
--- +3 per puzzle solved (+3 extra for 1800+ rated puzzles). Keyed on the
--- puzzle id, so re-solving the same puzzle never pays twice a season.
+-- +3 per puzzle solved (+3 extra for 1800+ rated puzzles)
 CREATE OR REPLACE FUNCTION public.handle_season_puzzle_attempt()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -15896,9 +14927,7 @@ CREATE TRIGGER trg_season_puzzle_attempt
   AFTER INSERT ON public.puzzle_attempts
   FOR EACH ROW EXECUTE FUNCTION public.handle_season_puzzle_attempt();
 
--- ---------------------------------------------------------------------
 -- 77.6 Earning: analysis accuracy
--- ---------------------------------------------------------------------
 -- A completed engine analysis with 90%+ accuracy pays +10 to that side.
 CREATE OR REPLACE FUNCTION public.handle_season_analysis_done()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -15928,11 +14957,8 @@ CREATE TRIGGER trg_season_analysis_done
   AFTER INSERT OR UPDATE ON public.game_analysis
   FOR EACH ROW EXECUTE FUNCTION public.handle_season_analysis_done();
 
--- ---------------------------------------------------------------------
 -- 77.7 Earning: tournament podium
--- ---------------------------------------------------------------------
--- Champion +250, runner-up +150, third +100 when a tournament completes
--- (the individual games already paid their win points).
+-- Champion +250, runner-up +150, third +100 when a tournament completes (the in...
 CREATE OR REPLACE FUNCTION public.handle_season_tournament_completed()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -15960,12 +14986,8 @@ CREATE TRIGGER trg_season_tournament_completed
   WHEN (OLD.status IS DISTINCT FROM 'completed' AND NEW.status = 'completed')
   EXECUTE FUNCTION public.handle_season_tournament_completed();
 
--- ---------------------------------------------------------------------
 -- 77.8 Rank recompute v2 — season_iq only, participants only
--- ---------------------------------------------------------------------
--- Replaces the v1 body that ranked EVERY profile by lifetime iq_level.
--- Only players who actually earned something this season are ranked;
--- prev_rank keeps the previous standing for the trend arrows.
+-- Replaces the v1 body that ranked EVERY profile by lifetime iq_level
 CREATE OR REPLACE FUNCTION public._season_recompute_rankings(p_season_id UUID)
 RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -15988,9 +15010,7 @@ END; $$;
 REVOKE ALL ON FUNCTION public._season_recompute_rankings(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._season_recompute_rankings(UUID) TO service_role;
 
--- ---------------------------------------------------------------------
 -- 77.9 season_leaderboard v2 — live ranks, tiers, trend, win rate
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.season_leaderboard(UUID, TEXT, TEXT, TEXT, TEXT, INT, INT);
 CREATE OR REPLACE FUNCTION public.season_leaderboard(
   p_season_id UUID,
@@ -16081,9 +15101,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.season_leaderboard(UUID, TEXT, TEXT, TEXT, TEXT, INT, INT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.season_leaderboard(UUID, TEXT, TEXT, TEXT, TEXT, INT, INT) TO anon, authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 77.10 Finalize: freeze, award, record careers, keep history forever
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public._season_finalize(p_season_id UUID)
 RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -16106,8 +15124,7 @@ BEGIN
   END
   WHERE season_id = p_season_id;
 
-  -- Special achievements (each goes to a single best-qualifying player,
-  -- except regional_champion which goes to every country's #1).
+-- Special achievements (each goes to a single best-qualifying player, except re...
   SELECT sr.user_id INTO v_uid
   FROM public.season_rankings sr
   LEFT JOIN LATERAL (
@@ -16261,15 +15278,8 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.admin_end_season(UUID, BOOLEAN) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_end_season(UUID, BOOLEAN) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 77.11 Monthly automation: season_rollover()
--- ---------------------------------------------------------------------
--- One idempotent tick, safe from any caller:
---   1. no seasons at all → bootstrap Season 1 (1st of this month +1mo, live)
---   2. live season past its end_date → finalize it, then create AND start
---      the next exactly-one-month season
---   3. an upcoming season whose start has arrived (and nothing live) → start
--- Serialized via an advisory lock so concurrent nudges can't double-run.
+-- One idempotent tick, safe from any caller: 1
 CREATE OR REPLACE FUNCTION public.season_rollover()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -16293,8 +15303,7 @@ BEGIN
   IF v_live.id IS NOT NULL AND v_live.end_date <= now() THEN
     PERFORM public._season_finalize(v_live.id);
 
-    -- Prefer a pre-created upcoming season; otherwise mint the next
-    -- one-month season starting where the old one ended.
+-- Prefer a pre-created upcoming season; otherwise mint the next one-month seaso...
     SELECT id INTO v_next FROM public.seasons
     WHERE status = 'upcoming' ORDER BY season_number ASC LIMIT 1;
 
@@ -16348,9 +15357,7 @@ EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'pg_cron not available — schedule season_rank_refresh manually';
 END $$;
 
--- ---------------------------------------------------------------------
 -- 77.12 season_history_for_user v2 — career block + current season card
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.season_history_for_user(UUID);
 CREATE OR REPLACE FUNCTION public.season_history_for_user(p_user_id UUID)
 RETURNS JSON
@@ -16428,9 +15435,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.season_history_for_user(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.season_history_for_user(UUID) TO anon, authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 77.13 career_summaries — batch career info for search results
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.career_summaries(p_user_ids UUID[])
 RETURNS TABLE (
   user_id                  UUID,
@@ -16475,15 +15480,8 @@ GRANT EXECUTE ON FUNCTION public.career_summaries(UUID[]) TO anon, authenticated
 
 
 
--- ---------------------------------------------------------------------
 -- 76.6 Round-by-round progression: the 10-second intermission
--- ---------------------------------------------------------------------
--- The next round must NOT start the instant the last board finishes.
--- Instead the finish trigger stamps tournaments.next_round_at 10 seconds
--- out and stops; advance_pending_rounds() (76.7) does the actual pairing
--- once that moment passes. Clients render the stamp as the full-screen
--- "Round N Complete" countdown overlay. The final round is exempt — the
--- tournament completes (prizes, placings, archive) immediately.
+-- The next round must NOT start the instant the last board finishes
 ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS next_round_at TIMESTAMPTZ;
 
 CREATE OR REPLACE FUNCTION public.handle_tournament_game_finished()
@@ -16531,8 +15529,7 @@ BEGIN
   v_duration_ms := GREATEST(0,
     (EXTRACT(EPOCH FROM (COALESCE(NEW.ended_at, now()) - NEW.created_at)) * 1000)::BIGINT);
 
-  -- Arena points: WIN +5, LOSS −5, DRAW both +2 (the clock-tiebreak
-  -- "winner" of a draw still advances the bracket but scores it as a draw).
+-- Arena points: WIN +5, LOSS −5, DRAW both +2 (the clock-tiebreak "winner" of a...
   UPDATE public.tournament_entries SET
     wins   = wins   + CASE WHEN NOT v_is_draw AND user_id = v_winner THEN 1 ELSE 0 END,
     losses = losses + CASE WHEN NOT v_is_draw AND user_id = v_loser  THEN 1 ELSE 0 END,
@@ -16585,9 +15582,7 @@ BEGIN
         NULL, jsonb_build_object('round', v_t.current_round, 'final', true));
       PERFORM public._tournament_complete(v_t.id);
     ELSE
-      -- Round-by-round rule: stamp the intermission instead of pairing now.
-      -- Every board in this round is done; the whole field waits out the
-      -- same 10 seconds and advances together via advance_pending_rounds().
+-- Round-by-round rule: stamp the intermission instead of pairing now
       v_next_at := now() + interval '10 seconds';
       UPDATE public.tournaments SET next_round_at = v_next_at WHERE id = v_t.id;
       PERFORM public._tournament_log(
@@ -16600,13 +15595,8 @@ BEGIN
   RETURN NEW;
 END; $$;
 
--- ---------------------------------------------------------------------
 -- 76.7 advance_pending_rounds — fires the pairing once the 10s are up
--- ---------------------------------------------------------------------
--- Idempotent and race-safe: SKIP LOCKED + the next_round_at <= now()
--- guard mean that when every arena client calls this at countdown zero,
--- exactly one caller pairs the round and the rest no-op. Cron backstops
--- it for tournaments nobody is watching.
+-- Idempotent and race-safe: SKIP LOCKED + the next_round_at <= now() guard mean...
 CREATE OR REPLACE FUNCTION public.advance_pending_rounds()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -16636,12 +15626,8 @@ EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'pg_cron not available — schedule advance_pending_rounds manually';
 END $$;
 
--- ---------------------------------------------------------------------
 -- 76.8 _tournament_start_round v4 — clears the intermission stamp
--- ---------------------------------------------------------------------
--- Identical to 76.1 (random re-pairing every round) plus next_round_at
--- is reset in the same UPDATE, so a round can never start while the
--- overlay stamp is still live.
+-- Identical to 76.1 (random re-pairing every round) plus next_round_at is reset...
 CREATE OR REPLACE FUNCTION public._tournament_start_round(p_tournament_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -16665,8 +15651,7 @@ BEGIN
     FROM public.tournament_entries
     WHERE tournament_id = p_tournament_id AND status = 'active';
   ELSE
-    -- Fresh random pairings every round: shuffle the survivors instead
-    -- of walking the previous round's slots.
+-- Fresh random pairings every round: shuffle the survivors instead of walking t...
     SELECT array_agg(winner_id ORDER BY random()) INTO v_players
     FROM public.tournament_matches
     WHERE tournament_id = p_tournament_id
@@ -16729,33 +15714,10 @@ GRANT EXECUTE ON FUNCTION public._tournament_start_round(UUID) TO service_role;
 
 
 
--- =====================================================================
--- SECTION 77: SEASON IQ ENGINE — PUBG-STYLE MONTHLY SEASONS (2026-07-20)
--- ---------------------------------------------------------------------
--- Upgrades the SEASONS BACKEND (tables seasons / season_rankings /
--- season_history + admin lifecycle RPCs) from "mirror of lifetime IQ"
--- to a true seasonal ranking system:
---   • season_iq: per-season points that START AT 0 every season and are
---     earned from in-season activity only (games, upsets, checkmates,
---     win streaks, daily activity, puzzles, accuracy, tournaments) via
---     an idempotent ledger (season_iq_events)
---   • 8-tier ladder (Beginner → Chessox Legend) via season_tier()
---   • season_leaderboard v2: live window-ranked, trend (prev_rank),
---     win rate, games, tier — global/country/state/district scopes
---   • monthly automation: season_rollover() ends an expired season,
---     freezes history, awards badges + special achievements, updates
---     permanent career records, and starts the next 1-month season
---     (also bootstraps Season 1 on an empty table)
---   • permanent career: profiles.career_highest_iq(+season),
---     career_best_rank(+season), season_badges jsonb — never reset
---   • career_summaries(uuid[]): batch career info for search results
--- Historical season_history rows are never deleted or rewritten after
--- a season ends; only the live season's rankings ever change.
--- =====================================================================
+-- Section 77: SEASON IQ ENGINE — PUBG-STYLE MONTHLY SEASONS (2026-07-20)
+-- Compute seasonal SP rung and division
 
--- ---------------------------------------------------------------------
 -- 77.1 Columns + ledger table
--- ---------------------------------------------------------------------
 ALTER TABLE public.season_rankings
   ADD COLUMN IF NOT EXISTS season_iq        INT  NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS prev_rank        INT,
@@ -16777,8 +15739,7 @@ ALTER TABLE public.season_history
   ADD COLUMN IF NOT EXISTS best_win_streak INT NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS tier            TEXT;
 
--- Permanent career records — written only when a season is finalized,
--- and only ever improved, never reset.
+-- Permanent career records — written only when a season is finalized, and only ...
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS career_highest_iq        INT NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS career_highest_iq_season INT,
@@ -16786,8 +15747,7 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS career_best_rank_season  INT,
   ADD COLUMN IF NOT EXISTS season_badges            JSONB NOT NULL DEFAULT '[]'::jsonb;
 
--- Every point ever earned, one row per award. The UNIQUE key is the
--- anti-double-award guard (e.g. a game can pay its winner exactly once).
+-- Every point ever earned, one row per award
 CREATE TABLE IF NOT EXISTS public.season_iq_events (
   id         BIGSERIAL PRIMARY KEY,
   season_id  UUID NOT NULL REFERENCES public.seasons(id) ON DELETE CASCADE,
@@ -16809,9 +15769,7 @@ CREATE POLICY "Season IQ events own read"
   ON public.season_iq_events FOR SELECT USING (auth.uid() = user_id);
 -- Writes only via the SECURITY DEFINER award function below.
 
--- ---------------------------------------------------------------------
 -- 77.2 Tier ladder
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.season_tier(p_iq INT)
 RETURNS TEXT LANGUAGE sql IMMUTABLE AS $$
   SELECT CASE
@@ -16827,13 +15785,8 @@ RETURNS TEXT LANGUAGE sql IMMUTABLE AS $$
 $$;
 GRANT EXECUTE ON FUNCTION public.season_tier(INT) TO anon, authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 77.3 The award primitive
--- ---------------------------------------------------------------------
--- Books points into the CURRENT LIVE season only. Idempotent per
--- (kind, ref): replaying the same event is a silent no-op, so triggers
--- can fire safely under retries. No live season → no-op (off-season
--- play simply earns nothing).
+-- Books points into the CURRENT LIVE season only
 CREATE OR REPLACE FUNCTION public._season_award_iq(
   p_user   UUID,
   p_kind   TEXT,
@@ -16868,14 +15821,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public._season_award_iq(UUID, TEXT, INT, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._season_award_iq(UUID, TEXT, INT, TEXT, JSONB) TO service_role;
 
--- ---------------------------------------------------------------------
 -- 77.4 Earning: finished games
--- ---------------------------------------------------------------------
--- Skill-weighted, not volume-weighted: a win pays 20, beating a
--- stronger player pays up to +40 more, checkmates +5, and every win
--- during a 3+ streak +5. Losses pay 2 (participation), draws 5. The
--- first game of the (UTC) day adds a +10 daily-activity bonus. Aborts /
--- no-shows / sub-2-move games earn nothing — no idle farming.
+-- Anti-farming and fair play checks
 CREATE OR REPLACE FUNCTION public.handle_season_game_finished()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -16967,11 +15914,8 @@ CREATE TRIGGER trg_season_game_finished
   WHEN (OLD.ended_at IS NULL AND NEW.ended_at IS NOT NULL)
   EXECUTE FUNCTION public.handle_season_game_finished();
 
--- ---------------------------------------------------------------------
 -- 77.5 Earning: puzzles
--- ---------------------------------------------------------------------
--- +3 per puzzle solved (+3 extra for 1800+ rated puzzles). Keyed on the
--- puzzle id, so re-solving the same puzzle never pays twice a season.
+-- +3 per puzzle solved (+3 extra for 1800+ rated puzzles)
 CREATE OR REPLACE FUNCTION public.handle_season_puzzle_attempt()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -17010,9 +15954,7 @@ CREATE TRIGGER trg_season_puzzle_attempt
   AFTER INSERT ON public.puzzle_attempts
   FOR EACH ROW EXECUTE FUNCTION public.handle_season_puzzle_attempt();
 
--- ---------------------------------------------------------------------
 -- 77.6 Earning: analysis accuracy
--- ---------------------------------------------------------------------
 -- A completed engine analysis with 90%+ accuracy pays +10 to that side.
 CREATE OR REPLACE FUNCTION public.handle_season_analysis_done()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -17042,11 +15984,8 @@ CREATE TRIGGER trg_season_analysis_done
   AFTER INSERT OR UPDATE ON public.game_analysis
   FOR EACH ROW EXECUTE FUNCTION public.handle_season_analysis_done();
 
--- ---------------------------------------------------------------------
 -- 77.7 Earning: tournament podium
--- ---------------------------------------------------------------------
--- Champion +250, runner-up +150, third +100 when a tournament completes
--- (the individual games already paid their win points).
+-- Champion +250, runner-up +150, third +100 when a tournament completes (the in...
 CREATE OR REPLACE FUNCTION public.handle_season_tournament_completed()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -17074,12 +16013,8 @@ CREATE TRIGGER trg_season_tournament_completed
   WHEN (OLD.status IS DISTINCT FROM 'completed' AND NEW.status = 'completed')
   EXECUTE FUNCTION public.handle_season_tournament_completed();
 
--- ---------------------------------------------------------------------
 -- 77.8 Rank recompute v2 — season_iq only, participants only
--- ---------------------------------------------------------------------
--- Replaces the v1 body that ranked EVERY profile by lifetime iq_level.
--- Only players who actually earned something this season are ranked;
--- prev_rank keeps the previous standing for the trend arrows.
+-- Replaces the v1 body that ranked EVERY profile by lifetime iq_level
 CREATE OR REPLACE FUNCTION public._season_recompute_rankings(p_season_id UUID)
 RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -17102,9 +16037,7 @@ END; $$;
 REVOKE ALL ON FUNCTION public._season_recompute_rankings(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._season_recompute_rankings(UUID) TO service_role;
 
--- ---------------------------------------------------------------------
 -- 77.9 season_leaderboard v2 — live ranks, tiers, trend, win rate
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.season_leaderboard(UUID, TEXT, TEXT, TEXT, TEXT, INT, INT);
 CREATE OR REPLACE FUNCTION public.season_leaderboard(
   p_season_id UUID,
@@ -17195,9 +16128,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.season_leaderboard(UUID, TEXT, TEXT, TEXT, TEXT, INT, INT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.season_leaderboard(UUID, TEXT, TEXT, TEXT, TEXT, INT, INT) TO anon, authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 77.10 Finalize: freeze, award, record careers, keep history forever
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public._season_finalize(p_season_id UUID)
 RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -17220,8 +16151,7 @@ BEGIN
   END
   WHERE season_id = p_season_id;
 
-  -- Special achievements (each goes to a single best-qualifying player,
-  -- except regional_champion which goes to every country's #1).
+-- Special achievements (each goes to a single best-qualifying player, except re...
   SELECT sr.user_id INTO v_uid
   FROM public.season_rankings sr
   LEFT JOIN LATERAL (
@@ -17375,15 +16305,8 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.admin_end_season(UUID, BOOLEAN) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_end_season(UUID, BOOLEAN) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 77.11 Monthly automation: season_rollover()
--- ---------------------------------------------------------------------
--- One idempotent tick, safe from any caller:
---   1. no seasons at all → bootstrap Season 1 (1st of this month +1mo, live)
---   2. live season past its end_date → finalize it, then create AND start
---      the next exactly-one-month season
---   3. an upcoming season whose start has arrived (and nothing live) → start
--- Serialized via an advisory lock so concurrent nudges can't double-run.
+-- One idempotent tick, safe from any caller: 1
 CREATE OR REPLACE FUNCTION public.season_rollover()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -17407,8 +16330,7 @@ BEGIN
   IF v_live.id IS NOT NULL AND v_live.end_date <= now() THEN
     PERFORM public._season_finalize(v_live.id);
 
-    -- Prefer a pre-created upcoming season; otherwise mint the next
-    -- one-month season starting where the old one ended.
+-- Prefer a pre-created upcoming season; otherwise mint the next one-month seaso...
     SELECT id INTO v_next FROM public.seasons
     WHERE status = 'upcoming' ORDER BY season_number ASC LIMIT 1;
 
@@ -17462,9 +16384,7 @@ EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'pg_cron not available — schedule season_rank_refresh manually';
 END $$;
 
--- ---------------------------------------------------------------------
 -- 77.12 season_history_for_user v2 — career block + current season card
--- ---------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.season_history_for_user(UUID);
 CREATE OR REPLACE FUNCTION public.season_history_for_user(p_user_id UUID)
 RETURNS JSON
@@ -17542,9 +16462,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.season_history_for_user(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.season_history_for_user(UUID) TO anon, authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 77.13 career_summaries — batch career info for search results
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.career_summaries(p_user_ids UUID[])
 RETURNS TABLE (
   user_id                  UUID,
@@ -17584,19 +16502,8 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.career_summaries(UUID[]) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.career_summaries(UUID[]) TO anon, authenticated, service_role;
 
--- =====================================================================
--- SECTION 78: EMAIL OTP VERIFICATION (registration email verification, 2026-07-22)
--- ---------------------------------------------------------------------
--- Backs the "Verify" button on the signup form: a 6-digit OTP is
--- generated server-side, hashed (HMAC-SHA256), and stored here while the
--- Supabase Auth user itself is NOT created until the OTP is confirmed.
--- This table is intentionally reachable only by the service-role server
--- (RLS is enabled with zero policies, so it default-denies anon/
--- authenticated entirely) — never queried from the browser. See
--- supabase/migrations/20260722000001_email_otp_verification.sql — that
--- file is the one actually applied; this section mirrors it for repo
--- documentation.
--- =====================================================================
+-- Section 78: EMAIL OTP VERIFICATION (registration email verification, 2026-07-22)
+-- Backs the "Verify" button on the signup form: a 6-digit OTP is generated serv...
 CREATE TABLE IF NOT EXISTS public.email_otp_verifications (
   email        TEXT PRIMARY KEY,
   username     TEXT NOT NULL,
@@ -17612,9 +16519,7 @@ CREATE INDEX IF NOT EXISTS idx_email_otp_verifications_expires_at
   ON public.email_otp_verifications (expires_at);
 
 ALTER TABLE public.email_otp_verifications ENABLE ROW LEVEL SECURITY;
--- No policies defined on purpose: RLS with zero policies denies anon and
--- authenticated entirely. The service-role key (used only in server
--- functions, never shipped to the browser) bypasses RLS by design.
+-- No policies defined on purpose: RLS with zero policies denies anon and authen...
 
 CREATE OR REPLACE FUNCTION public.is_email_registered(p_email TEXT)
 RETURNS BOOLEAN
@@ -17631,22 +16536,9 @@ REVOKE ALL ON FUNCTION public.is_email_registered(TEXT) FROM PUBLIC, anon, authe
 GRANT EXECUTE ON FUNCTION public.is_email_registered(TEXT) TO service_role;
 
 
--- =====================================================================
 -- EMAIL OTP VERIFICATION (registration email verification)
--- ---------------------------------------------------------------------
--- Backs the "Verify" button on the signup form: a 6-digit OTP is
--- generated server-side, hashed (HMAC-SHA256), and stored here while the
--- Supabase Auth user itself is NOT created until the OTP is confirmed.
--- This table is intentionally reachable only by the service-role server
--- (RLS is enabled with zero policies, so it default-denies anon/
--- authenticated entirely) — never queried from the browser.
---
--- Apply this against whichever Supabase project your app's SUPABASE_URL
--- / SUPABASE_SERVICE_ROLE_KEY point at, e.g. via the Dashboard SQL editor
--- or `supabase db push`. This repo's schema.sql is known to drift from
--- live databases (see project memory) — treat this file as authoritative
--- for this feature regardless of that drift.
--- =====================================================================
+-- Backs the "Verify" button on the signup form: a 6-digit OTP is generated serv...
+-- Apply this against whichever Supabase project your app's SUPABASE_URL / SUPAB...
 
 CREATE TABLE IF NOT EXISTS public.email_otp_verifications (
   email        TEXT PRIMARY KEY,
@@ -17663,16 +16555,9 @@ CREATE INDEX IF NOT EXISTS idx_email_otp_verifications_expires_at
   ON public.email_otp_verifications (expires_at);
 
 ALTER TABLE public.email_otp_verifications ENABLE ROW LEVEL SECURITY;
--- No policies defined on purpose: RLS with zero policies denies anon and
--- authenticated entirely. The service-role key (used only in server
--- functions, never shipped to the browser) bypasses RLS by design.
+-- No policies defined on purpose: RLS with zero policies denies anon and authen...
 
--- ---------------------------------------------------------------------
--- Helper RPC: is a given email already a registered auth user?
--- auth.users is not exposed via PostgREST, so this SECURITY DEFINER shim
--- lets the trusted server check registration status without a raw query
--- against the auth schema. Only the service role may call it.
--- ---------------------------------------------------------------------
+-- Helper RPC: is a given email already a registered auth user? auth.users is no...
 CREATE OR REPLACE FUNCTION public.is_email_registered(p_email TEXT)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -17687,21 +16572,8 @@ $$;
 REVOKE ALL ON FUNCTION public.is_email_registered(TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.is_email_registered(TEXT) TO service_role;
 
--- =====================================================================
 -- FRIENDS REDESIGN - challenges + cross-user notification RPCs
--- =====================================================================
--- Apply this against whichever Supabase project your app's SUPABASE_URL /
--- SUPABASE_SERVICE_ROLE_KEY point at (this repo's schema.sql is known to
--- drift from the live database - see project memory). This reuses the
--- EXISTING public.game_challenges table (from_user_id, to_user_id, status,
--- timer, created_at, updated_at - already live per src/integrations/
--- supabase/types.ts, though nothing in the app queried it before this
--- redesign) rather than inventing a parallel table, per project instruction
--- to reuse existing tables wherever possible. It only ADDS the columns
--- needed for time-control/rated/game-linkage metadata; every ADD COLUMN
--- and policy statement below is idempotent (IF NOT EXISTS / DROP+CREATE)
--- so it's safe to run against the real database even if some of this
--- already partially exists.
+-- Apply this against whichever Supabase project your app's SUPABASE_URL / SUPAB...
 
 CREATE TABLE IF NOT EXISTS public.game_challenges (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -17721,9 +16593,7 @@ ALTER TABLE public.game_challenges
   ADD COLUMN IF NOT EXISTS game_id           UUID REFERENCES public.games(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS responded_at      TIMESTAMPTZ;
 
--- `status` on the live table is a nullable free-form TEXT (no CHECK
--- constraint was found in the generated types) - constrain it going forward
--- without breaking any pre-existing rows that don't match.
+-- `status` on the live table is a nullable free-form TEXT (no CHECK constraint ...
 ALTER TABLE public.game_challenges ALTER COLUMN status SET DEFAULT 'pending';
 DO $$
 BEGIN
@@ -17758,9 +16628,7 @@ BEGIN
   END IF;
 END $$;
 
--- ---------------------------------------------------------------------
 -- RPC - send a challenge to another player, notifying them
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.send_challenge(
   p_opponent_id       UUID,
   p_time_class        public.time_class,
@@ -17802,12 +16670,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.send_challenge(UUID, public.time_class, TEXT, INT, INT, BOOLEAN) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.send_challenge(UUID, public.time_class, TEXT, INT, INT, BOOLEAN) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
--- RPC - accept/decline a challenge. On accept, creates the game row
--- (mirrors create_challenge) and returns the game id so the UI can send
--- the acceptor straight into the room; the challenger discovers it via
--- their own realtime subscription + the "Join Game" activity entry.
--- ---------------------------------------------------------------------
+-- RPC - accept/decline a challenge
 CREATE OR REPLACE FUNCTION public.respond_challenge(
   p_challenge_id UUID,
   p_accept       BOOLEAN
@@ -17880,9 +16743,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.respond_challenge(UUID, BOOLEAN) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.respond_challenge(UUID, BOOLEAN) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- RPC - cancel an outgoing challenge that hasn't been answered yet
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.cancel_challenge(p_challenge_id UUID)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -17900,12 +16761,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.cancel_challenge(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.cancel_challenge(UUID) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
--- RPC - send a friend request, notifying the addressee (the existing
--- friends table/RLS/plain-insert flow in useFriends() is untouched and
--- still works; this just layers a notification on top for the new
--- activity inbox).
--- ---------------------------------------------------------------------
+-- RPC - send a friend request, notifying the addressee (the existing friends ta...
 CREATE OR REPLACE FUNCTION public.send_friend_request(p_addressee_id UUID)
 RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -17933,9 +16789,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.send_friend_request(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.send_friend_request(UUID) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- RPC - accept a friend request, notifying the original requester
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.accept_friend_request(p_friend_id UUID)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -17961,11 +16815,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.accept_friend_request(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.accept_friend_request(UUID) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
--- RPC - accept/reject a clan invite. clan_invites already existed in
--- schema (see CLANS section) but nothing wired invite response yet -
--- only token-based invite links had an accept path.
--- ---------------------------------------------------------------------
+-- RPC - accept/reject a clan invite
 CREATE OR REPLACE FUNCTION public.respond_clan_invite(
   p_invite_id UUID,
   p_accept    BOOLEAN
@@ -18023,9 +16873,7 @@ END $$;
 
 BEGIN;
 
--- ---------------------------------------------------------------------
 -- public.policies
--- ---------------------------------------------------------------------
 DROP POLICY IF EXISTS "Published policies are public, admins see all" ON public.policies;
 
 CREATE POLICY "Published policies are public"
@@ -18038,9 +16886,7 @@ CREATE POLICY "Admins read all policies"
   TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
 
--- ---------------------------------------------------------------------
 -- public.news_articles
--- ---------------------------------------------------------------------
 DROP POLICY IF EXISTS "Published news public" ON public.news_articles;
 
 CREATE POLICY "Published news public"
@@ -18053,9 +16899,7 @@ CREATE POLICY "Admins read all news"
   TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
 
--- ---------------------------------------------------------------------
 -- public.about_articles
--- ---------------------------------------------------------------------
 DROP POLICY IF EXISTS "Published articles are public, admins see all" ON public.about_articles;
 
 CREATE POLICY "Published about articles are public"
@@ -18076,17 +16920,13 @@ COMMIT;
 
 BEGIN;
 
--- ---------------------------------------------------------------------
 -- Bugfix: community_reports missing columns (see note above)
--- ---------------------------------------------------------------------
 ALTER TABLE public.community_reports
   ADD COLUMN IF NOT EXISTS resolved_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
 ALTER TABLE public.community_reports
   ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
 
--- ---------------------------------------------------------------------
 -- Bugfix: keep community_posts.bookmarks_count in sync
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.community_toggle_bookmark(p_post_id UUID, p_collection text DEFAULT 'Favorites')
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -18107,12 +16947,7 @@ BEGIN
 END;
 $$;
 
--- ---------------------------------------------------------------------
--- 1. community_get_post — single-post fetch for the detail page. Same
---    row shape as community_feed's per-post object, plus real (not
---    hardcoded) followers_count/is_following_author/poll_counts/
---    my_poll_vote since a permalink view justifies the extra cost.
--- ---------------------------------------------------------------------
+-- 1
 CREATE OR REPLACE FUNCTION public.community_get_post(p_id UUID)
 RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -18177,13 +17012,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.community_get_post(UUID) TO anon, authenticated;
 
--- ---------------------------------------------------------------------
--- 2. community_get_comments — flat list (client nests by parent_id).
---    Comment-level reactions aren't wired at the DB level yet
---    (community_reactions only has post_id, no comment_id column) so
---    my_reaction is always NULL here — a pre-existing limitation, not
---    introduced or expanded by this migration.
--- ---------------------------------------------------------------------
+-- 2
 CREATE OR REPLACE FUNCTION public.community_get_comments(p_post_id UUID)
 RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -18223,12 +17052,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.community_get_comments(UUID) TO anon, authenticated;
 
--- ---------------------------------------------------------------------
--- 3. community_vote_poll — upsert into the existing community_poll_
---    votes table (its own PK is (user_id, post_id), so this naturally
---    allows changing your vote, matching the "Users can change poll
---    votes" RLS policy already defined on that table).
--- ---------------------------------------------------------------------
+-- 3
 CREATE OR REPLACE FUNCTION public.community_vote_poll(p_post_id UUID, p_option INTEGER)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -18254,12 +17078,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.community_vote_poll(UUID, INTEGER) TO authenticated;
 
--- ---------------------------------------------------------------------
--- 4. community_share_post — simplest interpretation matching the
---    client's void-returning, no-dedupe call site: increment the
---    counter every time. No per-user "already shared" tracking exists
---    (or was requested) for this feature.
--- ---------------------------------------------------------------------
+-- 4
 CREATE OR REPLACE FUNCTION public.community_share_post(p_post_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -18270,15 +17089,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.community_share_post(UUID) TO authenticated;
 
--- ---------------------------------------------------------------------
--- 5. community_profile — social counts are computed live from
---    community_follows/community_posts/community_comments rather than
---    trusting profiles.followers_count/following_count/posts_count:
---    those columns appear in the generated src/integrations/supabase/
---    types.ts (live-DB drift) but do not exist anywhere in schema.sql,
---    so schema.sql (this migration's source of truth) cannot rely on
---    them being present or kept in sync.
--- ---------------------------------------------------------------------
+-- 5
 CREATE OR REPLACE FUNCTION public.community_profile(p_username text)
 RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -18333,9 +17144,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.community_profile(text) TO anon, authenticated;
 
--- ---------------------------------------------------------------------
 -- 6. community_follow_list
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.community_follow_list(p_user UUID, p_kind text, p_limit integer DEFAULT 50)
 RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -18383,9 +17192,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.community_follow_list(UUID, text, integer) TO anon, authenticated;
 
--- ---------------------------------------------------------------------
 -- 7. community_leaderboard
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.community_leaderboard(p_kind text, p_limit integer DEFAULT 10)
 RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -18425,10 +17232,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.community_leaderboard(text, integer) TO anon, authenticated;
 
--- ---------------------------------------------------------------------
--- 8. community_suggested_users — popular users the viewer doesn't
---    already follow and isn't blocked by/hasn't blocked.
--- ---------------------------------------------------------------------
+-- 8
 CREATE OR REPLACE FUNCTION public.community_suggested_users(p_limit integer DEFAULT 5)
 RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -18459,9 +17263,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.community_suggested_users(integer) TO authenticated;
 
--- ---------------------------------------------------------------------
 -- 9. community_search_users
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.community_search_users(p_query text, p_limit integer DEFAULT 10)
 RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -18489,11 +17291,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.community_search_users(text, integer) TO anon, authenticated;
 
--- ---------------------------------------------------------------------
--- 10. community_trending_tags — last 30 days, unnest via a FROM-clause
---     set-returning function (not repeated in GROUP BY) so each tag
---     lines up correctly with its source post.
--- ---------------------------------------------------------------------
+-- 10
 CREATE OR REPLACE FUNCTION public.community_trending_tags(p_limit integer DEFAULT 8)
 RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -18515,9 +17313,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.community_trending_tags(integer) TO anon, authenticated;
 
--- ---------------------------------------------------------------------
 -- 11. admin_community_stats
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.admin_community_stats()
 RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -18546,9 +17342,7 @@ GRANT EXECUTE ON FUNCTION public.admin_community_stats() TO authenticated, servi
 
 COMMIT;
 
--- =====================================================================
--- SECTION 100: PUBLIC ROOM LIFECYCLE HARDENING
--- ---------------------------------------------------------------------
+-- Section 100: PUBLIC ROOM LIFECYCLE HARDENING
 
 -- 100.1 Shared internal helpers (SECURITY DEFINER, not client-callable)
 CREATE OR REPLACE FUNCTION public._room_close(p_room_id TEXT)
@@ -18604,8 +17398,7 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Queue has at least one player.
-  -- 1. Remove the first player from queue.
+-- Queue has at least one player
   DELETE FROM public.room_queue WHERE room_id = p_room_id AND user_id = v_next_uid;
   UPDATE public.room_queue SET position = position - 1 WHERE room_id = p_room_id;
 
@@ -19076,15 +17869,8 @@ BEGIN
   LIMIT p_limit;
 END; $$;
 REVOKE EXECUTE ON FUNCTION public.chat_discover_private_rooms(TEXT, INT) FROM PUBLIC;
--- 7. Live Game timeout claim RPC
--- REMOVED (duplicate). A second CREATE OR REPLACE for claim_timeout used to
--- live here. Because it ran after SECTION 30 it won on any full re-run of
--- this file, and it silently dropped the `PERFORM public.apply_elo_change(...)`
--- call -- so ratings stopped updating whenever a game ended on the clock. It
--- also wrote end_reason 'white_won_on_time'/'black_won_on_time' instead of
--- SECTION 30's 'timeout'. The deployed database runs the SECTION 30 version;
--- deleting the duplicate makes this file match production instead of
--- silently regressing it.
+-- 7
+-- SECTION 30's 'timeout'
 
 
 
@@ -19092,25 +17878,10 @@ REVOKE EXECUTE ON FUNCTION public.chat_discover_private_rooms(TEXT, INT) FROM PU
 
 
 
--- =====================================================================
 -- SECTION: ANTI-CHEAT SYSTEM
--- ---------------------------------------------------------------------
--- Evidence-first fair-play infrastructure. Design rules:
---   * Append-only evidence. anti_cheat_events / browser_events rows are
---     never deleted by the system. game_id/user_id are plain UUIDs on
---     purpose — a FK with ON DELETE CASCADE would silently destroy
---     evidence when a game or account is removed.
---   * Server-only writes. Clients cannot INSERT/UPDATE/DELETE any
---     anti-cheat table; ingestion goes through server functions running
---     with the service role. Players cannot read their own risk data
---     (no tipping off); only admins can read, via has_role().
---   * No auto-bans. Detection writes events and flags; enforcement is a
---     separate, admin-driven step (anticheat server functions) with a
---     multi-indicator requirement for suspension/ban.
--- =====================================================================
+-- Evidence-first fair-play infrastructure
 
--- Profiles gain an account_status column (game.functions.ts already
--- checks it defensively before accepting moves).
+-- Profiles gain an account_status column (game.functions.ts already checks it d...
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS account_status TEXT NOT NULL DEFAULT 'active';
 DO $$
 BEGIN
@@ -19172,10 +17943,7 @@ CREATE POLICY "browser events admin read"
   ON public.browser_events FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
 
--- ── player_risk_scores — one row per user, updated by the server ──────
--- raw_* columns are decayed accumulators; the display score/level is
--- recomputed from them in src/lib/anticheat/risk.ts (single source of
--- truth for the scoring formula — SQL never computes scores).
+-- ── player_risk_scores — one row per user, updated by the server ────── raw_* ...
 CREATE TABLE IF NOT EXISTS public.player_risk_scores (
   user_id           UUID PRIMARY KEY,
   total_score       NUMERIC(5,2) NOT NULL DEFAULT 0,
@@ -19312,10 +18080,7 @@ CREATE POLICY "enforcement admin read"
   ON public.enforcement_actions FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
 
--- ── Admin read RPCs (SECURITY DEFINER, admin-gated) ───────────────────
--- Reads are SQL for efficient joins; every mutation goes through the
--- anticheat server functions (service role) so scoring stays in one
--- place (src/lib/anticheat/risk.ts).
+-- ── Admin read RPCs (SECURITY DEFINER, admin-gated) ─────────────────── Reads ...
 
 CREATE OR REPLACE FUNCTION public.anticheat_overview()
 RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -19536,8 +18301,7 @@ CREATE OR REPLACE FUNCTION public.anticheat_notify_admins(
 ) RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_count INT; v_has_legacy BOOLEAN;
 BEGIN
-  -- Some deployments carry legacy NOT NULL type/message columns on
-  -- notifications; fill them when present so the insert works everywhere.
+-- Some deployments carry legacy NOT NULL type/message columns on notifications;...
   SELECT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = 'notifications'
@@ -19559,8 +18323,7 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.anticheat_notify_admins(TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.anticheat_notify_admins(TEXT, TEXT, TEXT) TO service_role;
 
--- Lift expired temporary restrictions/suspensions. Called opportunistically
--- from the ingestion path (cheap no-op when nothing is due).
+-- Lift expired temporary restrictions/suspensions
 CREATE OR REPLACE FUNCTION public.anticheat_expire_enforcements()
 RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_row RECORD; v_count INT := 0;
@@ -19590,17 +18353,8 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.anticheat_expire_enforcements() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.anticheat_expire_enforcements() TO service_role;
 
--- =====================================================================
--- SECTION 101: ANALYSIS MODULE — ENGINE ROOM V2 (2026-07-28)
--- ---------------------------------------------------------------------
--- 1. Widens game_moves.classification to the full review vocabulary
---    (the old 6-value CHECK rejected 'brilliant'/'great'/'book'/'miss'
---    rows that save_game_analysis was already trying to write).
--- 2. saved_analyses — user-owned analysis workspaces (PGN + review
---    summary), owner-only RLS.
--- 3. opening_explorer RPC + expression index — continuation statistics
---    for any position (EPD-keyed) drawn from finished ChessOX games.
--- =====================================================================
+-- Section 101: ANALYSIS MODULE — ENGINE ROOM V2 (2026-07-28)
+-- 1
 
 -- 1. Full classification vocabulary ----------------------------------
 ALTER TABLE public.game_moves DROP CONSTRAINT IF EXISTS game_moves_classification_check;
@@ -19712,35 +18466,14 @@ GRANT EXECUTE ON FUNCTION
   public.opening_explorer(TEXT, UUID, TEXT, public.time_class, INT, TIMESTAMPTZ)
   TO anon, authenticated;
 
--- =====================================================================
--- SECTION 102: RANKING SYSTEM V2 — PERMANENT ELO + SEASON POINTS (2026-07-29)
--- ---------------------------------------------------------------------
--- Replaces the SECTION 77 "Season IQ" earn model with a two-system
--- competitive ecosystem:
---
---   1. PERMANENT ELO  — never resets, per time class, drives matchmaking
---      and answers "who is the strongest player?". Adds a K-factor
---      schedule (provisional players move fast, elite players slowly).
---
---   2. SEASON POINTS  — reset every season, earned per rated game at
---      TIER-DEPENDENT rates, and answers "who is the best this season?".
---      Ladder: Bronze -> Grandmaster, three divisions each (21 rungs).
---      Climbing is progressively harder: Bronze pays +30/win and -8/loss,
---      Grandmaster pays +18/win and -20/loss.
---
--- Storage note: season_rankings.season_iq is the physical column that
--- holds Season Points (the name is historical, from SECTION 77). Every
--- RPC in this section exposes it as season_points. There is deliberately
--- no second column — one number, one source of truth.
---
--- Everything configurable lives in public.season_config (a singleton row
--- of JSONB), editable from the admin panel; the functions below read it
--- on every call so changes take effect without a redeploy.
--- =====================================================================
+-- Section 102: RANKING SYSTEM V2 — PERMANENT ELO + SEASON POINTS (2026-07-29)
+-- Replaces the SECTION 77 "Season IQ" earn model with a two-system competitive ...
+-- 1
+-- Compute seasonal SP rung and division
+-- Compute seasonal SP rung and division
+-- Everything configurable lives in public.season_config (a singleton row of JSO...
 
--- ---------------------------------------------------------------------
 -- 102.1 Configuration singleton
--- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.season_config (
   id          BOOLEAN PRIMARY KEY DEFAULT true CHECK (id),
   -- Per-tier SP rates: { "bronze": {"win":30,"draw":10,"loss":-8}, ... }
@@ -19755,8 +18488,7 @@ CREATE TABLE IF NOT EXISTS public.season_config (
   demotion_grace_sp     INT NOT NULL DEFAULT 50,
   min_moves_for_sp      INT NOT NULL DEFAULT 6,
   daily_sp_cap          INT NOT NULL DEFAULT 600,
-  -- After this many games vs the SAME opponent in a season, wins pay
-  -- only repeat_opponent_pct% of normal SP (farming guard). 0 disables.
+-- Anti-farming and fair play checks
   repeat_opponent_limit INT NOT NULL DEFAULT 5,
   repeat_opponent_pct   INT NOT NULL DEFAULT 25,
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -19793,12 +18525,9 @@ CREATE POLICY "season config public read"
   ON public.season_config FOR SELECT TO anon, authenticated USING (true);
 -- Writes only through admin_update_season_config (SECURITY DEFINER).
 
--- ---------------------------------------------------------------------
 -- 102.2 Ladder columns + farming-guard ledger
--- ---------------------------------------------------------------------
 ALTER TABLE public.season_rankings
-  -- `tier` exists on season_history from SECTION 77 but never on
-  -- season_rankings (the old leaderboard computed it on the fly).
+-- `tier` exists on season_history from SECTION 77 but never on season_rankings ...
   ADD COLUMN IF NOT EXISTS tier             TEXT NOT NULL DEFAULT 'bronze',
   ADD COLUMN IF NOT EXISTS rung_id          TEXT NOT NULL DEFAULT 'bronze_3',
   ADD COLUMN IF NOT EXISTS rung_index       INT  NOT NULL DEFAULT 0,
@@ -19836,11 +18565,8 @@ CREATE POLICY "own opponent counts"
   ON public.season_opponent_counts FOR SELECT TO authenticated
   USING (auth.uid() = user_id);
 
--- ---------------------------------------------------------------------
 -- 102.3 Ladder helpers
--- ---------------------------------------------------------------------
--- The rung a raw SP total sits on: configured id plus ladder index.
--- Both are stored on season_rankings so leaderboards never recompute.
+-- The rung a raw SP total sits on: configured id plus ladder index
 CREATE OR REPLACE FUNCTION public.sp_rung(p_sp INT)
 RETURNS TABLE (rung_id TEXT, rung_index INT, tier_code TEXT, division INT)
 LANGUAGE sql STABLE SET search_path = public AS $fn$
@@ -19882,19 +18608,9 @@ RETURNS INT LANGUAGE sql STABLE SET search_path = public AS $fn$
 $fn$;
 GRANT EXECUTE ON FUNCTION public.sp_rung_min(INT) TO anon, authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 102.4 The SP award primitive
--- ---------------------------------------------------------------------
--- Books Season Points into the CURRENT LIVE season, keeps the player's
--- rung in sync, and emits promotion/demotion notifications. Idempotent
--- per (kind, ref) via season_iq_events, so triggers are safe to retry.
---
--- Rules enforced here (not by callers):
---   • no live season, or player season-banned -> no-op
---   • daily SP cap (positive awards only; penalties always land)
---   • promotion when SP crosses the next rung's threshold
---   • demotion when SP falls demotion_grace_sp BELOW the current rung
---   • SP floors at 0 and can never go negative
+-- Compute seasonal SP rung and division
+-- Grace SP threshold before demotion to prevent rank yo-yoing
 CREATE OR REPLACE FUNCTION public._season_award_sp(
   p_user   UUID,
   p_kind   TEXT,
@@ -19955,8 +18671,7 @@ BEGIN
   v_old_idx := v_row.rung_index;
   v_new_sp  := GREATEST(0, v_row.season_iq + v_points);
 
-  -- Resolve the rung the new total belongs on, with demotion grace: a
-  -- player only drops a rung once they are grace points below its floor.
+-- Resolve the rung the new total belongs on, with demotion grace: a player only...
   SELECT * INTO v_new_rung FROM public.sp_rung(v_new_sp);
   v_new_idx := v_new_rung.rung_index;
 
@@ -20003,8 +18718,7 @@ END; $fn$;
 REVOKE ALL ON FUNCTION public._season_award_sp(UUID, TEXT, INT, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._season_award_sp(UUID, TEXT, INT, TEXT, JSONB) TO service_role;
 
--- Legacy shim: SECTION 77 callers (puzzles, tournaments, accuracy
--- bonuses) keep working and now route through the v2 engine.
+-- Legacy shim: SECTION 77 callers (puzzles, tournaments, accuracy bonuses) keep...
 CREATE OR REPLACE FUNCTION public._season_award_iq(
   p_user UUID, p_kind TEXT, p_points INT, p_ref TEXT, p_meta JSONB DEFAULT '{}'::jsonb
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
@@ -20014,12 +18728,8 @@ END; $fn$;
 REVOKE ALL ON FUNCTION public._season_award_iq(UUID, TEXT, INT, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._season_award_iq(UUID, TEXT, INT, TEXT, JSONB) TO service_role;
 
--- ---------------------------------------------------------------------
 -- 102.5 SP for finished games (replaces the SECTION 77 earn model)
--- ---------------------------------------------------------------------
--- Tier-dependent rates, upset bonus for beating a higher tier, conduct
--- penalties, and a repeat-opponent farming guard. Unrated, aborted,
--- vs-computer and sub-threshold games earn nothing.
+-- Upset bonus calculation for defeating higher tier opponents
 CREATE OR REPLACE FUNCTION public.handle_season_game_finished()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
 DECLARE
@@ -20170,11 +18880,8 @@ CREATE TRIGGER trg_season_game_finished
   WHEN (OLD.ended_at IS NULL AND NEW.ended_at IS NOT NULL)
   EXECUTE FUNCTION public.handle_season_game_finished();
 
--- ---------------------------------------------------------------------
 -- 102.6 Conduct penalties applied outside the game trigger
--- ---------------------------------------------------------------------
--- Used by the anti-cheat pipeline and admin moderation. A cheating
--- verdict also removes the player from the season ranking.
+-- Used by the anti-cheat pipeline and admin moderation
 CREATE OR REPLACE FUNCTION public.apply_season_penalty(
   p_user   UUID,
   p_kind   TEXT,      -- disconnect | timeout | afk | cheating
@@ -20218,12 +18925,8 @@ END; $fn$;
 REVOKE ALL ON FUNCTION public.apply_season_penalty(UUID, TEXT, TEXT, BOOLEAN, TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.apply_season_penalty(UUID, TEXT, TEXT, BOOLEAN, TEXT) TO service_role;
 
--- ---------------------------------------------------------------------
 -- 102.7 Permanent ELO — K-factor schedule
--- ---------------------------------------------------------------------
--- Provisional players (< 15 games) move fast so they find their level
--- quickly; elite players move slowly so the top of the ladder is stable.
--- Mirrors kFactor() in src/lib/ranking/elo.ts.
+-- Provisional players (< 15 games) move fast so they find their level quickly; ...
 CREATE OR REPLACE FUNCTION public.elo_k_factor(p_rating INT, p_games INT)
 RETURNS INT LANGUAGE sql IMMUTABLE AS $fn$
   SELECT CASE
@@ -20235,9 +18938,7 @@ RETURNS INT LANGUAGE sql IMMUTABLE AS $fn$
 $fn$;
 GRANT EXECUTE ON FUNCTION public.elo_k_factor(INT, INT) TO anon, authenticated, service_role;
 
--- Recreated from SECTION 23 with the K-factor schedule. Unchanged
--- otherwise: idempotent per game via games.elo_applied, writes
--- rating_history, and hands off to the season engine afterwards.
+-- Recreated from SECTION 23 with the K-factor schedule
 CREATE OR REPLACE FUNCTION public.apply_elo_change(p_game_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
 DECLARE
@@ -20314,17 +19015,8 @@ END; $fn$;
 REVOKE EXECUTE ON FUNCTION public.apply_elo_change(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.apply_elo_change(UUID) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 102.8 ELO leaderboard — global / country / state / district / friends
--- ---------------------------------------------------------------------
--- One RPC serves every scope. `p_scope`:
---   global   — everyone
---   country  — p_country
---   state    — p_country + p_state
---   district — p_country + p_state + p_district
---   friends  — accepted friends of p_viewer, plus the viewer
--- Players with fewer than p_min_games rated games are excluded so the
--- top of the board is not full of 1-game provisional accounts.
+-- One RPC serves every scope
 CREATE OR REPLACE FUNCTION public.elo_leaderboard(
   p_time_class public.time_class DEFAULT 'rapid',
   p_scope      TEXT DEFAULT 'global',
@@ -20398,9 +19090,7 @@ GRANT EXECUTE ON FUNCTION public.elo_leaderboard(
   public.time_class, TEXT, TEXT, TEXT, TEXT, UUID, TEXT, INT, INT, INT
 ) TO anon, authenticated;
 
--- ---------------------------------------------------------------------
 -- 102.9 Season Points leaderboard — same five scopes
--- ---------------------------------------------------------------------
 -- Season-banned players are excluded from every scope.
 CREATE OR REPLACE FUNCTION public.sp_leaderboard(
   p_season_id UUID DEFAULT NULL,
@@ -20487,12 +19177,8 @@ GRANT EXECUTE ON FUNCTION public.sp_leaderboard(
   UUID, TEXT, TEXT, TEXT, TEXT, UUID, TEXT, INT, INT
 ) TO anon, authenticated;
 
--- ---------------------------------------------------------------------
 -- 102.10 Player ranking card
--- ---------------------------------------------------------------------
--- Everything the profile's ranking section needs in one round trip:
--- permanent ELO (+ global/country/state/district placement), the
--- season standing, and career records.
+-- Everything the profile's ranking section needs in one round trip: permanent E...
 CREATE OR REPLACE FUNCTION public.player_ranking_card(
   p_user_id    UUID,
   p_time_class public.time_class DEFAULT 'rapid'
@@ -20614,11 +19300,8 @@ END; $fn$;
 GRANT EXECUTE ON FUNCTION public.player_ranking_card(UUID, public.time_class)
   TO anon, authenticated;
 
--- ---------------------------------------------------------------------
 -- 102.11 Hall of Fame
--- ---------------------------------------------------------------------
--- Permanent record of past season finishers. Reads frozen
--- season_history rows only — live seasons never appear.
+-- Permanent record of past season finishers
 CREATE OR REPLACE FUNCTION public.hall_of_fame(
   p_season_number INT DEFAULT NULL,
   p_limit         INT DEFAULT 100,
@@ -20690,12 +19373,8 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $fn$
 $fn$;
 GRANT EXECUTE ON FUNCTION public.hall_of_fame_champions(INT) TO anon, authenticated;
 
--- ---------------------------------------------------------------------
 -- 102.12 Season-end tier rewards
--- ---------------------------------------------------------------------
--- Grants the tier reward bundle + placement rewards to every ranked
--- player of a season. Called by admin_end_season / season_rollover;
--- safe to re-run (rewards are de-duplicated).
+-- Grants the tier reward bundle + placement rewards to every ranked player of a...
 CREATE OR REPLACE FUNCTION public.award_season_tier_rewards(p_season_id UUID)
 RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
 DECLARE
@@ -20738,9 +19417,7 @@ END; $fn$;
 REVOKE ALL ON FUNCTION public.award_season_tier_rewards(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.award_season_tier_rewards(UUID) TO service_role;
 
--- ---------------------------------------------------------------------
 -- 102.13 Admin RPCs
--- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.admin_get_season_config()
 RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $fn$
 DECLARE v_row RECORD;
@@ -20887,12 +19564,8 @@ END; $fn$;
 REVOKE EXECUTE ON FUNCTION public.admin_ranking_analytics() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_ranking_analytics() TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 102.14 Backfill existing rows onto the ladder
--- ---------------------------------------------------------------------
--- One-time (idempotent) sync so pre-102 rankings show a correct rung.
--- Only touches rows still sitting on the default rung with points on
--- the board, so re-running after real play never rewrites live data.
+-- One-time (idempotent) sync so pre-102 rankings show a correct rung
 WITH resolved AS (
   SELECT sr.id,
          (SELECT rung_id    FROM public.sp_rung(sr.season_iq)) AS rung_id,
@@ -20911,23 +19584,11 @@ SET rung_id         = r.rung_id,
 FROM resolved r
 WHERE sr.id = r.id;
 
--- ---------------------------------------------------------------------
 -- 102.15 Season finalization — corrections
--- ---------------------------------------------------------------------
--- Three gaps between the SECTION 77 finalization path and the v2 ladder,
--- fixed here rather than by rewriting the large admin_end_season /
--- season_rollover bodies (both funnel through the two objects below, so
--- patching these covers every caller):
---
---   1. Banned players still received a rank, and therefore rewards and a
---      permanent Hall of Fame entry. They are now excluded from ranking.
---   2. Tier reward bundles were never applied to frozen history.
---   3. season_history carried no rung and an old-style tier name
---      ('Expert'), which the v2 UI cannot map to a badge.
+-- Three gaps between the SECTION 77 finalization path and the v2 ladder, fixed ...
+-- 1
 
--- Ranking now skips banned players entirely: they keep their points for
--- the audit trail but hold no rank, so they cannot place, earn rank
--- rewards, or be frozen into history (which filters on rank IS NOT NULL).
+-- Ranking now skips banned players entirely: they keep their points for the aud...
 CREATE OR REPLACE FUNCTION public._season_recompute_rankings(p_season_id UUID)
 RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
@@ -20955,9 +19616,7 @@ END; $fn$;
 REVOKE ALL ON FUNCTION public._season_recompute_rankings(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._season_recompute_rankings(UUID) TO service_role;
 
--- Enriches every frozen history row at write time, whichever function
--- performed the freeze. Idempotent: re-finalizing a season recomputes
--- the same rung and re-merges the same de-duplicated reward bundle.
+-- Enriches every frozen history row at write time, whichever function performed...
 CREATE OR REPLACE FUNCTION public._season_history_enrich()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
 DECLARE
@@ -21010,45 +19669,20 @@ CREATE TRIGGER trg_season_history_enrich
   BEFORE INSERT OR UPDATE ON public.season_history
   FOR EACH ROW EXECUTE FUNCTION public._season_history_enrich();
 
--- Mirror the same bundles onto the LIVE board so the season's final
--- standings show their rewards before/without a freeze. Safe to re-run.
--- (History correctness does not depend on this — the trigger above owns
--- that — so a missed call is cosmetic only.)
+-- Mirror the same bundles onto the LIVE board so the season's final standings s...
 
--- =====================================================================
--- SECTION 103: EMAIL VERIFICATION LINK REGISTRATION (2026-07-29)
--- ---------------------------------------------------------------------
--- Replaces the SECTION 78 OTP flow with a verification-LINK flow in
--- which the password is chosen AFTER the email is proven:
---
---   register (username + email, no password)
---     -> pending_registrations row, status 'pending_verification'
---     -> email containing /verify-email/{token}
---   click link
---     -> status 'email_verified', verified_at set, setup token issued
---   create password
---     -> Supabase Auth user created (email_confirm: true), row deleted
---
--- WHY THE AUTH USER IS CREATED LAST
--- Creating it up-front would mean a password-less account holding the
--- email address, plus a throwaway password sitting in auth.users for
--- every abandoned signup. Staging the registration here instead means an
--- abandoned attempt expires to nothing and the address stays free.
--- auth.users therefore only ever contains complete, verified accounts —
--- and Supabase Auth remains the sole owner of password hashing.
---
--- TOKENS ARE NEVER STORED IN PLAINTEXT. The columns hold SHA-256 digests;
--- the raw token exists only in the email that was sent. A database leak
--- therefore does not let an attacker verify anyone's address.
--- =====================================================================
+-- Section 103: EMAIL VERIFICATION LINK REGISTRATION (2026-07-29)
+-- Replaces the SECTION 78 OTP flow with a verification-LINK flow in which the p...
+-- register (username + email, no password) -> pending_registrations row, status...
+-- WHY THE AUTH USER IS CREATED LAST Creating it up-front would mean a password-...
+-- TOKENS ARE NEVER STORED IN PLAINTEXT
 
 CREATE TABLE IF NOT EXISTS public.pending_registrations (
   id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email              TEXT NOT NULL UNIQUE,
   username           TEXT NOT NULL,
 
-  -- Account lifecycle. 'completed' rows are deleted immediately, so in
-  -- practice a live row is only ever pending_verification/email_verified.
+-- Account lifecycle
   status             TEXT NOT NULL DEFAULT 'pending_verification'
                        CHECK (status IN ('pending_verification','email_verified','completed')),
   email_verified     BOOLEAN NOT NULL DEFAULT false,
@@ -21057,8 +19691,7 @@ CREATE TABLE IF NOT EXISTS public.pending_registrations (
   token_hash         TEXT,
   token_expires_at   TIMESTAMPTZ,
 
-  -- Short-lived, single-use grant that authorises the create-password
-  -- step. Issued only after the address is proven.
+-- Short-lived, single-use grant that authorises the create-password step
   setup_token_hash   TEXT,
   setup_expires_at   TIMESTAMPTZ,
 
@@ -21079,19 +19712,13 @@ CREATE INDEX IF NOT EXISTS idx_pending_registrations_expiry
 CREATE INDEX IF NOT EXISTS idx_pending_registrations_username
   ON public.pending_registrations (lower(username));
 
--- RLS on with ZERO policies: anon and authenticated are denied outright.
--- Only the service-role server (which bypasses RLS) touches this table —
--- it is never queried from the browser.
+-- RLS on with ZERO policies: anon and authenticated are denied outright
 ALTER TABLE public.pending_registrations ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.pending_registrations FROM anon, authenticated;
 GRANT ALL ON public.pending_registrations TO service_role;
 
--- ---------------------------------------------------------------------
 -- 103.1 Housekeeping
--- ---------------------------------------------------------------------
--- Drops abandoned registrations. Rows are kept for a grace period past
--- token expiry so "your link expired, resend?" can still explain itself
--- before the record disappears.
+-- Drops abandoned registrations
 CREATE OR REPLACE FUNCTION public.purge_expired_registrations(p_grace_hours INT DEFAULT 72)
 RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
 DECLARE v_deleted INT;
@@ -21104,11 +19731,8 @@ END; $fn$;
 REVOKE ALL ON FUNCTION public.purge_expired_registrations(INT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.purge_expired_registrations(INT) TO service_role;
 
--- ---------------------------------------------------------------------
 -- 103.2 Username availability
--- ---------------------------------------------------------------------
--- A name is taken if a profile holds it OR another in-flight
--- registration has reserved it. Case-insensitive both ways.
+-- A name is taken if a profile holds it OR another in-flight registration has r...
 CREATE OR REPLACE FUNCTION public.is_username_taken(
   p_username TEXT,
   p_except_email TEXT DEFAULT NULL
@@ -21126,86 +19750,30 @@ $fn$;
 REVOKE ALL ON FUNCTION public.is_username_taken(TEXT, TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.is_username_taken(TEXT, TEXT) TO service_role;
 
--- ---------------------------------------------------------------------
 -- 103.3 Deprecation note — SECTION 78 OTP
--- ---------------------------------------------------------------------
--- public.email_otp_verifications is no longer written or read by the
--- application: registration moved to the link flow above. The table is
--- deliberately left in place rather than dropped, so that deploying this
--- section cannot destroy an in-flight OTP or require a coordinated
--- rollout. Drop it manually once no old build is serving traffic:
---
+-- public.email_otp_verifications is no longer written or read by the applicatio...
+-- section cannot destroy an in-flight OTP or require a coordinated rollout
 --   DROP TABLE IF EXISTS public.email_otp_verifications;
---
 -- public.is_email_registered() is still used by the new flow and stays.
 
--- ---------------------------------------------------------------------
 -- 103.4 Repeat-click accuracy
--- ---------------------------------------------------------------------
--- The first cut cleared token_hash on consumption, which meant a second
--- request carrying the same link could no longer find its row and was
--- reported as "invalid". That is wrong for the most common repeat case
--- of all — the user simply refreshing the verification page — and it
--- also left the "already verified" state unreachable.
---
--- The digest is now RETAINED and consumption is recorded separately, so
--- a repeat click still resolves to its registration and can be answered
--- honestly. Single-use is unchanged: verifyEmailToken refuses to issue a
--- second setup grant once token_consumed_at is set.
+-- The first cut cleared token_hash on consumption, which meant a second request...
+-- The digest is now RETAINED and consumption is recorded separately, so a repea...
 ALTER TABLE public.pending_registrations
   ADD COLUMN IF NOT EXISTS token_consumed_at TIMESTAMPTZ;
 
--- Completed registrations are kept (tokens cleared) rather than deleted,
--- so a link opened after setup finishes says "already verified" instead
--- of "invalid". purge_expired_registrations removes them with the rest.
+-- Completed registrations are kept (tokens cleared) rather than deleted, so a l...
 
--- =====================================================================
--- SECTION 104: SPECTATOR MODE
--- ---------------------------------------------------------------------
+-- Section 104: SPECTATOR MODE
 -- Live spectating with a server-enforced broadcast delay.
---
--- THE CORE PROBLEM THIS SECTION SOLVES
--- Before this section, `games` was `SELECT ... USING (true)`: the live
--- `fen` of every in-progress game was world-readable, in real time, to
--- anyone with the anon key. A spectator delay implemented in the client
--- would have been decoration — a cheater's helper reads the row, not the
--- UI. So the delay is enforced where the data lives:
---
---   * ACTIVE games (and their moves) are no longer readable by anyone
---     except the two players and admins. Waiting and finished games stay
---     fully public — they have no live position to protect.
---   * Everything a spectator sees comes from get_spectator_game(), a
---     SECURITY DEFINER RPC that reconstructs the position from
---     game_moves as it stood `delay` seconds ago and refuses to return
---     anything newer.
---   * Live match metadata with NO position (who is playing, rating,
---     clock class, move count) is exposed through public.live_games, a
---     view that simply does not select fen/pgn/turn.
---
--- The delay therefore cannot be bypassed by talking to the database
--- directly, which is the only property that makes it worth having.
---
--- 104.1  Enum + per-player visibility preferences
--- 104.2  Tunable delay/session config
--- 104.3  RLS lockdown on live games and moves
--- 104.4  live_games view (metadata only)
--- 104.5  Delay + visibility helpers
--- 104.6  Spectator sessions and viewer counts
--- 104.7  get_spectator_game()  — the delayed feed
--- 104.8  list_live_games()     — the browse/featured feed
--- 104.9  set_spectator_visibility()
--- =====================================================================
+-- Spectator RLS: apply game broadcast delay
+-- Spectator RLS: apply game broadcast delay
+-- Spectator RLS: apply game broadcast delay
+-- Spectator RLS: apply game broadcast delay
 
--- ---------------------------------------------------------------------
 -- 104.1 Visibility vocabulary and per-player preference
--- ---------------------------------------------------------------------
--- Each player controls their OWN side of the game. The effective
--- visibility of a match is the more restrictive of the two players'
--- preferences, so a player who wants privacy always gets it and can
--- never be exposed by their opponent's choice.
---
--- A preference resolves as: per-game override (this match only) →
--- profile default (every match) → 'public'.
+-- Each player controls their OWN side of the game
+-- A preference resolves as: per-game override (this match only) → profile defau...
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'spectator_visibility') THEN
@@ -21228,20 +19796,14 @@ $$;
 GRANT EXECUTE ON FUNCTION public.spectator_rank(public.spectator_visibility)
   TO anon, authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 104.2 Tunable configuration (single row)
--- ---------------------------------------------------------------------
--- The delay bands come from the product spec:
---   casual 0-5s · ranked 20-30s · tournament finals 30-60s
--- The CHECKs pin each band so a mis-typed admin update cannot silently
--- turn a ranked game into a real-time engine feed.
+-- Spectator RLS: apply game broadcast delay
 CREATE TABLE IF NOT EXISTS public.spectator_config (
   id                   BOOLEAN PRIMARY KEY DEFAULT true CHECK (id),
   casual_delay_seconds INT NOT NULL DEFAULT 3  CHECK (casual_delay_seconds BETWEEN 0 AND 5),
   ranked_delay_seconds INT NOT NULL DEFAULT 25 CHECK (ranked_delay_seconds BETWEEN 20 AND 30),
   final_delay_seconds  INT NOT NULL DEFAULT 45 CHECK (final_delay_seconds BETWEEN 30 AND 60),
-  -- A spectator session is counted as live for this long after its last
-  -- heartbeat. Must exceed the client heartbeat interval.
+-- Spectator RLS: apply game broadcast delay
   session_ttl_seconds  INT NOT NULL DEFAULT 45 CHECK (session_ttl_seconds BETWEEN 15 AND 300),
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -21259,16 +19821,9 @@ CREATE POLICY "spectator_config admin write"
   USING (public.has_role(auth.uid(), 'admin'))
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
--- ---------------------------------------------------------------------
 -- 104.3 RLS lockdown — live positions leave the public surface
--- ---------------------------------------------------------------------
--- Policies are OR'd, so these three together mean: everyone sees waiting
--- and finished games; only the two players (and admins) see a game while
--- it is being played.
---
--- The admin branch is a separate `TO authenticated` policy on purpose —
--- EXECUTE on has_role() is revoked from anon, so folding it into the
--- public policy would make every anonymous read fail outright.
+-- Policies are OR'd, so these three together mean: everyone sees waiting and fi...
+-- The admin branch is a separate `TO authenticated` policy on purpose — EXECUTE...
 DROP POLICY IF EXISTS "Games are public" ON public.games;
 DROP POLICY IF EXISTS "games public read settled" ON public.games;
 CREATE POLICY "games public read settled"
@@ -21283,8 +19838,7 @@ CREATE POLICY "games admin read live"
   ON public.games FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
 
--- game_moves inherits the same rule from its parent game: the move
--- ledger of a live game is the live position, one row per ply.
+-- game_moves inherits the same rule from its parent game: the move ledger of a ...
 DROP POLICY IF EXISTS "moves readable" ON public.game_moves;
 DROP POLICY IF EXISTS "moves public read settled" ON public.game_moves;
 CREATE POLICY "moves public read settled"
@@ -21306,14 +19860,8 @@ CREATE POLICY "moves admin read live"
   ON public.game_moves FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
 
--- ---------------------------------------------------------------------
 -- 104.4 live_games — metadata for in-progress games, no position
--- ---------------------------------------------------------------------
--- Everything the lobby, the friends list and the live match card need,
--- and nothing a cheater can use: fen, pgn, turn and the clocks are
--- simply not columns of this view. `security_invoker = false` lets it
--- read past the base-table RLS added above; that is safe precisely
--- because the position never appears in the projection.
+-- Everything the lobby, the friends list and the live match card need, and noth...
 DROP VIEW IF EXISTS public.live_games;
 CREATE VIEW public.live_games
 WITH (security_invoker = false) AS
@@ -21349,12 +19897,8 @@ WITH (security_invoker = false) AS
 
 GRANT SELECT ON public.live_games TO anon, authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 104.5 Delay and visibility helpers
--- ---------------------------------------------------------------------
--- Which band a game falls into. Tournament FINALS (the highest round of
--- their tournament) get the longest delay; any other rated game gets the
--- ranked band; everything else is casual.
+-- Spectator RLS: apply game broadcast delay
 CREATE OR REPLACE FUNCTION public.spectator_delay_seconds(p_game_id UUID)
 RETURNS INT LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -21383,9 +19927,7 @@ REVOKE EXECUTE ON FUNCTION public.spectator_delay_seconds(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.spectator_delay_seconds(UUID)
   TO anon, authenticated, service_role;
 
--- May p_viewer watch p_game_id? Participants and admins always may.
--- Otherwise the effective visibility (most restrictive of the two
--- players' preferences) decides.
+-- May p_viewer watch p_game_id? Participants and admins always may
 CREATE OR REPLACE FUNCTION public.can_spectate(p_game_id UUID, p_viewer UUID)
 RETURNS BOOLEAN LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -21399,9 +19941,7 @@ BEGIN
   IF p_viewer IS NOT NULL AND p_viewer IN (v_g.white_id, v_g.black_id) THEN RETURN true; END IF;
   IF p_viewer IS NOT NULL AND public.has_role(p_viewer, 'admin') THEN RETURN true; END IF;
 
-  -- Practice against the engine is nobody else's business. It also has a
-  -- NULL player slot, so the preference lookup below would resolve that
-  -- side to the 'public' default and quietly open the game up.
+-- Practice against the engine is nobody else's business
   IF v_g.vs_computer THEN RETURN false; END IF;
 
   SELECT GREATEST(
@@ -21432,14 +19972,8 @@ REVOKE EXECUTE ON FUNCTION public.can_spectate(UUID, UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.can_spectate(UUID, UUID)
   TO anon, authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 104.6 Spectator sessions and viewer counts
--- ---------------------------------------------------------------------
--- One row per (game, signed-in viewer), refreshed by a heartbeat. Keying
--- on user_id means the count is a count of ACCOUNTS, so opening ten tabs
--- does not inflate it — the cheapest available defence against fake
--- spectator numbers. Signed-out viewers can watch public games but are
--- deliberately not counted rather than counted from a spoofable token.
+-- Spectator RLS: apply game broadcast delay
 CREATE TABLE IF NOT EXISTS public.spectator_sessions (
   game_id    UUID NOT NULL REFERENCES public.games(id) ON DELETE CASCADE,
   user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -21459,8 +19993,7 @@ CREATE POLICY "spectator_sessions own read"
   ON public.spectator_sessions FOR SELECT TO authenticated
   USING (auth.uid() = user_id);
 
--- Denormalised live count, so the browse page reads one row per game
--- instead of aggregating a session table of unbounded size.
+-- Denormalised live count, so the browse page reads one row per game instead of...
 CREATE TABLE IF NOT EXISTS public.spectator_counts (
   game_id    UUID PRIMARY KEY REFERENCES public.games(id) ON DELETE CASCADE,
   viewers    INT NOT NULL DEFAULT 0 CHECK (viewers >= 0),
@@ -21477,9 +20010,7 @@ DROP POLICY IF EXISTS "spectator_counts readable" ON public.spectator_counts;
 CREATE POLICY "spectator_counts readable"
   ON public.spectator_counts FOR SELECT TO anon, authenticated USING (true);
 
--- Refresh my presence in a game's audience and return the live count.
--- Also prunes that game's expired sessions, so the table self-cleans
--- under exactly the traffic that fills it and needs no cron job.
+-- Refresh my presence in a game's audience and return the live count
 CREATE OR REPLACE FUNCTION public.spectator_heartbeat(p_game_id UUID)
 RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -21538,24 +20069,11 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.spectator_leave(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.spectator_leave(UUID) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 104.7 get_spectator_game() — the delayed feed
--- ---------------------------------------------------------------------
 -- The only way a non-participant obtains a live position.
---
--- The position is REBUILT from the plies whose created_at is at or
--- before `now() - delay`; `games.fen` is never read, because reading it
--- would be reading the present. Everything that could leak the present
--- is masked the same way:
---
---   * result / winner / end_reason of a game that ended inside the delay
---     window are withheld — otherwise a watcher learns the game is over
---     (and therefore what happened) before the delay elapses;
---   * the clocks come from the last visible ply of each colour, so they
---     describe the delayed position, not the current one.
---
--- `moves_behind` tells the client how many plies are still embargoed,
--- which is what the UI's "LIVE · 25s delay" badge is built from.
+-- Spectator RLS: apply game broadcast delay
+-- Spectator RLS: apply game broadcast delay
+-- Spectator RLS: apply game broadcast delay
 CREATE OR REPLACE FUNCTION public.get_spectator_game(p_game_id UUID)
 RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -21578,9 +20096,7 @@ DECLARE
   v_moves        JSONB;
   v_viewers      INT;
   v_tour         JSONB := NULL;
-  -- Scalars rather than RECORDs: a vs-computer or half-joined game has a
-  -- NULL player slot, and reading a field off a RECORD that no SELECT
-  -- ever assigned raises "record is not assigned yet".
+-- Scalars rather than RECORDs: a vs-computer or half-joined game has a NULL pla...
   v_w_avatar TEXT; v_w_country TEXT; v_w_title TEXT;
   v_w_tier   public.premium_tier; v_w_sp INT; v_w_rung TEXT;
   v_b_avatar TEXT; v_b_country TEXT; v_b_title TEXT;
@@ -21595,8 +20111,7 @@ BEGIN
   v_is_player := v_uid IS NOT NULL AND v_uid IN (v_g.white_id, v_g.black_id);
   v_delay := public.spectator_delay_seconds(p_game_id);
 
-  -- Players see their own game live; so does everyone once it is over,
-  -- since a finished position can no longer help anybody cheat.
+-- Players see their own game live; so does everyone once it is over, since a fi...
   IF v_is_player OR v_g.status <> 'active' THEN
     v_delay := 0;
   END IF;
@@ -21617,9 +20132,7 @@ BEGIN
     v_fen := 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   END IF;
 
-  -- Clocks as of the delayed position: each colour's remaining time is
-  -- whatever it was after that colour's most recent visible move.
-  -- White plays the odd plies, Black the even ones.
+-- Spectator RLS: apply game broadcast delay
   SELECT gm.time_left_ms INTO v_white_ms
   FROM public.game_moves gm
   WHERE gm.game_id = p_game_id AND gm.created_at <= v_cutoff AND gm.ply % 2 = 1
@@ -21746,15 +20259,9 @@ REVOKE EXECUTE ON FUNCTION public.get_spectator_game(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_spectator_game(UUID)
   TO anon, authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 104.8 list_live_games() — the browse and featured feed
--- ---------------------------------------------------------------------
--- Position-free by construction: it reads public.live_games, which has
--- no position columns to leak.
---
--- `featured` marks the matches the spec wants surfaced on the home page:
--- top-rated players, tournament games, and whatever the crowd is already
--- watching. `sort` = 'featured' | 'viewers' | 'rating' | 'recent'.
+-- Position-free by construction: it reads public.live_games, which has no posit...
+-- `featured` marks the matches the spec wants surfaced on the home page: top-ra...
 CREATE OR REPLACE FUNCTION public.list_live_games(
   p_limit      INT  DEFAULT 24,
   p_offset     INT  DEFAULT 0,
@@ -21813,8 +20320,7 @@ BEGIN
     FROM public.live_games lg
     LEFT JOIN public.profiles wp ON wp.id = lg.white_id
     LEFT JOIN public.profiles bp ON bp.id = lg.black_id
-    -- Season standing for the tier chip on each card. Joined through the
-    -- one 'live' season, so between seasons these simply come back NULL.
+-- Season standing for the tier chip on each card
     LEFT JOIN LATERAL (
       SELECT sr.season_iq, sr.rung_id FROM public.season_rankings sr
       JOIN public.seasons se ON se.id = sr.season_id AND se.status = 'live'
@@ -21830,8 +20336,7 @@ BEGIN
     LEFT JOIN public.tournaments t ON t.id = tm.tournament_id
     WHERE (p_time_class IS NULL OR lg.time_class = p_time_class)
       AND (NOT COALESCE(p_rated_only, false) OR lg.is_rated)
-      -- Public games are listed for everyone; anything more private is
-      -- filtered per viewer by the same rule that guards the feed.
+-- Public games are listed for everyone; anything more private is filtered per v...
       AND (lg.visibility_rank = 0 OR public.can_spectate(lg.id, v_uid))
     ORDER BY ord, lg.created_at DESC
     LIMIT v_lim OFFSET v_off
@@ -21844,13 +20349,8 @@ REVOKE EXECUTE ON FUNCTION public.list_live_games(INT, INT, public.time_class, B
 GRANT EXECUTE ON FUNCTION public.list_live_games(INT, INT, public.time_class, BOOLEAN, TEXT)
   TO anon, authenticated, service_role;
 
--- ---------------------------------------------------------------------
 -- 104.9 set_spectator_visibility()
--- ---------------------------------------------------------------------
--- A participant sets the preference for THEIR OWN side of a match. It
--- can be changed at any point in the game: a player who becomes
--- uncomfortable with an audience mid-game should not have to finish the
--- game to get rid of it.
+-- A participant sets the preference for THEIR OWN side of a match
 CREATE OR REPLACE FUNCTION public.set_spectator_visibility(
   p_game_id    UUID,
   p_visibility public.spectator_visibility
@@ -21903,45 +20403,16 @@ GRANT EXECUTE ON FUNCTION
 
 
 
--- =====================================================================
--- SECTION 105: AUTH UNIFICATION  (2026-07-29)
--- ---------------------------------------------------------------------
--- Run this once against the project your app's SUPABASE_URL points at
--- (Dashboard -> SQL Editor -> New query -> paste -> Run). It is fully
--- idempotent: re-running it is a no-op.
---
--- WHY THIS EXISTS
--- Two things were wrong on the live database:
---
---  1. SECTION 103 (the verification-link registration flow) was written
---     into schema.sql but never applied. `pending_registrations`,
---     `is_username_taken()` and `purge_expired_registrations()` do not
---     exist, so registerAccount()'s very first username check 404s
---     (PGRST202) and the signup handler reports its catch-all
---     "Something went wrong. Please try again." That is THE bug behind
---     the failing Create Account page. 105.1 below applies it.
---
---  2. There was nowhere to record how an account was created, so the
---     "one email = one ChessOx account" rule could not be enforced and
---     onboarding state could not be remembered. 105.2 adds it.
---
--- WHERE THE IDENTITY COLUMNS LIVE, AND WHY NOT ON `profiles`
--- public.profiles is deliberately world-readable (GRANT SELECT TO anon
--- plus a `USING (true)` SELECT policy) because usernames, avatars and
--- ratings are public. Putting `email` there would publish every user's
--- address to anyone holding the anon key. The identity/lifecycle fields
--- therefore live in public.user_accounts, which is readable only by its
--- own owner. Only `city` — public profile data, alongside the existing
--- country/state — is added to profiles.
--- =====================================================================
+-- Section 105: AUTH UNIFICATION  (2026-07-29)
+-- Run this once against the project your app's SUPABASE_URL points at (Dashboar...
+-- WHY THIS EXISTS Two things were wrong on the live database:
+-- 1
+-- Onboarding setup: assign default username & country
+-- WHERE THE IDENTITY COLUMNS LIVE, AND WHY NOT ON `profiles` public.profiles is...
 
 
--- =====================================================================
 -- 105.1  SECTION 103 CATCH-UP — the registration staging table
--- ---------------------------------------------------------------------
--- Identical to schema.sql SECTION 103; reproduced here so this file can
--- be applied standalone against a database that never received it.
--- =====================================================================
+-- Identical to schema.sql SECTION 103; reproduced here so this file can be appl...
 
 CREATE TABLE IF NOT EXISTS public.pending_registrations (
   id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -21952,8 +20423,7 @@ CREATE TABLE IF NOT EXISTS public.pending_registrations (
                        CHECK (status IN ('pending_verification','email_verified','completed')),
   email_verified     BOOLEAN NOT NULL DEFAULT false,
 
-  -- SHA-256 of the token that went out by email. The raw token exists
-  -- only in the message, so a database leak cannot be replayed.
+-- SHA-256 of the token that went out by email
   token_hash         TEXT,
   token_expires_at   TIMESTAMPTZ,
   token_consumed_at  TIMESTAMPTZ,
@@ -21969,8 +20439,7 @@ CREATE TABLE IF NOT EXISTS public.pending_registrations (
   verified_at        TIMESTAMPTZ
 );
 
--- Present separately too: a database that got an early cut of SECTION
--- 103 has the table but not this column.
+-- Present separately too: a database that got an early cut of SECTION 103 has t...
 ALTER TABLE public.pending_registrations
   ADD COLUMN IF NOT EXISTS token_consumed_at TIMESTAMPTZ;
 
@@ -21983,14 +20452,12 @@ CREATE INDEX IF NOT EXISTS idx_pending_registrations_expiry
 CREATE INDEX IF NOT EXISTS idx_pending_registrations_username
   ON public.pending_registrations (lower(username));
 
--- RLS on with ZERO policies: anon and authenticated are denied outright.
--- Only the service-role server (which bypasses RLS) touches this table.
+-- RLS on with ZERO policies: anon and authenticated are denied outright
 ALTER TABLE public.pending_registrations ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.pending_registrations FROM anon, authenticated;
 GRANT ALL ON public.pending_registrations TO service_role;
 
--- Drops abandoned registrations. Rows survive a grace period past token
--- expiry so "your link expired, resend?" can still explain itself.
+-- Drops abandoned registrations
 CREATE OR REPLACE FUNCTION public.purge_expired_registrations(p_grace_hours INT DEFAULT 72)
 RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
 DECLARE v_deleted INT;
@@ -22003,8 +20470,7 @@ END; $fn$;
 REVOKE ALL ON FUNCTION public.purge_expired_registrations(INT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.purge_expired_registrations(INT) TO service_role;
 
--- A name is taken if a profile holds it OR another in-flight
--- registration has reserved it. Case-insensitive both ways.
+-- A name is taken if a profile holds it OR another in-flight registration has r...
 CREATE OR REPLACE FUNCTION public.is_username_taken(
   p_username TEXT,
   p_except_email TEXT DEFAULT NULL
@@ -22022,9 +20488,7 @@ $fn$;
 REVOKE ALL ON FUNCTION public.is_username_taken(TEXT, TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.is_username_taken(TEXT, TEXT) TO service_role;
 
--- auth.users is not exposed via PostgREST; this SECURITY DEFINER shim
--- lets the trusted server check registration status. (Already live, but
--- re-asserted so this file stands alone.)
+-- auth.users is not exposed via PostgREST; this SECURITY DEFINER shim lets the ...
 CREATE OR REPLACE FUNCTION public.is_email_registered(p_email TEXT)
 RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER SET search_path = public AS $fn$
   SELECT EXISTS (SELECT 1 FROM auth.users WHERE lower(email) = lower(p_email));
@@ -22033,26 +20497,20 @@ REVOKE ALL ON FUNCTION public.is_email_registered(TEXT) FROM PUBLIC, anon, authe
 GRANT EXECUTE ON FUNCTION public.is_email_registered(TEXT) TO service_role;
 
 
--- =====================================================================
 -- 105.2  ACCOUNT IDENTITY — one email, one account, one provider
--- =====================================================================
 
 CREATE TABLE IF NOT EXISTS public.user_accounts (
   id                 UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
 
-  -- Mirror of auth.users.email, kept in step by the triggers below so
-  -- the app can reason about identity without querying the auth schema.
+-- Mirror of auth.users.email, kept in step by the triggers below so the app can...
   email              TEXT NOT NULL,
 
-  -- How the account was FIRST created. This is the account's home
-  -- provider and never changes: it is what the "please sign in with X"
-  -- messages are derived from.
+-- How the account was FIRST created
   provider           TEXT NOT NULL DEFAULT 'email'
                        CHECK (provider IN ('email','google')),
 
   email_verified     BOOLEAN NOT NULL DEFAULT false,
-  -- True once the account has a usable Supabase Auth password. Google
-  -- accounts start false and may flip to true from Settings -> Security.
+-- True once the account has a usable Supabase Auth password
   password_created   BOOLEAN NOT NULL DEFAULT false,
   -- The onboarding form is shown while this is false, and exactly once.
   profile_completed  BOOLEAN NOT NULL DEFAULT false,
@@ -22064,8 +20522,7 @@ CREATE TABLE IF NOT EXISTS public.user_accounts (
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- The hard guarantee behind "one email = one ChessOx account". auth.users
--- already enforces this; the mirror must not be able to drift out of it.
+-- The hard guarantee behind "one email = one ChessOx account"
 CREATE UNIQUE INDEX IF NOT EXISTS idx_user_accounts_email_unique
   ON public.user_accounts (lower(email));
 
@@ -22081,21 +20538,15 @@ CREATE POLICY "own account row is readable"
   ON public.user_accounts FOR SELECT TO authenticated
   USING (auth.uid() = id);
 
--- No INSERT/UPDATE/DELETE policy on purpose. Every write goes through a
--- server function on the service role, so a client cannot mark itself
--- verified, mark a password created, or skip onboarding.
+-- Onboarding setup: assign default username & country
 
 -- `city` is public profile data, so it belongs beside country/state.
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS city TEXT DEFAULT '';
 
 
--- =====================================================================
 -- 105.3  USERNAME GENERATION — exactly 11 chars: 8 letters + 1 of [_.] + 2 digits
--- =====================================================================
 
--- One candidate. Seeded from a display name where possible so the result
--- still looks like the person ("chessfox_42"), padded with random
--- letters when the seed is too short or unusable.
+-- One candidate
 CREATE OR REPLACE FUNCTION public.chessox_username_candidate(p_seed TEXT DEFAULT NULL)
 RETURNS TEXT LANGUAGE plpgsql VOLATILE SET search_path = public AS $fn$
 DECLARE
@@ -22113,10 +20564,7 @@ BEGIN
       || lpad(floor(random() * 100)::int::text, 2, '0');
 END; $fn$;
 
--- Retries until the candidate is free, so uniqueness is guaranteed
--- rather than hoped for. 26^8 x 2 x 100 keeps collisions vanishingly
--- rare; the loop bound exists so a pathological database cannot hang a
--- signup.
+-- Retries until the candidate is free, so uniqueness is guaranteed rather than ...
 CREATE OR REPLACE FUNCTION public.generate_unique_username(p_seed TEXT DEFAULT NULL)
 RETURNS TEXT LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = public AS $fn$
 DECLARE
@@ -22125,8 +20573,7 @@ DECLARE
 BEGIN
   LOOP
     v_attempt := v_attempt + 1;
-    -- After a few tries stop honouring the seed: if "chessfox" is
-    -- congested, more "chessfox__" variants will not help.
+-- After a few tries stop honouring the seed: if "chessfox" is congested, more "...
     v_candidate := public.chessox_username_candidate(
       CASE WHEN v_attempt <= 5 THEN p_seed ELSE NULL END
     );
@@ -22150,14 +20597,8 @@ REVOKE ALL ON FUNCTION public.generate_unique_username(TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.generate_unique_username(TEXT) TO service_role;
 
 
--- =====================================================================
 -- 105.4  PROVIDER LOOKUP — what does the app tell someone about this email?
--- ---------------------------------------------------------------------
--- Returns everything the "an account already exists with this email"
--- decision needs in ONE round trip, so signup and sign-in cannot reach
--- different conclusions. Service role only: it answers questions about
--- other people's accounts and must never be callable from a browser.
--- =====================================================================
+-- Returns everything the "an account already exists with this email" decision n...
 CREATE OR REPLACE FUNCTION public.account_for_email(p_email TEXT)
 RETURNS JSONB LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $fn$
   SELECT COALESCE(
@@ -22186,17 +20627,9 @@ REVOKE ALL ON FUNCTION public.account_for_email(TEXT) FROM PUBLIC, anon, authent
 GRANT EXECUTE ON FUNCTION public.account_for_email(TEXT) TO service_role;
 
 
--- =====================================================================
 -- 105.5  SIGNUP TRIGGER — extend, don't replace
--- ---------------------------------------------------------------------
--- Everything SECTION 21 did (profile, role, ratings, subscription,
--- wallet + welcome bonus) still happens; this adds the user_accounts row
--- and switches username generation to the 11-character format.
---
--- The trigger runs inside the same transaction as the auth.users INSERT,
--- so any failure here rolls the new user back with it — there is no
--- state in which an auth user exists without its profile.
--- =====================================================================
+-- Everything SECTION 21 did (profile, role, ratings, subscription, wallet + wel...
+-- The trigger runs inside the same transaction as the auth.users INSERT, so any...
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
 DECLARE
@@ -22211,8 +20644,7 @@ BEGIN
     split_part(NEW.email, '@', 1)
   );
 
-  -- 'email' for password signups (including the admin API used by the
-  -- verification-link flow), 'google' for OAuth.
+-- 'email' for password signups (including the admin API used by the verificatio...
   v_provider := CASE
     WHEN COALESCE(NEW.raw_app_meta_data->>'provider', 'email') = 'google' THEN 'google'
     ELSE 'email'
@@ -22269,14 +20701,8 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 
--- ---------------------------------------------------------------------
 -- 105.6  Keep the mirror honest
--- ---------------------------------------------------------------------
--- Supabase Auth owns email confirmation and password hashing. Whenever
--- it changes either, reflect it — otherwise `password_created` would go
--- stale the moment someone completes a password reset and the sign-in
--- guidance would start lying to them.
--- ---------------------------------------------------------------------
+-- Supabase Auth owns email confirmation and password hashing
 CREATE OR REPLACE FUNCTION public.sync_user_account_from_auth()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
 BEGIN
@@ -22296,14 +20722,8 @@ CREATE TRIGGER on_auth_user_identity_changed
   FOR EACH ROW EXECUTE FUNCTION public.sync_user_account_from_auth();
 
 
--- ---------------------------------------------------------------------
 -- 105.7  Identity columns are server-owned
--- ---------------------------------------------------------------------
--- There is no client UPDATE grant on user_accounts today, but a future
--- policy added in good faith could hand one out. This makes the
--- guarantee structural: whatever the grants say, only the service role
--- can move an identity column.
--- ---------------------------------------------------------------------
+-- There is no client UPDATE grant on user_accounts today, but a future policy a...
 CREATE OR REPLACE FUNCTION public.user_accounts_protect_identity()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $fn$
 BEGIN
@@ -22324,14 +20744,8 @@ CREATE TRIGGER trg_user_accounts_protect_identity
   FOR EACH ROW EXECUTE FUNCTION public.user_accounts_protect_identity();
 
 
--- =====================================================================
 -- 105.8  BACKFILL — existing accounts keep working
--- ---------------------------------------------------------------------
--- Every account that predates this migration is marked
--- profile_completed = true. They already use the app; sending them all
--- to an onboarding form on their next visit would be a regression, not
--- a feature. The gate applies to accounts created from here on.
--- =====================================================================
+-- Onboarding setup: assign default username & country
 INSERT INTO public.user_accounts (
   id, email, provider, email_verified, password_created, profile_completed, created_at
 )
@@ -22354,9 +20768,7 @@ WHERE u.email IS NOT NULL
 ON CONFLICT (id) DO NOTHING;
 
 
--- =====================================================================
 -- 105.9  Verification — every row should read "ok"
--- =====================================================================
 SELECT
   CASE WHEN to_regclass('public.pending_registrations') IS NOT NULL
        THEN 'ok' ELSE 'MISSING' END                       AS pending_registrations,
@@ -22378,21 +20790,10 @@ ALTER TABLE public.wallets
 ADD COLUMN IF NOT EXISTS locked_balance INT NOT NULL DEFAULT 0;
 
 
--- =====================================================================
 -- FIDE 6.9 — a flag fall is only a loss if the opponent can still mate
--- ---------------------------------------------------------------------
--- NOT YET APPLIED to the deployed database. Run this against the project
--- to bring `claim_timeout` in line with the TypeScript move handler
--- (src/lib/api/game.functions.ts), which already implements the rule.
---
--- Until it is applied the two paths disagree: a game that ends on the
--- clock inside makeMove is correctly drawn when the winner has only a
--- bare king, while the same position claimed through claim_timeout is
--- recorded as a win. Both branches are already merged into
--- supabase/schema.sql, so a fresh apply of that file is correct.
---
+-- NOT YET APPLIED to the deployed database
+-- Until it is applied the two paths disagree: a game that ends on the clock ins...
 -- Idempotent: CREATE OR REPLACE only, no data changes.
--- =====================================================================
 
 -- Mirrors hasMatingMaterial() in src/lib/chess/rules.ts.
 CREATE OR REPLACE FUNCTION public.has_mating_material(p_fen TEXT, p_color TEXT)
@@ -22482,33 +20883,16 @@ END; $$;
 REVOKE EXECUTE ON FUNCTION public.claim_timeout(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.claim_timeout(UUID) TO authenticated, service_role;
 
--- Sanity checks (expect: f, f, f, t, t, t)
---   SELECT public.has_mating_material('8/8/4k3/8/8/4K3/8/8 w - - 0 1','w');      -- bare king
---   SELECT public.has_mating_material('8/8/4k3/8/8/4K3/8/5N2 w - - 0 1','w');    -- K+N
---   SELECT public.has_mating_material('8/8/4k3/8/8/4K3/8/5B2 w - - 0 1','w');    -- K+B
---   SELECT public.has_mating_material('8/8/4k3/8/8/4K3/8/4NN2 w - - 0 1','w');   -- K+NN
---   SELECT public.has_mating_material('8/8/4k3/8/8/4K3/4P3/8 w - - 0 1','w');    -- K+P
---   SELECT public.has_mating_material('8/8/4k3/8/8/4K3/8/5R2 w - - 0 1','w');    -- K+R
+-- Sanity checks (expect: f, f, f, t, t, t) SELECT public.has_mating_material('8...
 
--- =====================================================================
--- SECTION 200: HOT-PATH INDEXES
--- ---------------------------------------------------------------------
--- Indexes for the read patterns the live game surfaces issue on every
--- board load. Additive and idempotent — safe to re-run against an
--- existing database, and no existing index or query is changed.
--- =====================================================================
+-- Section 200: HOT-PATH INDEXES
+-- Indexes for the read patterns the live game surfaces issue on every board load
 
--- game.$id.tsx loads the whole chat for a board with
---   SELECT ... FROM game_chat WHERE game_id = ? ORDER BY created_at
--- and game_chat had no index at all beyond its primary key, so this was a
--- sequential scan of every chat message ever sent, on every game page
--- load, growing with total site history rather than with the game.
+-- game.$id.tsx loads the whole chat for a board with SELECT ..
 CREATE INDEX IF NOT EXISTS idx_game_chat_game_created
   ON public.game_chat (game_id, created_at);
 
--- The lobby / matchmaking surfaces filter open games by status, and the
--- clock sweep scans active ones. `idx_games_created` only helps the
--- ordering, not the filter.
+-- The lobby / matchmaking surfaces filter open games by status, and the clock s...
 CREATE INDEX IF NOT EXISTS idx_games_status_created
   ON public.games (status, created_at DESC);
 
@@ -22517,28 +20901,14 @@ CREATE INDEX IF NOT EXISTS idx_games_active_time_class
   ON public.games (time_class, last_move_at DESC)
   WHERE status = 'active';
 
--- =====================================================================
--- SECTION 201: REMOVE STANDALONE LEADERBOARD FEATURE
--- ---------------------------------------------------------------------
--- The player-facing /leaderboards page and its /admin/leaderboard
--- counterpart are retired. The Ranking system (permanent ELO + Season
--- Points, SECTION 102 — elo_leaderboard/sp_leaderboard, consumed by
--- RankingLeaderboard.tsx on /rankings) is now the sole player
--- progression board. Nothing else reads leaderboard_view or
--- get_dynamic_leaderboard, so this is a clean drop.
---
--- Other objects that happen to share the word "leaderboard" —
--- clan_leaderboard (Clans), community_leaderboard (Community),
--- season_leaderboard (Seasons) — belong to unrelated features and are
--- deliberately left alone.
--- =====================================================================
+-- Section 201: REMOVE STANDALONE LEADERBOARD FEATURE
+-- Compute seasonal SP rung and division
+-- Other objects that happen to share the word "leaderboard" — clan_leaderboard ...
 DROP FUNCTION IF EXISTS public.get_dynamic_leaderboard(text, text, text, text, text, integer, integer);
 DROP FUNCTION IF EXISTS public.get_dynamic_leaderboard(text, text, text, text, text, text, boolean, integer, integer);
 DROP VIEW IF EXISTS public.leaderboard_view CASCADE;
 
--- =====================================================================
--- SECTION 202: STORAGE BUCKETS & PUBLIC POLICIES (Avatars & Banners)
--- =====================================================================
+-- Section 202: STORAGE BUCKETS & PUBLIC POLICIES (Avatars & Banners)
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('avatars', 'avatars', true),
        ('banners', 'banners', true)
@@ -22563,27 +20933,6 @@ BEGIN
 END $$;
 
 
--- =====================================================================
--- SECTION 203: ONBOARDING — country code + a way to record completion
--- ---------------------------------------------------------------------
--- Two gaps the production onboarding form ran into:
---
---  1. Only the country NAME was stored. Names change (Swaziland ->
---     Eswatini, Turkey -> Türkiye) and cannot be matched against an ISO
---     list reliably, so the selector could not re-select what the player
---     had already saved. `country_code` is the stable key; `country`
---     stays as the display name every existing read path uses.
---
---  2. `user_accounts.profile_completed` is server-owned: SECTION 105.2
---     grants the client SELECT only, and 105.7 additionally reverts any
---     client-side write to the identity columns. The onboarding page was
---     upserting that row directly from the browser, which RLS rejected —
---     silently, because the client never inspected the returned error.
---     Onboarding therefore never actually recorded completion. The
---     SECURITY DEFINER function below is the supported path: it can only
---     ever touch the CALLER's own row, and only the three columns that
---     onboarding legitimately owns.
--- =====================================================================
 
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS country_code TEXT DEFAULT '';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS city TEXT DEFAULT '';
@@ -22591,9 +20940,7 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS city TEXT DEFAULT '';
 CREATE INDEX IF NOT EXISTS idx_profiles_country_code
   ON public.profiles (country_code) WHERE country_code <> '';
 
--- Marks onboarding finished for the calling user. Returns true when a
--- row was updated. Cannot be pointed at anyone else: the WHERE clause is
--- auth.uid(), not a parameter.
+
 CREATE OR REPLACE FUNCTION public.complete_onboarding(
   p_timezone TEXT DEFAULT NULL,
   p_language TEXT DEFAULT NULL
@@ -22619,10 +20966,7 @@ BEGIN
     RETURN true;
   END IF;
 
-  -- No mirror row yet (an account created before SECTION 105, or one
-  -- whose trigger insert was rolled back). Create it from auth.users
-  -- rather than trusting anything the client sent.
-  SELECT email INTO v_email FROM auth.users WHERE id = v_uid;
+ SELECT email INTO v_email FROM auth.users WHERE id = v_uid;
   IF v_email IS NULL THEN
     RETURN false;
   END IF;
@@ -22648,8 +20992,6 @@ BEGIN
     NULLIF(p_language, '')
   FROM auth.users u
   WHERE u.id = v_uid
-  -- The existing row is referenced by the table's bare name here; a
-  -- schema-qualified form is not what ON CONFLICT DO UPDATE expects.
   ON CONFLICT (id) DO UPDATE SET
     profile_completed  = true,
     timezone           = COALESCE(EXCLUDED.timezone, user_accounts.timezone),
@@ -22662,7 +21004,6 @@ END; $fn$;
 REVOKE ALL ON FUNCTION public.complete_onboarding(TEXT, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.complete_onboarding(TEXT, TEXT) TO authenticated, service_role;
 
--- Verification — both rows should read 'ok'.
 SELECT
   CASE WHEN EXISTS (
     SELECT 1 FROM information_schema.columns

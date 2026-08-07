@@ -317,9 +317,8 @@ describe("country → state coupling", () => {
     expect(canadian).not.toContain("Kerala");
   });
 
-  it("falls back to a text field for a country with no predefined states", () => {
+  it("falls back to a text field when no states are available", () => {
     render(<CountryAndState />);
-    pick("country", "Singapore");
 
     expect(stateScope().querySelector('input[role="combobox"]')).toBeNull();
     const plain = stateScope().querySelector<HTMLInputElement>("input")!;

@@ -28,6 +28,8 @@ export type Profile = {
   instagram_url: string | null;
   facebook_url: string | null;
   twitter_url: string | null;
+  season_points?: number | null;
+  rung_id?: string | null;
 };
 
 // ── Shared auth snapshot ───────────────────────────────────────────────

@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
+import { Loader2 } from "lucide-react";
 import { useChannel } from "@/hooks/useChat";
 import { ChannelView } from "@/components/chat/ChannelView";
 
@@ -19,17 +19,7 @@ function GlobalChat() {
     );
   }
 
-  return (
-    <div className="flex h-full flex-col">
-      <Link
-        to="/chat"
-        className="flex shrink-0 items-center gap-1.5 border-b border-white/10 px-4 py-2 text-xs text-muted-foreground md:hidden"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" /> All chats
-      </Link>
-      <div className="min-h-0 flex-1">
-        <ChannelView channel={channel} />
-      </div>
-    </div>
-  );
+  // The back-to-list control lives in ChannelView's header (md:hidden) so the
+  // conversation doesn't spend a second row of vertical space on it.
+  return <ChannelView channel={channel} />;
 }

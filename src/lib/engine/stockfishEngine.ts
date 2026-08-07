@@ -340,7 +340,14 @@ export class StockfishEngine {
   private async processQueue(): Promise<void> {
     if (this.active || this.stopping || this.queue.length === 0) return;
 
-    const item = this.queue.shift();
+    // Bounded work jumps ahead of a live `go infinite`. An infinite search
+    // never ends by itself, so once it becomes `active` nothing else can
+    // start — if it sat ahead of batch items in the queue it would pin the
+    // engine and their promises would never settle. This is reachable:
+    // a game review's first act is setOptions({multiPv: 2}), which re-queues
+    // the live search, and that used to wedge the whole review at 0/N.
+    const boundedIdx = this.queue.findIndex((q) => !q.request.infinite);
+    const item = boundedIdx >= 0 ? this.queue.splice(boundedIdx, 1)[0] : this.queue.shift();
     if (!item) return;
 
     try {

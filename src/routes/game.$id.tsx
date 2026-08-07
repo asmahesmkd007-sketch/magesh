@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { PageShell, Card, GoldButton, GhostButton } from "@/components/site/Primitives";
 import { InteractiveBoard, type BoardCell } from "@/components/site/InteractiveBoard";
 import { CapturedPieces } from "@/components/site/CapturedPieces";
+import { SeasonShield } from "@/components/ranking/SeasonShield";
 import { ClockTime } from "@/components/site/ClockTime";
 import { useClockAudio } from "@/hooks/useClockAudio";
 import { useChessClock } from "@/hooks/useChessClock";
@@ -2203,11 +2204,13 @@ function PlayerCard({
           </div>
           <div className="min-w-0 flex flex-col justify-center gap-0.5 flex-1">
             <div className="flex items-center gap-2 flex-wrap text-sm font-semibold text-foreground">
+              <SeasonShield sp={rating ?? 0} size="xs" variant="icon" />
               <span className="truncate">{name}</span>
+              <SeasonShield sp={rating ?? 0} size="xs" variant="chip" tierOnly />
               <PremiumBadge premiumActive={p_active} premiumExpiresAt={p_exp} />
               {friendUserId && <FriendButton targetUserId={friendUserId} targetName={name} />}
-              <span className="text-xs font-normal text-muted-foreground">
-                {rating ? `${rating} Elo` : "—"}
+              <span className="text-xs font-normal text-muted-foreground font-mono">
+                {rating ? `${rating} SP` : "—"}
               </span>
               {me && (
                 <span className="rounded bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-gold border border-gold/30">

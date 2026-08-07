@@ -4,7 +4,7 @@ import { ArrowLeft, AlertCircle, Ban, Hourglass, RefreshCw } from "lucide-react"
 import { toast } from "sonner";
 import { PageShell, Card, GoldButton } from "@/components/site/Primitives";
 import { useAuth } from "@/hooks/useAuth";
-import { useWallet } from "@/hooks/useWallet";
+import { useWallet, notifyWalletChanged } from "@/hooks/useWallet";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useTournament } from "@/hooks/useTournament";
 import { cancelTournament, type TournamentActivityItem } from "@/lib/api/tournamentClient";
@@ -163,6 +163,7 @@ function TournamentPage() {
     try {
       await cancelTournament(t.id);
       toast.success("Tournament cancelled — all entrants refunded.");
+      notifyWalletChanged();
       void refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not cancel");

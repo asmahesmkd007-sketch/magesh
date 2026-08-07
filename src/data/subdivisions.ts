@@ -14,11 +14,19 @@
 //
 // India's list is imported from src/data/geo.ts rather than copied, so
 // the leaderboard filters and this selector can never disagree.
-// =====================================================================
 import { INDIA_STATES_AND_UTS } from "./geo";
+
+const NONE: readonly string[] = Object.freeze([]);
 
 export const SUBDIVISIONS: Readonly<Record<string, readonly string[]>> = {
   IN: INDIA_STATES_AND_UTS,
+  SG: [
+    "Central Region",
+    "East Region",
+    "North Region",
+    "North-East Region",
+    "West Region",
+  ],
 
   US: [
     "Alabama",
@@ -991,14 +999,6 @@ export const SUBDIVISIONS: Readonly<Record<string, readonly string[]>> = {
     "Riyadh",
     "Tabuk",
   ],
-
-  SG: [
-    "Central Region",
-    "East Region",
-    "North Region",
-    "North-East Region",
-    "West Region",
-  ],
 };
 
 /**
@@ -1050,7 +1050,6 @@ const DEFAULT_SUBDIVISIONS: readonly string[] = Object.freeze([
 
 // One shared instance: returning a fresh [] per call would give every
 // render a new array identity and defeat the callers' useMemo.
-const NONE: readonly string[] = Object.freeze([]);
 
 /** The subdivisions of one country, or default regions for unlisted countries, or [] when no country is selected. */
 export function subdivisionsFor(countryCode: string | null | undefined): readonly string[] {

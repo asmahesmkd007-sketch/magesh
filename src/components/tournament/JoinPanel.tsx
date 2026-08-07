@@ -30,6 +30,7 @@ import {
   type TournamentRow,
 } from "@/lib/api/tournamentClient";
 import type { Wallet } from "@/lib/api/walletClient";
+import { notifyWalletChanged } from "@/hooks/useWallet";
 import { playGameSound } from "@/lib/audio/sounds";
 import { AnimatedCoins } from "./bits";
 
@@ -69,6 +70,9 @@ export const JoinPanel = memo(function JoinPanel({
       playGameSound("notify");
       toast.success(fee > 0 ? `Registered! ${fee} coins deducted.` : "Registered successfully!");
       setConfirmOpen(false);
+      // onChanged() only reloads tournament state. The fee came out of the
+      // wallet, so refresh the balance panel above and the navbar chip too.
+      notifyWalletChanged();
       onChanged();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Could not register";
@@ -93,6 +97,7 @@ export const JoinPanel = memo(function JoinPanel({
       playGameSound("notify");
       toast.success(fee > 0 ? "Withdrawn — entry fee refunded." : "Withdrawn.");
       setLeaveOpen(false);
+      notifyWalletChanged();
       onChanged();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not withdraw");

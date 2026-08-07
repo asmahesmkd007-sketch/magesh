@@ -134,14 +134,21 @@ export function useEngine(): UseEngine {
     if (fen) analyze(fen);
   }, [engine, analyze]);
 
-  return {
-    status,
-    snapshot,
-    threaded: engine.threaded,
-    settings,
-    updateSettings,
-    analyze,
-    stop,
-    restart,
-  };
+  // Memoised so the object only changes when something in it actually
+  // changed. A fresh object every render made `[engine]` an effect
+  // dependency that never settled, which is how a cleanup meant for unmount
+  // ended up stopping the live search after every render.
+  return useMemo(
+    () => ({
+      status,
+      snapshot,
+      threaded: engine.threaded,
+      settings,
+      updateSettings,
+      analyze,
+      stop,
+      restart,
+    }),
+    [engine, status, snapshot, settings, updateSettings, analyze, stop, restart],
+  );
 }

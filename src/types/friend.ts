@@ -19,6 +19,7 @@ export interface FriendRow {
   other_is_online?: boolean;
   other_last_seen?: string | null;
   other_title?: string | null;
+  other_season_points?: number | null;
   /** Derived, read-only: "playing" when they have a live game in progress. */
   other_activity?: "playing" | "online" | "offline";
   other_active_game_id?: string | null;
@@ -89,6 +90,7 @@ export interface SearchProfile {
   premium_active?: boolean;
   premium_expires_at?: string | null;
   rating?: number | null;
+  season_points?: number | null;
   mutual_count?: number;
 }
 

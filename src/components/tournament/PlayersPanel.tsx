@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Users } from "lucide-react";
 import { Card, SectionTitle } from "@/components/site/Primitives";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
+import { SeasonShield } from "@/components/ranking/SeasonShield";
 import type { TournamentEntry, TournamentRow } from "@/lib/api/tournamentClient";
 import { PlayerAvatar } from "./bits";
 
@@ -115,7 +116,8 @@ export const PlayersPanel = memo(function PlayersPanel({
               >
                 <PlayerAvatar username={e.username} avatarUrl={e.avatar_url} size="h-8 w-8" />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1 truncate text-sm">
+                  <div className="flex items-center gap-1.5 truncate text-sm">
+                    <SeasonShield sp={e.iq_rating ?? 100} rungId={e.rung_id} size="xs" variant="icon" />
                     {e.username ?? "Player"}
                     {isMe && <span className="text-[10px] text-emerald">(you)</span>}
                     <PremiumBadge
@@ -123,9 +125,10 @@ export const PlayersPanel = memo(function PlayersPanel({
                       premiumExpiresAt={e.premium_expires_at}
                     />
                   </div>
-                  <div className="truncate text-[11px] text-muted-foreground">
-                    IQ {e.iq_rating ?? 100}
-                    {e.country ? ` · ${e.country}` : ""}
+                  <div className="flex items-center gap-2 truncate text-[11px] text-muted-foreground">
+                    <SeasonShield sp={e.iq_rating ?? 100} rungId={e.rung_id} size="xs" variant="chip" tierOnly />
+                    <span>{e.iq_rating ?? 100} SP</span>
+                    {e.country ? <span>· {e.country}</span> : null}
                     {e.rank != null
                       ? ` · #${e.rank}`
                       : e.score > 0

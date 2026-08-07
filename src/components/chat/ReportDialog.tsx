@@ -20,14 +20,14 @@ export function ReportDialog({
   const [details, setDetails] = useState("");
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4"
+      className="fixed inset-0 z-[60] grid place-items-center bg-black/60 p-4"
       onClick={(e) => {
         e.stopPropagation();
         onClose();
       }}
     >
       <div
-        className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#101317] p-5 shadow-luxe"
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-[#101317] p-5 shadow-luxe"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-sm font-medium">Report message</h3>

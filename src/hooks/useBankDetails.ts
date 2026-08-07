@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { saveBankDetailsServerFn } from "@/lib/api/bank.functions";
 import { toast } from "sonner";
 
 export type BankAccount = {
@@ -66,29 +67,53 @@ export function useBankDetails(userId?: string) {
     accountType: "savings" | "current";
   }) => {
     try {
-      const { error } = await supabase.rpc("save_bank_details", {
-        p_account_holder_name: params.accountHolderName,
-        p_account_number: params.accountNumber,
-        p_ifsc_code: params.ifscCode,
-        p_bank_name: params.bankName,
-        p_branch_name: params.branchName,
-        p_branch_address: params.branchAddress,
-        p_account_type: params.accountType,
-      });
+      const activeUserId = userId || (await supabase.auth.getUser()).data.user?.id;
 
-      if (error) {
-        toast.error(error.message || "Failed to save bank details");
+      if (!activeUserId) {
+        toast.error("User not authenticated");
         return false;
+      }
+
+      // Try server function with admin credentials first (bypasses pgcrypto extension & client RLS)
+      try {
+        await saveBankDetailsServerFn({
+          data: {
+            userId: activeUserId,
+            accountHolderName: params.accountHolderName,
+            accountNumber: params.accountNumber,
+            ifscCode: params.ifscCode,
+            bankName: params.bankName,
+            branchName: params.branchName,
+            branchAddress: params.branchAddress,
+            accountType: params.accountType,
+          },
+        });
+      } catch (serverErr: any) {
+        console.warn("Server function failed, trying RPC:", serverErr?.message);
+        // Secondary fallback to RPC
+        const { error: rpcError } = await supabase.rpc("save_bank_details", {
+          p_account_holder_name: params.accountHolderName,
+          p_account_number: params.accountNumber,
+          p_ifsc_code: params.ifscCode,
+          p_bank_name: params.bankName,
+          p_branch_name: params.branchName,
+          p_branch_address: params.branchAddress,
+          p_account_type: params.accountType,
+        });
+
+        if (rpcError) {
+          throw rpcError;
+        }
       }
 
       toast.success("Bank details saved successfully");
 
-      // Re-fetch the updated details to get the masked account number
-      if (userId) {
+      // Re-fetch the updated details to get the saved bank account
+      if (activeUserId) {
         const { data: newData } = await supabase
           .from("bank_details")
           .select("*")
-          .eq("user_id", userId)
+          .eq("user_id", activeUserId)
           .single();
         if (newData) {
           setBankAccount(newData as BankAccount);

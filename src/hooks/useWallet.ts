@@ -2,6 +2,18 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Wallet, WalletTransaction } from "@/lib/api/walletClient";
 
+// Every mounted useWallet registers here. The navbar renders its own instance,
+// separate from whichever page spent the coins, so a page-local refetch would
+// leave the navbar chip stale until the `wallets` realtime event lands. Any
+// code that moves coins calls notifyWalletChanged() to refresh all of them at
+// once, which makes the balance correct even if replication is slow or off.
+const walletListeners = new Set<() => void>();
+
+/** Refetch every mounted useWallet. Call after any RPC that moves coins. */
+export function notifyWalletChanged() {
+  for (const listener of walletListeners) listener();
+}
+
 export function useWallet(userId?: string | null) {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,7 +50,13 @@ export function useWallet(userId?: string | null) {
   useEffect(() => {
     fetch();
 
-    if (!userId) return;
+    walletListeners.add(fetch);
+
+    if (!userId) {
+      return () => {
+        walletListeners.delete(fetch);
+      };
+    }
 
     // Real-time subscription — keeps balance live across tabs
     const channelId = `wallet:${userId}:${Math.random().toString(36).substring(7)}`;
@@ -59,6 +77,7 @@ export function useWallet(userId?: string | null) {
       .subscribe();
 
     return () => {
+      walletListeners.delete(fetch);
       supabase.removeChannel(channel);
     };
   }, [userId, fetch]);

@@ -33,6 +33,7 @@ export type ClanMemberProfile = {
   full_name: string | null;
   avatar_url: string | null;
   iq_level: number | null;
+  season_points?: number | null;
   is_online?: boolean;
   last_seen?: string | null;
   premium_active?: boolean;

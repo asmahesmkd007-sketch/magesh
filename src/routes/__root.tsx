@@ -114,7 +114,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     // below for its own route (deepest match wins per meta name/property).
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      // interactive-widget=resizes-content: when the on-screen keyboard opens,
+      // shrink the layout viewport instead of just panning the visual one.
+      // Without it, `dvh` keeps reporting the full height and the keyboard
+      // simply covers whatever is pinned to the bottom — the chat composer.
+      {
+        name: "viewport",
+        content: "width=device-width, initial-scale=1, interactive-widget=resizes-content",
+      },
       { title: "ChessOx — Play Chess Online Free, Puzzles & Tournaments" },
       { name: "description", content: SITE_DESCRIPTION },
       {

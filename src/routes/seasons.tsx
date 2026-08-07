@@ -37,13 +37,14 @@ import {
   type SeasonLeaderboardEntry,
 } from "@/lib/api/seasonsClient";
 import {
-  SEASON_REWARD_LABELS,
   SEASON_TIERS,
   nextTierOf,
   tierDisplayName,
   tierOf,
   tierProgress,
+  SEASON_REWARD_LABELS,
 } from "@/lib/seasonTiers";
+import { SeasonShield } from "@/components/ranking/SeasonShield";
 import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/seasons")({
@@ -127,15 +128,7 @@ function SeasonCountdown({ endsAt }: { endsAt: string }) {
 
 // ---- Tier badge chip ---------------------------------------------------
 function TierBadge({ iq, className = "" }: { iq: number; className?: string }) {
-  const tier = tierOf(iq);
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${tier.badge} ${tier.text} ${className}`}
-    >
-      <Shield className="h-3 w-3" />
-      {tier.name}
-    </span>
-  );
+  return <SeasonShield sp={iq} size="xs" variant="chip" className={className} />;
 }
 
 // ---- Trend arrow -------------------------------------------------------
@@ -611,7 +604,7 @@ function SeasonsPage() {
                       }`}
                     >
                       <span className={`flex items-center gap-1.5 text-xs ${tier.text}`}>
-                        <Shield className="h-3.5 w-3.5" />
+                        <SeasonShield sp={tier.min} size="xs" variant="icon" />
                         {tier.name}
                         {mine && <span className="text-[9px] text-muted-foreground">(you)</span>}
                       </span>

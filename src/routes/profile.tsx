@@ -32,6 +32,7 @@ import { useAuth, useProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
 import { UserAvatar } from "@/components/site/UserAvatar";
+import { SeasonShield } from "@/components/ranking/SeasonShield";
 import { FriendButton } from "@/components/friends/FriendButton";
 import { toast } from "sonner";
 import type { Profile } from "@/hooks/useAuth";
@@ -551,37 +552,48 @@ function ProfilePage() {
         <div className="relative -mt-14 px-6 pb-6 md:px-8">
           <div className="flex flex-wrap items-end gap-5">
             {/* Avatar */}
-            <div className="relative group/av">
-              <UserAvatar
-                avatarUrl={profile.avatar_url}
-                displayName={profile.full_name}
-                size="xl"
-                shape="rounded-full"
-                className="ring-4 ring-background"
+            <div className="flex flex-wrap items-center gap-5">
+              <div className="relative group/av">
+                <UserAvatar
+                  avatarUrl={profile.avatar_url}
+                  displayName={profile.full_name}
+                  size="xl"
+                  shape="rounded-full"
+                  className="ring-4 ring-background"
+                />
+                {/* Avatar upload overlay — own profile only */}
+                {isOwnProfile && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => avatarInputRef.current?.click()}
+                      className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover/av:opacity-100"
+                    >
+                      {uploadingAvatar ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-white" />
+                      ) : (
+                        <Camera className="h-5 w-5 text-white" />
+                      )}
+                    </button>
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      onChange={handleAvatarChange}
+                    />
+                  </>
+                )}
+              </div>
+
+              {/* Large Season Shield beside avatar */}
+              <SeasonShield
+                sp={profile.season_points ?? 0}
+                rungId={profile.rung_id}
+                size="lg"
+                variant="full"
+                className="shrink-0"
               />
-              {/* Avatar upload overlay — own profile only */}
-              {isOwnProfile && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => avatarInputRef.current?.click()}
-                    className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover/av:opacity-100"
-                  >
-                    {uploadingAvatar ? (
-                      <Loader2 className="h-5 w-5 animate-spin text-white" />
-                    ) : (
-                      <Camera className="h-5 w-5 text-white" />
-                    )}
-                  </button>
-                  <input
-                    ref={avatarInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    className="hidden"
-                    onChange={handleAvatarChange}
-                  />
-                </>
-              )}
             </div>
 
             {/* Name + meta */}

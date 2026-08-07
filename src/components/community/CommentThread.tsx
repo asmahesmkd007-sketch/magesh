@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { UserAvatar } from "@/components/site/UserAvatar";
+import { SeasonShield } from "@/components/ranking/SeasonShield";
 import { useAuth } from "@/hooks/useAuth";
 import { useCommunityActions, useCommunityComments } from "@/hooks/useCommunity";
 import { editComment } from "@/lib/api/communityClient";
@@ -195,6 +196,7 @@ function CommentItem({
               <BadgeCheck className="h-3.5 w-3.5 text-gold" />
             )}
             <span className="text-muted-foreground">@{a?.username}</span>
+            <SeasonShield sp={a?.season_points ?? a?.iq_level ?? 0} size="xs" variant="chip" />
             <span className="text-muted-foreground">· {relTime(node.created_at)}</span>
           </div>
           {editing ? (

@@ -143,7 +143,16 @@ export function AnalysisWorkspace({ gameId }: { gameId?: string }) {
   }, [fen, engineOn, reviewRunning]);
 
   // Halt the engine when the workspace unmounts.
-  useEffect(() => () => engine.stop(), [engine]);
+  //
+  // This must key on engine.stop, not on `engine`. useEngine() builds a new
+  // object every render (it carries the live snapshot), so depending on the
+  // object ran this cleanup after *every* render — each one calling stop()
+  // on the search that had just started. The engine then discarded every
+  // `info` line as belonging to an abandoned search, committed an empty
+  // result on `bestmove`, and the panel sat on "Waiting for engine…" forever.
+  // engine.stop is a stable useCallback, so this now fires only on unmount.
+  const stopEngine = engine.stop;
+  useEffect(() => () => stopEngine(), [stopEngine]);
 
   // ── Board interaction ──────────────────────────────────────────────
   const clearSelection = useCallback(() => {

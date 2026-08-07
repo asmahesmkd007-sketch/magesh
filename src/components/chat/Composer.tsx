@@ -27,7 +27,7 @@ export function Composer({
 
   if (!user) {
     return (
-      <div className="border-t border-white/10 p-4 text-center text-xs text-muted-foreground">
+      <div className="shrink-0 border-t border-white/10 p-4 text-center text-xs text-muted-foreground">
         Sign in to join the conversation.
       </div>
     );
@@ -48,7 +48,10 @@ export function Composer({
   };
 
   return (
-    <div className="border-t border-white/10 p-3">
+    /* shrink-0 pins the composer to the bottom of the conversation column.
+       As a plain flex child it shrinks along with everything else once the
+       column is shorter than its content — which is every phone. */
+    <div className="shrink-0 border-t border-white/10 p-3">
       {replyTo && (
         <div className="mb-2 flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-1.5 text-xs">
           <span className="truncate text-muted-foreground">
@@ -112,7 +115,10 @@ export function Composer({
               placeholder="Message…"
               rows={1}
               maxLength={200}
-              className="max-h-32 w-full resize-none rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2.5 text-sm outline-none placeholder:text-muted-foreground focus:border-gold/40"
+              /* text-base below sm: iOS Safari auto-zooms on focus when a
+                 field is under 16px, scaling the layout viewport and pushing
+                 the composer off screen the moment you tap it. */
+              className="max-h-32 w-full resize-none rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-2.5 text-base outline-none placeholder:text-muted-foreground focus:border-gold/40 sm:text-sm"
             />
             {text.length > 140 && (
               <span

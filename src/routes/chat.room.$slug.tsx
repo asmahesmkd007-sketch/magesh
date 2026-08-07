@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Loader2, Lock } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
 import { Card, GoldButton } from "@/components/site/Primitives";
 import { useAuth } from "@/hooks/useAuth";
 import { useChannel } from "@/hooks/useChat";
@@ -43,17 +43,7 @@ function RoomChat() {
     );
   }
 
-  return (
-    <div className="flex h-full flex-col">
-      <Link
-        to="/chat"
-        className="flex shrink-0 items-center gap-1.5 border-b border-white/10 px-4 py-2 text-xs text-muted-foreground md:hidden"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" /> All chats
-      </Link>
-      <div className="min-h-0 flex-1">
-        <ChannelView channel={channel} />
-      </div>
-    </div>
-  );
+  // The back-to-list control lives in ChannelView's header (md:hidden) so the
+  // conversation doesn't spend a second row of vertical space on it.
+  return <ChannelView channel={channel} />;
 }

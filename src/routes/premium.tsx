@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
-import { useWallet } from "@/hooks/useWallet";
+import { useWallet, notifyWalletChanged } from "@/hooks/useWallet";
 import { creditPremiumBonus } from "@/lib/api/walletClient";
 import { toast } from "sonner";
 import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
@@ -101,7 +101,7 @@ const COMPARISON = [
 
 function Premium() {
   const { user } = useAuth();
-  const { wallet, refetch: refetchWallet } = useWallet(user?.id);
+  const { wallet } = useWallet(user?.id);
 
   // For unauthenticated users: which plan they clicked (auth prompt)
   const [guestPlan, setGuestPlan] = useState<string | null>(null);
@@ -128,7 +128,9 @@ function Premium() {
 
     try {
       await creditPremiumBonus(confirmPlan, baseCoins, idempotencyKey);
-      await refetchWallet();
+      // Refreshes every mounted useWallet, so the navbar chip shows the new
+      // balance at the same moment this page does.
+      notifyWalletChanged();
       toast.success(
         `${confirmPlan} activated! ${baseCoins + 10} coins added to your wallet (${baseCoins} + 10 bonus).`,
       );

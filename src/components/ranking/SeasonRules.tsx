@@ -20,6 +20,7 @@ import {
 } from "@/lib/ranking/tiers";
 
 import { TierBadge } from "./TierBadge";
+import { SeasonShield } from "./SeasonShield";
 
 export function SeasonRules() {
   const config = useQuery({
@@ -170,18 +171,26 @@ export function SeasonRules() {
           are only demoted once you fall a little way below it, so a single loss never costs you a
           rank.
         </p>
-        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
-          {LADDER.map((rung) => (
-            <div
-              key={rung.id}
-              className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-2 py-1.5"
-            >
-              <span className={`text-[11px] ${rung.tier.text}`}>{rung.label}</span>
-              <span className="text-[10px] tabular-nums text-muted-foreground">
-                {minSpFor(rung.id).toLocaleString()}
-              </span>
-            </div>
-          ))}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {LADDER.map((rung) => {
+            const min = minSpFor(rung.id);
+            const nextMin = rung.nextSp != null ? (ladder?.find((r) => r.id === LADDER[rung.index + 1]?.id)?.min ?? rung.nextSp) : null;
+            const rangeStr = nextMin != null ? `${min.toLocaleString()}–${(nextMin - 1).toLocaleString()} SP` : `${min.toLocaleString()}+ SP`;
+            return (
+              <div
+                key={rung.id}
+                className="flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.02] p-2.5 transition-colors hover:border-gold/25"
+              >
+                <div className="flex items-center gap-2">
+                  <SeasonShield sp={min} rungId={rung.id} size="xs" variant="icon" />
+                  <span className={`text-xs font-semibold ${rung.tier.text}`}>{rung.label}</span>
+                </div>
+                <span className="font-mono text-[11px] font-medium text-gold/90">
+                  {rangeStr}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </Card>
 

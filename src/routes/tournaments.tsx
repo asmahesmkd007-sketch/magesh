@@ -13,11 +13,11 @@ import {
   Clock,
   Lock,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useWallet } from "@/hooks/useWallet";
-import { joinTournamentPaid } from "@/lib/api/walletClient";
+import { useWallet, notifyWalletChanged } from "@/hooks/useWallet";
+import { ensureTournamentSlots, joinTournamentPaid } from "@/lib/api/walletClient";
 import { toast } from "sonner";
 import { seo, breadcrumbLd, collectionPageLd } from "@/lib/seo";
 
@@ -71,6 +71,51 @@ type Tournament = {
   created_at: string;
   winner_display?: string | null;
 };
+
+const TOURNAMENT_COLUMNS =
+  "id,name,format,prize_pool,starts_at,status,player_count,max_players,cover_gradient," +
+  "time_control,entry_fee_coins,prize_1st,prize_2nd,prize_3rd,created_at,winner_display";
+
+// The generated Database types don't cover the tournament tables, so queries go
+// through this narrow builder surface rather than an untyped escape hatch.
+type Thenable<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
+type Builder<T> = Thenable<T> & {
+  select: (cols: string) => Builder<T>;
+  eq: (col: string, val: string | number) => Builder<T>;
+  in: (col: string, vals: readonly string[]) => Builder<T>;
+  order: (col: string, opts: { ascending: boolean }) => Builder<T>;
+  limit: (n: number) => Builder<T>;
+};
+
+function table<T>(name: string): Builder<T> {
+  return (supabase as unknown as { from: (t: string) => Builder<T> }).from(name);
+}
+
+// The seeding RPC keeps one upcoming arena per (time control, entry fee), but a
+// race can leave two behind. Rendering both splits registrations across
+// duplicate cards so neither ever fills, so collapse them onto the arena
+// players are already sitting in.
+function dedupeUpcoming(rows: Tournament[]): Tournament[] {
+  const bestPerTier = new Map<string, Tournament>();
+  const others: Tournament[] = [];
+
+  for (const row of rows) {
+    if (row.status !== "upcoming") {
+      others.push(row);
+      continue;
+    }
+    const tier = `${row.time_control}_${row.entry_fee_coins}`;
+    const held = bestPerTier.get(tier);
+    const wins =
+      !held ||
+      row.player_count > held.player_count ||
+      (row.player_count === held.player_count &&
+        new Date(row.created_at).getTime() < new Date(held.created_at).getTime());
+    if (wins) bestPerTier.set(tier, row);
+  }
+
+  return [...bestPerTier.values(), ...others];
+}
 
 const GRADIENTS = [
   "from-amber-500 to-rose-700",
@@ -140,113 +185,36 @@ function Tournaments() {
   const [activeTab, setActiveTab] = useState<"live" | "upcoming">("upcoming");
   const [completed, setCompleted] = useState<Tournament[]>([]);
 
-  const TIMERS = ["1+0", "3+0", "5+0"];
-  const COIN_TIERS = [5, 10, 20, 30, 50, 80, 100, 200, 500];
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function ensureAllCoinTiers(existing: Tournament[]): Tournament[] {
-    const result = [...existing];
-    const existingSet = new Set(existing.map((t) => `${t.time_control}_${t.entry_fee_coins}`));
-
-    for (const tc of TIMERS) {
-      for (const c of COIN_TIERS) {
-        const key = `${tc}_${c}`;
-        if (!existingSet.has(key)) {
-          const totalPrize = Math.floor(16 * c * 0.9);
-          const p1 = Math.floor(totalPrize * 0.5);
-          const p2 = Math.floor(totalPrize * 0.3);
-          const p3 = totalPrize - p1 - p2;
-          const timeName =
-            tc === "1+0" ? "1 Min Bullet" : tc === "3+0" ? "3 Min Blitz" : "5 Min Rapid";
-
-          result.push({
-            id: `auto-${tc.replace("+", "-")}-${c}`,
-            name: `${timeName} Arena (${c} Coins)`,
-            format: "swiss",
-            prize_pool: `${totalPrize} Coins`,
-            starts_at: new Date(Date.now() + 10 * 60000).toISOString(),
-            status: "upcoming",
-            player_count: 0,
-            max_players: 16,
-            cover_gradient: null,
-            time_control: tc,
-            entry_fee_coins: c,
-            prize_1st: p1,
-            prize_2nd: p2,
-            prize_3rd: p3,
-            created_at: new Date().toISOString(),
-          });
-        }
-      }
-    }
-
-    return result;
-  }
-
+  // Every card on this page is a real tournaments row. Player counts come from
+  // tournaments.player_count, which only the join/refund RPCs maintain — the
+  // client never derives or adjusts a count of its own.
   const loadTournaments = useCallback(async () => {
     setError(null);
     try {
-      await import("@/lib/api/walletClient").then((m) => m.ensureTournamentSlots().catch(() => {}));
-
-      const { data, error: qErr } = await (
-        supabase as unknown as {
-          from: (t: string) => {
-            select: (s: string) => {
-              in: (
-                col: string,
-                vals: string[],
-              ) => Promise<{ data: unknown[] | null; error: { message: string } | null }>;
-            };
-          };
-        }
-      )
-        .from("tournaments")
-        .select(
-          "id,name,format,prize_pool,starts_at,status,player_count,max_players,cover_gradient,time_control,entry_fee_coins,prize_1st,prize_2nd,prize_3rd,created_at",
-        )
+      const { data, error: qErr } = await table<Tournament>("tournaments")
+        .select(TOURNAMENT_COLUMNS)
         .in("status", ["upcoming", "locked", "live"]);
-
       if (qErr) throw new Error(qErr.message);
-
-      const fetched = (data ?? []) as unknown as Tournament[];
-      const unsorted = ensureAllCoinTiers(fetched);
 
       // Sort: upcoming -> locked -> live, then by created_at ascending
       const statusOrder = { upcoming: 1, locked: 2, live: 3, completed: 4 };
-      unsorted.sort((a, b) => {
+      const rows = dedupeUpcoming(data ?? []).sort((a, b) => {
         if (statusOrder[a.status] !== statusOrder[b.status]) {
           return statusOrder[a.status] - statusOrder[b.status];
         }
         return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       });
-
-      setTournaments(unsorted);
+      setTournaments(rows);
 
       // Recently finished events (shown on the Live tab with COMPLETED cards).
-      const { data: done } = await (
-        supabase as unknown as {
-          from: (t: string) => {
-            select: (s: string) => {
-              eq: (
-                col: string,
-                val: string,
-              ) => {
-                order: (
-                  col: string,
-                  o: object,
-                ) => { limit: (n: number) => Promise<{ data: unknown[] | null }> };
-              };
-            };
-          };
-        }
-      )
-        .from("tournaments")
-        .select(
-          "id,name,format,prize_pool,starts_at,status,player_count,max_players,cover_gradient,time_control,entry_fee_coins,prize_1st,prize_2nd,prize_3rd,created_at,winner_display",
-        )
+      const { data: done } = await table<Tournament>("tournaments")
+        .select(TOURNAMENT_COLUMNS)
         .eq("status", "completed")
         .order("ends_at", { ascending: false })
         .limit(6);
-      setCompleted((done ?? []) as unknown as Tournament[]);
+      setCompleted(done ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load tournaments");
     } finally {
@@ -254,44 +222,72 @@ function Tournaments() {
     }
   }, []);
 
-  useEffect(() => {
-    void loadTournaments();
-  }, [loadTournaments]);
+  const loadMyEntries = useCallback(async () => {
+    if (!user) {
+      setMyEntries(new Set());
+      return;
+    }
+    const { data } = await table<{ tournament_id: string }>("tournament_entries")
+      .select("tournament_id")
+      .eq("user_id", user.id);
+    setMyEntries(new Set((data ?? []).map((r) => r.tournament_id)));
+  }, [user]);
 
+  // Seed the arena grid once per mount, then load. Seeding is server-side and
+  // idempotent; without it a fresh database has no paid arenas to show.
   useEffect(() => {
-    const channel = supabase
-      .channel("tournaments_list_realtime")
-      .on(
-        "postgres_changes" as never,
-        { event: "*", schema: "public", table: "tournaments" } as never,
-        () => {
-          void loadTournaments();
-        },
-      )
-      .subscribe();
+    let cancelled = false;
+    void (async () => {
+      try {
+        await ensureTournamentSlots();
+      } catch (seedErr) {
+        // Not fatal — render whatever arenas already exist.
+        console.warn("[tournaments] could not seed arena slots:", seedErr);
+      }
+      if (!cancelled) void loadTournaments();
+    })();
     return () => {
-      void supabase.removeChannel(channel);
+      cancelled = true;
     };
   }, [loadTournaments]);
 
   useEffect(() => {
-    if (!user) return;
-    void (
-      supabase as unknown as {
-        from: (t: string) => {
-          select: (s: string) => {
-            eq: (col: string, val: string) => Promise<{ data: { tournament_id: string }[] | null }>;
-          };
-        };
-      }
-    )
-      .from("tournament_entries")
-      .select("tournament_id")
-      .eq("user_id", user.id)
-      .then(({ data }) => {
-        setMyEntries(new Set((data ?? []).map((r) => r.tournament_id)));
-      });
-  }, [user]);
+    void loadMyEntries();
+  }, [loadMyEntries]);
+
+  // A join fires an UPDATE on tournaments and an INSERT on tournament_entries
+  // in the same transaction. Coalesce the pair into one refresh.
+  const scheduleReload = useCallback(() => {
+    if (reloadTimer.current) return;
+    reloadTimer.current = setTimeout(() => {
+      reloadTimer.current = null;
+      void loadTournaments();
+      void loadMyEntries();
+    }, 250);
+  }, [loadTournaments, loadMyEntries]);
+
+  useEffect(() => {
+    // Unique topic per mount: removeChannel is async, so a fixed name lets a
+    // remount's subscribe race the previous mount's teardown on the same topic.
+    const channel = supabase
+      .channel(`tournaments_list:${Math.random().toString(36).slice(2)}`)
+      .on(
+        "postgres_changes" as never,
+        { event: "*", schema: "public", table: "tournaments" } as never,
+        scheduleReload,
+      )
+      .on(
+        "postgres_changes" as never,
+        { event: "*", schema: "public", table: "tournament_entries" } as never,
+        scheduleReload,
+      )
+      .subscribe();
+    return () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      reloadTimer.current = null;
+      void supabase.removeChannel(channel);
+    };
+  }, [scheduleReload]);
 
   async function handleJoin(t: Tournament) {
     if (!user) {
@@ -300,11 +296,16 @@ function Tournaments() {
     }
     setJoining(t.id);
     try {
+      // One transaction on the server: balance check, fee debit, entry insert,
+      // player_count bump. Any failure rolls the whole thing back, so there is
+      // no partial state to compensate for here.
       await joinTournamentPaid(t.id);
-      setMyEntries((prev) => new Set([...prev, t.id]));
-      setTournaments((prev) =>
-        prev.map((x) => (x.id === t.id ? { ...x, player_count: (x.player_count ?? 0) + 1 } : x)),
-      );
+
+      // Re-read the authoritative rows instead of incrementing locally, so the
+      // count on screen is always the count the server stored.
+      notifyWalletChanged();
+      await Promise.all([loadTournaments(), loadMyEntries()]);
+
       toast.success(
         t.entry_fee_coins > 0
           ? "Registered! " + t.entry_fee_coins + " coins deducted."
@@ -313,17 +314,21 @@ function Tournaments() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Could not register";
       if (msg.includes("Insufficient wallet balance")) {
-        toast.error("Need " + (t.entry_fee_coins - (wallet?.balance ?? 0)) + " more coins.", {
+        const short = Math.max(0, t.entry_fee_coins - (wallet?.balance ?? 0));
+        toast.error("Need " + short + " more coins.", {
           action: { label: "Get Coins", onClick: () => window.location.assign("/premium") },
         });
       } else if (msg.includes("Already registered")) {
         toast.info("Already registered.");
-        setMyEntries((prev) => new Set([...prev, t.id]));
+        await loadMyEntries();
       } else {
+        // Full, closed, or otherwise stale card — resync so the UI matches.
         toast.error(msg);
+        await Promise.all([loadTournaments(), loadMyEntries()]);
       }
+    } finally {
+      setJoining(null);
     }
-    setJoining(null);
   }
 
   const filteredTournaments = tournaments.filter(
@@ -647,6 +652,12 @@ function Tournaments() {
         <Card className="p-12 text-center">
           <Crown className="mx-auto mb-3 h-10 w-10 text-gold/30" />
           <div className="text-muted-foreground">No {activeTab} tournaments right now.</div>
+          <button
+            onClick={() => void loadTournaments()}
+            className="mt-3 text-xs text-gold hover:underline"
+          >
+            Refresh
+          </button>
         </Card>
       )}
 

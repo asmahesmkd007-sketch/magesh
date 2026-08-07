@@ -1,3 +1,6 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+
 export type IfscDetails = {
   BANK: string;
   BRANCH: string;
@@ -33,12 +36,123 @@ export function isValidIfscFormat(code: string): boolean {
 const ifscCache = new Map<string, IfscDetails>();
 
 export type IfscVerifyResult =
-  | { success: true; details: IfscDetails }
-  | { success: false; error: string; isOfflineOrError?: boolean };
+  | { success: true; details: IfscDetails; logData?: Record<string, any> }
+  | { success: false; error: string; isOfflineOrError?: boolean; logData?: Record<string, any> };
 
 /**
- * Looks up IFSC code against Razorpay IFSC API service after format validation.
- * Caches successful responses.
+ * Directly fetches IFSC details from the external IFSC API service.
+ * Used on the server-side to bypass browser CORS restrictions.
+ */
+export async function fetchIfscDirectly(code: string): Promise<IfscVerifyResult> {
+  const requestUrl = `https://ifsc.razorpay.com/${code}`;
+
+  try {
+    const res = await fetch(requestUrl, {
+      headers: {
+        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+      },
+    });
+
+    const status = res.status;
+
+    if (status === 404) {
+      const bodyText = "Not Found";
+      const logData = {
+        requestUrl,
+        httpStatus: status,
+        responseBody: bodyText,
+        parsingResult: "Not Found (404)",
+        finalUiState: "Invalid IFSC Code",
+      };
+      console.log(`[IFSC Server Log] URL: ${requestUrl} | Status: ${status} | Result: Invalid IFSC Code`);
+      return {
+        success: false as const,
+        error: "Invalid IFSC Code",
+        isOfflineOrError: false,
+        logData,
+      };
+    }
+
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => "HTTP Error");
+      const logData = {
+        requestUrl,
+        httpStatus: status,
+        responseBody: bodyText,
+        parsingResult: `HTTP Error ${status}`,
+        finalUiState: "Verification service temporarily unavailable.",
+      };
+      console.log(`[IFSC Server Log] URL: ${requestUrl} | Status: ${status} | Result: Service Unavailable`);
+      return {
+        success: false as const,
+        error: "Verification service temporarily unavailable.",
+        isOfflineOrError: true,
+        logData,
+      };
+    }
+
+    const json = await res.json();
+    const details: IfscDetails = {
+      BANK: json.BANK || "Bank",
+      BRANCH: json.BRANCH || "Branch",
+      ADDRESS: json.ADDRESS || "",
+      CITY: json.CITY || json.CENTRE || json.DISTRICT || "",
+      DISTRICT: json.DISTRICT || json.CITY || json.CENTRE || "",
+      STATE: json.STATE || "",
+      MICR: json.MICR || "",
+      IFSC: json.IFSC || code,
+    };
+
+    const bodySnippet = JSON.stringify(json);
+    const logData = {
+      requestUrl,
+      httpStatus: status,
+      responseBody: bodySnippet,
+      parsingResult: `Parsed OK: ${details.BANK} (${details.BRANCH})`,
+      finalUiState: "Verified",
+    };
+
+    console.log(`[IFSC Server Log] URL: ${requestUrl} | Status: ${status} | Result: Success (${details.BANK}, ${details.BRANCH})`);
+
+    return {
+      success: true as const,
+      details,
+      logData,
+    };
+  } catch (err: any) {
+    const errMsg = String(err?.message || err);
+    const logData = {
+      requestUrl,
+      httpStatus: 0,
+      responseBody: errMsg,
+      parsingResult: "Network/Fetch Exception",
+      finalUiState: "Verification service temporarily unavailable.",
+    };
+    console.error(`[IFSC Server Error] URL: ${requestUrl} | Error: ${errMsg}`);
+    return {
+      success: false as const,
+      error: "Verification service temporarily unavailable.",
+      isOfflineOrError: true,
+      logData,
+    };
+  }
+}
+
+/**
+ * Server function to fetch IFSC details from external service server-side,
+ * avoiding browser CORS restrictions.
+ */
+export const verifyIfscServerFn = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ code: z.string().min(11).max(11) }))
+  .handler(async ({ data }) => {
+    return fetchIfscDirectly(data.code.toUpperCase());
+  });
+
+/**
+ * Looks up IFSC code via server function with fallback for direct execution.
+ * Validates format and serves from in-memory cache if available.
+ * Logs: request URL, HTTP status, response body, parsing result, and final UI state.
  */
 export async function lookupIfsc(rawCode: string): Promise<IfscVerifyResult> {
   const code = rawCode.trim().toUpperCase();
@@ -52,58 +166,79 @@ export async function lookupIfsc(rawCode: string): Promise<IfscVerifyResult> {
   }
 
   if (!isValidIfscFormat(code)) {
-    return {
-      success: false,
-      error: "Invalid IFSC Code. Format must be 4 letters, '0', and 6 alphanumeric characters.",
+    const result = {
+      success: false as const,
+      error: "Invalid IFSC Code",
+      isOfflineOrError: false,
+      logData: {
+        requestUrl: "N/A (Format validation failed)",
+        httpStatus: 0,
+        responseBody: "N/A",
+        parsingResult: "Format Invalid",
+        finalUiState: "Invalid IFSC Code",
+      },
     };
+    console.log(`[IFSC Lookup] Code: ${code} | Format Invalid | UI State: Invalid IFSC Code`);
+    return result;
   }
 
   // Serve from cache if already verified
   if (ifscCache.has(code)) {
-    return { success: true, details: ifscCache.get(code)! };
+    const details = ifscCache.get(code)!;
+    const result = {
+      success: true as const,
+      details,
+      logData: {
+        requestUrl: `https://ifsc.razorpay.com/${code} (Cache Hit)`,
+        httpStatus: 200,
+        responseBody: "(Cached)",
+        parsingResult: `Cache Hit: ${details.BANK} (${details.BRANCH})`,
+        finalUiState: "Verified",
+      },
+    };
+    console.log(`[IFSC Lookup] Code: ${code} | Cache Hit -> ${details.BANK}, ${details.BRANCH}`);
+    return result;
   }
 
   try {
-    const res = await fetch(`https://ifsc.razorpay.com/${code}`);
-
-    if (res.status === 404) {
-      return {
-        success: false,
-        error: "Invalid IFSC Code. Please check and try again.",
-      };
+    let res: IfscVerifyResult;
+    try {
+      res = await verifyIfscServerFn({ data: { code } });
+    } catch {
+      // Direct fallback when running in Node / Vitest test environment without TanStack Start request context
+      res = await fetchIfscDirectly(code);
     }
 
-    if (!res.ok) {
-      return {
-        success: false,
-        error: "Unable to verify IFSC at the moment.",
-        isOfflineOrError: true,
-      };
+    if (res.success) {
+      ifscCache.set(code, res.details);
     }
 
-    const data = await res.json();
+    if (res.logData) {
+      console.log(`[IFSC Verification Log]`, {
+        requestUrl: res.logData.requestUrl,
+        httpStatus: res.logData.httpStatus,
+        responseBody: res.logData.responseBody,
+        parsingResult: res.logData.parsingResult,
+        finalUiState: res.logData.finalUiState,
+      });
+    }
 
-    const details: IfscDetails = {
-      BANK: data.BANK || "Bank",
-      BRANCH: data.BRANCH || "Branch",
-      ADDRESS: data.ADDRESS || "",
-      CITY: data.CITY || data.CENTRE || data.DISTRICT || "",
-      STATE: data.STATE || "",
-      DISTRICT: data.DISTRICT || "",
-      MICR: data.MICR || "",
-      IFSC: data.IFSC || code,
-    };
-
-    // Cache successful lookup
-    ifscCache.set(code, details);
-
-    return { success: true, details };
-  } catch (err) {
-    // Network error or offline
-    return {
-      success: false,
-      error: "Unable to verify IFSC at the moment.",
+    return res;
+  } catch (err: any) {
+    const errMsg = String(err?.message || err);
+    const result = {
+      success: false as const,
+      error: "Verification service temporarily unavailable.",
       isOfflineOrError: true,
+      logData: {
+        requestUrl: `https://ifsc.razorpay.com/${code}`,
+        httpStatus: 0,
+        responseBody: errMsg,
+        parsingResult: "Exception during IFSC lookup",
+        finalUiState: "Verification service temporarily unavailable.",
+      },
     };
+    console.log(`[IFSC Verification Log]`, result.logData);
+    return result;
   }
 }

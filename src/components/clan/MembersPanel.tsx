@@ -3,6 +3,7 @@ import { MoreVertical, Search, Shield, ShieldOff, UserX, Crown, Users } from "lu
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
+import { SeasonShield } from "@/components/ranking/SeasonShield";
 import { FriendButton } from "@/components/friends/FriendButton";
 import { MemberAvatar, RoleBadge, PanelEmpty } from "@/components/clan/ClanPrimitives";
 import {
@@ -163,11 +164,11 @@ export function MembersPanel({ members, myRole, clanId, onChanged }: Props) {
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-2">
                       <RoleBadge role={m.role} />
-                      {m.profiles?.iq_level != null && (
-                        <span className="text-[10px] text-muted-foreground">
-                          IQ {m.profiles.iq_level}
-                        </span>
-                      )}
+                      <SeasonShield
+                        sp={m.profiles?.season_points ?? m.profiles?.iq_level ?? 0}
+                        size="xs"
+                        variant="chip"
+                      />
                       {m.war_points > 0 && (
                         <span className="text-[10px] text-gold">{m.war_points} WP</span>
                       )}

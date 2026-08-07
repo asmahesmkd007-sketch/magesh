@@ -193,7 +193,7 @@ function RoomCard({ room, isPrivate }: { room: ChatChannel; isPrivate: boolean }
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
-              className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-1.5 text-xs outline-none focus:border-gold/40"
+              className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-1.5 text-base outline-none focus:border-gold/40 sm:text-xs"
             />
           )}
           <button
@@ -298,7 +298,8 @@ export function PublicRoomsList() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by room name or ID…"
-          className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+          /* text-base below sm: under 16px iOS Safari zooms the page on focus. */
+          className="w-full bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-xs"
         />
       </div>
       {isLoading ? (
@@ -359,7 +360,8 @@ export function PrivateRoomsList() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by room name or ID…"
-          className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+          /* text-base below sm: under 16px iOS Safari zooms the page on focus. */
+          className="w-full bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-xs"
         />
       </div>
       <p className="text-[11px] text-muted-foreground">

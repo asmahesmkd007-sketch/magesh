@@ -353,12 +353,12 @@ function HomePage() {
 
       {/* Performance */}
       <div className="mt-6">
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <SectionTitle kicker="Stats" title="Performance" />
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-4 items-center gap-6">
+          <div className="mt-4 flex flex-col sm:grid sm:grid-cols-4 items-center gap-5 sm:gap-6">
             {/* Round SVG Win Rate Gauge */}
-            <div className="flex items-center gap-4 shrink-0 justify-center sm:justify-start">
-              <div className="relative flex items-center justify-center h-24 w-24 shrink-0">
+            <div className="flex items-center gap-4 shrink-0 justify-center sm:justify-start w-full sm:w-auto pb-3 sm:pb-0 border-b border-white/10 sm:border-0">
+              <div className="relative flex items-center justify-center h-20 w-20 sm:h-24 sm:w-24 shrink-0">
                 <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 90 90">
                   <circle
                     cx="45"
@@ -381,10 +381,10 @@ function HomePage() {
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                  <span className="font-display text-xl font-bold text-gradient-gold leading-none">
+                  <span className="font-display text-lg sm:text-xl font-bold text-gradient-gold leading-none">
                     {statsLoading ? "—" : `${winRate}%`}
                   </span>
-                  <span className="mt-1 text-[9px] uppercase tracking-widest font-semibold text-gold/80">
+                  <span className="mt-1 text-[8px] sm:text-[9px] uppercase tracking-widest font-semibold text-gold/80">
                     Win Rate
                   </span>
                 </div>
@@ -406,42 +406,45 @@ function HomePage() {
               </div>
             </div>
 
-            {/* Stat Item 1: Total Games */}
-            <div className="flex flex-col items-center justify-center text-center">
-              <div className="grid h-9 w-9 place-items-center rounded-full bg-gold/10 text-gold mb-1 text-sm font-bold">
-                ♟️
+            {/* Stat Items Grid (3 columns on mobile) */}
+            <div className="grid grid-cols-3 gap-2 w-full sm:col-span-3 sm:grid-cols-3">
+              {/* Stat Item 1: Total Games */}
+              <div className="flex flex-col items-center justify-center text-center p-2 rounded-lg bg-white/[0.02]">
+                <div className="grid h-8 w-8 place-items-center rounded-full bg-gold/10 text-gold mb-1 text-xs font-bold">
+                  ♟️
+                </div>
+                <div className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider">
+                  Total Games
+                </div>
+                <div className="font-display text-xl sm:text-2xl text-foreground mt-0.5">
+                  {statsLoading ? "—" : totalGames}
+                </div>
               </div>
-              <div className="text-[11px] text-muted-foreground uppercase tracking-wider">
-                Total Games
-              </div>
-              <div className="font-display text-2xl text-foreground mt-0.5">
-                {statsLoading ? "—" : totalGames}
-              </div>
-            </div>
 
-            {/* Stat Item 2: Total Wins */}
-            <div className="flex flex-col items-center justify-center text-center">
-              <div className="grid h-9 w-9 place-items-center rounded-full bg-emerald-500/10 text-emerald-400 mb-1 text-sm font-bold">
-                🏆
+              {/* Stat Item 2: Total Wins */}
+              <div className="flex flex-col items-center justify-center text-center p-2 rounded-lg bg-white/[0.02]">
+                <div className="grid h-8 w-8 place-items-center rounded-full bg-emerald-500/10 text-emerald-400 mb-1 text-xs font-bold">
+                  🏆
+                </div>
+                <div className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider">
+                  Total Wins
+                </div>
+                <div className="font-display text-xl sm:text-2xl text-emerald-400 mt-0.5">
+                  {statsLoading ? "—" : totalWins}
+                </div>
               </div>
-              <div className="text-[11px] text-muted-foreground uppercase tracking-wider">
-                Total Wins
-              </div>
-              <div className="font-display text-2xl text-emerald-400 mt-0.5">
-                {statsLoading ? "—" : totalWins}
-              </div>
-            </div>
 
-            {/* Stat Item 3: Best Rapid */}
-            <div className="flex flex-col items-center justify-center text-center">
-              <div className="grid h-9 w-9 place-items-center rounded-full bg-gold/10 text-gold mb-1 text-sm font-bold">
-                ⚡
-              </div>
-              <div className="text-[11px] text-muted-foreground uppercase tracking-wider">
-                Best Rapid
-              </div>
-              <div className="font-display text-2xl text-gradient-gold mt-0.5">
-                {statsLoading ? "—" : rating("rapid")}
+              {/* Stat Item 3: Best Rapid */}
+              <div className="flex flex-col items-center justify-center text-center p-2 rounded-lg bg-white/[0.02]">
+                <div className="grid h-8 w-8 place-items-center rounded-full bg-gold/10 text-gold mb-1 text-xs font-bold">
+                  ⚡
+                </div>
+                <div className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider">
+                  Best Rapid
+                </div>
+                <div className="font-display text-xl sm:text-2xl text-gradient-gold mt-0.5">
+                  {statsLoading ? "—" : rating("rapid")}
+                </div>
               </div>
             </div>
           </div>

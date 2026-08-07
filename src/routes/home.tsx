@@ -156,10 +156,10 @@ function HomePage() {
   return (
     <PageShell>
       {/* Welcome Card */}
-      <Card className="relative overflow-hidden p-8">
+      <Card className="relative overflow-hidden p-5 sm:p-8">
         <div className="pointer-events-none absolute inset-0 gradient-gold opacity-10" />
         <div className="pointer-events-none absolute inset-0 mandala-bg" />
-        <div className="relative flex flex-wrap items-center justify-between gap-6">
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6">
           <div className="flex items-center gap-4">
             {profileLoading ? (
               <div className="h-16 w-16 grid place-items-center rounded-full gradient-gold">
@@ -180,7 +180,7 @@ function HomePage() {
               <div className="font-display text-xs uppercase tracking-[0.3em] text-gold">
                 Welcome back
               </div>
-              <h1 className="mt-1 font-display text-4xl">
+              <h1 className="mt-1 font-display text-2xl sm:text-4xl">
                 {profileLoading ? (
                   <span className="inline-block h-8 w-48 animate-pulse rounded bg-gold/10" />
                 ) : (
@@ -209,14 +209,14 @@ function HomePage() {
               )}
             </div>
           </div>
-          <div className="flex gap-2">
-            <Link to="/play">
-              <GoldButton>
+          <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+            <Link to="/play" className="flex-1 sm:flex-initial">
+              <GoldButton className="w-full justify-center">
                 <Swords className="h-4 w-4" /> Play Now
               </GoldButton>
             </Link>
-            <Link to="/puzzles">
-              <GhostButton>Daily Puzzle</GhostButton>
+            <Link to="/puzzles" className="flex-1 sm:flex-initial">
+              <GhostButton className="w-full justify-center">Daily Puzzle</GhostButton>
             </Link>
           </div>
         </div>

@@ -120,8 +120,10 @@ export function useDailyPuzzle() {
       }
 
       // If test unlock was triggered when timer hit 0, override lock state and fetch next puzzle
+      let isTestUnlocked = false;
       if (forceUnlockedRef.current) {
         forceUnlockedRef.current = false;
+        isTestUnlocked = true;
         res.locked = false;
         if (res.stats) {
           res.stats.completed_today = 0;
@@ -171,7 +173,8 @@ export function useDailyPuzzle() {
       }
 
       // If user reaches 3/3 daily puzzles, set 10 second reset timer for testing
-      const isLockedNow = res.locked || (res.stats ? res.stats.completed_today >= 3 : false);
+      const isLockedNow =
+        !isTestUnlocked && (res.locked || (res.stats ? res.stats.completed_today >= 3 : false));
       if (res.stats && isLockedNow) {
         res.stats.daily_reset_time = new Date(Date.now() + 10000).toISOString();
       }

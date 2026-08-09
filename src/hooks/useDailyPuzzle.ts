@@ -92,6 +92,7 @@ export function useDailyPuzzle() {
   // by an extra puzzle. A ref (not `loading` state) so it's read fresh even
   // from stale timer/callback closures.
   const fetchInFlight = useRef(false);
+  const forceUnlockedRef = useRef(false);
 
   const fetchDailyPuzzle = useCallback(async () => {
     if (!user || fetchInFlight.current) return;
@@ -104,7 +105,6 @@ export function useDailyPuzzle() {
       let res: GetDailyPuzzleResponse;
       if (rpcError) {
         if (rpcError.message.includes("No more puzzles")) {
-          // Gracefully handle the case where the backend has ran out of puzzles
           res = {
             locked: false,
             remaining_today: 0,
@@ -119,16 +119,68 @@ export function useDailyPuzzle() {
         res = data as GetDailyPuzzleResponse;
       }
 
-      // 10-second test reset configuration (requested by user for testing)
-      if (res.stats && res.stats.completed_today >= 3) {
+      // If test unlock was triggered when timer hit 0, override lock state and fetch next puzzle
+      if (forceUnlockedRef.current) {
+        forceUnlockedRef.current = false;
+        res.locked = false;
+        if (res.stats) {
+          res.stats.completed_today = 0;
+        }
+
+        // Fetch a fresh unplayed/next puzzle from puzzles table if RPC returned null
+        if (!res.puzzle) {
+          const { data: rawPuzzles } = await supabase
+            .from("puzzles")
+            .select("*")
+            .eq("enabled", true)
+            .limit(30);
+
+          if (rawPuzzles && rawPuzzles.length > 0) {
+            const nextP = rawPuzzles[Math.floor(Math.random() * rawPuzzles.length)];
+            const { data: prog } = await (supabase as unknown as {
+              from: (table: string) => {
+                upsert: (
+                  values: Record<string, unknown>,
+                  opts: Record<string, unknown>,
+                ) => {
+                  select: () => {
+                    single: () => Promise<{ data: unknown }>;
+                  };
+                };
+              };
+            })
+              .from("puzzle_progress")
+              .upsert(
+                {
+                  user_id: user.id,
+                  puzzle_id: nextP.id,
+                  status: "NOT_STARTED",
+                  step_index: 0,
+                  board_fen: nextP.fen,
+                },
+                { onConflict: "user_id,puzzle_id" },
+              )
+              .select()
+              .single();
+
+            res.puzzle = nextP as RawPuzzleRow;
+            res.progress = prog as PuzzleProgress;
+            res.remaining_today = 3;
+          }
+        }
+      }
+
+      // If user reaches 3/3 daily puzzles, set 10 second reset timer for testing
+      const isLockedNow = res.locked || (res.stats ? res.stats.completed_today >= 3 : false);
+      if (res.stats && isLockedNow) {
         res.stats.daily_reset_time = new Date(Date.now() + 10000).toISOString();
       }
 
-      setLocked(res.locked || (res.stats ? res.stats.completed_today >= 3 : false));
+      setLocked(isLockedNow);
       setStats(res.stats);
-      setRemainingToday(res.locked ? 0 : res.remaining_today);
+      setRemainingToday(isLockedNow ? 0 : res.remaining_today);
 
-      if (!res.locked && res.puzzle) {
+      if (!isLockedNow && res.puzzle) {
         const themes = Array.isArray(res.puzzle.themes) ? res.puzzle.themes : [];
         setPuzzle({
           ...res.puzzle,
@@ -137,7 +189,7 @@ export function useDailyPuzzle() {
           theme: res.puzzle.theme || themes[0] || "Tactics",
         });
         setProgress(res.progress);
-      } else {
+      } else if (!isLockedNow && !res.puzzle) {
         setPuzzle(null);
         setProgress(null);
       }
@@ -199,6 +251,7 @@ export function useDailyPuzzle() {
   const resetTimerAndUnlock = useCallback(async () => {
     if (!user) return;
     try {
+      forceUnlockedRef.current = true;
       // Reset user_puzzle_stats completed_today = 0 in database so get_daily_puzzle unlocks
       await (supabase as unknown as {
         from: (table: string) => {

@@ -74,47 +74,63 @@ export function useChallenges(userId?: string | null) {
   const navigate = useNavigate();
   const navigatedGamesRef = useRef<Set<string>>(new Set());
 
+async function freshChannel(topic: string) {
+  const existing = supabase.getChannels().find((c) => c.topic === `realtime:${topic}`);
+  if (existing) await supabase.removeChannel(existing);
+  return supabase.channel(topic);
+}
+
   useEffect(() => {
     if (!userId) return;
-    const ch = supabase
-      .channel(`challenges:${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "game_challenges",
-          filter: `from_user_id=eq.${userId}`,
-        },
-        (payload) => {
-          if (payload.eventType === "UPDATE") {
-            const updated = payload.new as { status?: string; game_id?: string };
-            if (
-              updated.status === "accepted" &&
-              updated.game_id &&
-              !navigatedGamesRef.current.has(updated.game_id)
-            ) {
-              navigatedGamesRef.current.add(updated.game_id);
-              toast.success("Friend accepted your challenge! Entering game...");
-              navigate({ to: "/game/$id", params: { id: updated.game_id } });
+    let activeChannel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+
+    freshChannel(`challenges:${userId}`).then((ch) => {
+      if (cancelled) return;
+      activeChannel = ch
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "game_challenges",
+            filter: `from_user_id=eq.${userId}`,
+          },
+          (payload) => {
+            if (payload.eventType === "UPDATE") {
+              const updated = payload.new as { status?: string; game_id?: string };
+              if (
+                updated.status === "accepted" &&
+                updated.game_id &&
+                !navigatedGamesRef.current.has(updated.game_id)
+              ) {
+                navigatedGamesRef.current.add(updated.game_id);
+                toast.success("Friend accepted your challenge! Entering game...");
+                navigate({ to: "/game/$id", params: { id: updated.game_id } });
+              }
             }
-          }
-          load();
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "game_challenges",
-          filter: `to_user_id=eq.${userId}`,
-        },
-        () => load(),
-      )
-      .subscribe();
+            load();
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "game_challenges",
+            filter: `to_user_id=eq.${userId}`,
+          },
+          () => load(),
+        );
+
+      activeChannel.subscribe();
+    });
+
     return () => {
-      supabase.removeChannel(ch);
+      cancelled = true;
+      if (activeChannel) {
+        supabase.removeChannel(activeChannel);
+      }
     };
   }, [userId, load, navigate]);
 

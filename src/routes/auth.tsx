@@ -69,7 +69,7 @@ function AuthPage() {
   const search = Route.useSearch();
   const targetPath = getSafeTarget(search.redirect);
 
-  const [mode, setMode] = useState<"signin" | "signup">(search.mode ?? "signin");
+  const mode = search.mode ?? "signin";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
@@ -78,13 +78,6 @@ function AuthPage() {
   const { session } = useAuth();
   const navigate = useNavigate();
   const router = useRouter();
-
-  // Sync mode if search param changes
-  useEffect(() => {
-    if (search.mode && search.mode !== mode) {
-      setMode(search.mode);
-    }
-  }, [search.mode, mode]);
 
   // ---- Registration: email verification link (signup only) -----------------
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -107,11 +100,18 @@ function AuthPage() {
   }, [resendIn]);
 
   function switchMode(m: "signin" | "signup") {
-    setMode(m);
     setError(null);
     setSentTo(null);
     setResendNote(null);
     setResendIn(0);
+    navigate({
+      to: "/auth",
+      search: {
+        redirect: search.redirect,
+        mode: m,
+      },
+      replace: true,
+    });
   }
 
   async function handleResend() {

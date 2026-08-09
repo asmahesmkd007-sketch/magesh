@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Trophy, Coins } from "lucide-react";
+import { Trophy, Coins, Award, Medal } from "lucide-react";
 import { Card, SectionTitle } from "@/components/site/Primitives";
 import { prizePoolOf, type TournamentRow } from "@/lib/api/tournamentClient";
 import { AnimatedCoins } from "./bits";
@@ -21,11 +21,11 @@ export const PrizePanel = memo(function PrizePanel({
   const gross = t.entry_fee_coins * t.max_players;
   const fee = Math.max(0, gross - pool);
 
-  const places: { label: string; medal: string; amount: number; name: string | null }[] = [
-    { label: "Winner", medal: "🥇", amount: t.prize_1st, name: winners[0] },
-    { label: "Runner-up", medal: "🥈", amount: t.prize_2nd, name: winners[1] },
-    { label: "Third", medal: "🥉", amount: t.prize_3rd, name: winners[2] },
-    { label: "Fourth", medal: "🏅", amount: t.prize_4th, name: winners[3] },
+  const places: { label: string; icon: React.ReactNode; amount: number; name: string | null }[] = [
+    { label: "Winner", icon: <Trophy className="h-5 w-5 text-gold" />, amount: t.prize_1st, name: winners[0] },
+    { label: "Runner-up", icon: <Award className="h-5 w-5 text-slate-300" />, amount: t.prize_2nd, name: winners[1] },
+    { label: "Third", icon: <Award className="h-5 w-5 text-amber-600" />, amount: t.prize_3rd, name: winners[2] },
+    { label: "Fourth", icon: <Medal className="h-5 w-5 text-muted-foreground" />, amount: t.prize_4th, name: winners[3] },
   ].filter((p) => p.amount > 0);
 
   return (
@@ -60,7 +60,7 @@ export const PrizePanel = memo(function PrizePanel({
             }`}
           >
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-lg">{p.medal}</span>
+              <span className="flex items-center justify-center">{p.icon}</span>
               <div>
                 <div className={p.name ? "text-gold" : ""}>{p.label}</div>
                 {p.name && <div className="text-[11px] text-muted-foreground">{p.name}</div>}

@@ -3,10 +3,10 @@
 ChessOX runs **two independent ranking systems**. They answer different
 questions and never share a number:
 
-| System            | Question                              | Resets? | Scope             |
-| ----------------- | ------------------------------------- | ------- | ----------------- |
-| **ELO rating**    | Who is the strongest player?          | Never   | Per time class    |
-| **Season Points** | Who is the best player *this season*? | Monthly | One ladder        |
+| System            | Question                              | Resets? | Scope          |
+| ----------------- | ------------------------------------- | ------- | -------------- |
+| **ELO rating**    | Who is the strongest player?          | Never   | Per time class |
+| **Season Points** | Who is the best player _this season_? | Monthly | One ladder     |
 
 Backend: `supabase/schema.sql` **SECTION 102**. Shared model:
 `src/lib/ranking/`. Service layer: `src/lib/api/rankingClient.ts`.
@@ -44,12 +44,12 @@ class (`bullet`/`blitz`/`rapid`/`classical`), starting at **100**.
 
 **K-factor schedule** (`public.elo_k_factor`, mirrored by `kFactor()`):
 
-| Condition                | K   | Why                                    |
-| ------------------------ | --- | -------------------------------------- |
-| < 15 games (provisional) | 40  | New players find their level fast      |
-| rating ≥ 2400            | 12  | Keeps the top of the ladder stable     |
-| rating ≥ 1800            | 20  |                                        |
-| otherwise                | 24  |                                        |
+| Condition                | K   | Why                                |
+| ------------------------ | --- | ---------------------------------- |
+| < 15 games (provisional) | 40  | New players find their level fast  |
+| rating ≥ 2400            | 12  | Keeps the top of the ladder stable |
+| rating ≥ 1800            | 20  |                                    |
+| otherwise                | 24  |                                    |
 
 Ratings floor at 0. `apply_elo_change(game_id)` is idempotent per game
 (`games.elo_applied`) and writes `rating_history` for the rating graph.
@@ -85,7 +85,7 @@ time forfeit −15, AFK −20, cheating −100 (plus removal from the season
 board and a review).
 
 **Promotion** is immediate on crossing a threshold. **Demotion** only
-happens once SP falls `demotion_grace_sp` (default 50) *below* the
+happens once SP falls `demotion_grace_sp` (default 50) _below_ the
 current rung's floor, so one loss never costs a rank. Both emit a
 notification (`rank_promotion` / `rank_demotion`).
 
@@ -96,7 +96,7 @@ Enforced inside `_season_award_sp` and the game trigger, not by callers:
 - **Farming guard** — after `repeat_opponent_limit` (5) games against the
   same opponent in a season, further wins pay `repeat_opponent_pct`
   (25%) of normal. Tracked in `season_opponent_counts`.
-- **Daily cap** — `daily_sp_cap` (600) limits *gains* per UTC day.
+- **Daily cap** — `daily_sp_cap` (600) limits _gains_ per UTC day.
   Penalties always land in full.
 - **Minimum length** — games under `min_moves_for_sp` (6) plies award
   nothing; aborted / no-show / vs-computer / unrated games are skipped.
@@ -126,16 +126,16 @@ Everything tunable lives in the `public.season_config` singleton
 (JSONB), read on **every** award — changes take effect without a
 redeploy or restart.
 
-| Key                                          | Default | Meaning                              |
-| -------------------------------------------- | ------- | ------------------------------------ |
-| `sp_rates`                                    | table above | Per-tier win/draw/loss           |
-| `upset_bonus`                                 | 3/5/8   | By tier gap                          |
-| `penalties`                                   | see above | Conduct deductions                 |
-| `ladder`                                      | 21 rungs | `[{id, min}]`, ascending            |
-| `demotion_grace_sp`                           | 50      | Buffer before demotion               |
-| `min_moves_for_sp`                            | 6       | Shorter games pay nothing            |
-| `daily_sp_cap`                                | 600     | 0 disables                           |
-| `repeat_opponent_limit` / `repeat_opponent_pct` | 5 / 25% | Farming guard                     |
+| Key                                             | Default     | Meaning                   |
+| ----------------------------------------------- | ----------- | ------------------------- |
+| `sp_rates`                                      | table above | Per-tier win/draw/loss    |
+| `upset_bonus`                                   | 3/5/8       | By tier gap               |
+| `penalties`                                     | see above   | Conduct deductions        |
+| `ladder`                                        | 21 rungs    | `[{id, min}]`, ascending  |
+| `demotion_grace_sp`                             | 50          | Buffer before demotion    |
+| `min_moves_for_sp`                              | 6           | Shorter games pay nothing |
+| `daily_sp_cap`                                  | 600         | 0 disables                |
+| `repeat_opponent_limit` / `repeat_opponent_pct` | 5 / 25%     | Farming guard             |
 
 Edit at `/admin/ranking`, or via `admin_update_season_config(patch)`
 (partial patch — pass only the keys you're changing). The player-facing
@@ -146,20 +146,20 @@ never drift from enforced rules.
 
 ## RPC reference
 
-| RPC                                          | Who      | Purpose                                  |
-| -------------------------------------------- | -------- | ---------------------------------------- |
-| `elo_leaderboard(time_class, scope, …)`      | public   | ELO board, 5 scopes                      |
-| `sp_leaderboard(season_id, scope, …)`        | public   | Season board, 5 scopes                   |
-| `player_ranking_card(user_id, time_class)`   | public   | Both systems + career, one round trip    |
-| `hall_of_fame(season_number, …)`             | public   | Frozen finishes                          |
-| `hall_of_fame_champions(limit)`              | public   | One winner per finished season           |
-| `sp_rung(sp)` / `sp_tier_code(sp)`           | public   | Ladder lookup                            |
-| `apply_season_penalty(user, kind, ref, …)`   | service  | Anti-cheat / moderation hook             |
-| `award_season_tier_rewards(season_id)`       | service  | Reward bundles on the live board (optional) |
-| `admin_get_season_config` / `admin_update_season_config` | admin | Configuration            |
-| `admin_adjust_season_points(user, pts, why)` | admin    | Manual adjustment (ledgered + notified)  |
-| `admin_set_season_ban(user, banned, why)`    | admin    | Remove from / restore to the season      |
-| `admin_ranking_analytics()`                  | admin    | Distribution + volume dashboard          |
+| RPC                                                      | Who     | Purpose                                     |
+| -------------------------------------------------------- | ------- | ------------------------------------------- |
+| `elo_leaderboard(time_class, scope, …)`                  | public  | ELO board, 5 scopes                         |
+| `sp_leaderboard(season_id, scope, …)`                    | public  | Season board, 5 scopes                      |
+| `player_ranking_card(user_id, time_class)`               | public  | Both systems + career, one round trip       |
+| `hall_of_fame(season_number, …)`                         | public  | Frozen finishes                             |
+| `hall_of_fame_champions(limit)`                          | public  | One winner per finished season              |
+| `sp_rung(sp)` / `sp_tier_code(sp)`                       | public  | Ladder lookup                               |
+| `apply_season_penalty(user, kind, ref, …)`               | service | Anti-cheat / moderation hook                |
+| `award_season_tier_rewards(season_id)`                   | service | Reward bundles on the live board (optional) |
+| `admin_get_season_config` / `admin_update_season_config` | admin   | Configuration                               |
+| `admin_adjust_season_points(user, pts, why)`             | admin   | Manual adjustment (ledgered + notified)     |
+| `admin_set_season_ban(user, banned, why)`                | admin   | Remove from / restore to the season         |
+| `admin_ranking_analytics()`                              | admin   | Distribution + volume dashboard             |
 
 `scope` is one of `global | country | state | district | friends`.
 Geographic scopes read the viewer's `profiles.country/state/district`;
@@ -190,15 +190,15 @@ Banned players are excluded from ranking entirely
 (`_season_recompute_rankings`), so a fair-play removal cannot place,
 earn rewards, or reach the Hall of Fame.
 
-| Tier        | Rewards                                                     |
-| ----------- | ----------------------------------------------------------- |
-| Bronze      | Profile badge                                               |
-| Silver      | Badge + coins                                               |
-| Gold        | Coins + premium avatar                                      |
-| Platinum    | Coins + profile frame + title                               |
-| Diamond     | Animated badge                                              |
-| Master      | Exclusive theme                                             |
-| Grandmaster | Crown badge, border, Hall of Fame entry, season trophy      |
+| Tier        | Rewards                                                |
+| ----------- | ------------------------------------------------------ |
+| Bronze      | Profile badge                                          |
+| Silver      | Badge + coins                                          |
+| Gold        | Coins + premium avatar                                 |
+| Platinum    | Coins + profile frame + title                          |
+| Diamond     | Animated badge                                         |
+| Master      | Exclusive theme                                        |
+| Grandmaster | Crown badge, border, Hall of Fame entry, season trophy |
 
 ---
 

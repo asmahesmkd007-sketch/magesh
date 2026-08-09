@@ -1,15 +1,17 @@
 import { memo, useMemo } from "react";
+import { Trophy, Award, Medal } from "lucide-react";
 import { Card, SectionTitle } from "@/components/site/Primitives";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
 import type { TournamentEntry, TournamentRow } from "@/lib/api/tournamentClient";
 import { fmtClock, PlayerAvatar } from "./bits";
 
-// =====================================================================
-// Live scoreboard: rank, player, W/L/D, points, piece score, time used,
-// and qualification status. Sorted by rank when final, by score while
-// the tournament runs.
-// =====================================================================
-const MEDALS = ["🥇", "🥈", "🥉", "🏅"];
+function RankDisplay({ rank }: { rank: number }) {
+  if (rank === 1) return <span title="1st Place"><Trophy className="h-4 w-4 text-gold inline-block" /></span>;
+  if (rank === 2) return <span title="2nd Place"><Award className="h-4 w-4 text-slate-300 inline-block" /></span>;
+  if (rank === 3) return <span title="3rd Place"><Award className="h-4 w-4 text-amber-600 inline-block" /></span>;
+  if (rank === 4) return <span title="4th Place"><Medal className="h-4 w-4 text-muted-foreground inline-block" /></span>;
+  return <span>{rank}</span>;
+}
 
 function qualification(e: TournamentEntry, t: TournamentRow): { label: string; cls: string } {
   switch (e.status) {
@@ -90,7 +92,7 @@ export const Scoreboard = memo(function Scoreboard({
                     key={e.id}
                     className={`transition-colors ${isMe ? "bg-gold/5" : ""} ${rank <= 3 && t.status === "completed" ? "text-gold" : ""}`}
                   >
-                    <td className="py-2.5 pr-2 font-display">{MEDALS[rank - 1] ?? rank}</td>
+                    <td className="py-2.5 pr-2 font-display"><RankDisplay rank={rank} /></td>
                     <td className="py-2.5">
                       <div className="flex items-center gap-2">
                         <PlayerAvatar

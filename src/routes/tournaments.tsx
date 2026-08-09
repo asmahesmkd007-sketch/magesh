@@ -487,7 +487,11 @@ function Tournaments() {
                             className="truncate text-gold"
                             title={t.winner_display ? `Winner: ${t.winner_display}` : undefined}
                           >
-                            {t.winner_display ? `🏆 ${t.winner_display}` : "Finished"}
+                            {t.winner_display ? (
+                              <span className="inline-flex items-center gap-1"><Trophy className="h-3.5 w-3.5 text-gold" /> {t.winner_display}</span>
+                            ) : (
+                              "Finished"
+                            )}
                           </span>
                         ) : (
                           <span className="text-muted-foreground">Waiting...</span>

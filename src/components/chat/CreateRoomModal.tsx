@@ -166,7 +166,11 @@ export function CreateRoomModal({
               }}
               maxLength={32}
               placeholder="najdorf-study-group"
-              className="w-full rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 font-mono text-sm outline-none focus:border-gold/40"
+              className={`w-full rounded-lg border bg-white/[0.02] px-3 py-2 font-mono text-sm outline-none transition-colors ${
+                roomIdStatus === "taken"
+                  ? "border-rose-500/60 text-rose-300 focus:border-rose-500"
+                  : "border-white/10 focus:border-gold/40"
+              }`}
             />
             <p className="mt-1 text-[11px]">
               {roomIdStatus === "checking" && (

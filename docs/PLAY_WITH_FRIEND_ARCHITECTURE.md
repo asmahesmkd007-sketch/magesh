@@ -13,17 +13,17 @@ to be implemented exactly as written.
 
 ChessOX already has, and this design deliberately reuses:
 
-| Existing piece | Role in this system |
-|---|---|
-| `games`, `game_moves`, `game_chat` tables | The game itself — unchanged as the source of truth |
-| `create_challenge` / `join_game` RPCs | Link-based flow; kept for invite links, superseded for direct challenges |
-| `makeMove` server function (chess.js validation, service role commit) | The only write path for moves — unchanged |
-| `resign_game`, `respond_draw`, `claim_timeout` RPCs | Game-end paths — unchanged |
-| `game:${id}` realtime channel (postgres_changes on games/game_moves/game_chat) | In-game sync — extended with a broadcast/presence layer |
-| `profiles.is_online` + 60s heartbeat (`src/lib/presence.ts`) | Coarse presence — upgraded (Section 3) |
-| `friends`, `community_follows`, `community_blocks`, `community_mutes`, `clan_members` | Relationship checks for challenge eligibility |
-| `notifications` table + `useNotificationCount` | Persistent notification record |
-| `__root.tsx` auth bootstrap | Mount point for the new global challenge listener |
+| Existing piece                                                                        | Role in this system                                                      |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `games`, `game_moves`, `game_chat` tables                                             | The game itself — unchanged as the source of truth                       |
+| `create_challenge` / `join_game` RPCs                                                 | Link-based flow; kept for invite links, superseded for direct challenges |
+| `makeMove` server function (chess.js validation, service role commit)                 | The only write path for moves — unchanged                                |
+| `resign_game`, `respond_draw`, `claim_timeout` RPCs                                   | Game-end paths — unchanged                                               |
+| `game:${id}` realtime channel (postgres_changes on games/game_moves/game_chat)        | In-game sync — extended with a broadcast/presence layer                  |
+| `profiles.is_online` + 60s heartbeat (`src/lib/presence.ts`)                          | Coarse presence — upgraded (Section 3)                                   |
+| `friends`, `community_follows`, `community_blocks`, `community_mutes`, `clan_members` | Relationship checks for challenge eligibility                            |
+| `notifications` table + `useNotificationCount`                                        | Persistent notification record                                           |
+| `__root.tsx` auth bootstrap                                                           | Mount point for the new global challenge listener                        |
 
 **The one genuinely new domain object is the `challenges` table** plus its RPCs,
 a global realtime listener, and the UI around them. The game lifecycle after
@@ -63,8 +63,8 @@ a global realtime listener, and the UI around them. The game lifecycle after
 
 **Design principles**
 
-1. **Database is the single source of truth.** Realtime events are *signals to
-   re-render*, never the authority. Every screen must be reconstructible from a
+1. **Database is the single source of truth.** Realtime events are _signals to
+   re-render_, never the authority. Every screen must be reconstructible from a
    plain SELECT after refresh.
 2. **All state transitions go through SECURITY DEFINER RPCs** that lock rows,
    re-validate, and commit atomically. The client can never write `challenges`
@@ -81,32 +81,32 @@ a global realtime listener, and the UI around them. The game lifecycle after
 
 ### 2.1 `challenges` table (new schema section)
 
-| Column | Type | Notes |
-|---|---|---|
-| `id` | UUID PK, `gen_random_uuid()` | Challenge identity |
-| `challenger_id` | UUID NOT NULL → auth.users, ON DELETE CASCADE | Sender |
-| `opponent_id` | UUID NOT NULL → auth.users, ON DELETE CASCADE | Receiver |
-| `status` | TEXT NOT NULL DEFAULT `'pending'` | `pending · accepted · declined · expired · cancelled` |
-| `time_class` | `public.time_class` | Derived server-side from minutes (bullet <3, blitz <10, rapid <30, classical ≥30) |
-| `time_control` | TEXT | e.g. `"5+3"` — always derived server-side, never trusted from client |
-| `initial_seconds` | INT NOT NULL | Whitelist: 60, 120, 180, 300, 600, 900, 1800 |
-| `increment_seconds` | INT NOT NULL | Whitelist: 0, 1, 2, 3, 5, 10 |
-| `is_rated` | BOOLEAN NOT NULL |  |
-| `challenger_color` | TEXT NOT NULL DEFAULT `'random'` | `w · b · random` — resolved at accept time |
-| `variant` | TEXT NOT NULL DEFAULT `'standard'` | Future: `chess960`, `custom` (Section 23) |
-| `game_id` | UUID NULL → games | Set only on accept |
-| `rematch_of_game_id` | UUID NULL → games | Non-null when this is a rematch challenge |
-| `message` | TEXT NULL, CHECK length ≤ 140 | Optional short note (future-ready, hidden in v1 UI) |
-| `created_at` | TIMESTAMPTZ NOT NULL DEFAULT now() |  |
-| `expires_at` | TIMESTAMPTZ NOT NULL DEFAULT now() + 60s | Authoritative expiry — the client timer is cosmetic |
-| `responded_at` | TIMESTAMPTZ NULL | Set on accept/decline/cancel/expire |
-| CHECK | `challenger_id <> opponent_id` | Self-challenge impossible at the schema level |
+| Column               | Type                                          | Notes                                                                             |
+| -------------------- | --------------------------------------------- | --------------------------------------------------------------------------------- |
+| `id`                 | UUID PK, `gen_random_uuid()`                  | Challenge identity                                                                |
+| `challenger_id`      | UUID NOT NULL → auth.users, ON DELETE CASCADE | Sender                                                                            |
+| `opponent_id`        | UUID NOT NULL → auth.users, ON DELETE CASCADE | Receiver                                                                          |
+| `status`             | TEXT NOT NULL DEFAULT `'pending'`             | `pending · accepted · declined · expired · cancelled`                             |
+| `time_class`         | `public.time_class`                           | Derived server-side from minutes (bullet <3, blitz <10, rapid <30, classical ≥30) |
+| `time_control`       | TEXT                                          | e.g. `"5+3"` — always derived server-side, never trusted from client              |
+| `initial_seconds`    | INT NOT NULL                                  | Whitelist: 60, 120, 180, 300, 600, 900, 1800                                      |
+| `increment_seconds`  | INT NOT NULL                                  | Whitelist: 0, 1, 2, 3, 5, 10                                                      |
+| `is_rated`           | BOOLEAN NOT NULL                              |                                                                                   |
+| `challenger_color`   | TEXT NOT NULL DEFAULT `'random'`              | `w · b · random` — resolved at accept time                                        |
+| `variant`            | TEXT NOT NULL DEFAULT `'standard'`            | Future: `chess960`, `custom` (Section 23)                                         |
+| `game_id`            | UUID NULL → games                             | Set only on accept                                                                |
+| `rematch_of_game_id` | UUID NULL → games                             | Non-null when this is a rematch challenge                                         |
+| `message`            | TEXT NULL, CHECK length ≤ 140                 | Optional short note (future-ready, hidden in v1 UI)                               |
+| `created_at`         | TIMESTAMPTZ NOT NULL DEFAULT now()            |                                                                                   |
+| `expires_at`         | TIMESTAMPTZ NOT NULL DEFAULT now() + 60s      | Authoritative expiry — the client timer is cosmetic                               |
+| `responded_at`       | TIMESTAMPTZ NULL                              | Set on accept/decline/cancel/expire                                               |
+| CHECK                | `challenger_id <> opponent_id`                | Self-challenge impossible at the schema level                                     |
 
 **Indexes**
 
 - `idx_challenges_opponent_pending` on `(opponent_id, created_at DESC) WHERE status = 'pending'` — the hot path (incoming popup lookup).
 - `idx_challenges_challenger_pending` on `(challenger_id) WHERE status = 'pending'`.
-- **Partial unique index** `uniq_challenge_pair_pending` on `(least(challenger_id, opponent_id), greatest(challenger_id, opponent_id)) WHERE status = 'pending'` — makes duplicate pending challenges between the same two players *impossible at the database level*, in either direction, regardless of race conditions.
+- **Partial unique index** `uniq_challenge_pair_pending` on `(least(challenger_id, opponent_id), greatest(challenger_id, opponent_id)) WHERE status = 'pending'` — makes duplicate pending challenges between the same two players _impossible at the database level_, in either direction, regardless of race conditions.
 
 **RLS**
 
@@ -156,16 +156,16 @@ a global realtime listener, and the UI around them. The game lifecycle after
 
 Everything survives refresh because everything durable is a row:
 
-| Fact | Where it lives |
-|---|---|
-| Challenge + status + timestamps | `challenges` |
-| Players, colors, ratings at game time | `games` (white_id/black_id/white_rating/black_rating snapshot) |
-| Move history / PGN / FEN | `game_moves` (per-ply, with `fen_after`, `time_left_ms`) + `games.pgn/fen` |
-| Winner / loser / result / reason | `games.winner_id`, `result`, `end_reason` |
-| Durations | `games.created_at`, `started_at`, `ended_at` |
-| Rating changes | `rating_history` (existing) |
-| Reconnect/disconnect events | `games.*_disconnected_at` + a `game_events` append-only table (Section 13.4) |
-| Chat | `game_chat` |
+| Fact                                  | Where it lives                                                               |
+| ------------------------------------- | ---------------------------------------------------------------------------- |
+| Challenge + status + timestamps       | `challenges`                                                                 |
+| Players, colors, ratings at game time | `games` (white_id/black_id/white_rating/black_rating snapshot)               |
+| Move history / PGN / FEN              | `game_moves` (per-ply, with `fen_after`, `time_left_ms`) + `games.pgn/fen`   |
+| Winner / loser / result / reason      | `games.winner_id`, `result`, `end_reason`                                    |
+| Durations                             | `games.created_at`, `started_at`, `ended_at`                                 |
+| Rating changes                        | `rating_history` (existing)                                                  |
+| Reconnect/disconnect events           | `games.*_disconnected_at` + a `game_events` append-only table (Section 13.4) |
+| Chat                                  | `game_chat`                                                                  |
 
 ---
 
@@ -180,14 +180,14 @@ define online as `last_seen > now() - 90s` (two missed beats). Lists that show
 online dots (friends, clan members, search) already fetch profiles; they add
 `last_seen` to the select and compute the dot client-side, refreshing on a 30s
 interval plus a `postgres_changes` subscription on the visible profiles is
-*not* used (too chatty) — polling the visible list is sufficient and bounded.
+_not_ used (too chatty) — polling the visible list is sufficient and bounded.
 
 **Layer 2 — Supabase Realtime Presence channel `presence:lobby`.**
 Every authenticated session joins one shared presence channel on login,
 tracking `{ user_id, at }`. This gives instant join/leave events for the
-people currently on screen. UI treats Layer 2 as an *upgrade*: dot = green if
+people currently on screen. UI treats Layer 2 as an _upgrade_: dot = green if
 present in the presence state **or** fresh per Layer 1. Layer 1 is the
-fallback when the websocket is down, and the *server* only ever trusts Layer 1
+fallback when the websocket is down, and the _server_ only ever trusts Layer 1
 (RPCs cannot see presence channels).
 
 **In-game presence** is a separate per-game channel (Section 13).
@@ -199,15 +199,15 @@ fallback when the websocket is down, and the *server* only ever trusts Layer 1
 One shared component, `ChallengeButton`, rendered with a `targetUserId` +
 `targetProfile` wherever a real user appears:
 
-| Surface | Location in app |
-|---|---|
-| Friend list | `friends.tsx` rows |
-| User profile | `u.$username.tsx` header, next to Follow/Message |
-| Followers / Following lists | the follow lists rendered from `community_follows` |
-| Community profile hovercards / post authors | `useCommunity` surfaces |
-| Search results | `search.tsx` user rows |
-| Clan member list | `clan.$slug.tsx` roster |
-| Game-over popup ("Rematch" is a challenge) | `game.$id.tsx` |
+| Surface                                     | Location in app                                    |
+| ------------------------------------------- | -------------------------------------------------- |
+| Friend list                                 | `friends.tsx` rows                                 |
+| User profile                                | `u.$username.tsx` header, next to Follow/Message   |
+| Followers / Following lists                 | the follow lists rendered from `community_follows` |
+| Community profile hovercards / post authors | `useCommunity` surfaces                            |
+| Search results                              | `search.tsx` user rows                             |
+| Clan member list                            | `clan.$slug.tsx` roster                            |
+| Game-over popup ("Rematch" is a challenge)  | `game.$id.tsx`                                     |
 
 **Button state machine (client-side gating, cosmetic only — the RPC re-checks
 everything):**
@@ -259,7 +259,7 @@ sees is what gets stored.
 
 1. User hits Send → button enters loading state.
 2. Client calls RPC `send_challenge(p_opponent_id, p_initial_seconds,
-   p_increment_seconds, p_is_rated, p_color, p_variant)`.
+p_increment_seconds, p_is_rated, p_color, p_variant)`.
 3. On success (returns challenge id + expires_at): modal closes, the
    **OutgoingChallengeToast** appears (Section 6.3), defaults persisted.
 4. On error: modal stays open, the RPC's error code is mapped to a human
@@ -275,12 +275,12 @@ Validation ladder, in order, each failing with a distinct error code:
 3. Opponent exists in `profiles` and account not banned (`opponent_unavailable`).
 4. Challenger not banned/muted from playing (`sender_restricted`).
 5. No block in either direction in `community_blocks` (`blocked`). Return the
-   *same* error code both directions — never reveal to a sender that they were
+   _same_ error code both directions — never reveal to a sender that they were
    blocked; the client renders it as "Player unavailable."
 6. Opponent online per the 90-second rule (`opponent_offline`).
 7. Challenger's `current_game_id IS NULL` (`sender_in_game`).
 8. Opponent's `current_game_id IS NULL` (`opponent_in_game`).
-9. No pending challenge involving *either* player with *anyone*
+9. No pending challenge involving _either_ player with _anyone_
    (`challenge_exists`) — a player handles one challenge at a time, matching
    requirement §3. (The pair-level unique index is the last-resort race guard;
    this check gives the friendly error.)
@@ -323,7 +323,7 @@ On login it:
 2. **Subscribes** to one channel `user-challenges:{uid}` with three
    postgres_changes bindings on `challenges`:
    - INSERT where `opponent_id=eq.{uid}` → incoming popup + notification sound
-     + browser-tab title flash.
+     - browser-tab title flash.
    - UPDATE where `opponent_id=eq.{uid}` → reconcile popup (cancelled/expired
      → dismiss with reason).
    - UPDATE where `challenger_id=eq.{uid}` → outgoing toast transitions
@@ -343,7 +343,7 @@ everything, showing exactly:
 - Avatar, full display name, @username, rating (fetched in one profile SELECT
   when the event arrives; the popup renders skeleton-instantly and fills in).
 - Time control + increment ("5 + 3 · Blitz"), Rated/Casual badge, the color
-  *you* would get ("You play Black" / "Random").
+  _you_ would get ("You play Black" / "Random").
 - **Live 60-second countdown bar**, computed every 250ms as
   `expires_at - now()` — refresh-proof, clock-skew-tolerant (clamp to the
   server value received at reconcile).
@@ -406,7 +406,7 @@ third parties and don't rate-limit the challenger beyond Section 20.4.
 2. Validate: caller is `opponent_id` (`not_your_challenge`); status `pending`
    (`already_resolved` — covers the accept-vs-cancel race deterministically:
    whoever commits first wins, the loser gets a clean error); `expires_at >=
-   now()` (`challenge_expired`).
+now()` (`challenge_expired`).
 3. Re-validate liveness: both players still have `current_game_id IS NULL`
    (`player_busy`) and neither has blocked the other since send.
 4. **Resolve colors**: challenger's preference honored; `random` resolved with
@@ -528,7 +528,7 @@ flip instantly on join/leave — this drives the **UI**, not the forfeit.
 
 ### 13.3 Forfeit rule (server-authoritative, no new daemon)
 
-Disconnection forfeit is deliberately reduced to the *clock*: the opponent's
+Disconnection forfeit is deliberately reduced to the _clock_: the opponent's
 time keeps draining while gone; if their flag falls, the existing
 `claim_timeout` RPC ends the game (`end_reason='timeout'` — or
 `'abandoned'` when the presence record shows them absent at claim time, which
@@ -558,14 +558,14 @@ end-of-game transaction: set result/winner/end_reason/ended_at, apply ratings
 via the existing elo/iq path, clear both `current_game_id`, insert two
 notifications):
 
-| Condition | Detector |
-|---|---|
-| Checkmate, stalemate, threefold, fifty-move, insufficient material | `makeMove` server fn at commit (chess.js) |
-| Timeout | `claim_timeout` RPC (opponent claims; either client's local flag-fall triggers the claim) |
-| Resignation | `resign_game` RPC |
-| Draw by agreement | `respond_draw` RPC (offer → accept) |
-| Abort (pre-first-move) | `abort_game` RPC |
-| Abandonment | `claim_abandonment` / `claim_timeout` (Section 13.3) |
+| Condition                                                          | Detector                                                                                  |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Checkmate, stalemate, threefold, fifty-move, insufficient material | `makeMove` server fn at commit (chess.js)                                                 |
+| Timeout                                                            | `claim_timeout` RPC (opponent claims; either client's local flag-fall triggers the claim) |
+| Resignation                                                        | `resign_game` RPC                                                                         |
+| Draw by agreement                                                  | `respond_draw` RPC (offer → accept)                                                       |
+| Abort (pre-first-move)                                             | `abort_game` RPC                                                                          |
+| Abandonment                                                        | `claim_abandonment` / `claim_timeout` (Section 13.3)                                      |
 
 **Result popup** (both clients, triggered by the `games` UPDATE where result ≠
 `ongoing`): trophy/handshake animation; winner & loser with avatars; result
@@ -626,7 +626,7 @@ Builds on existing `game_chat` (realtime INSERT feed already wired):
 Already structurally supported and deliberately preserved:
 
 - `games`/`game_moves`/`game_chat` are SELECT-public; anyone can open
-  `/game/$id` and receive the same realtime feed — that *is* spectating.
+  `/game/$id` and receive the same realtime feed — that _is_ spectating.
 - The presence channel's `role: spectator` distinguishes watchers; a
   spectator-count badge is a fold of presence state.
 - Broadcast/observer modes and spectator chat are additive UI on the same
@@ -657,21 +657,21 @@ that only matters right now is plane 2; several events are both.
 
 ## 19. Security Model (requirement §20)
 
-| Threat | Defense |
-|---|---|
-| Duplicate games | Partial unique index on `games.challenge_id`; accept runs under `FOR UPDATE` on the challenge row |
-| Duplicate challenges | Partial unique pending-pair index + one-pending-per-player RPC check |
-| Fake acceptance | Only `opponent_id` (from `auth.uid()`, never a parameter) can accept; SECURITY DEFINER RPC is the only write path |
-| Unauthorized moves / move injection | Client cannot write `games`/`game_moves` at all; `makeMove` verifies `auth.uid()` is the side to move and re-validates legality server-side from the stored FEN |
-| Room spoofing | Channels carry zero authority; all mutations re-derive identity from the JWT; RLS scopes what each socket can even see |
-| Replay attacks | Moves are keyed by `(game_id, ply)` UNIQUE against server state — a replayed submission is a no-op conflict; challenge accept is single-shot by status transition |
-| Expired acceptance | `expires_at` checked inside the locked transaction (layer 1 of Section 8) |
-| Self-challenge | CHECK constraint + RPC validation |
-| Offline-target challenge | Server-side `last_seen` freshness check in `send_challenge` |
-| Race conditions (accept vs cancel vs expire vs second accept) | Every transition serializes on the challenge row lock; losers get deterministic error codes |
-| Clock manipulation | Client never reports its own time; server derives remaining time from `last_move_at` at each commit |
-| Challenge spam | Rate limit via the existing `rate-limit` infrastructure: max 10 `send_challenge` per minute per user, max 3 per target per 10 minutes; blocks always win silently |
-| Data leakage | `challenges` RLS restricts rows (and therefore realtime events) to the two participants |
+| Threat                                                        | Defense                                                                                                                                                           |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Duplicate games                                               | Partial unique index on `games.challenge_id`; accept runs under `FOR UPDATE` on the challenge row                                                                 |
+| Duplicate challenges                                          | Partial unique pending-pair index + one-pending-per-player RPC check                                                                                              |
+| Fake acceptance                                               | Only `opponent_id` (from `auth.uid()`, never a parameter) can accept; SECURITY DEFINER RPC is the only write path                                                 |
+| Unauthorized moves / move injection                           | Client cannot write `games`/`game_moves` at all; `makeMove` verifies `auth.uid()` is the side to move and re-validates legality server-side from the stored FEN   |
+| Room spoofing                                                 | Channels carry zero authority; all mutations re-derive identity from the JWT; RLS scopes what each socket can even see                                            |
+| Replay attacks                                                | Moves are keyed by `(game_id, ply)` UNIQUE against server state — a replayed submission is a no-op conflict; challenge accept is single-shot by status transition |
+| Expired acceptance                                            | `expires_at` checked inside the locked transaction (layer 1 of Section 8)                                                                                         |
+| Self-challenge                                                | CHECK constraint + RPC validation                                                                                                                                 |
+| Offline-target challenge                                      | Server-side `last_seen` freshness check in `send_challenge`                                                                                                       |
+| Race conditions (accept vs cancel vs expire vs second accept) | Every transition serializes on the challenge row lock; losers get deterministic error codes                                                                       |
+| Clock manipulation                                            | Client never reports its own time; server derives remaining time from `last_move_at` at each commit                                                               |
+| Challenge spam                                                | Rate limit via the existing `rate-limit` infrastructure: max 10 `send_challenge` per minute per user, max 3 per target per 10 minutes; blocks always win silently |
+| Data leakage                                                  | `challenges` RLS restricts rows (and therefore realtime events) to the two participants                                                                           |
 
 ---
 
@@ -694,15 +694,15 @@ latency rather than wrongness.
 
 ### 20.3 User-facing message map (excerpt)
 
-| Code | Surface message |
-|---|---|
-| `opponent_offline` | "{name} just went offline." |
-| `opponent_in_game` | "{name} is in a game right now." |
-| `challenge_exists` | "There's already a pending challenge." (auto-accept in rematch context) |
-| `challenge_expired` | "This challenge has expired." |
-| `already_resolved` | "This challenge was already answered." |
-| `blocked` / `opponent_unavailable` | "Player unavailable." (identical on purpose) |
-| `player_busy` (at accept) | "{name} just started another game." |
+| Code                               | Surface message                                                         |
+| ---------------------------------- | ----------------------------------------------------------------------- |
+| `opponent_offline`                 | "{name} just went offline."                                             |
+| `opponent_in_game`                 | "{name} is in a game right now."                                        |
+| `challenge_exists`                 | "There's already a pending challenge." (auto-accept in rematch context) |
+| `challenge_expired`                | "This challenge has expired."                                           |
+| `already_resolved`                 | "This challenge was already answered."                                  |
+| `blocked` / `opponent_unavailable` | "Player unavailable." (identical on purpose)                            |
+| `player_busy` (at accept)          | "{name} just started another game."                                     |
 
 ### 20.4 Edge inventory (each has a defined outcome)
 
@@ -766,17 +766,17 @@ end-to-end challenge → game loop.
 
 ## 23. Future-Readiness Map (requirement §23)
 
-| Future feature | Why it needs no rewrite |
-|---|---|
-| Chess960 / custom variants | `variant` column + RPC param exist; enable = UI + start-FEN generation in accept transaction |
-| Tournament / clan / arena challenges | `challenges` gains a nullable `context_type/context_id`; validation ladder gets one context rule; everything downstream identical |
-| Team battle / coach invite | Same context mechanism |
-| Private match password / invite links | Existing link-based `create_challenge` flow remains; password = column + check in `join_game` |
-| Voice/video chat | New ephemeral channel per game; zero schema impact (signaling over broadcast) |
-| Spectator chat / broadcast mode | Section 17; additive UI on public reads + presence roles |
-| Share game / replay | `games.pgn` + `game_moves.fen_after` already form a full replay record; `game_events` adds the timeline |
-| Accuracy in result popup | Backfilled from existing `game_analysis` pipeline; slot already rendered |
+| Future feature                        | Why it needs no rewrite                                                                                                           |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Chess960 / custom variants            | `variant` column + RPC param exist; enable = UI + start-FEN generation in accept transaction                                      |
+| Tournament / clan / arena challenges  | `challenges` gains a nullable `context_type/context_id`; validation ladder gets one context rule; everything downstream identical |
+| Team battle / coach invite            | Same context mechanism                                                                                                            |
+| Private match password / invite links | Existing link-based `create_challenge` flow remains; password = column + check in `join_game`                                     |
+| Voice/video chat                      | New ephemeral channel per game; zero schema impact (signaling over broadcast)                                                     |
+| Spectator chat / broadcast mode       | Section 17; additive UI on public reads + presence roles                                                                          |
+| Share game / replay                   | `games.pgn` + `game_moves.fen_after` already form a full replay record; `game_events` adds the timeline                           |
+| Accuracy in result popup              | Backfilled from existing `game_analysis` pipeline; slot already rendered                                                          |
 
 ---
 
-*End of specification.*
+_End of specification._

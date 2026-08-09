@@ -1,4 +1,4 @@
-import { X, Play, RotateCcw, Users, Home } from "lucide-react";
+import { X, Play, RotateCcw, Users, Home, Trophy, Handshake, Ban, Hourglass } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { GoldButton, GhostButton } from "./Primitives";
 import {
@@ -46,7 +46,6 @@ export function GameEndModal({
   const title = myColor ? personalHeadline(verdict, myColor) : resultHeadline(verdict);
   const subtitle = myColor && verdict !== "ongoing" ? resultHeadline(verdict) : null;
   const detail = formatEndReason(reason);
-  const icon = isAborted ? "⊘" : isDraw ? "🤝" : verdict === "ongoing" ? "⏳" : "🏆";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4 animate-in fade-in duration-300">
@@ -59,7 +58,17 @@ export function GameEndModal({
         </button>
 
         <div className="text-center mt-2">
-          <div className="mb-4 text-5xl">{icon}</div>
+          <div className="mb-4 flex justify-center">
+            {isAborted ? (
+              <Ban className="h-16 w-16 text-rose-400" />
+            ) : isDraw ? (
+              <Handshake className="h-16 w-16 text-amber-400" />
+            ) : verdict === "ongoing" ? (
+              <Hourglass className="h-16 w-16 text-gold animate-pulse" />
+            ) : (
+              <Trophy className="h-16 w-16 text-gold" />
+            )}
+          </div>
           <h2 className="font-display text-3xl text-gradient-gold uppercase">{title}</h2>
           {subtitle && (
             <p className="mt-1 text-sm font-medium uppercase tracking-widest text-gold/80">

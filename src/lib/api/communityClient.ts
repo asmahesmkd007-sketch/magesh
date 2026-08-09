@@ -109,7 +109,15 @@ export type CommunityComment = {
   created_at: string;
   author: Pick<
     CommunityAuthor,
-    "id" | "username" | "full_name" | "avatar_url" | "premium_tier" | "community_score" | "iq_level" | "season_points" | "rung_id"
+    | "id"
+    | "username"
+    | "full_name"
+    | "avatar_url"
+    | "premium_tier"
+    | "community_score"
+    | "iq_level"
+    | "season_points"
+    | "rung_id"
   > | null;
   my_reaction: "like" | "dislike" | null;
 };
@@ -156,6 +164,10 @@ export type CommunityUserLite = {
   followers_count: number;
   is_following?: boolean;
   metric?: number;
+  season_points?: number | null;
+  rung_id?: string | null;
+  iq_level?: number | null;
+  title?: string | null;
 };
 
 export type FeedMode = "following" | "foryou" | "trending" | "latest";
@@ -220,14 +232,17 @@ export type NewPost = {
   tags?: string[];
 };
 
-export async function createPost(userId: string, post: NewPost): Promise<string> {
+export async function createPost(userId: string, post: NewPost): Promise<CommunityPost> {
   const { data, error } = await db
     .from("community_posts")
     .insert({ user_id: userId, ...post, tags: post.tags ?? [] })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
-  return (data as { id: string }).id;
+  const id = (data as { id: string }).id;
+  const created = await fetchPost(id);
+  if (created) return created;
+  throw new Error("Created post could not be loaded");
 }
 
 export async function deletePost(id: string) {

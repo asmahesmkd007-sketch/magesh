@@ -14,14 +14,15 @@ export function RequireAuth({ children }: RequireAuthProps) {
 
   useEffect(() => {
     if (!loading && !user) {
-      const redirectPath = location.pathname + location.search;
+      const searchStr = typeof location.searchStr === "string" ? location.searchStr : "";
+      const redirectPath = location.pathname + searchStr;
       navigate({
         to: "/login",
         search: { redirect: redirectPath },
         replace: true,
       });
     }
-  }, [loading, user, location.pathname, location.search, navigate]);
+  }, [loading, user, location.pathname, location.searchStr, navigate]);
 
   if (loading) {
     return (

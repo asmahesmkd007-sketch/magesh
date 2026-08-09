@@ -237,7 +237,9 @@ function encodePng(pixels, size) {
 
 const png = decodePng(readFileSync(MASTER));
 const pixels = unfilter(png);
-console.log(`master: ${png.width}x${png.height} (${(readFileSync(MASTER).length / 1024).toFixed(1)} KB)`);
+console.log(
+  `master: ${png.width}x${png.height} (${(readFileSync(MASTER).length / 1024).toFixed(1)} KB)`,
+);
 
 // 256 covers the 56 CSS px logo at 4x DPI and doubles as the
 // apple-touch-icon; 48 is the browser-chrome favicon.
@@ -247,5 +249,7 @@ for (const [size, out] of [
 ]) {
   const buf = encodePng(resize(pixels, png.width, png.height, png.channels, size), size);
   writeFileSync(out, buf);
-  console.log(`  ${size}x${size} -> ${out.replace(ROOT, ".")} (${(buf.length / 1024).toFixed(1)} KB)`);
+  console.log(
+    `  ${size}x${size} -> ${out.replace(ROOT, ".")} (${(buf.length / 1024).toFixed(1)} KB)`,
+  );
 }

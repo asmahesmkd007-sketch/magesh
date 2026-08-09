@@ -360,7 +360,9 @@ function LiveGame() {
     let active = true;
     void supabase
       .from("profiles")
-      .select("id, username, display_name, full_name, premium_active, premium_expires_at, avatar_url")
+      .select(
+        "id, username, display_name, full_name, premium_active, premium_expires_at, avatar_url",
+      )
       .in("id", pids)
       .then(({ data: profs }) => {
         if (!active || !profs) return;
@@ -1009,7 +1011,9 @@ function LiveGame() {
               </GhostButton>
             </div>
           ) : (
-            <span className="text-[10px] text-gold/80 italic animate-pulse shrink-0">Waiting...</span>
+            <span className="text-[10px] text-gold/80 italic animate-pulse shrink-0">
+              Waiting...
+            </span>
           )}
         </div>
       )}
@@ -1067,9 +1071,7 @@ function LiveGame() {
           className="flex-shrink-0 h-9 bg-black/60 border-b border-white/10 px-3 flex items-center gap-2 overflow-x-auto whitespace-nowrap scrollbar-none text-xs"
         >
           {moves.length === 0 ? (
-            <span className="text-[11px] text-muted-foreground/60 italic">
-              1. game start...
-            </span>
+            <span className="text-[11px] text-muted-foreground/60 italic">1. game start...</span>
           ) : (
             moves.map((m, idx) => {
               if (idx % 2 !== 0) return null;
@@ -1082,9 +1084,7 @@ function LiveGame() {
 
               return (
                 <div key={idx} className="inline-flex items-center gap-1 shrink-0">
-                  <span className="text-[11px] text-gold/70 font-mono font-medium">
-                    {moveNum}.
-                  </span>
+                  <span className="text-[11px] text-gold/70 font-mono font-medium">{moveNum}.</span>
                   <button
                     onClick={() => setViewPly(idx + 1)}
                     className={`px-1.5 py-0.5 rounded text-[11px] font-mono transition-colors ${
@@ -1144,7 +1144,11 @@ function LiveGame() {
               checkSquare={checkSquare}
               onSquare={handleSquare}
               disabled={!isMyTurn || !!promotion || submittingRef.current}
-              endState={viewPly !== null ? null : (endState as { result: "white" | "black" | "draw"; reason: string } | null)}
+              endState={
+                viewPly !== null
+                  ? null
+                  : (endState as { result: "white" | "black" | "draw"; reason: string } | null)
+              }
             />
 
             {/* Promotion Picker */}
@@ -1189,7 +1193,9 @@ function LiveGame() {
           <button
             onClick={() => setMobileSheet(mobileSheet === "options" ? "none" : "options")}
             className={`w-full h-full flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold transition-colors ${
-              mobileSheet === "options" ? "text-gold" : "text-muted-foreground hover:text-foreground"
+              mobileSheet === "options"
+                ? "text-gold"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             <SlidersHorizontal className="h-4 w-4" />
@@ -1200,7 +1206,9 @@ function LiveGame() {
           <button
             onClick={() => setMobileSheet(mobileSheet === "chat_moves" ? "none" : "chat_moves")}
             className={`w-full h-full flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold transition-colors ${
-              mobileSheet === "chat_moves" ? "text-gold" : "text-muted-foreground hover:text-foreground"
+              mobileSheet === "chat_moves"
+                ? "text-gold"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             <MessageSquare className="h-4 w-4" />
@@ -1209,9 +1217,7 @@ function LiveGame() {
 
           {/* Button 3: Back (Replay Previous Move) */}
           <button
-            onClick={() =>
-              setViewPly((prev) => Math.max(0, (prev ?? moves.length) - 1))
-            }
+            onClick={() => setViewPly((prev) => Math.max(0, (prev ?? moves.length) - 1))}
             disabled={moves.length === 0 || viewPly === 0}
             className="w-full h-full flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:hover:text-muted-foreground transition-colors"
           >
@@ -1329,10 +1335,30 @@ function LiveGame() {
                       <Info className="h-3.5 w-3.5" /> Game Information
                     </div>
                     <div className="grid grid-cols-2 gap-1 text-muted-foreground text-[11px]">
-                      <div>Opening: <span className="text-foreground font-medium">{currentOpening?.name ?? "Standard"}</span></div>
-                      <div>Format: <span className="text-foreground font-medium uppercase">{game?.time_class ?? "Blitz"}</span></div>
-                      <div>Rated: <span className="text-foreground font-medium">{game?.is_rated ? "Yes" : "Casual"}</span></div>
-                      <div>ID: <span className="text-foreground font-medium font-mono text-[10px]">{id.slice(0, 8)}...</span></div>
+                      <div>
+                        Opening:{" "}
+                        <span className="text-foreground font-medium">
+                          {currentOpening?.name ?? "Standard"}
+                        </span>
+                      </div>
+                      <div>
+                        Format:{" "}
+                        <span className="text-foreground font-medium uppercase">
+                          {game?.time_class ?? "Blitz"}
+                        </span>
+                      </div>
+                      <div>
+                        Rated:{" "}
+                        <span className="text-foreground font-medium">
+                          {game?.is_rated ? "Yes" : "Casual"}
+                        </span>
+                      </div>
+                      <div>
+                        ID:{" "}
+                        <span className="text-foreground font-medium font-mono text-[10px]">
+                          {id.slice(0, 8)}...
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -1616,7 +1642,11 @@ function LiveGame() {
               checkSquare={checkSquare}
               onSquare={handleSquare}
               disabled={!isMyTurn || !!promotion || submittingRef.current}
-              endState={viewPly !== null ? null : (endState as { result: "white" | "black" | "draw"; reason: string } | null)}
+              endState={
+                viewPly !== null
+                  ? null
+                  : (endState as { result: "white" | "black" | "draw"; reason: string } | null)
+              }
             />
 
             {/* Promotion Picker */}

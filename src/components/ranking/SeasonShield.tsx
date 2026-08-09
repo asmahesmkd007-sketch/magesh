@@ -69,7 +69,11 @@ const SIZE_CLASSES: Record<ShieldSize, { img: string; text: string; sub: string 
   xs: { img: "h-4 w-4", text: "text-[10px]", sub: "text-[9px]" },
   sm: { img: "h-6 w-6", text: "text-xs font-semibold", sub: "text-[10px]" },
   md: { img: "h-10 w-10", text: "text-sm font-bold", sub: "text-xs" },
-  lg: { img: "h-16 w-16 md:h-20 md:w-20", text: "text-base md:text-lg font-bold", sub: "text-xs md:text-sm" },
+  lg: {
+    img: "h-16 w-16 md:h-20 md:w-20",
+    text: "text-base md:text-lg font-bold",
+    sub: "text-xs md:text-sm",
+  },
   xl: { img: "h-24 w-24 md:h-28 md:w-28", text: "text-xl md:text-2xl font-bold", sub: "text-sm" },
 };
 
@@ -230,7 +234,7 @@ export function SeasonShield({
 
       {/* Progress bar to next tier */}
       <div className="w-full max-w-xs space-y-1.5">
-        <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground">
+        <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-muted-foreground">
           <span>Progress</span>
           {next ? (
             <span>

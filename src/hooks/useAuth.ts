@@ -213,7 +213,8 @@ async function loadProfile(userId: string): Promise<Profile | null> {
         if (
           !newFullName ||
           newFullName.toLowerCase().startsWith("player") ||
-          (googleName && (newFullName === newUsername || newFullName === authUser?.email?.split("@")[0]))
+          (googleName &&
+            (newFullName === newUsername || newFullName === authUser?.email?.split("@")[0]))
         ) {
           if (googleName) {
             newFullName = googleName;
@@ -258,13 +259,18 @@ async function loadProfile(userId: string): Promise<Profile | null> {
             avatar_url: newAvatarUrl,
           };
 
-          let { error } = await (supabase as any)
+          const { error } = await (supabase as any)
             .from("profiles")
             .update(updatePayload)
             .eq("id", userId);
 
           if (!error) {
-            prof = { ...prof, full_name: newFullName, username: newUsername, avatar_url: newAvatarUrl };
+            prof = {
+              ...prof,
+              full_name: newFullName,
+              username: newUsername,
+              avatar_url: newAvatarUrl,
+            };
           }
         }
       }

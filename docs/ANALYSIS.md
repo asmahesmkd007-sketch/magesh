@@ -57,7 +57,7 @@ Layering rules:
   `bestmove` acknowledgment arrives. Options (MultiPV 1–5, Hash 16–512 MB,
   Threads) apply before the next `go`.
 - **CSP**: `script-src` includes `'wasm-unsafe-eval'`; `worker-src 'self'
-  blob:`; `connect-src` allows `tablebase.lichess.ovh`
+blob:`; `connect-src` allows `tablebase.lichess.ovh`
   (see `src/lib/security-headers.ts`).
 
 ## Game review pipeline
@@ -121,9 +121,9 @@ Schema section: **SECTION 101: ANALYSIS MODULE** in `supabase/schema.sql`
   that `save_game_analysis` already produced.
 - `saved_analyses` — user-owned workspaces (annotated PGN + review summary),
   owner-only RLS on all four verbs, `updated_at` trigger, `(user_id,
-  updated_at DESC)` index.
+updated_at DESC)` index.
 - `opening_explorer(p_epd, p_user, p_color, p_time_class, p_min_rating,
-  p_since)` RPC + an expression index on the first four FEN fields of
+p_since)` RPC + an expression index on the first four FEN fields of
   `game_moves.fen_before`, so continuation stats hit an index and match
   transpositions regardless of clocks.
 
@@ -159,7 +159,7 @@ plus the existing `lib/chess/engine.test.ts` sanity checks.
   you front the app with a CDN; the filenames are version-stamped by
   Stockfish major version.
 - **Multi-threading (optional)**: add `Cross-Origin-Embedder-Policy:
-  require-corp` (or `credentialless`) next to the existing COOP header to
+require-corp` (or `credentialless`) next to the existing COOP header to
   unlock the threaded build. Test third-party embeds (YouTube course videos)
   before enabling in production.
 - **DB migration**: run `supabase/schema.sql` (idempotent) or extract

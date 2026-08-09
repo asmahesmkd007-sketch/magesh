@@ -75,11 +75,7 @@ export function MessageBubble({
     >
       {!isGrouped ? (
         <Link to="/u/$username" params={{ username }} className="shrink-0">
-          <UserAvatar
-            avatarUrl={message.author?.avatar_url}
-            displayName={displayName}
-            size="sm"
-          />
+          <UserAvatar avatarUrl={message.author?.avatar_url} displayName={displayName} size="sm" />
         </Link>
       ) : (
         <div className="w-8 shrink-0" />
@@ -96,14 +92,6 @@ export function MessageBubble({
             </Link>
             <span className="text-[11px] text-muted-foreground">{relTime(message.created_at)}</span>
             {message.is_pinned && <Pin className="h-3 w-3 text-gold" />}
-            {!isOwn && (
-              <FriendButton
-                targetUserId={message.user_id}
-                targetName={displayName}
-                className="h-5 w-5"
-                compact
-              />
-            )}
           </div>
         )}
         {message.reply_to && (
@@ -153,6 +141,8 @@ export function MessageBubble({
           </button>
           {pickerOpen && (
             <EmojiPicker
+              align="right"
+              position="top"
               onPick={(emoji) => {
                 actions.react.mutate({ messageId: message.id, emoji });
                 setPickerOpen(false);

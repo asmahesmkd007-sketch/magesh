@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MessageSquare, Send, Trash2, Reply, X } from "lucide-react";
+import { ChevronDown, MessageSquare, Send, Trash2, Reply, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { getChatMessages, sendChatMessage, deleteChatMessage, markChatRead } from "@/lib/clanApi";
@@ -32,13 +32,27 @@ export function ChatPanel({ clanId, myRole }: Props) {
   const [input, setInput] = useState("");
   const [replyTo, setReplyTo] = useState<ClanChatMessage | null>(null);
   const [typingUsers, setTypingUsers] = useState<Record<string, string>>({});
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const myUsernameRef = useRef<string>("");
+  const isAtBottomRef = useRef(true);
 
-  const scrollToBottom = () => {
-    setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    endRef.current?.scrollIntoView({ behavior });
+    isAtBottomRef.current = true;
+    setShowScrollToBottom(false);
+  };
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const atBottom = distanceFromBottom <= 80;
+    isAtBottomRef.current = atBottom;
+    setShowScrollToBottom(distanceFromBottom > 120);
   };
 
   const messageById = useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
@@ -49,7 +63,7 @@ export function ChatPanel({ clanId, myRole }: Props) {
     getChatMessages(clanId)
       .then((msgs) => {
         setMessages(msgs);
-        scrollToBottom();
+        setTimeout(() => scrollToBottom("instant"), 50);
       })
       .catch(() => setMessages([]));
 
@@ -83,7 +97,9 @@ export function ChatPanel({ clanId, myRole }: Props) {
               profiles: profile,
             },
           ]);
-          scrollToBottom();
+          if (isAtBottomRef.current || payload.new.sender_id === user?.id) {
+            setTimeout(() => scrollToBottom("smooth"), 50);
+          }
         },
       )
       .on(
@@ -179,95 +195,113 @@ export function ChatPanel({ clanId, myRole }: Props) {
 
   return (
     <div className="flex h-[600px] flex-col overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02]">
-      <div className="custom-scrollbar flex-1 space-y-3 overflow-y-auto p-4">
-        {messages.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            No messages yet. Be the first to say hello!
-          </div>
-        ) : (
-          messages.map((msg, idx) => {
-            if (msg.content_type === "system") {
-              return (
-                <div key={msg.id} className="flex justify-center">
-                  <span className="rounded-full bg-white/5 px-3 py-1 text-[11px] text-muted-foreground">
-                    {msg.content}
-                  </span>
-                </div>
-              );
-            }
-            const isMe = msg.sender_id === user?.id;
-            const canDelete = isMe || myRole === "leader" || myRole === "co_leader";
-            const quoted = msg.reply_to ? messageById.get(msg.reply_to) : null;
-            const displayName = getSenderDisplayName(msg.profiles);
-            const isGrouped =
-              idx > 0 &&
-              messages[idx - 1].sender_id === msg.sender_id &&
-              messages[idx - 1].content_type !== "system" &&
-              new Date(msg.created_at).getTime() - new Date(messages[idx - 1].created_at).getTime() < 300000;
-
-            return (
-              <div
-                key={msg.id}
-                className={`flex max-w-[85%] gap-2.5 ${isMe ? "ml-auto flex-row-reverse" : ""}`}
-              >
-                {!isGrouped ? (
-                  <UserAvatar
-                    displayName={displayName}
-                    avatarUrl={msg.profiles?.avatar_url}
-                    size="sm"
-                    className="shrink-0"
-                  />
-                ) : (
-                  <div className="w-8 shrink-0" />
-                )}
-                <div className={`group flex flex-col ${isMe ? "items-end" : "items-start"}`}>
-                  {!isGrouped && (
-                    <div className="mb-1 flex items-baseline gap-2 px-1">
-                      <span className="text-xs font-semibold text-white">
-                        {displayName}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {relTime(msg.created_at)}
-                      </span>
-                    </div>
-                  )}
-                  {quoted && (
-                    <div
-                      className={`mb-1 max-w-full truncate rounded-lg border-l-2 border-gold/50 bg-black/20 px-2 py-1 text-[11px] text-muted-foreground ${isMe ? "text-right" : ""}`}
-                    >
-                      {getSenderDisplayName(quoted.profiles)}:{" "}
-                      {quoted.content_type === "system" ? quoted.content : quoted.content}
-                    </div>
-                  )}
-                  <div className={`flex items-center gap-2 ${isMe ? "flex-row-reverse" : ""}`}>
-                    <div
-                      className={`rounded-2xl px-4 py-2 text-sm ${isMe ? "rounded-tr-sm bg-gold text-black font-medium" : "rounded-tl-sm bg-white/10 text-white"}`}
-                    >
+      <div className="relative flex-1 flex flex-col min-h-0">
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="custom-scrollbar flex-1 space-y-3 overflow-y-auto p-4"
+        >
+          {messages.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              No messages yet. Be the first to say hello!
+            </div>
+          ) : (
+            messages.map((msg, idx) => {
+              if (msg.content_type === "system") {
+                return (
+                  <div key={msg.id} className="flex justify-center">
+                    <span className="rounded-full bg-white/5 px-3 py-1 text-[11px] text-muted-foreground">
                       {msg.content}
-                    </div>
-                    <button
-                      onClick={() => setReplyTo(msg)}
-                      className="p-1 text-muted-foreground opacity-0 transition-opacity hover:text-gold group-hover:opacity-100"
-                      title="Reply"
-                    >
-                      <Reply className="h-3.5 w-3.5" />
-                    </button>
-                    {canDelete && (
-                      <button
-                        onClick={() => handleDelete(msg.id)}
-                        className="p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                    </span>
+                  </div>
+                );
+              }
+              const isMe = msg.sender_id === user?.id;
+              const canDelete = isMe || myRole === "leader" || myRole === "co_leader";
+              const quoted = msg.reply_to ? messageById.get(msg.reply_to) : null;
+              const displayName = getSenderDisplayName(msg.profiles);
+              const isGrouped =
+                idx > 0 &&
+                messages[idx - 1].sender_id === msg.sender_id &&
+                messages[idx - 1].content_type !== "system" &&
+                new Date(msg.created_at).getTime() -
+                  new Date(messages[idx - 1].created_at).getTime() <
+                  300000;
+
+              return (
+                <div
+                  key={msg.id}
+                  className={`flex max-w-[85%] gap-2.5 ${isMe ? "ml-auto flex-row-reverse" : ""}`}
+                >
+                  {!isGrouped ? (
+                    <UserAvatar
+                      displayName={displayName}
+                      avatarUrl={msg.profiles?.avatar_url}
+                      size="sm"
+                      className="shrink-0"
+                    />
+                  ) : (
+                    <div className="w-8 shrink-0" />
+                  )}
+                  <div className={`group flex flex-col ${isMe ? "items-end" : "items-start"}`}>
+                    {!isGrouped && (
+                      <div className="mb-1 flex items-baseline gap-2 px-1">
+                        <span className="text-xs font-semibold text-white">{displayName}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {relTime(msg.created_at)}
+                        </span>
+                      </div>
                     )}
+                    {quoted && (
+                      <div
+                        className={`mb-1 max-w-full truncate rounded-lg border-l-2 border-gold/50 bg-black/20 px-2 py-1 text-[11px] text-muted-foreground ${isMe ? "text-right" : ""}`}
+                      >
+                        {getSenderDisplayName(quoted.profiles)}:{" "}
+                        {quoted.content_type === "system" ? quoted.content : quoted.content}
+                      </div>
+                    )}
+                    <div className={`flex items-center gap-2 ${isMe ? "flex-row-reverse" : ""}`}>
+                      <div
+                        className={`rounded-2xl px-4 py-2 text-sm ${isMe ? "rounded-tr-sm bg-gold text-black font-medium" : "rounded-tl-sm bg-white/10 text-white"}`}
+                      >
+                        {msg.content}
+                      </div>
+                      <button
+                        onClick={() => setReplyTo(msg)}
+                        className="p-1 text-muted-foreground opacity-0 transition-opacity hover:text-gold group-hover:opacity-100"
+                        title="Reply"
+                      >
+                        <Reply className="h-3.5 w-3.5" />
+                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDelete(msg.id)}
+                          className="p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })
+              );
+            })
+          )}
+          <div ref={endRef} />
+        </div>
+
+        {showScrollToBottom && (
+          <button
+            type="button"
+            onClick={() => scrollToBottom("smooth")}
+            className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full border border-gold/30 bg-black/80 px-3 py-1.5 text-xs text-gold shadow-lg backdrop-blur-md transition-all hover:bg-gold/20 hover:scale-105 active:scale-95 z-10"
+            aria-label="Scroll to bottom"
+          >
+            <ChevronDown className="h-4 w-4" />
+            <span>New messages</span>
+          </button>
         )}
-        <div ref={endRef} />
       </div>
 
       {typingNames.length > 0 && (

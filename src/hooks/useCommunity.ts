@@ -265,7 +265,16 @@ export function useCommunityActions() {
 
   const createPost = useMutation({
     mutationFn: (post: api.NewPost) => api.createPost(requireAuth(), post),
-    onSuccess: () => {
+    onSuccess: (newPost) => {
+      queryClient.setQueriesData<FeedPages>({ queryKey: ["community_feed"] }, (old) => {
+        if (!old || !old.pages || old.pages.length === 0) return old;
+        const exists = old.pages.some((page) => page.some((p) => p.id === newPost.id));
+        if (exists) return old;
+        return {
+          ...old,
+          pages: [[newPost, ...old.pages[0]], ...old.pages.slice(1)],
+        };
+      });
       invalidateFeeds();
       toast.success("Posted!");
     },

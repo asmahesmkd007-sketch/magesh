@@ -14,6 +14,7 @@ import { Footer } from "@/components/site/Footer";
 import { MobileNav } from "@/components/site/MobileNav";
 import { Navbar } from "@/components/site/Navbar";
 import { SettingsEffects } from "@/components/site/SettingsEffects";
+import { GlobalChallengeListener } from "@/components/site/GlobalChallengeListener";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import {
   SITE_DESCRIPTION,
@@ -299,6 +300,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <SettingsEffects />
+      <GlobalChallengeListener />
       <div
         className={`bg-background text-foreground ${
           isGameRoute ? "h-screen max-h-screen overflow-hidden flex flex-col" : "min-h-screen"

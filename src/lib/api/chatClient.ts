@@ -512,10 +512,12 @@ async function resolveChannelId(channelId: string): Promise<string> {
 
 /** True if no existing room already uses this Room ID (slug). Used for live validation in CreateRoomModal. */
 export const isRoomIdAvailable = async (roomId: string) => {
+  const cleanId = roomId.trim().toLowerCase();
+  if (!cleanId) return true;
   const { data, error } = await supabase
     .from("chat_channels")
     .select("id")
-    .eq("slug", roomId)
+    .or(`slug.ilike.${cleanId},id.ilike.${cleanId}`)
     .maybeSingle();
   if (error) return true; // fail-open: let the create RPC be the final authority
   return !data;

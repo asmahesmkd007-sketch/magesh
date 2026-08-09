@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Play, Square, XCircle, Users, ExternalLink } from "lucide-react";
+import { Loader2, Play, Square, XCircle, Users, ExternalLink, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/site/AdminShell";
 import { Card } from "@/components/site/Primitives";
@@ -115,7 +115,9 @@ function TournamentsAdmin() {
                   <div className="text-xs text-muted-foreground">
                     {t.time_control} · {t.entry_fee_coins} coins · {t.player_count}/{t.max_players}{" "}
                     players
-                    {t.winner_display && ` · 🏆 ${t.winner_display}`}
+                    {t.winner_display && (
+                      <span className="inline-flex items-center gap-1"> · <Trophy className="h-3 w-3 text-gold" /> {t.winner_display}</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">

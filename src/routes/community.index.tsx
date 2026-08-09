@@ -42,15 +42,15 @@ export const Route = createFileRoute("/community/")({
 });
 
 const TABS: { mode: FeedMode; label: string; authOnly?: boolean }[] = [
-  { mode: "following", label: "Following", authOnly: true },
   { mode: "foryou", label: "For You" },
-  { mode: "trending", label: "Trending" },
+  { mode: "following", label: "Following", authOnly: true },
   { mode: "latest", label: "Latest" },
+  { mode: "trending", label: "Trending" },
 ];
 
 function CommunityHome() {
   const { user } = useAuth();
-  const [mode, setMode] = useState<FeedMode>(user ? "following" : "foryou");
+  const [mode, setMode] = useState<FeedMode>("foryou");
   const feed = useCommunityFeed({ mode });
 
   useEffect(() => {
@@ -78,7 +78,7 @@ function CommunityHome() {
 
       {user ? (
         <div className="mb-4">
-          <PostComposer />
+          <PostComposer onPosted={() => setMode("foryou")} />
         </div>
       ) : (
         <Card className="mb-4 flex items-center justify-between gap-4 p-4">

@@ -7,13 +7,13 @@ let humans decide.** Nothing in this system bans a player automatically.
 
 1. **Never trust the client.** Move legality, clocks, results and turn order are
    settled server-side (`makeMove` + `SECURITY DEFINER` RPCs). Client telemetry
-   is treated as a *claim* — it is evidence about behavior, never authority over
+   is treated as a _claim_ — it is evidence about behavior, never authority over
    game state.
 2. **Never block gameplay.** Every anti-cheat call on the move path is fired
    with `void`. Detection listeners are passive, periodic checks are
    idle-scheduled, reports are batched, and the detector module is code-split so
    it isn't even downloaded until a real game starts.
-3. **Never auto-ban.** Detection produces *events* and *flags*. Enforcement is a
+3. **Never auto-ban.** Detection produces _events_ and _flags_. Enforcement is a
    separate, admin-driven step gated by a multi-indicator rule that the server
    enforces (`enforcementAllowed` in `risk.ts`) — the dashboard cannot bypass it.
 4. **Never delete evidence.** Anti-cheat tables have no cascading deletes and no
@@ -21,20 +21,20 @@ let humans decide.** Nothing in this system bans a player automatically.
 
 ## Module map
 
-| Module                                    | Runs   | Responsibility                                              |
-| ----------------------------------------- | ------ | ----------------------------------------------------------- |
-| `lib/anticheat/types.ts`                  | both   | Event vocabulary, severities, risk levels, row shapes        |
-| `lib/anticheat/config.ts`                 | both   | Every threshold and weight — the single tuning surface       |
-| `lib/anticheat/risk.ts`                   | both   | **The only** risk-score implementation + enforcement gate    |
-| `lib/anticheat/detector.client.ts`        | client | Browser signal collection + batched reporting                |
-| `lib/anticheat/fingerprint.client.ts`     | client | Coarse device fingerprint (no canvas/audio probing)          |
-| `lib/anticheat/useAntiCheatMonitor.ts`    | client | Game-page integration (players only, never spectators)       |
-| `lib/anticheat/anticheat.functions.ts`    | server | Wire endpoints: ingestion, fingerprints, admin mutations     |
-| `lib/anticheat/ingest.server.ts`          | server | Evidence writes, risk updates, flags, multi-account, alerts  |
-| `lib/anticheat/analysis.server.ts`        | server | Post-game engine/timing/connection analysis pipeline         |
-| `lib/anticheat/engineAnalysis.ts`         | pure   | ACPL, accuracy, engine-match %, streaks → findings           |
-| `lib/anticheat/timeAnalysis.ts`           | pure   | Cadence, impossible speed, think-then-instant, clock checks  |
-| `routes/admin.anticheat.tsx`              | client | Admin review dashboard                                       |
+| Module                                 | Runs   | Responsibility                                              |
+| -------------------------------------- | ------ | ----------------------------------------------------------- |
+| `lib/anticheat/types.ts`               | both   | Event vocabulary, severities, risk levels, row shapes       |
+| `lib/anticheat/config.ts`              | both   | Every threshold and weight — the single tuning surface      |
+| `lib/anticheat/risk.ts`                | both   | **The only** risk-score implementation + enforcement gate   |
+| `lib/anticheat/detector.client.ts`     | client | Browser signal collection + batched reporting               |
+| `lib/anticheat/fingerprint.client.ts`  | client | Coarse device fingerprint (no canvas/audio probing)         |
+| `lib/anticheat/useAntiCheatMonitor.ts` | client | Game-page integration (players only, never spectators)      |
+| `lib/anticheat/anticheat.functions.ts` | server | Wire endpoints: ingestion, fingerprints, admin mutations    |
+| `lib/anticheat/ingest.server.ts`       | server | Evidence writes, risk updates, flags, multi-account, alerts |
+| `lib/anticheat/analysis.server.ts`     | server | Post-game engine/timing/connection analysis pipeline        |
+| `lib/anticheat/engineAnalysis.ts`      | pure   | ACPL, accuracy, engine-match %, streaks → findings          |
+| `lib/anticheat/timeAnalysis.ts`        | pure   | Cadence, impossible speed, think-then-instant, clock checks |
+| `routes/admin.anticheat.tsx`           | client | Admin review dashboard                                      |
 
 ## What is detected
 
@@ -58,7 +58,7 @@ reconnect abuse.
 
 ## Risk scoring
 
-Each event/flag adds to a per-category *raw accumulator*. Categories saturate
+Each event/flag adds to a per-category _raw accumulator_. Categories saturate
 toward a cap and decay exponentially (`half-life` per category), so the score is
 recent-behavior weighted and self-healing:
 
@@ -85,11 +85,11 @@ generate.
 
 ## Enforcement policy (server-enforced)
 
-| Action                  | Requirement                                                             |
-| ----------------------- | ----------------------------------------------------------------------- |
-| Warning / restriction   | ≥ 1 active flag, **or** risk score ≥ 41                                 |
-| Suspension / ban        | ≥ 2 active flags across ≥ 2 distinct indicator types, **or** 1 confirmed flag with score > 60 |
-| Unban / risk reset      | Always permitted                                                        |
+| Action                | Requirement                                                                                   |
+| --------------------- | --------------------------------------------------------------------------------------------- |
+| Warning / restriction | ≥ 1 active flag, **or** risk score ≥ 41                                                       |
+| Suspension / ban      | ≥ 2 active flags across ≥ 2 distinct indicator types, **or** 1 confirmed flag with score > 60 |
+| Unban / risk reset    | Always permitted                                                                              |
 
 Dismissing a flag as a false positive **subtracts** its contribution back out of
 the score through the same scoring path that added it.

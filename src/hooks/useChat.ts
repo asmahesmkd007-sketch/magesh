@@ -290,6 +290,21 @@ export function useChatActions() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to report"),
   });
 
+function formatChatError(e: unknown, fallback: string): string {
+  const msg = e instanceof Error ? e.message : String(e ?? fallback);
+  if (
+    msg.includes("chat_channels_slug_key") ||
+    msg.includes("duplicate key") ||
+    msg.includes("unique constraint")
+  ) {
+    return "This Room ID is already taken. Please choose a different Room ID.";
+  }
+  if (msg.includes("chat_channels_name_key")) {
+    return "A room with this name already exists. Please choose a different name.";
+  }
+  return msg;
+}
+
   const createRoom = useMutation({
     mutationFn: (args: {
       name: string;
@@ -315,7 +330,7 @@ export function useChatActions() {
       queryClient.invalidateQueries({ queryKey: ["chat_discover_private_rooms"] });
       toast.success("Room created");
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to create room"),
+    onError: (e) => toast.error(formatChatError(e, "Failed to create room")),
   });
 
   const joinPrivateRoom = useMutation({

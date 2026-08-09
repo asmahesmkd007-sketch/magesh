@@ -257,7 +257,11 @@ function TrRow({ r, open, onToggle }: { r: AdminTrRow; open: boolean; onToggle: 
             <Play className="h-3 w-3" /> R{r.current_round}/{r.total_rounds}
           </span>
         )}
-        {r.winner_display && <span className="text-xs text-gold">🏆 {r.winner_display}</span>}
+        {r.winner_display && (
+          <span className="inline-flex items-center gap-1 text-xs text-gold">
+            <Trophy className="h-3 w-3" /> {r.winner_display}
+          </span>
+        )}
       </button>
 
       {open && <TrDetail r={r} />}

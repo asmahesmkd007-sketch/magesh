@@ -3,10 +3,10 @@
 ChessOx has **two separate credential flows** that never share a token,
 a table, or a code path:
 
-| Flow                | Entry            | Token source                       | Ends at        |
-| ------------------- | ---------------- | ---------------------------------- | -------------- |
-| **Registration**    | `/auth` (signup) | `pending_registrations` (ours)     | Account active |
-| **Forgot password** | `/forgot-password` | Supabase Auth recovery (theirs)  | Password reset |
+| Flow                | Entry              | Token source                    | Ends at        |
+| ------------------- | ------------------ | ------------------------------- | -------------- |
+| **Registration**    | `/auth` (signup)   | `pending_registrations` (ours)  | Account active |
+| **Forgot password** | `/forgot-password` | Supabase Auth recovery (theirs) | Password reset |
 
 Keeping them apart is deliberate: a registration link can never reset an
 existing account's password, and a recovery link can never create one.
@@ -60,10 +60,10 @@ step and never touch `pending_registrations`.
 Two distinct tokens, both 32 random bytes (`crypto.randomBytes`)
 base64url-encoded, and **stored only as SHA-256 digests**:
 
-| Token          | TTL    | Purpose                              | Consumed by             |
-| -------------- | ------ | ------------------------------------ | ----------------------- |
-| Verification   | 24 h   | Proves control of the inbox          | `verifyEmailToken`      |
-| Setup grant    | 30 min | Authorises the create-password step  | `completeRegistration`  |
+| Token        | TTL    | Purpose                             | Consumed by            |
+| ------------ | ------ | ----------------------------------- | ---------------------- |
+| Verification | 24 h   | Proves control of the inbox         | `verifyEmailToken`     |
+| Setup grant  | 30 min | Authorises the create-password step | `completeRegistration` |
 
 Properties, all enforced server-side:
 
@@ -108,15 +108,15 @@ link — because the grant is validated and consumed server-side regardless.
 
 ## Abuse controls
 
-| Control                       | Limit                                   |
-| ----------------------------- | --------------------------------------- |
-| Register per IP               | 10 / hour                               |
-| Register per email            | 5 / hour                                |
-| Resend per IP / per email     | 10 / hour, 5 / hour                     |
-| Resend cooldown               | 60 s between emails                     |
-| Hard cap per registration     | 5 verification emails, then support     |
-| Verify attempts per IP        | 30 / 10 min                             |
-| Complete attempts per IP      | 20 / 10 min                             |
+| Control                   | Limit                               |
+| ------------------------- | ----------------------------------- |
+| Register per IP           | 10 / hour                           |
+| Register per email        | 5 / hour                            |
+| Resend per IP / per email | 10 / hour, 5 / hour                 |
+| Resend cooldown           | 60 s between emails                 |
+| Hard cap per registration | 5 verification emails, then support |
+| Verify attempts per IP    | 30 / 10 min                         |
+| Complete attempts per IP  | 20 / 10 min                         |
 
 `resendVerification` returns an **identical response** whether or not the
 address has a pending registration, so it cannot be used to discover
@@ -133,17 +133,17 @@ Abandoned rows are removed by `purge_expired_registrations(grace_hours)`
 
 Every case in the spec maps to a specific screen or message:
 
-| Case                     | Where                       | Behaviour                                    |
-| ------------------------ | --------------------------- | -------------------------------------------- |
-| Invalid link             | `/verify-email/$token`      | "This link isn't valid" + resend form         |
-| Expired link             | same                        | "This link has expired" + resend form         |
-| Already verified         | same                        | "Already verified" + sign-in button           |
-| Email delivery failure   | `/auth`, resend             | Explicit failure, safe to retry               |
-| Password mismatch        | `/create-password`          | Inline under the confirm field                |
-| Weak password            | `/create-password`          | Live checklist + blocked submit               |
-| Setup grant expired      | `/create-password`          | Asks for a fresh verification email           |
-| No grant in this tab     | `/create-password`          | Explains to open the link in this browser     |
-| Server error             | all                         | Message surfaced, never a blank screen        |
+| Case                   | Where                  | Behaviour                                 |
+| ---------------------- | ---------------------- | ----------------------------------------- |
+| Invalid link           | `/verify-email/$token` | "This link isn't valid" + resend form     |
+| Expired link           | same                   | "This link has expired" + resend form     |
+| Already verified       | same                   | "Already verified" + sign-in button       |
+| Email delivery failure | `/auth`, resend        | Explicit failure, safe to retry           |
+| Password mismatch      | `/create-password`     | Inline under the confirm field            |
+| Weak password          | `/create-password`     | Live checklist + blocked submit           |
+| Setup grant expired    | `/create-password`     | Asks for a fresh verification email       |
+| No grant in this tab   | `/create-password`     | Explains to open the link in this browser |
+| Server error           | all                    | Message surfaced, never a blank screen    |
 
 ---
 
@@ -188,16 +188,16 @@ checklist is feedback only and is never trusted.
 anon and authenticated are denied outright. Only the service-role server
 (which bypasses RLS) touches it; it is never queried from the browser.
 
-| Column                              | Purpose                                  |
-| ----------------------------------- | ---------------------------------------- |
-| `id`, `email`, `username`           | Identity of the in-flight registration   |
-| `status`                            | pending_verification / email_verified / completed |
-| `email_verified`, `verified_at`     | Verification state and date              |
-| `token_hash`, `token_expires_at`    | Verification link                        |
-| `token_consumed_at`                 | Enforces single use; retained so repeat clicks resolve |
-| `setup_token_hash`, `setup_expires_at` | Create-password grant                 |
-| `send_count`, `last_sent_at`        | Resend cap and cooldown                  |
-| `created_at`                        | Registration date                        |
+| Column                                 | Purpose                                                |
+| -------------------------------------- | ------------------------------------------------------ |
+| `id`, `email`, `username`              | Identity of the in-flight registration                 |
+| `status`                               | pending_verification / email_verified / completed      |
+| `email_verified`, `verified_at`        | Verification state and date                            |
+| `token_hash`, `token_expires_at`       | Verification link                                      |
+| `token_consumed_at`                    | Enforces single use; retained so repeat clicks resolve |
+| `setup_token_hash`, `setup_expires_at` | Create-password grant                                  |
+| `send_count`, `last_sent_at`           | Resend cap and cooldown                                |
+| `created_at`                           | Registration date                                      |
 
 Helper RPCs (service-role only): `is_email_registered`,
 `is_username_taken` (checks profiles **and** in-flight registrations),
@@ -235,7 +235,7 @@ project and an email provider. Verify manually against staging:
 2. Open the link → success page; the row shows `email_verified = true`
    and `token_consumed_at` set.
 3. **Refresh that page** → it stays on the success step (the tab still
-   holds the grant), *not* an error.
+   holds the grant), _not_ an error.
 4. Open the same link in a **new tab** → "Already verified", offering
    sign-in plus a resend (single use holds — no second grant is issued).
 5. Set a password → `auth.users` row appears, pending row flips to

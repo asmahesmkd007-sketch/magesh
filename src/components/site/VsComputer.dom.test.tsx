@@ -121,7 +121,9 @@ describe("VsComputer Board Sizing Lock", () => {
       await act(async () => {
         e2Square.click();
       });
-      const e4Square = Array.from(squares).find((s) => s.getAttribute("aria-label")?.includes("e4"));
+      const e4Square = Array.from(squares).find((s) =>
+        s.getAttribute("aria-label")?.includes("e4"),
+      );
       if (e4Square) {
         await act(async () => {
           e4Square.click();

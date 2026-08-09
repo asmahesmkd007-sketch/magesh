@@ -51,11 +51,14 @@ describe("IFSC Validation & Lookup", () => {
         IFSC: "SBIN0011937",
       };
 
-      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => mockResponse,
-      }));
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => mockResponse,
+        }),
+      );
 
       const res = await lookupIfsc("SBIN0011937");
       expect(res.success).toBe(true);
@@ -75,10 +78,13 @@ describe("IFSC Validation & Lookup", () => {
     });
 
     it("handles 404 response as Invalid IFSC Code", async () => {
-      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-        ok: false,
-        status: 404,
-      }));
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 404,
+        }),
+      );
 
       const res = await lookupIfsc("ABCD0000000");
       expect(res.success).toBe(false);

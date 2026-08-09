@@ -325,7 +325,11 @@ function OnboardingPage() {
       let { error: authErr } = await supabase.auth.updateUser(updatePayload);
 
       // Retry once after session refresh if a session error occurred
-      if (authErr && (authErr.message.toLowerCase().includes("session") || authErr.message.toLowerCase().includes("jwt"))) {
+      if (
+        authErr &&
+        (authErr.message.toLowerCase().includes("session") ||
+          authErr.message.toLowerCase().includes("jwt"))
+      ) {
         const { data: refreshed } = await supabase.auth.refreshSession();
         if (refreshed?.session) {
           const retry = await supabase.auth.updateUser(updatePayload);
@@ -370,7 +374,13 @@ function OnboardingPage() {
         </div>
 
         <Card className="border-gold/20 bg-black/50 p-6 backdrop-blur-md sm:p-8">
-          <form onSubmit={handleSubmit} className="space-y-5" noValidate autoComplete="off" data-lpignore="true">
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-5"
+            noValidate
+            autoComplete="off"
+            data-lpignore="true"
+          >
             {/* Full Name */}
             <div className="space-y-1.5">
               <label
@@ -465,7 +475,9 @@ function OnboardingPage() {
                   options={stateOptions}
                   value={stateName || null}
                   onChange={(option) => setStateName(option?.value ?? "")}
-                  placeholder={country ? `Search ${stateLabel.toLowerCase()}…` : "Select a country first"}
+                  placeholder={
+                    country ? `Search ${stateLabel.toLowerCase()}…` : "Select a country first"
+                  }
                   emptyMessage="No match in this country"
                   required
                   disabled={busy || !country}

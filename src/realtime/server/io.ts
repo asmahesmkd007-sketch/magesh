@@ -419,7 +419,10 @@ function registerHandlers(socket: AppSocket): void {
 
       const alreadyAccepted = acceptedRematches.get(gameId);
       if (alreadyAccepted && alreadyAccepted.expiresAt > Date.now()) {
-        return ack?.({ ok: true, data: { status: "accepted", newGameId: alreadyAccepted.newGameId } });
+        return ack?.({
+          ok: true,
+          data: { status: "accepted", newGameId: alreadyAccepted.newGameId },
+        });
       }
 
       const existingOffer = rematchOffers.get(gameId);

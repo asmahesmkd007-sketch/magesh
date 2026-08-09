@@ -49,7 +49,7 @@ export async function fetchIfscDirectly(code: string): Promise<IfscVerifyResult>
   try {
     const res = await fetch(requestUrl, {
       headers: {
-        "Accept": "application/json",
+        Accept: "application/json",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
       },
     });
@@ -65,7 +65,9 @@ export async function fetchIfscDirectly(code: string): Promise<IfscVerifyResult>
         parsingResult: "Not Found (404)",
         finalUiState: "Invalid IFSC Code",
       };
-      console.log(`[IFSC Server Log] URL: ${requestUrl} | Status: ${status} | Result: Invalid IFSC Code`);
+      console.log(
+        `[IFSC Server Log] URL: ${requestUrl} | Status: ${status} | Result: Invalid IFSC Code`,
+      );
       return {
         success: false as const,
         error: "Invalid IFSC Code",
@@ -83,7 +85,9 @@ export async function fetchIfscDirectly(code: string): Promise<IfscVerifyResult>
         parsingResult: `HTTP Error ${status}`,
         finalUiState: "Verification service temporarily unavailable.",
       };
-      console.log(`[IFSC Server Log] URL: ${requestUrl} | Status: ${status} | Result: Service Unavailable`);
+      console.log(
+        `[IFSC Server Log] URL: ${requestUrl} | Status: ${status} | Result: Service Unavailable`,
+      );
       return {
         success: false as const,
         error: "Verification service temporarily unavailable.",
@@ -113,7 +117,9 @@ export async function fetchIfscDirectly(code: string): Promise<IfscVerifyResult>
       finalUiState: "Verified",
     };
 
-    console.log(`[IFSC Server Log] URL: ${requestUrl} | Status: ${status} | Result: Success (${details.BANK}, ${details.BRANCH})`);
+    console.log(
+      `[IFSC Server Log] URL: ${requestUrl} | Status: ${status} | Result: Success (${details.BANK}, ${details.BRANCH})`,
+    );
 
     return {
       success: true as const,

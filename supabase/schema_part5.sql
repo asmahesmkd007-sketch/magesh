@@ -1486,6 +1486,26 @@ BEGIN
             'replies_count', c.replies_count,
             'created_at', c.created_at,
             'author', json_build_object(
+CREATE OR REPLACE FUNCTION public.community_get_comments(p_post_id UUID)
+RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+    v_result json;
+BEGIN
+    SELECT COALESCE(json_agg(
+        json_build_object(
+            'id', c.id,
+            'post_id', c.post_id,
+            'user_id', c.user_id,
+            'parent_id', c.parent_id,
+            'content', c.content,
+            'fen', c.fen,
+            'pgn', c.pgn,
+            'likes_count', c.likes_count,
+            'dislikes_count', c.dislikes_count,
+            'replies_count', c.replies_count,
+            'created_at', c.created_at,
+            'author', json_build_object(
                 'id', pr.id,
                 'username', pr.username,
                 'full_name', pr.full_name,
@@ -1493,7 +1513,7 @@ BEGIN
                 'premium_tier', pr.premium_tier,
                 'community_score', pr.community_score
             ),
-            'my_reaction', NULL
+            'my_reaction', (SELECT reaction_type FROM public.community_comment_reactions ccr WHERE ccr.comment_id = c.id AND ccr.user_id = v_uid LIMIT 1)
         )
         ORDER BY c.created_at ASC
     ), '[]'::json) INTO v_result

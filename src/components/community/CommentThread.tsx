@@ -1,7 +1,7 @@
 // Nested comment thread with unlimited depth, sorting, reactions,
 // reply/edit/delete, chess content (FEN/PGN) and @mention links.
 import { Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
   Flag,
@@ -164,6 +164,62 @@ function CommentItem({
   const isOwn = user?.id === node.user_id;
   const a = node.author;
 
+  const [localReaction, setLocalReaction] = useState<"like" | "dislike" | null>(() => {
+    if (node.my_reaction) return node.my_reaction;
+    const saved = typeof window !== "undefined" ? localStorage.getItem(`comment_react_${node.id}_${user?.id}`) : null;
+    return (saved as "like" | "dislike" | null) || null;
+  });
+  const [likesCount, setLikesCount] = useState<number>(node.likes_count);
+  const [dislikesCount, setDislikesCount] = useState<number>(node.dislikes_count);
+
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem(`comment_react_${node.id}_${user?.id}`) : null;
+    setLocalReaction(node.my_reaction || (saved as any) || null);
+    setLikesCount(node.likes_count);
+    setDislikesCount(node.dislikes_count);
+  }, [node.my_reaction, node.likes_count, node.dislikes_count, node.id, user?.id]);
+
+  const handleReaction = (reaction: "like" | "dislike") => {
+    if (!user) {
+      toast.error("Sign in to react");
+      return;
+    }
+    const prevReaction = localReaction;
+    const nextReaction = prevReaction === reaction ? null : reaction;
+
+    let newLikes = likesCount;
+    let newDislikes = dislikesCount;
+
+    if (prevReaction === "like") newLikes = Math.max(0, newLikes - 1);
+    if (prevReaction === "dislike") newDislikes = Math.max(0, newDislikes - 1);
+
+    if (nextReaction === "like") newLikes += 1;
+    if (nextReaction === "dislike") newDislikes += 1;
+
+    setLocalReaction(nextReaction);
+    setLikesCount(newLikes);
+    setDislikesCount(newDislikes);
+
+    if (typeof window !== "undefined") {
+      if (nextReaction) {
+        localStorage.setItem(`comment_react_${node.id}_${user.id}`, nextReaction);
+      } else {
+        localStorage.removeItem(`comment_react_${node.id}_${user.id}`);
+      }
+    }
+
+    reactToComment.mutate(
+      { commentId: node.id, reaction },
+      {
+        onError: () => {
+          setLocalReaction(prevReaction);
+          setLikesCount(node.likes_count);
+          setDislikesCount(node.dislikes_count);
+        },
+      },
+    );
+  };
+
   const saveEdit = async () => {
     try {
       await editComment(node.id, editText.trim());
@@ -175,7 +231,7 @@ function CommentItem({
     }
   };
 
-  const iconBtn = "flex items-center gap-1 text-[11px] text-muted-foreground hover:text-gold";
+  const iconBtn = "flex items-center gap-1 text-[11px] text-muted-foreground hover:text-gold transition-colors";
 
   return (
     <div className={depth > 0 ? "ml-4 border-l border-white/10 pl-3 sm:ml-6 sm:pl-4" : ""}>
@@ -238,21 +294,27 @@ function CommentItem({
           <div className="mt-1.5 flex items-center gap-3.5">
             <button
               type="button"
-              className={`${iconBtn} ${node.my_reaction === "like" ? "!text-rose-400" : ""}`}
-              onClick={() => reactToComment.mutate({ commentId: node.id, reaction: "like" })}
+              className={`${iconBtn} ${localReaction === "like" ? "!text-rose-400 font-semibold" : ""}`}
+              onClick={() => handleReaction("like")}
             >
               <Heart
-                className={`h-3.5 w-3.5 ${node.my_reaction === "like" ? "fill-current" : ""}`}
+                className={`h-3.5 w-3.5 transition-transform active:scale-125 ${
+                  localReaction === "like" ? "fill-rose-500 text-rose-500" : ""
+                }`}
               />
-              {node.likes_count > 0 && node.likes_count}
+              {likesCount > 0 && likesCount}
             </button>
             <button
               type="button"
-              className={`${iconBtn} ${node.my_reaction === "dislike" ? "!text-sky-400" : ""}`}
-              onClick={() => reactToComment.mutate({ commentId: node.id, reaction: "dislike" })}
+              className={`${iconBtn} ${localReaction === "dislike" ? "!text-sky-400 font-semibold" : ""}`}
+              onClick={() => handleReaction("dislike")}
             >
-              <HeartOff className="h-3.5 w-3.5" />
-              {node.dislikes_count > 0 && node.dislikes_count}
+              <HeartOff
+                className={`h-3.5 w-3.5 transition-transform active:scale-125 ${
+                  localReaction === "dislike" ? "fill-sky-400 text-sky-400" : ""
+                }`}
+              />
+              {dislikesCount > 0 && dislikesCount}
             </button>
             <button type="button" className={iconBtn} onClick={() => setReplying((r) => !r)}>
               <Reply className="h-3.5 w-3.5" /> Reply

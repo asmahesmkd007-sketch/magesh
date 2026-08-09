@@ -248,13 +248,22 @@ export function PostCard({ post, detail = false }: { post: CommunityPost; detail
                 {TYPE_LABEL[post.post_type]}
               </span>
             )}
-            {!isOwn && (
-              <FriendButton
-                targetUserId={post.user_id}
-                targetName={a?.full_name ?? a?.username}
-                className="h-5 w-5"
-                compact
-              />
+            {!isOwn && actions.user && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  actions.follow.mutate(post.user_id);
+                }}
+                className={`ml-1 flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition ${
+                  post.is_following_author
+                    ? "border-white/15 bg-white/5 text-muted-foreground hover:border-rose-400/40 hover:text-rose-400"
+                    : "border-gold/40 text-gold hover:bg-gold/15"
+                }`}
+              >
+                <UserPlus className="h-3 w-3" />
+                {post.is_following_author ? "Following" : "Follow"}
+              </button>
             )}
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-[11px] text-muted-foreground">
@@ -268,18 +277,6 @@ export function PostCard({ post, detail = false }: { post: CommunityPost; detail
               <span className="flex items-center gap-1">
                 <MapPin className="h-3 w-3" /> {a.country}
               </span>
-            )}
-            {!isOwn && !post.is_following_author && actions.user && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  actions.follow.mutate(post.user_id);
-                }}
-                className="flex items-center gap-1 text-gold hover:underline"
-              >
-                <UserPlus className="h-3 w-3" /> Follow
-              </button>
             )}
           </div>
 

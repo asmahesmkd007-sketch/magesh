@@ -56,17 +56,17 @@ const TIME_CONTROLS: {
   sec: number;
   inc: number;
 }[] = [
-    { label: "1+0 Bullet", tc: "1+0", class: "bullet", sec: 60, inc: 0 },
-    { label: "2+1 Bullet", tc: "2+1", class: "bullet", sec: 120, inc: 1 },
-    { label: "3+0 Blitz", tc: "3+0", class: "blitz", sec: 180, inc: 0 },
-    { label: "3+2 Blitz", tc: "3+2", class: "blitz", sec: 180, inc: 2 },
-    { label: "5+0 Blitz", tc: "5+0", class: "blitz", sec: 300, inc: 0 },
-    { label: "5+3 Blitz", tc: "5+3", class: "blitz", sec: 300, inc: 3 },
-    { label: "10+0 Rapid", tc: "10+0", class: "rapid", sec: 600, inc: 0 },
-    { label: "10+5 Rapid", tc: "10+5", class: "rapid", sec: 600, inc: 5 },
-    { label: "15+10 Rapid", tc: "15+10", class: "rapid", sec: 900, inc: 10 },
-    { label: "30+0 Classical", tc: "30+0", class: "classical", sec: 1800, inc: 0 },
-  ];
+  { label: "1+0 Bullet", tc: "1+0", class: "bullet", sec: 60, inc: 0 },
+  { label: "2+1 Bullet", tc: "2+1", class: "bullet", sec: 120, inc: 1 },
+  { label: "3+0 Blitz", tc: "3+0", class: "blitz", sec: 180, inc: 0 },
+  { label: "3+2 Blitz", tc: "3+2", class: "blitz", sec: 180, inc: 2 },
+  { label: "5+0 Blitz", tc: "5+0", class: "blitz", sec: 300, inc: 0 },
+  { label: "5+3 Blitz", tc: "5+3", class: "blitz", sec: 300, inc: 3 },
+  { label: "10+0 Rapid", tc: "10+0", class: "rapid", sec: 600, inc: 0 },
+  { label: "10+5 Rapid", tc: "10+5", class: "rapid", sec: 600, inc: 5 },
+  { label: "15+10 Rapid", tc: "15+10", class: "rapid", sec: 900, inc: 10 },
+  { label: "30+0 Classical", tc: "30+0", class: "classical", sec: 1800, inc: 0 },
+];
 
 function PlayFriend() {
   const { user, loading } = useAuth();
@@ -263,10 +263,11 @@ function PlayFriend() {
                       <button
                         key={t.tc + t.label}
                         onClick={() => setPick(i)}
-                        className={`rounded-lg border px-2 py-1.5 text-xs transition ${i === pick
+                        className={`rounded-lg border px-2 py-1.5 text-xs transition ${
+                          i === pick
                             ? "border-gold bg-gold/10 text-gold"
                             : "border-white/10 hover:border-gold/40"
-                          }`}
+                        }`}
                       >
                         {t.tc}
                       </button>
@@ -283,10 +284,11 @@ function PlayFriend() {
               <button
                 key={c}
                 onClick={() => setColor(c)}
-                className={`rounded-xl border px-4 py-2 text-sm capitalize transition ${color === c
+                className={`rounded-xl border px-4 py-2 text-sm capitalize transition ${
+                  color === c
                     ? "border-gold bg-gold/10 text-gold"
                     : "border-white/10 hover:border-gold/40"
-                  }`}
+                }`}
               >
                 {c === "w" ? "White" : c === "b" ? "Black" : "Random"}
               </button>
@@ -360,12 +362,13 @@ function PlayFriend() {
                           size="md"
                         />
                         <div
-                          className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#121418] ${friend.other_activity === "online"
+                          className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#121418] ${
+                            friend.other_activity === "online"
                               ? "bg-emerald-500"
                               : friend.other_activity === "playing"
                                 ? "bg-amber-500"
                                 : "bg-zinc-500"
-                            }`}
+                          }`}
                         />
                       </div>
                       <div className="flex flex-col text-left">

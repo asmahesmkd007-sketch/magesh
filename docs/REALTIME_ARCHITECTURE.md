@@ -114,10 +114,10 @@ src/lib/auth/
 
 ### Modified files
 
-| File | Change |
-|---|---|
-| `vite.config.ts` | preset `node-server` → `node-middleware` |
-| `package.json` | `start` → `node server/index.mjs`; `build` adds realtime bundle; `+socket.io`, `+socket.io-client` |
+| File                                 | Change                                                                                             |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `vite.config.ts`                     | preset `node-server` → `node-middleware`                                                           |
+| `package.json`                       | `start` → `node server/index.mjs`; `build` adds realtime bundle; `+socket.io`, `+socket.io-client` |
 | `src/lib/auth/requireUser.server.ts` | verification logic extracted so the realtime bundle can share it without pulling in TanStack Start |
 
 ---
@@ -167,11 +167,11 @@ is finished.
 
 ## Persistence
 
-| When | What |
-|---|---|
-| First join | `hydrate()` — games + game_moves + game_chat → `LiveGame` |
-| Every 30s, if dirty | `checkpoint()` — fen/turn/clock/moves_count **only** |
-| Game over | `finalize()` — move rows, chat, PGN, result, clocks, then `apply_elo_change` |
+| When                | What                                                                         |
+| ------------------- | ---------------------------------------------------------------------------- |
+| First join          | `hydrate()` — games + game_moves + game_chat → `LiveGame`                    |
+| Every 30s, if dirty | `checkpoint()` — fen/turn/clock/moves_count **only**                         |
+| Game over           | `finalize()` — move rows, chat, PGN, result, clocks, then `apply_elo_change` |
 
 `finalize()` is idempotent: `game_moves` carries `UNIQUE (game_id, ply)` and a
 `persisted` guard prevents re-entry, so a retry can never double-apply a rating
@@ -201,24 +201,24 @@ is not per-move and it is not the game record.
    curl -sI localhost:3000/assets/<hashed>.js -H 'Accept-Encoding: br'
    #   -> content-encoding: br, cache-control: ... immutable
    ```
-5. Swap the board routes onto `useLiveGame` (see *Remaining work*).
+5. Swap the board routes onto `useLiveGame` (see _Remaining work_).
 6. Once routes are swapped, delete the `postgres_changes` subscriptions in those
    routes. Supabase Realtime stays enabled for non-gameplay features
    (notifications, presence, chat rooms, tournament feeds).
 
 ## Deployment changes
 
-| Item | Before | After |
-|---|---|---|
-| Start command | `node .output/server/index.mjs` | `node server/index.mjs` |
-| Deployed paths | `.output/` | `.output/` **and** `server/` |
-| Ports | 1 | 1 (unchanged) |
-| Processes | 1 | 1 (unchanged) |
+| Item           | Before                          | After                        |
+| -------------- | ------------------------------- | ---------------------------- |
+| Start command  | `node .output/server/index.mjs` | `node server/index.mjs`      |
+| Deployed paths | `.output/`                      | `.output/` **and** `server/` |
+| Ports          | 1                               | 1 (unchanged)                |
+| Processes      | 1                               | 1 (unchanged)                |
 
 Requirements introduced:
 
 - **WebSocket passthrough** on whatever fronts the app (nginx: `proxy_set_header
-  Upgrade $http_upgrade; proxy_set_header Connection "upgrade";`). The polling
+Upgrade $http_upgrade; proxy_set_header Connection "upgrade";`). The polling
   fallback works without it, but the upgrade is what makes it fast.
 - **Sticky sessions if you run more than one instance** — see below.
 - `SIGTERM` is handled: the server drains, persists finished games and

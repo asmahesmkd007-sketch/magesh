@@ -50,9 +50,7 @@ while (i < originalLines.length) {
 
     if (commentBlock.length > 1) {
       // Analyze multi-line comment block
-      const fullText = commentBlock
-        .map((l) => l.trim().replace(/^--\s*/, ""))
-        .join(" ");
+      const fullText = commentBlock.map((l) => l.trim().replace(/^--\s*/, "")).join(" ");
 
       const lower = fullText.toLowerCase();
 

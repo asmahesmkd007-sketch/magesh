@@ -121,7 +121,9 @@ function BankDetailsPage() {
 
     if (!isValidIfscFormat(code)) {
       setIfscDetails(null);
-      setIfscError("Invalid IFSC Code. Format must be 4 letters, '0', and 6 alphanumeric characters.");
+      setIfscError(
+        "Invalid IFSC Code. Format must be 4 letters, '0', and 6 alphanumeric characters.",
+      );
       setIsOfflineOrError(false);
       return;
     }
@@ -297,8 +299,15 @@ function BankDetailsPage() {
                     )}
                   </div>
                   {ifscError && (
-                    <div className={`flex items-center gap-1.5 text-xs ${isOfflineOrError ? "text-amber-400" : "text-rose-400"}`}>
-                      {isOfflineOrError ? <AlertCircle className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />} {ifscError}
+                    <div
+                      className={`flex items-center gap-1.5 text-xs ${isOfflineOrError ? "text-amber-400" : "text-rose-400"}`}
+                    >
+                      {isOfflineOrError ? (
+                        <AlertCircle className="h-3.5 w-3.5" />
+                      ) : (
+                        <XCircle className="h-3.5 w-3.5" />
+                      )}{" "}
+                      {ifscError}
                     </div>
                   )}
                   {ifscDetails && !isVerifyingIfsc && (
@@ -413,7 +422,9 @@ function BankDetailsPage() {
                 {ifscDetails.ADDRESS && (
                   <div>
                     <div className="text-xs text-muted-foreground mb-0.5">Address</div>
-                    <div className="text-muted-foreground text-xs leading-relaxed">{ifscDetails.ADDRESS}</div>
+                    <div className="text-muted-foreground text-xs leading-relaxed">
+                      {ifscDetails.ADDRESS}
+                    </div>
                   </div>
                 )}
               </div>

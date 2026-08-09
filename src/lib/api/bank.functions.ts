@@ -46,7 +46,9 @@ export const saveBankDetailsServerFn = createServerFn({ method: "POST" })
       return { success: true };
     }
 
-    console.warn(`[Bank Details Server] RPC failed (${rpcError.message}), performing admin upsert...`);
+    console.warn(
+      `[Bank Details Server] RPC failed (${rpcError.message}), performing admin upsert...`,
+    );
 
     // Fallback to admin client upsert into bank_details (bypassing RLS and pgcrypto requirement)
     const { error: upsertError } = await supabaseAdmin.from("bank_details").upsert(
@@ -63,12 +65,12 @@ export const saveBankDetailsServerFn = createServerFn({ method: "POST" })
         verification_status: "verified",
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "user_id" }
+      { onConflict: "user_id" },
     );
 
     if (upsertError) {
       console.error("[Bank Details Server] Admin upsert error into bank_details:", upsertError);
-      
+
       // Secondary fallback to bank_accounts table if present
       const { error: bAccError } = await supabaseAdmin.from("bank_accounts").upsert(
         {
@@ -84,7 +86,7 @@ export const saveBankDetailsServerFn = createServerFn({ method: "POST" })
           verification_status: "verified",
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "user_id" }
+        { onConflict: "user_id" },
       );
 
       if (bAccError) {

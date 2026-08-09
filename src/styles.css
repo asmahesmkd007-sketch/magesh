@@ -523,13 +523,21 @@
       box-shadow:
         inset 0 0 0 3px rgba(225, 40, 30, 0.9),
         inset 0 0 22px 6px rgba(225, 40, 30, 0.55);
-      background: radial-gradient(circle at center, rgba(225, 40, 30, 0.55), rgba(225, 40, 30, 0.12) 70%);
+      background: radial-gradient(
+        circle at center,
+        rgba(225, 40, 30, 0.55),
+        rgba(225, 40, 30, 0.12) 70%
+      );
     }
     50% {
       box-shadow:
         inset 0 0 0 3px rgba(255, 90, 70, 0.55),
         inset 0 0 10px 2px rgba(225, 40, 30, 0.25);
-      background: radial-gradient(circle at center, rgba(225, 40, 30, 0.28), rgba(225, 40, 30, 0.05) 70%);
+      background: radial-gradient(
+        circle at center,
+        rgba(225, 40, 30, 0.28),
+        rgba(225, 40, 30, 0.05) 70%
+      );
     }
   }
 

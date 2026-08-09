@@ -30,6 +30,7 @@ or API/hook wrapper was traced back to its underlying table/RPC.
 ## Full Database Inventory (schema.sql + migrations, combined)
 
 ### Tables (34 defined; first `CREATE TABLE` line cited)
+
 `bank_accounts` (schema.sql:2736), `club_members` (:391), `clubs` (:356),
 `community_achievements` (added by `20260711000001_...sql`),
 `community_comments` (~:2841), `community_posts` (:2826),
@@ -47,12 +48,14 @@ Plus (from the pre-existing, not-yet-approved seasons migration file):
 of this audit's confirmed-good set** since that file isn't approved.
 
 ### Views
+
 `leaderboard_view` — defined twice (schema.sql:3302 original, then
 re-created identically-in-spirit but with corrected columns by
 `20260711000001_fix_leaderboard_view_missing_columns.sql`). The migration
 version wins (runs last); previously verified defect-free.
 
 ### Functions (53 defined)
+
 `admin_credit_wallet`, `admin_debit_wallet`, `apply_elo_change`,
 `apply_iq_change` (duplicated, see Issue #2), `claim_timeout`,
 `create_challenge`, `create_public_room`, `credit_premium_bonus`,
@@ -73,13 +76,15 @@ resolved by hotfix migration — OK), `handle_community_comment`,
 `update_match_streak_for_user`.
 
 ### RLS coverage
+
 Every table with `ENABLE ROW LEVEL SECURITY` has at least one
 `CREATE POLICY` targeting it — **no bare-RLS-no-policy tables found**.
-Did not evaluate whether each policy's predicate is the *correct* scoping
+Did not evaluate whether each policy's predicate is the _correct_ scoping
 for every query pattern beyond the priority pages (see Issues #7-#9 for
 exceptions found).
 
 ### Foreign keys
+
 24 `REFERENCES public.<table>(<col>)` declarations found; **all 24
 specify an explicit `ON DELETE` behavior** (`CASCADE` or `SET NULL`) —
 no missing-behavior (implicit `RESTRICT`) FKs found. All FK columns
@@ -91,46 +96,46 @@ no type mismatches found in the declarations inspected.
 Legend: OK = every `.from`/`.rpc` call resolves against the inventory
 above. BROKEN = calls a table/RPC not defined anywhere in scope.
 
-| Route file | Tables/RPCs touched | Status |
-|---|---|---|
-| home.tsx, dashboard.tsx | profiles, ratings, games, notifications (via hooks) | OK |
-| auth.tsx, login.tsx, signup.tsx | Supabase Auth + profiles (handle_new_user trigger) | OK |
-| profile.tsx | profiles, ratings, games, rating_history, tournament_entries | OK |
-| u.$username.tsx | profiles (public) | OK |
-| settings.tsx | `user_settings` (src/lib/settings/settings-sync.ts) | **BROKEN** — table not in schema.sql/migrations (Issue #6) |
-| leaderboards.tsx, admin.leaderboard.tsx | `get_dynamic_leaderboard` RPC, `leaderboard_view` | OK |
-| community.index.tsx, community.explore.tsx, community.post.$id.tsx, community.bookmarks.tsx | community_posts, community_comments, community_reactions, community_saved_posts (OK) **plus** `community_blocks`, `community_bookmarks`, `community_follows`, `community_hidden_posts`, `community_mutes`, `community_reports` via `communityClient.ts`/`useCommunity.ts` | **PARTIALLY BROKEN** (Issue #5) |
-| game.$id.tsx, game.$id.review.tsx | games, game_moves, game_chat, profiles, rating_history | OK |
-| tournament.$id.tsx | tournaments, tournament_entries, **`tournament_matches`** (route line 233) | **BROKEN** (Issue #3) |
-| tournaments.tsx, admin.tournaments.tsx | tournaments, tournament_entries | OK |
-| notifications.tsx | notifications | OK |
-| friends.tsx, play.friend.tsx | friends, profiles | OK |
-| premium.tsx, admin.premium.tsx | subscriptions (via hooks) | OK |
-| search.tsx | profiles, clubs, tournaments, news_articles | OK |
-| clubs.tsx, club.$slug.tsx | clubs, club_members | OK |
-| news.index.tsx, news.$slug.tsx | news_articles | OK |
-| room.index.tsx, room.$roomId.tsx | public_rooms, room_queue | OK |
-| puzzles.index.tsx, puzzles.rush.tsx | puzzles, puzzle_attempts | OK |
-| play.index.tsx, play.history.tsx, play.local.tsx | games, matchmaking_pool | OK |
-| analysis.tsx | game_analysis | OK |
-| wallet.tsx, wallet.bank.tsx | `withdrawal_requests`, `bank_details` (useWithdrawal.ts, useBankDetails.ts) — wallets/wallet_transactions OK, but withdrawal/bank tables **not in scope** | **BROKEN** (Issue #7) |
-| admin.withdrawals.tsx | RPCs `admin_get_withdrawal_requests`, `admin_approve_withdrawal`, `admin_reject_withdrawal` | **BROKEN** (Issue #7) |
-| admin.wallet.tsx | wallet_transactions (read-only view; does **not** call `admin_credit_wallet`/`admin_debit_wallet` despite those existing — see Issue #10) | OK (but under-wired) |
-| about.tsx, about-chess.tsx, admin.about-chess.tsx | `about_articles` (aboutClient.ts) | **BROKEN** (Issue #8) |
-| policies.tsx, community-guidelines.tsx, community-policy.tsx, fair-play-policy.tsx, grievance-policy.tsx, privacy-policy.tsx, refund-policy.tsx, terms-and-conditions.tsx, withdrawal-policy.tsx, admin.policies.tsx | `policies`, `policy_versions` (policyClient.ts) | **BROKEN** (Issue #8) |
-| feedback.tsx, admin.feedback.tsx | `feedbacks` (feedbackClient.ts) | **BROKEN** (Issue #8) |
-| report.tsx, admin.reports.tsx, admin.community.tsx | `reports` table, RPC `admin_resolve_platform_report` | **BROKEN** (Issue #9) |
-| chat.tsx, chat.index.tsx, chat.discover.tsx, chat.global.tsx, chat.room.$slug.tsx, chat.dm.$username.tsx, admin.chat.tsx | ~16 `chat_*` RPCs + `chat_reports` table (chatClient.ts) | **BROKEN, entire subsystem** (Issue #11) |
-| admin.users.tsx | profiles, user_roles | OK |
-| admin.settings.tsx | not individually re-verified this pass (low risk, admin-only) | Not re-checked |
-| admin.logs.tsx | `admin_audit_logs` (adminClient.ts) | **BROKEN** (Issue #10) |
-| admin.analytics.tsx | aggregates over profiles/games/wallets | OK |
-| admin.puzzles.tsx | puzzles, puzzle_attempts | OK |
-| admin.index.tsx | dashboard aggregates | OK |
-| seasons.tsx | static "Coming Soon" placeholder — **no Supabase calls at all** | OK (intentionally stubbed, does not hard-error) |
-| admin.seasons.tsx + `src/lib/api/seasonsClient.ts` | 11 RPCs (`current_season`, `list_seasons`, `season_leaderboard`, `season_history_for_user`, `admin_create_season`, `admin_edit_season`, `admin_start_season`, `admin_pause_season`, `admin_resume_season`, `admin_end_season`, `admin_recalculate_season`) | **BROKEN, critical** (Issue #1) — note `seasons.tsx` itself is a safe stub; only `admin.seasons.tsx` will hard-error |
-| course.$slug.tsx, course.index.tsx, learn.tsx, openings.tsx, events.tsx | static/CMS content, no dynamic Supabase table calls found | OK |
-| __root.tsx | `seed_daily_tournaments`, `update_login_streak` RPCs | OK |
+| Route file                                                                                                                                                                                                           | Tables/RPCs touched                                                                                                                                                                                                                                                       | Status                                                                                                               |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| home.tsx, dashboard.tsx                                                                                                                                                                                              | profiles, ratings, games, notifications (via hooks)                                                                                                                                                                                                                       | OK                                                                                                                   |
+| auth.tsx, login.tsx, signup.tsx                                                                                                                                                                                      | Supabase Auth + profiles (handle_new_user trigger)                                                                                                                                                                                                                        | OK                                                                                                                   |
+| profile.tsx                                                                                                                                                                                                          | profiles, ratings, games, rating_history, tournament_entries                                                                                                                                                                                                              | OK                                                                                                                   |
+| u.$username.tsx                                                                                                                                                                                                      | profiles (public)                                                                                                                                                                                                                                                         | OK                                                                                                                   |
+| settings.tsx                                                                                                                                                                                                         | `user_settings` (src/lib/settings/settings-sync.ts)                                                                                                                                                                                                                       | **BROKEN** — table not in schema.sql/migrations (Issue #6)                                                           |
+| leaderboards.tsx, admin.leaderboard.tsx                                                                                                                                                                              | `get_dynamic_leaderboard` RPC, `leaderboard_view`                                                                                                                                                                                                                         | OK                                                                                                                   |
+| community.index.tsx, community.explore.tsx, community.post.$id.tsx, community.bookmarks.tsx                                                                                                                          | community_posts, community_comments, community_reactions, community_saved_posts (OK) **plus** `community_blocks`, `community_bookmarks`, `community_follows`, `community_hidden_posts`, `community_mutes`, `community_reports` via `communityClient.ts`/`useCommunity.ts` | **PARTIALLY BROKEN** (Issue #5)                                                                                      |
+| game.$id.tsx, game.$id.review.tsx                                                                                                                                                                                    | games, game_moves, game_chat, profiles, rating_history                                                                                                                                                                                                                    | OK                                                                                                                   |
+| tournament.$id.tsx                                                                                                                                                                                                   | tournaments, tournament_entries, **`tournament_matches`** (route line 233)                                                                                                                                                                                                | **BROKEN** (Issue #3)                                                                                                |
+| tournaments.tsx, admin.tournaments.tsx                                                                                                                                                                               | tournaments, tournament_entries                                                                                                                                                                                                                                           | OK                                                                                                                   |
+| notifications.tsx                                                                                                                                                                                                    | notifications                                                                                                                                                                                                                                                             | OK                                                                                                                   |
+| friends.tsx, play.friend.tsx                                                                                                                                                                                         | friends, profiles                                                                                                                                                                                                                                                         | OK                                                                                                                   |
+| premium.tsx, admin.premium.tsx                                                                                                                                                                                       | subscriptions (via hooks)                                                                                                                                                                                                                                                 | OK                                                                                                                   |
+| search.tsx                                                                                                                                                                                                           | profiles, clubs, tournaments, news_articles                                                                                                                                                                                                                               | OK                                                                                                                   |
+| clubs.tsx, club.$slug.tsx                                                                                                                                                                                            | clubs, club_members                                                                                                                                                                                                                                                       | OK                                                                                                                   |
+| news.index.tsx, news.$slug.tsx                                                                                                                                                                                       | news_articles                                                                                                                                                                                                                                                             | OK                                                                                                                   |
+| room.index.tsx, room.$roomId.tsx                                                                                                                                                                                     | public_rooms, room_queue                                                                                                                                                                                                                                                  | OK                                                                                                                   |
+| puzzles.index.tsx, puzzles.rush.tsx                                                                                                                                                                                  | puzzles, puzzle_attempts                                                                                                                                                                                                                                                  | OK                                                                                                                   |
+| play.index.tsx, play.history.tsx, play.local.tsx                                                                                                                                                                     | games, matchmaking_pool                                                                                                                                                                                                                                                   | OK                                                                                                                   |
+| analysis.tsx                                                                                                                                                                                                         | game_analysis                                                                                                                                                                                                                                                             | OK                                                                                                                   |
+| wallet.tsx, wallet.bank.tsx                                                                                                                                                                                          | `withdrawal_requests`, `bank_details` (useWithdrawal.ts, useBankDetails.ts) — wallets/wallet_transactions OK, but withdrawal/bank tables **not in scope**                                                                                                                 | **BROKEN** (Issue #7)                                                                                                |
+| admin.withdrawals.tsx                                                                                                                                                                                                | RPCs `admin_get_withdrawal_requests`, `admin_approve_withdrawal`, `admin_reject_withdrawal`                                                                                                                                                                               | **BROKEN** (Issue #7)                                                                                                |
+| admin.wallet.tsx                                                                                                                                                                                                     | wallet_transactions (read-only view; does **not** call `admin_credit_wallet`/`admin_debit_wallet` despite those existing — see Issue #10)                                                                                                                                 | OK (but under-wired)                                                                                                 |
+| about.tsx, about-chess.tsx, admin.about-chess.tsx                                                                                                                                                                    | `about_articles` (aboutClient.ts)                                                                                                                                                                                                                                         | **BROKEN** (Issue #8)                                                                                                |
+| policies.tsx, community-guidelines.tsx, community-policy.tsx, fair-play-policy.tsx, grievance-policy.tsx, privacy-policy.tsx, refund-policy.tsx, terms-and-conditions.tsx, withdrawal-policy.tsx, admin.policies.tsx | `policies`, `policy_versions` (policyClient.ts)                                                                                                                                                                                                                           | **BROKEN** (Issue #8)                                                                                                |
+| feedback.tsx, admin.feedback.tsx                                                                                                                                                                                     | `feedbacks` (feedbackClient.ts)                                                                                                                                                                                                                                           | **BROKEN** (Issue #8)                                                                                                |
+| report.tsx, admin.reports.tsx, admin.community.tsx                                                                                                                                                                   | `reports` table, RPC `admin_resolve_platform_report`                                                                                                                                                                                                                      | **BROKEN** (Issue #9)                                                                                                |
+| chat.tsx, chat.index.tsx, chat.discover.tsx, chat.global.tsx, chat.room.$slug.tsx, chat.dm.$username.tsx, admin.chat.tsx                                                                                             | ~16 `chat_*` RPCs + `chat_reports` table (chatClient.ts)                                                                                                                                                                                                                  | **BROKEN, entire subsystem** (Issue #11)                                                                             |
+| admin.users.tsx                                                                                                                                                                                                      | profiles, user_roles                                                                                                                                                                                                                                                      | OK                                                                                                                   |
+| admin.settings.tsx                                                                                                                                                                                                   | not individually re-verified this pass (low risk, admin-only)                                                                                                                                                                                                             | Not re-checked                                                                                                       |
+| admin.logs.tsx                                                                                                                                                                                                       | `admin_audit_logs` (adminClient.ts)                                                                                                                                                                                                                                       | **BROKEN** (Issue #10)                                                                                               |
+| admin.analytics.tsx                                                                                                                                                                                                  | aggregates over profiles/games/wallets                                                                                                                                                                                                                                    | OK                                                                                                                   |
+| admin.puzzles.tsx                                                                                                                                                                                                    | puzzles, puzzle_attempts                                                                                                                                                                                                                                                  | OK                                                                                                                   |
+| admin.index.tsx                                                                                                                                                                                                      | dashboard aggregates                                                                                                                                                                                                                                                      | OK                                                                                                                   |
+| seasons.tsx                                                                                                                                                                                                          | static "Coming Soon" placeholder — **no Supabase calls at all**                                                                                                                                                                                                           | OK (intentionally stubbed, does not hard-error)                                                                      |
+| admin.seasons.tsx + `src/lib/api/seasonsClient.ts`                                                                                                                                                                   | 11 RPCs (`current_season`, `list_seasons`, `season_leaderboard`, `season_history_for_user`, `admin_create_season`, `admin_edit_season`, `admin_start_season`, `admin_pause_season`, `admin_resume_season`, `admin_end_season`, `admin_recalculate_season`)                | **BROKEN, critical** (Issue #1) — note `seasons.tsx` itself is a safe stub; only `admin.seasons.tsx` will hard-error |
+| course.$slug.tsx, course.index.tsx, learn.tsx, openings.tsx, events.tsx                                                                                                                                              | static/CMS content, no dynamic Supabase table calls found                                                                                                                                                                                                                 | OK                                                                                                                   |
+| \_\_root.tsx                                                                                                                                                                                                         | `seed_daily_tournaments`, `update_login_streak` RPCs                                                                                                                                                                                                                      | OK                                                                                                                   |
 
 No hardcoded/mock arrays standing in for real data were found anywhere
 in `src/` (`TODO`, `FIXME`, `mock[A-Z]`, `dummyData`, `hardcoded` all
@@ -145,21 +150,21 @@ react-query throughout).
    with zero backing SQL anywhere in `schema.sql`/`migrations/`. Every
    admin action on that page will 404/`PGRST202`. The public `/seasons`
    route is a static stub and does **not** call any of these, so it is
-   safe as-is. *Not fixed this pass (audit-only).*
+   safe as-is. _Not fixed this pass (audit-only)._
 
 2. **[LOW]** `schema.sql` lines ~3007–3139 duplicate the entire "IQ
    rating system" block verbatim, including a second `iq_history` table
    definition and a second `apply_iq_change` function body (line 3038 vs
    3142). Idempotent (`CREATE TABLE IF NOT EXISTS` / `CREATE OR REPLACE
-   FUNCTION`), so the second (later) copy silently wins with no
+FUNCTION`), so the second (later) copy silently wins with no
    functional difference observed on inspection — purely dead,
-   confusing documentation. *Not fixed.*
+   confusing documentation. _Not fixed._
 
 3. **[CRITICAL]** `src/routes/tournament.$id.tsx` line 233 queries
    `.from("tournament_matches")` — this table does not exist anywhere in
    `schema.sql` or migrations. Bracket/match display on the tournament
    detail page will error or silently return no data. This is one of the
-   four pages the user explicitly named as priority. *Not fixed.*
+   four pages the user explicitly named as priority. _Not fixed._
 
 4. **[MEDIUM]** Duplicate function bodies with **material** differences
    (later copy always wins under sequential execution, and appears to be
@@ -170,15 +175,15 @@ react-query throughout).
      :1875, :2015).
    - `save_local_game` defined twice (:1934, :2081).
    - `ensure_upcoming_tournaments` defined twice (:2405, :2500).
-   All resolve correctly today (last-wins, and the last version is the
-   more complete one in every case checked), but three-deep duplication
-   of `save_computer_game` is a maintenance hazard. *Not fixed — no
-   evidence the currently-active (last) version is wrong.*
+     All resolve correctly today (last-wins, and the last version is the
+     more complete one in every case checked), but three-deep duplication
+     of `save_computer_game` is a maintenance hazard. _Not fixed — no
+     evidence the currently-active (last) version is wrong._
 
 5. **[MEDIUM]** Community moderation/social-graph tables referenced by
    `communityClient.ts`/`useCommunity.ts` (and `community.bookmarks.tsx`
    directly) do not exist in scope: `community_blocks`,
-   `community_bookmarks` (note: a *different*, existing table
+   `community_bookmarks` (note: a _different_, existing table
    `community_saved_posts` already covers "saved posts" — `bookmarks` may
    be a naming-drift duplicate of that feature, not a wholly separate
    one), `community_follows`, `community_hidden_posts`,
@@ -186,12 +191,12 @@ react-query throughout).
    user-named priority pages; core posting/reacting/commenting (backed by
    `community_posts`/`community_reactions`/`community_comments`/
    `community_saved_posts`) is fully wired and OK — only the
-   moderation/follow/bookmark layer is broken. *Not fixed.*
+   moderation/follow/bookmark layer is broken. _Not fixed._
 
 6. **[MEDIUM]** `src/lib/settings/settings-sync.ts` reads/writes
    `user_settings`, which does not exist in scope (project memory
    confirms: "user_settings table (migration not applied)"). Settings
-   page will fail to persist. *Not fixed.*
+   page will fail to persist. _Not fixed._
 
 7. **[HIGH]** Wallet/withdrawal flow: `useWithdrawal.ts` and
    `useBankDetails.ts` call table `withdrawal_requests`/`bank_details`
@@ -200,7 +205,7 @@ react-query throughout).
    `admin_approve_withdrawal`, `admin_reject_withdrawal` — none exist in
    scope. `wallet.tsx`/`wallet.bank.tsx`/`admin.withdrawals.tsx` will all
    hard-error on these specific actions (core wallet balance display via
-   `wallets`/`wallet_transactions` is fine). *Not fixed.*
+   `wallets`/`wallet_transactions` is fine). _Not fixed._
 
 8. **[MEDIUM]** Three CMS-style subsystems have zero backing SQL in
    scope, each referencing a standalone migration file that does not
@@ -210,11 +215,11 @@ react-query throughout).
    admin.about-chess.tsx), `policies`+`policy_versions` (policyClient.ts
    → policies.tsx and 8 static policy pages + admin.policies.tsx),
    `feedbacks` (feedbackClient.ts → feedback.tsx/admin.feedback.tsx).
-   *Not fixed.*
+   _Not fixed._
 
 9. **[MEDIUM]** `report.tsx`, `admin.reports.tsx`, `admin.community.tsx`
    query a `reports` table and call `admin_resolve_platform_report` —
-   neither exists in scope. *Not fixed.*
+   neither exists in scope. _Not fixed._
 
 10. **[LOW]** `adminClient.ts` reads `admin_audit_logs` (admin.logs.tsx)
     — not in scope. Separately, `admin_credit_wallet`/`admin_debit_wallet`
@@ -222,7 +227,7 @@ react-query throughout).
     `has_role(auth.uid(),'admin')`) but are **never called from any route**
     — `admin.wallet.tsx` only reads `wallet_transactions`; the credit/debit
     UI action, if any, is not wired to these functions. Orphan backend
-    capability, not a runtime bug. *Not fixed / informational.*
+    capability, not a runtime bug. _Not fixed / informational._
 
 11. **[CRITICAL, largest orphan surface]** The entire chat subsystem
     (`chat.tsx` and 6 sub-routes, `admin.chat.tsx`) is built entirely on
@@ -239,8 +244,8 @@ react-query throughout).
     exist in `schema.sql` or migrations, and the file the code comment
     cites as the backend (`supabase/migrations_chat.sql`) does not exist
     anywhere in the repo. Every chat page will hard-error on every
-    action. *Not fixed — largest scoped gap found, on par with or larger
-    than the Seasons issue.*
+    action. _Not fixed — largest scoped gap found, on par with or larger
+    than the Seasons issue._
 
 ## Unused Tables/Functions (defined, never referenced in `src/`)
 
@@ -370,6 +375,7 @@ in `admin.chat.tsx`, none of which existed anywhere in `schema.sql` or
 prior migrations.
 
 Created additively:
+
 - Tables: `chat_channels` (global/room/dm, with a canonical
   `dm_user_a < dm_user_b` pair + unique index to dedupe DMs),
   `chat_channel_members` (role, mute, ban, per-member `last_read_at`),
@@ -450,6 +456,7 @@ a **different, unused** pair — the actual frontend code
 exact names existed anywhere, confirming the audit's HIGH finding.
 
 Created additively:
+
 - `public.bank_details` — one row per user, same shape as
   `useBankDetails.ts`'s `BankAccount` type (`account_holder_name`,
   `account_number_last4`, `ifsc_code`, `bank_name`, `branch_name`,
@@ -584,8 +591,9 @@ hard-error bug like the withdrawal flow — but content wasn't persisting
 server-side or syncing across admins/devices.
 
 Created additively, matching each client's exact row shape:
+
 - `public.about_articles` (`title, slug, content, category, tags[],
-  author_id, is_published, sort_order`) — public can read published
+author_id, is_published, sort_order`) — public can read published
   rows, admins read/write/delete everything.
 - `public.policies` + `public.policy_versions` (verbatim content,
   version-snapshotting on every save, per `policyClient.ts`'s own

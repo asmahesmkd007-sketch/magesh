@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
   sendChallenge as sendChallengeRpc,
@@ -40,8 +42,8 @@ export function useChallenges(userId?: string | null) {
       uniqueIds.length > 0
         ? supabase.from("ratings").select("user_id,time_class,rating").in("user_id", uniqueIds)
         : Promise.resolve({
-          data: [] as { user_id: string; time_class: string; rating: number }[],
-        }),
+            data: [] as { user_id: string; time_class: string; rating: number }[],
+          }),
     ]);
     const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
     const ratingMap = new Map(
@@ -69,6 +71,9 @@ export function useChallenges(userId?: string | null) {
     load();
   }, [load]);
 
+  const navigate = useNavigate();
+  const navigatedGamesRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     if (!userId) return;
     const ch = supabase
@@ -81,7 +86,21 @@ export function useChallenges(userId?: string | null) {
           table: "game_challenges",
           filter: `from_user_id=eq.${userId}`,
         },
-        () => load(),
+        (payload) => {
+          if (payload.eventType === "UPDATE") {
+            const updated = payload.new as { status?: string; game_id?: string };
+            if (
+              updated.status === "accepted" &&
+              updated.game_id &&
+              !navigatedGamesRef.current.has(updated.game_id)
+            ) {
+              navigatedGamesRef.current.add(updated.game_id);
+              toast.success("Friend accepted your challenge! Entering game...");
+              navigate({ to: "/game/$id", params: { id: updated.game_id } });
+            }
+          }
+          load();
+        },
       )
       .on(
         "postgres_changes",
@@ -97,7 +116,7 @@ export function useChallenges(userId?: string | null) {
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [userId, load]);
+  }, [userId, load, navigate]);
 
   async function sendChallenge(opponentId: string, opts: Omit<ChallengeOptions, "hostColor">) {
     const id = await sendChallengeRpc({ ...opts, hostColor: "random", opponentId });

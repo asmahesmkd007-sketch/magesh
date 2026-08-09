@@ -15,7 +15,7 @@ lint-clean.
 ## 1. Root cause: "only Black Win appears"
 
 **Confirmed and fixed.** This was not one bug in one place; it was one
-*defect shape* repeated across the result-rendering surfaces.
+_defect shape_ repeated across the result-rendering surfaces.
 
 `games.result` is the Postgres enum `game_result`, which has **five**
 members and defaults to `'ongoing'`:
@@ -29,23 +29,23 @@ CREATE TYPE public.game_result AS ENUM ('white','black','draw','ongoing','aborte
 
 Two surfaces reduced that five-member enum to a boolean:
 
-| Location | Code |
-| --- | --- |
-| `src/components/site/GameEndModal.tsx:33` | `` `${result === "white" ? "White" : "Black"} Wins` `` |
-| `src/routes/game.$id.tsx:845` | `` `${game.result === "white" ? "White" : "Black"} Wins` `` |
+| Location                                  | Code                                                        |
+| ----------------------------------------- | ----------------------------------------------------------- |
+| `src/components/site/GameEndModal.tsx:33` | `` `${result === "white" ? "White" : "Black"} Wins` ``      |
+| `src/routes/game.$id.tsx:845`             | `` `${game.result === "white" ? "White" : "Black"} Wins` `` |
 
 Anything that is not exactly the string `"white"` fell into the else-branch
 and rendered **"Black Wins"** — including `draw`, `ongoing` and `aborted`.
 
 Three aggravating factors made it show up more often than it otherwise would:
 
-1. `GameEndModal` additionally collapsed *any* resignation into the title
+1. `GameEndModal` additionally collapsed _any_ resignation into the title
    "Resignation", discarding the winner entirely.
 2. The board's end-overlay (`endState` in `game.$id.tsx`) defaulted every
    non-decisive value to `"draw"`, so the overlay and the modal could
    disagree about the same game.
 3. The optimistic-checkmate branch derived the winner from `game.turn`,
-   which flips one render *before* the optimistic state is cleared — naming
+   which flips one render _before_ the optimistic state is cleared — naming
    the wrong winner for a frame.
 
 ### Fix
@@ -103,7 +103,7 @@ real game with a fragment.
 ## 3. Draw rules were mislabelled and partly unreachable
 
 `chess.isDraw()` is a catch-all — true for stalemate, insufficient
-material, threefold *and* the fifty-move rule. Three places ended their
+material, threefold _and_ the fifty-move rule. Three places ended their
 chain on it and labelled the outcome `"fifty-move"`:
 
 - `game.functions.ts` — mislabelled every draw that reached it.
@@ -159,7 +159,7 @@ Both `play.local.tsx` and `VsComputer.tsx` ran `setInterval(… , 1000)` with
 ### Fix
 
 New `src/lib/chess/clock.ts` — a pure, wall-clock-anchored clock holding
-*banked* time plus the timestamp the running turn began. Remaining time is
+_banked_ time plus the timestamp the running turn began. Remaining time is
 always recomputed from `Date.now()`, so it cannot drift, cannot be lost to
 throttling, and restores across a refresh for free. Supports Fischer
 increment and US simple delay. 26 tests, including:
@@ -229,8 +229,8 @@ still considered the clock live. That combination reads exactly like
 ### Fix
 
 `clockFromServer()` in `clock.ts` is now the only way a `games` row becomes
-a clock, and it documents the invariant: the stored times are *banked as of
-`last_move_at`*, so the elapsed time is applied exactly once, inside
+a clock, and it documents the invariant: the stored times are _banked as of
+`last_move_at`_, so the elapsed time is applied exactly once, inside
 `remainingMs`. The route builds one `ClockState`; each `PlayerCard` renders
 one side of it via `useChessClock`.
 
@@ -259,7 +259,7 @@ Three defects in `InteractiveBoard.tsx`, all fixed.
 **Every pointermove re-rendered the entire board.** `onGridPointerMove`
 called `setDrag({...})`, so 60–120 React renders per second of dragging —
 all 64 squares and 32 pieces — purely to move one floating glyph. Now only
-the *origin square* is state (it changes twice per drag); the pointer
+the _origin square_ is state (it changes twice per drag); the pointer
 position goes to a ref and is written straight to the floating element's
 `transform`, batched to one write per animation frame and kept on the
 compositor.
@@ -272,7 +272,7 @@ every render. Squares now receive a permanently-stable wrapper and the live
 handler is reached through a ref.
 
 **Piece identity was assigned impurely.** `useStablePieces` mutated its
-previous-state ref *inside a `useMemo`*. Under StrictMode — or any
+previous-state ref _inside a `useMemo`_. Under StrictMode — or any
 concurrent re-render — the component body runs twice, so the second pass
 read back the map the first pass had just written, concluded every piece
 had moved, and issued fresh ids. Fresh ids remount the DOM nodes, which
@@ -320,15 +320,18 @@ The tournament and global clock sweeps have the same gap and are not
 covered by this patch.
 
 ### Live game route
+
 - The live board still has no replay / prev-next controls, and its move
   list has no click-to-jump or current-move highlight. Both exist on the
   review route only.
 
 ### Server
+
 - `makeMove` now issues one extra `SELECT` (prior moves) per move. Correct
   and cheap, but worth watching under load.
 
 ### Lint
+
 55 errors / 15 warnings remain, **all outside gameplay** — mostly
 `@typescript-eslint/no-explicit-any` in `profile.tsx`, `useWithdrawal.ts`,
 `leaderboards.tsx`, `settings.tsx` and admin/clan/wallet routes, plus
@@ -337,12 +340,14 @@ covered by this patch.
 third-party generated build is meaningless.
 
 ### Unrelated fix made in passing
+
 `src/lib/auth/password.test.ts` asserted a 3–20 character username rule that
 the implementation had replaced with "exactly 11 characters containing `_` or
 `.`". Two tests were failing before this pass; the tests were stale, not the
 code, and have been updated to the implemented spec.
 
 ### Lint
+
 55 errors / 15 warnings remain, **all outside gameplay** — mostly
 `@typescript-eslint/no-explicit-any` in `profile.tsx`, `useWithdrawal.ts`,
 `leaderboards.tsx`, `settings.tsx` and admin/clan/wallet routes, plus
@@ -351,6 +356,7 @@ pass. `public/engine` (vendored Stockfish) is now ignored, since linting a
 third-party generated build is meaningless.
 
 ### Unrelated fix made in passing
+
 `src/lib/auth/password.test.ts` asserted a 3–20 character username rule that
 the implementation had replaced with "exactly 11 characters containing `_` or
 `.`". Two tests were failing before this pass; the tests were stale, not the

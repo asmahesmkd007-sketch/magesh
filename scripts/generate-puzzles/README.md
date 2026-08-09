@@ -9,7 +9,7 @@ duplicates (deduped by FEN).
 
 1. **`generate.js <out.json>`** — samples random legal minimal-material positions
    (king + 1–2 pieces vs king, black king edge-biased) and keeps only those with a
-   verified *forced* mate in 1/2/3 via a forcing-line (check-driven) search. Writes
+   verified _forced_ mate in 1/2/3 via a forcing-line (check-driven) search. Writes
    incrementally so partial runs persist. Tunable targets/time-budgets at the bottom.
 
 2. **`curated.js`** — a hand-authored list of named mating patterns (Smothered,

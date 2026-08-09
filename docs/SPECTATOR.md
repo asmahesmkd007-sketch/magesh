@@ -119,18 +119,18 @@ both feeds resume immediately when the tab regains focus.
 
 ## Module map
 
-| Module                                            | Responsibility                                     |
-| ------------------------------------------------- | -------------------------------------------------- |
-| `supabase/schema.sql` SECTION 104                 | RLS lockdown, config, RPCs — **the enforcement**   |
-| `lib/api/spectatorClient.ts`                      | Typed service layer; the only wire format          |
-| `lib/spectator/delay.ts`                          | Delay vocabulary + copy (presentation only)        |
-| `lib/spectator/stats.ts`                          | Material, pace, repetition — pure, from the FEN    |
+| Module                                            | Responsibility                                       |
+| ------------------------------------------------- | ---------------------------------------------------- |
+| `supabase/schema.sql` SECTION 104                 | RLS lockdown, config, RPCs — **the enforcement**     |
+| `lib/api/spectatorClient.ts`                      | Typed service layer; the only wire format            |
+| `lib/spectator/delay.ts`                          | Delay vocabulary + copy (presentation only)          |
+| `lib/spectator/stats.ts`                          | Material, pace, repetition — pure, from the FEN      |
 | `lib/spectator/openings.ts`                       | Which name to show; the book is `lib/chess/openings` |
-| `lib/spectator/flags.ts`                          | Country name → emoji flag                          |
-| `hooks/useSpectatorGame.ts`                       | Delayed feed poll, replay cursor, heartbeat        |
-| `hooks/useLiveGames.ts`                           | Browse feed                                        |
-| `components/spectator/*`                          | Match card, board rail, controls, stats, move list |
-| `routes/watch.index.tsx` · `routes/watch.$id.tsx` | Browse and spectator views                         |
+| `lib/spectator/flags.ts`                          | Country name → emoji flag                            |
+| `hooks/useSpectatorGame.ts`                       | Delayed feed poll, replay cursor, heartbeat          |
+| `hooks/useLiveGames.ts`                           | Browse feed                                          |
+| `components/spectator/*`                          | Match card, board rail, controls, stats, move list   |
+| `routes/watch.index.tsx` · `routes/watch.$id.tsx` | Browse and spectator views                           |
 
 ## Consequences elsewhere
 

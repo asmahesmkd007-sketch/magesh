@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   PageShell,
   Card,
@@ -25,6 +25,9 @@ import {
   Youtube,
   Zap,
   Shield,
+  Award,
+  MessageSquare,
+  Medal,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LazyRatingProgressChart } from "@/components/profile/LazyRatingProgressChart";
@@ -34,15 +37,21 @@ import { PremiumBadge } from "@/components/site/PremiumBadge";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import { SeasonShield } from "@/components/ranking/SeasonShield";
 import { FriendButton } from "@/components/friends/FriendButton";
+import { useChallenges } from "@/hooks/useChallenges";
+import { ChallengeModal } from "@/components/friends/ChallengeModal";
 import { toast } from "sonner";
 import type { Profile } from "@/hooks/useAuth";
 import { getSeasonHistoryForUser, type SeasonHistoryForUser } from "@/lib/api/seasonsClient";
 import { noindexSeo } from "@/lib/seo";
+import { useCommunityFeed, useCommunityRealtime } from "@/hooks/useCommunity";
+import { FeedList } from "@/components/community/FeedList";
+import { PostComposer } from "@/components/community/PostComposer";
+import { FollowListModal } from "@/components/profile/FollowListModal";
 
 const SEASON_REWARD_LABEL: Record<string, string> = {
-  champion: "🏆 Champion",
-  top_10: "🥈 Top 10",
-  top_100: "🥉 Top 100",
+  champion: "Champion",
+  top_10: "Top 10",
+  top_100: "Top 100",
 };
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
@@ -197,12 +206,24 @@ async function uploadImage(
 // ── ProfilePage ──────────────────────────────────────────────────────
 
 function ProfilePage() {
+  useCommunityRealtime();
   const { user, loading: authLoading } = useAuth();
   const { id: viewedId } = Route.useSearch();
   const { profile: ownProfile, loading: ownProfileLoading, setProfile } = useProfile(user?.id);
+  const { sendChallenge } = useChallenges(user?.id);
+  const navigate = useNavigate();
+
+  const [showChallengeModal, setShowChallengeModal] = useState(false);
+  const [followListModal, setFollowListModal] = useState<"followers" | "following" | null>(null);
 
   const isOwnProfile = !viewedId || viewedId === user?.id;
   const targetUid = isOwnProfile ? (user?.id ?? "") : (viewedId ?? "");
+
+  const postsFeed = useCommunityFeed({
+    mode: "latest",
+    author: targetUid,
+    enabled: !!targetUid,
+  });
 
   // Load another user's profile when viewedId differs from current user
   const [otherProfile, setOtherProfile] = useState<Profile | null>(null);
@@ -555,17 +576,18 @@ function ProfilePage() {
         </div>
 
         {/* ── Profile header below banner ── */}
-        <div className="relative -mt-14 px-6 pb-6 md:px-8">
-          <div className="flex flex-wrap items-end gap-5">
-            {/* Avatar */}
-            <div className="flex flex-wrap items-center gap-5">
-              <div className="relative group/av">
+        <div className="relative -mt-12 sm:-mt-16 px-4 pb-6 sm:px-6 md:px-8">
+          {/* Top Row: Avatar + Shield on Left, Action Buttons on Right */}
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            {/* Avatar & Season Shield */}
+            <div className="flex items-center gap-3 sm:gap-5">
+              <div className="relative group/av shrink-0">
                 <UserAvatar
                   avatarUrl={profile.avatar_url}
                   displayName={profile.full_name}
                   size="xl"
                   shape="rounded-full"
-                  className="ring-4 ring-background"
+                  className="ring-4 ring-background shadow-lg"
                 />
                 {/* Avatar upload overlay — own profile only */}
                 {isOwnProfile && (
@@ -602,104 +624,129 @@ function ProfilePage() {
               />
             </div>
 
-            {/* Name + meta */}
-            <div className="flex-1 min-w-0">
-              <h1 className="font-display text-3xl md:text-4xl flex flex-wrap items-center gap-2">
-                {profile.full_name}
-                <PremiumBadge
-                  className="h-6 w-6"
-                  premiumActive={profile.premium_active}
-                  premiumExpiresAt={profile.premium_expires_at}
-                />
-              </h1>
-              <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5" /> {profile.country ?? "India"}
-                </span>
-                <span>· @{profile.username}</span>
-                <span>
-                  · Joined{" "}
-                  {new Date(profile.created_at).toLocaleDateString(undefined, {
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </span>
-                {profile.title && (
-                  <span className="rounded-full bg-gold/15 px-2 py-0.5 text-xs text-gold">
-                    {profile.title}
-                  </span>
-                )}
-                {profile.premium_tier !== "free" && (
-                  <span className="rounded-full bg-emerald/15 px-2 py-0.5 text-xs uppercase tracking-widest text-emerald">
-                    {profile.premium_tier}
-                  </span>
-                )}
-                {userClan?.clans && (
-                  <Link
-                    to="/clan/$slug"
-                    params={{ slug: userClan.clans.slug }}
-                    className="hover:opacity-80 transition-opacity"
-                  >
-                    <span className="rounded-full border border-gold/30 bg-gold/10 px-2.5 py-0.5 text-xs font-medium text-gold flex items-center gap-1.5 shadow-[0_0_10px_rgba(212,175,55,0.2)]">
-                      <Shield className="h-3 w-3" />
-                      {userClan.clans.name} [{userClan.clans.tag}]
-                    </span>
-                  </Link>
-                )}
-              </div>
-
-              <div className="mt-2 flex flex-wrap items-center gap-4 text-sm">
-                <div className="flex items-center gap-1.5 hover:text-white cursor-pointer transition-colors">
-                  <span className="font-bold text-white">{followersCount}</span>
-                  <span className="text-muted-foreground">Followers</span>
-                </div>
-                <div className="flex items-center gap-1.5 hover:text-white cursor-pointer transition-colors">
-                  <span className="font-bold text-white">{followingCount}</span>
-                  <span className="text-muted-foreground">Following</span>
-                </div>
-              </div>
-              {profile.bio && (
-                <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{profile.bio}</p>
-              )}
-              {/* Social links */}
-              {socialLinks.length > 0 && (
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {socialLinks.map(({ href, icon, label }) => (
-                    <a
-                      key={label}
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-gold/30 hover:text-gold"
-                    >
-                      {icon}
-                      <span>{label}</span>
-                      <ExternalLink className="h-2.5 w-2.5 opacity-60" />
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Action buttons */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2 pt-2">
               {isOwnProfile ? (
                 <>
                   <Link to="/settings">
-                    <GoldButton>Edit Profile</GoldButton>
+                    <GoldButton className="!px-4 !py-2 text-xs sm:text-sm">Edit Profile</GoldButton>
                   </Link>
                   <Link to="/play/history">
-                    <GhostButton>Full History</GhostButton>
+                    <GhostButton className="!px-4 !py-2 text-xs sm:text-sm">Full History</GhostButton>
                   </Link>
                 </>
               ) : (
-                <GhostButton>Challenge</GhostButton>
+                <>
+                  <GhostButton
+                    onClick={() => {
+                      if (!user) {
+                        toast.error("Please sign in to send a challenge");
+                        return;
+                      }
+                      setShowChallengeModal(true);
+                    }}
+                    className="!px-4 !py-2 text-xs sm:text-sm"
+                  >
+                    Challenge
+                  </GhostButton>
+                  <FriendButton targetUserId={targetUid} compact={false} />
+                </>
               )}
             </div>
           </div>
 
+          {/* Full-width Name & Metadata Details */}
+          <div className="mt-4 space-y-2">
+            <h1 className="font-display text-2xl sm:text-3xl md:text-4xl flex flex-wrap items-center gap-2">
+              {profile.full_name}
+              <PremiumBadge
+                className="h-6 w-6"
+                premiumActive={profile.premium_active}
+                premiumExpiresAt={profile.premium_expires_at}
+              />
+            </h1>
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5" /> {profile.country ?? "India"}
+              </span>
+              <span>· @{profile.username}</span>
+              <span>
+                · Joined{" "}
+                {new Date(profile.created_at).toLocaleDateString(undefined, {
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+              {profile.title && (
+                <span className="rounded-full bg-gold/15 px-2 py-0.5 text-xs text-gold">
+                  {profile.title}
+                </span>
+              )}
+              {profile.premium_tier !== "free" && (
+                <span className="rounded-full bg-emerald/15 px-2 py-0.5 text-xs uppercase tracking-widest text-emerald">
+                  {profile.premium_tier}
+                </span>
+              )}
+              {userClan?.clans && (
+                <Link
+                  to="/clan/$slug"
+                  params={{ slug: userClan.clans.slug }}
+                  className="hover:opacity-80 transition-opacity"
+                >
+                  <span className="rounded-full border border-gold/30 bg-gold/10 px-2.5 py-0.5 text-xs font-medium text-gold flex items-center gap-1.5 shadow-[0_0_10px_rgba(212,175,55,0.2)]">
+                    <Shield className="h-3 w-3" />
+                    {userClan.clans.name} [{userClan.clans.tag}]
+                  </span>
+                </Link>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm pt-1">
+              <button
+                type="button"
+                onClick={() => setFollowListModal("followers")}
+                className="flex items-center gap-1.5 hover:text-gold cursor-pointer transition-colors focus:outline-none"
+              >
+                <span className="font-bold text-white">{followersCount}</span>
+                <span className="text-muted-foreground hover:text-white">Followers</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFollowListModal("following")}
+                className="flex items-center gap-1.5 hover:text-gold cursor-pointer transition-colors focus:outline-none"
+              >
+                <span className="font-bold text-white">{followingCount}</span>
+                <span className="text-muted-foreground hover:text-white">Following</span>
+              </button>
+            </div>
+
+            {profile.bio && (
+              <p className="max-w-2xl text-xs sm:text-sm text-muted-foreground pt-1">{profile.bio}</p>
+            )}
+
+            {/* Social links */}
+            {socialLinks.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {socialLinks.map(({ href, icon, label }) => (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-gold/30 hover:text-gold"
+                  >
+                    {icon}
+                    <span>{label}</span>
+                    <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Rating chips */}
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-6">
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
             <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
               <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
                 <Crown className="h-3.5 w-3.5 text-gold" /> IQ Rating
@@ -725,7 +772,7 @@ function ProfilePage() {
           </div>
 
           {/* Stats chips */}
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-7">
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-7">
             {(
               [
                 ["Total Games", totals.games, "text-foreground"],
@@ -825,6 +872,28 @@ function ProfilePage() {
             </ul>
           )}
         </Card>
+      </div>
+
+      {/* Community Posts */}
+      <div className="mt-8 space-y-4">
+        <SectionTitle
+          kicker="Community"
+          title={isOwnProfile ? "Your Community Posts" : `${profile.full_name}'s Posts`}
+          action={
+            <Link to="/community" className="text-sm text-gold hover:underline">
+              Explore Feed
+            </Link>
+          }
+        />
+        {isOwnProfile && <PostComposer />}
+        <FeedList
+          feed={postsFeed}
+          emptyText={
+            isOwnProfile
+              ? "You haven't posted in the community yet. Create your first post above!"
+              : "This player hasn't posted in the community yet."
+          }
+        />
       </div>
 
       {/* Recent matches */}
@@ -943,15 +1012,17 @@ function ProfilePage() {
                   const t = te.tournament;
                   const rank = te.rank;
                   const rankLabel =
-                    rank === 1
-                      ? "🥇 1st"
-                      : rank === 2
-                        ? "🥈 2nd"
-                        : rank === 3
-                          ? "🥉 3rd"
-                          : rank === 4
-                            ? "🏅 4th"
-                            : "—";
+                    rank === 1 ? (
+                      <span className="inline-flex items-center gap-1 text-gold"><Trophy className="h-3.5 w-3.5" /> 1st</span>
+                    ) : rank === 2 ? (
+                      <span className="inline-flex items-center gap-1 text-slate-300"><Award className="h-3.5 w-3.5" /> 2nd</span>
+                    ) : rank === 3 ? (
+                      <span className="inline-flex items-center gap-1 text-amber-600"><Award className="h-3.5 w-3.5" /> 3rd</span>
+                    ) : rank === 4 ? (
+                      <span className="inline-flex items-center gap-1 text-muted-foreground"><Medal className="h-3.5 w-3.5" /> 4th</span>
+                    ) : (
+                      "—"
+                    );
                   const prizeAmts = t ? [t.prize_1st, t.prize_2nd, t.prize_3rd] : [];
                   const prizeWon = rank && rank <= 3 ? (prizeAmts[rank - 1] ?? 0) : 0;
                   return (
@@ -1122,6 +1193,36 @@ function ProfilePage() {
           </>
         )}
       </Card>
+
+      {showChallengeModal && profile && (
+        <ChallengeModal
+          opponentName={profile.full_name ?? profile.username ?? "Player"}
+          onClose={() => setShowChallengeModal(false)}
+          onSend={async (opts) => {
+            try {
+              await sendChallenge(profile.id, opts);
+              toast.success("Challenge sent!");
+              setShowChallengeModal(false);
+              navigate({ to: "/friends" });
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Failed to send challenge");
+            }
+          }}
+        />
+      )}
+
+      {followListModal && profile && (
+        <FollowListModal
+          userId={targetUid}
+          initialKind={followListModal}
+          onClose={() => setFollowListModal(null)}
+          onCountChange={(kind, delta) => {
+            if (kind === "followers") setFollowersCount((c) => Math.max(0, c + delta));
+            if (kind === "following") setFollowingCount((c) => Math.max(0, c + delta));
+          }}
+        />
+      )}
     </PageShell>
   );
 }
+                 

@@ -54,75 +54,7 @@ export const Route = createFileRoute("/u/$username")({
 
 type Tab = "posts" | "media" | "comments" | "achievements";
 
-function FollowListModal({
-  userId,
-  kind,
-  onClose,
-}: {
-  userId: string;
-  kind: "followers" | "following";
-  onClose: () => void;
-}) {
-  const { data = [], isLoading } = useQuery({
-    queryKey: ["community_follow_list", userId, kind],
-    queryFn: () => fetchFollowList(userId, kind),
-  });
-  const { follow, user } = useCommunityActions();
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onClick={onClose}>
-      <div
-        className="max-h-[70vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-white/10 bg-[#101317] p-5 shadow-luxe"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-medium capitalize">{kind}</h3>
-          <button type="button" onClick={onClose} aria-label="Close">
-            <X className="h-4 w-4 text-muted-foreground" />
-          </button>
-        </div>
-        {isLoading ? (
-          <div className="grid place-items-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-gold" />
-          </div>
-        ) : data.length === 0 ? (
-          <p className="py-6 text-center text-xs text-muted-foreground">Nobody here yet.</p>
-        ) : (
-          data.map((u: CommunityUserLite) => (
-            <div key={u.id} className="flex items-center gap-2.5 py-2">
-              <Link to="/u/$username" params={{ username: u.username }} onClick={onClose}>
-                <UserAvatar avatarUrl={u.avatar_url} displayName={u.full_name} size="sm" />
-              </Link>
-              <div className="min-w-0 flex-1">
-                <Link
-                  to="/u/$username"
-                  params={{ username: u.username }}
-                  onClick={onClose}
-                  className="block truncate text-xs font-medium hover:underline"
-                >
-                  {u.full_name}
-                </Link>
-                <div className="truncate text-[11px] text-muted-foreground">@{u.username}</div>
-              </div>
-              {user && user.id !== u.id && (
-                <button
-                  type="button"
-                  onClick={() => follow.mutate(u.id)}
-                  className={`rounded-full border px-2.5 py-0.5 text-[11px] ${
-                    u.is_following
-                      ? "border-white/15 text-muted-foreground"
-                      : "border-gold/30 text-gold hover:bg-gold/10"
-                  }`}
-                >
-                  {u.is_following ? "Following" : "Follow"}
-                </button>
-              )}
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
+import { FollowListModal } from "@/components/profile/FollowListModal";
 
 function CommentsTab({ userId }: { userId: string }) {
   const { data = [], isLoading } = useQuery({
@@ -457,7 +389,7 @@ function PublicProfile() {
         )}
       </div>
 
-      {modal && <FollowListModal userId={profile.id} kind={modal} onClose={() => setModal(null)} />}
+      {modal && <FollowListModal userId={profile.id} initialKind={modal} onClose={() => setModal(null)} />}
       {reporting && (
         <ReportDialog
           onClose={() => setReporting(false)}

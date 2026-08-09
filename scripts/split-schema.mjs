@@ -27,7 +27,7 @@ while (currentStart < lines.length) {
     chunks.push({ start: currentStart, end: lines.length });
     break;
   }
-  
+
   // Find closest safe break point after or near targetEnd
   let bestBreak = safeBreakPoints.find((bp) => bp >= targetEnd - 500 && bp <= targetEnd + 1000);
   if (!bestBreak) {
@@ -39,7 +39,7 @@ while (currentStart < lines.length) {
       }
     }
   }
-  
+
   const end = bestBreak ?? Math.min(targetEnd, lines.length);
   chunks.push({ start: currentStart, end });
   currentStart = end;
@@ -60,6 +60,6 @@ chunks.forEach((chunk, i) => {
   const partPath = path.resolve(`supabase/schema_part${i + 1}.sql`);
   fs.writeFileSync(partPath, chunkContent, "utf-8");
   console.log(
-    `Wrote ${partPath}: lines ${chunk.start + 1} to ${chunk.end} (${(chunkContent.length / 1024).toFixed(1)} KB)`
+    `Wrote ${partPath}: lines ${chunk.start + 1} to ${chunk.end} (${(chunkContent.length / 1024).toFixed(1)} KB)`,
   );
 });

@@ -73,11 +73,19 @@ const SOCIAL_LINKS = [
 export function Footer() {
   const location = useLocation();
   const { user } = useAuth();
-  const isLandingOrAuthPage = location.pathname === "/" || location.pathname === "/auth" || location.pathname === "/login" || location.pathname === "/signup";
+  const isLandingOrAuthPage =
+    location.pathname === "/" ||
+    location.pathname === "/auth" ||
+    location.pathname === "/login" ||
+    location.pathname === "/signup";
 
   return (
     <footer className="mt-12 border-t border-gold/12 bg-[linear-gradient(180deg,rgba(32,8,8,0.8),rgba(16,4,4,0.95))]">
-      <div className="mx-auto grid max-w-7xl gap-6 px-6 py-8 md:grid-cols-[1.5fr_1fr_1fr_1fr] lg:gap-8">
+      <div
+        className={`mx-auto grid max-w-7xl gap-6 px-6 py-8 ${
+          !user ? "md:grid-cols-[1.5fr_1fr_1fr]" : "md:grid-cols-[1.5fr_1fr_1fr_1fr]"
+        } lg:gap-8`}
+      >
         {/* Brand column */}
         <div>
           <div className="flex items-center gap-2.5">
@@ -149,33 +157,16 @@ export function Footer() {
               <div className="text-[10px] uppercase tracking-[0.24em] text-gold/75">Support</div>
               <ul className="mt-2.5 space-y-1.5 text-xs text-foreground/85">
                 <li>
-                  <Link to="/contact-grievance-policy" className="transition-colors hover:text-gold">
+                  <Link
+                    to="/contact-grievance-policy"
+                    className="transition-colors hover:text-gold"
+                  >
                     Contact & Grievance
                   </Link>
                 </li>
                 <li>
                   <Link to="/feedback" className="transition-colors hover:text-gold">
                     Feedback
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.24em] text-gold/75">Policies</div>
-              <ul className="mt-2.5 space-y-1.5 text-xs text-foreground/85">
-                <li>
-                  <Link to="/privacy-policy" className="transition-colors hover:text-gold">
-                    Privacy Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/terms-and-conditions" className="transition-colors hover:text-gold">
-                    Terms & Conditions
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/fair-play-anti-cheating-policy" className="transition-colors hover:text-gold">
-                    Fair Play Policy
                   </Link>
                 </li>
               </ul>

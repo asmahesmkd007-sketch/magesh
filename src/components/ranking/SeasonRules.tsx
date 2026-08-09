@@ -174,8 +174,14 @@ export function SeasonRules() {
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {LADDER.map((rung) => {
             const min = minSpFor(rung.id);
-            const nextMin = rung.nextSp != null ? (ladder?.find((r) => r.id === LADDER[rung.index + 1]?.id)?.min ?? rung.nextSp) : null;
-            const rangeStr = nextMin != null ? `${min.toLocaleString()}–${(nextMin - 1).toLocaleString()} SP` : `${min.toLocaleString()}+ SP`;
+            const nextMin =
+              rung.nextSp != null
+                ? (ladder?.find((r) => r.id === LADDER[rung.index + 1]?.id)?.min ?? rung.nextSp)
+                : null;
+            const rangeStr =
+              nextMin != null
+                ? `${min.toLocaleString()}–${(nextMin - 1).toLocaleString()} SP`
+                : `${min.toLocaleString()}+ SP`;
             return (
               <div
                 key={rung.id}
@@ -185,9 +191,7 @@ export function SeasonRules() {
                   <SeasonShield sp={min} rungId={rung.id} size="xs" variant="icon" />
                   <span className={`text-xs font-semibold ${rung.tier.text}`}>{rung.label}</span>
                 </div>
-                <span className="font-mono text-[11px] font-medium text-gold/90">
-                  {rangeStr}
-                </span>
+                <span className="font-mono text-[11px] font-medium text-gold/90">{rangeStr}</span>
               </div>
             );
           })}

@@ -35,13 +35,14 @@ export function Composer({
 
   const submit = () => {
     const content = text.trim().slice(0, 200);
-    if (!content) return;
+    if (!content || send.isPending) return;
+    setText("");
+    onClearReply();
     send.mutate(
       { channelId, content, replyToId: replyTo?.id ?? null },
       {
-        onSuccess: () => {
-          setText("");
-          onClearReply();
+        onError: () => {
+          setText(content);
         },
       },
     );
@@ -80,6 +81,8 @@ export function Composer({
             </button>
             {pickerOpen && (
               <EmojiPicker
+                align="left"
+                position="top"
                 onPick={(emoji) => {
                   setText((t) => t + emoji);
                   setPickerOpen(false);
@@ -109,6 +112,7 @@ export function Composer({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
+                  if (e.repeat || e.nativeEvent.isComposing) return;
                   submit();
                 }
               }}

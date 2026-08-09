@@ -216,7 +216,9 @@ function BankSetupModal({ onSuccess }: { onSuccess: () => void }) {
 
     if (!isValidIfscFormat(code)) {
       setIfscDetails(null);
-      setIfscError("Invalid IFSC Code. Format must be 4 letters, '0', and 6 alphanumeric characters.");
+      setIfscError(
+        "Invalid IFSC Code. Format must be 4 letters, '0', and 6 alphanumeric characters.",
+      );
       setIsOfflineOrError(false);
       return;
     }
@@ -368,18 +370,28 @@ function BankSetupModal({ onSuccess }: { onSuccess: () => void }) {
                   )}
                 </div>
                 {ifscError && (
-                  <div className={`flex items-center gap-1.5 text-xs ${isOfflineOrError ? "text-amber-400" : "text-rose-400"}`}>
-                    {isOfflineOrError ? <AlertCircle className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />} {ifscError}
+                  <div
+                    className={`flex items-center gap-1.5 text-xs ${isOfflineOrError ? "text-amber-400" : "text-rose-400"}`}
+                  >
+                    {isOfflineOrError ? (
+                      <AlertCircle className="h-3.5 w-3.5" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5" />
+                    )}{" "}
+                    {ifscError}
                   </div>
                 )}
                 {ifscDetails && !isVerifyingIfsc && (
                   <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2.5 text-xs text-emerald-400 space-y-1">
                     <div className="flex items-center gap-1.5 font-semibold">
-                      <ShieldCheck className="h-3.5 w-3.5 shrink-0" /> {ifscDetails.BANK} — {ifscDetails.BRANCH}
+                      <ShieldCheck className="h-3.5 w-3.5 shrink-0" /> {ifscDetails.BANK} —{" "}
+                      {ifscDetails.BRANCH}
                     </div>
                     {(ifscDetails.CITY || ifscDetails.DISTRICT || ifscDetails.STATE) && (
                       <div className="text-[11px] text-emerald-300/80 pl-5">
-                        {[ifscDetails.CITY, ifscDetails.DISTRICT, ifscDetails.STATE].filter((val, idx, arr) => val && arr.indexOf(val) === idx).join(", ")}
+                        {[ifscDetails.CITY, ifscDetails.DISTRICT, ifscDetails.STATE]
+                          .filter((val, idx, arr) => val && arr.indexOf(val) === idx)
+                          .join(", ")}
                       </div>
                     )}
                   </div>

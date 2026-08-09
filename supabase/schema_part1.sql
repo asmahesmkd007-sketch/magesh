@@ -3067,39 +3067,6 @@ DECLARE
     v_exists boolean;
 BEGIN
     IF v_uid IS NULL OR v_uid = p_target THEN RETURN false; END IF;
-    SELECT EXISTS(SELECT 1 FROM public.community_follows WHERE follower_id = v_uid AND following_id = p_target) INTO v_exists;
-    IF v_exists THEN
-        DELETE FROM public.community_follows WHERE follower_id = v_uid AND following_id = p_target;
-        RETURN false;
-    ELSE
-        INSERT INTO public.community_follows (follower_id, following_id) VALUES (v_uid, p_target);
-        RETURN true;
-    END IF;
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION public.community_react(p_target_type text, p_target_id UUID, p_reaction text)
-RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-    v_uid UUID := auth.uid();
-    v_current text;
-BEGIN
-    IF v_uid IS NULL THEN RETURN NULL; END IF;
-    IF p_target_type = 'post' THEN
-        SELECT reaction_type INTO v_current FROM public.community_reactions WHERE user_id = v_uid AND post_id = p_target_id;
-        IF v_current = p_reaction THEN
-            DELETE FROM public.community_reactions WHERE user_id = v_uid AND post_id = p_target_id;
-            RETURN NULL;
-        ELSE
-            INSERT INTO public.community_reactions (user_id, post_id, reaction_type) VALUES (v_uid, p_target_id, p_reaction)
-            ON CONFLICT (user_id, post_id) DO UPDATE SET reaction_type = p_reaction;
-            RETURN p_reaction;
-        END IF;
-    END IF;
-    RETURN NULL;
-END;
-$$;
-
 CREATE OR REPLACE FUNCTION public.community_toggle_bookmark(p_post_id UUID, p_collection text DEFAULT 'Favorites')
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE

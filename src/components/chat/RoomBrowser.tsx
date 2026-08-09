@@ -273,8 +273,20 @@ export function PublicRoomsList() {
     <div className="space-y-3">
       {/* Trap inputs to prevent Chrome autofill from targeting search fields */}
       <div className="hidden" aria-hidden="true">
-        <input type="text" name="fake_username_trap" tabIndex={-1} autoComplete="username" defaultValue="" />
-        <input type="password" name="fake_password_trap" tabIndex={-1} autoComplete="current-password" defaultValue="" />
+        <input
+          type="text"
+          name="fake_username_trap"
+          tabIndex={-1}
+          autoComplete="username"
+          defaultValue=""
+        />
+        <input
+          type="password"
+          name="fake_password_trap"
+          tabIndex={-1}
+          autoComplete="current-password"
+          defaultValue=""
+        />
       </div>
 
       <RoomToolbar
@@ -335,8 +347,20 @@ export function PrivateRoomsList() {
     <div className="space-y-3">
       {/* Trap inputs to prevent Chrome autofill from targeting search fields */}
       <div className="hidden" aria-hidden="true">
-        <input type="text" name="fake_username_trap" tabIndex={-1} autoComplete="username" defaultValue="" />
-        <input type="password" name="fake_password_trap" tabIndex={-1} autoComplete="current-password" defaultValue="" />
+        <input
+          type="text"
+          name="fake_username_trap"
+          tabIndex={-1}
+          autoComplete="username"
+          defaultValue=""
+        />
+        <input
+          type="password"
+          name="fake_password_trap"
+          tabIndex={-1}
+          autoComplete="current-password"
+          defaultValue=""
+        />
       </div>
 
       <RoomToolbar

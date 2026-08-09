@@ -139,10 +139,7 @@ export function VsComputer() {
       settings.board_size === "small" ? 480 : settings.board_size === "large" ? 720 : 600;
     const maxBoardSettingWidth = Math.round(baseSettingWidth * (settings.board_zoom / 100));
 
-    const maxAllowed = Math.max(
-      220,
-      Math.min(parentWidth, availableHeight, maxBoardSettingWidth),
-    );
+    const maxAllowed = Math.max(220, Math.min(parentWidth, availableHeight, maxBoardSettingWidth));
     const targetSize = Math.floor(maxAllowed);
 
     setLockedBoardSize(targetSize);
@@ -625,7 +622,11 @@ export function VsComputer() {
         {/* Top Player (Opponent when White, You when Black) */}
         <div
           className="w-full flex-shrink-0"
-          style={lockedBoardSize ? { maxWidth: `${lockedBoardSize}px` } : { maxWidth: "min(100%, calc(100vh - 210px))" }}
+          style={
+            lockedBoardSize
+              ? { maxWidth: `${lockedBoardSize}px` }
+              : { maxWidth: "min(100%, calc(100vh - 210px))" }
+          }
         >
           <PlayerBar
             name={topPlayer.name}
@@ -680,7 +681,11 @@ export function VsComputer() {
         {/* Bottom Player (You when White, Opponent when Black) */}
         <div
           className="w-full flex-shrink-0"
-          style={lockedBoardSize ? { maxWidth: `${lockedBoardSize}px` } : { maxWidth: "min(100%, calc(100vh - 210px))" }}
+          style={
+            lockedBoardSize
+              ? { maxWidth: `${lockedBoardSize}px` }
+              : { maxWidth: "min(100%, calc(100vh - 210px))" }
+          }
         >
           <PlayerBar
             name={bottomPlayer.name}
@@ -861,7 +866,11 @@ function PlayerBar({
           <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0 overflow-hidden">
             <SeasonShield sp={rating} size="xs" variant="chip" tierOnly />
             <span className="shrink-0">{rating} SP</span>
-            <CapturedPieces board={board} player={capturedColor} className="inline-flex ml-1 overflow-hidden shrink-0" />
+            <CapturedPieces
+              board={board}
+              player={capturedColor}
+              className="inline-flex ml-1 overflow-hidden shrink-0"
+            />
           </div>
         </div>
       </div>

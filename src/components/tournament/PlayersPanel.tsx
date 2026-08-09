@@ -117,7 +117,12 @@ export const PlayersPanel = memo(function PlayersPanel({
                 <PlayerAvatar username={e.username} avatarUrl={e.avatar_url} size="h-8 w-8" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 truncate text-sm">
-                    <SeasonShield sp={e.iq_rating ?? 100} rungId={e.rung_id} size="xs" variant="icon" />
+                    <SeasonShield
+                      sp={e.iq_rating ?? 100}
+                      rungId={e.rung_id}
+                      size="xs"
+                      variant="icon"
+                    />
                     {e.username ?? "Player"}
                     {isMe && <span className="text-[10px] text-emerald">(you)</span>}
                     <PremiumBadge
@@ -126,7 +131,13 @@ export const PlayersPanel = memo(function PlayersPanel({
                     />
                   </div>
                   <div className="flex items-center gap-2 truncate text-[11px] text-muted-foreground">
-                    <SeasonShield sp={e.iq_rating ?? 100} rungId={e.rung_id} size="xs" variant="chip" tierOnly />
+                    <SeasonShield
+                      sp={e.iq_rating ?? 100}
+                      rungId={e.rung_id}
+                      size="xs"
+                      variant="chip"
+                      tierOnly
+                    />
                     <span>{e.iq_rating ?? 100} SP</span>
                     {e.country ? <span>· {e.country}</span> : null}
                     {e.rank != null

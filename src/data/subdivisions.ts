@@ -20,13 +20,7 @@ const NONE: readonly string[] = Object.freeze([]);
 
 export const SUBDIVISIONS: Readonly<Record<string, readonly string[]>> = {
   IN: INDIA_STATES_AND_UTS,
-  SG: [
-    "Central Region",
-    "East Region",
-    "North Region",
-    "North-East Region",
-    "West Region",
-  ],
+  SG: ["Central Region", "East Region", "North Region", "North-East Region", "West Region"],
 
   US: [
     "Alabama",

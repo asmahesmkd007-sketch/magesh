@@ -119,21 +119,21 @@ export function useDailyPuzzle() {
         res = data as GetDailyPuzzleResponse;
       }
 
-      setLocked(res.locked);
+      // 10-second test reset configuration (requested by user for testing)
+      if (res.stats && res.stats.completed_today >= 3) {
+        res.stats.daily_reset_time = new Date(Date.now() + 10000).toISOString();
+      }
+
+      setLocked(res.locked || (res.stats ? res.stats.completed_today >= 3 : false));
       setStats(res.stats);
-      setRemainingToday(res.remaining_today);
+      setRemainingToday(res.locked ? 0 : res.remaining_today);
+
       if (!res.locked && res.puzzle) {
         const themes = Array.isArray(res.puzzle.themes) ? res.puzzle.themes : [];
         setPuzzle({
           ...res.puzzle,
           moves: Array.isArray(res.puzzle.moves) ? res.puzzle.moves : res.puzzle.moves.split(" "),
           themes,
-          // public.puzzles only stores the `themes` text[] column (see
-          // supabase/schema.sql's PUZZLE LIBRARY EXPANSION section) — there
-          // is no singular `theme` column, so it's never present on
-          // res.puzzle. Derive it the same way puzzles.rush.tsx already
-          // does for its own puzzle fetch, otherwise every "· {theme}" /
-          // "Rated N · {theme}" spot in the trainer renders blank.
           theme: res.puzzle.theme || themes[0] || "Tactics",
         });
         setProgress(res.progress);
@@ -179,18 +179,18 @@ export function useDailyPuzzle() {
       if (updateError) throw updateError;
 
       const res = data as UpdateProgressResponse;
+      
+      // If completed 3 puzzles, set 10 second test timer
+      if (res.stats.completed_today >= 3) {
+        res.stats.daily_reset_time = new Date(Date.now() + 10000).toISOString();
+        setLocked(true);
+        setRemainingToday(0);
+      } else {
+        setRemainingToday(3 - res.stats.completed_today);
+      }
+
       setProgress(res.progress);
       setStats(res.stats);
-
-      // If solved, failed, or skipped, we might be locked now
-      if (["SOLVED", "FAILED", "SKIPPED"].includes(payload.status)) {
-        if (res.stats.completed_today >= 3) {
-          setLocked(true);
-          setRemainingToday(0);
-        } else {
-          setRemainingToday(3 - res.stats.completed_today);
-        }
-      }
     } catch (err: unknown) {
       console.error("updateProgress error", err);
     }

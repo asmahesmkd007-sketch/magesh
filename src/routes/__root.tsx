@@ -313,7 +313,7 @@ function RootComponent() {
         {!isGameRoute && <Footer />}
         {!isGameRoute && <MobileNav />}
         {!isGameRoute && <div className="h-16 lg:hidden" />}
-        <Toaster theme="dark" position="top-right" richColors />
+        <Toaster theme="dark" position="top-right" duration={5000} richColors />
       </div>
     </QueryClientProvider>
   );

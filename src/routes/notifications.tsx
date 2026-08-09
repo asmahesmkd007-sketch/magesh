@@ -131,11 +131,20 @@ function Notifs() {
       });
   }, [user, authLoading]);
 
-  // Realtime subscription for new notifications
+  // Realtime subscription to keep notifications page list state updated
   useEffect(() => {
     if (!user) return;
+    let activeChannel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+
+    const topic = `notifs_page:${user.id}`;
+    const existing = supabase.getChannels().find((c) => c.topic === `realtime:${topic}`);
+    if (existing) {
+      supabase.removeChannel(existing);
+    }
+
     const ch = supabase
-      .channel(`notifs:${user.id}`)
+      .channel(topic)
       .on(
         "postgres_changes",
         {
@@ -147,20 +156,18 @@ function Notifs() {
         (p) => {
           const n = p.new as Notif;
           setNotifs((prev) => [n, ...prev]);
-          if (isNotificationKindEnabled(n.kind, prefs)) toast.info(n.title);
         },
-      )
-      .subscribe();
+      );
+    ch.subscribe();
+    activeChannel = ch;
+
     return () => {
-      supabase.removeChannel(ch);
+      cancelled = true;
+      if (activeChannel) {
+        supabase.removeChannel(activeChannel);
+      }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    user,
-    settings.notify_tournament_starting,
-    settings.notify_challenge_received,
-    settings.notify_community,
-  ]);
+  }, [user]);
 
   async function markRead(id: string) {
     setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));

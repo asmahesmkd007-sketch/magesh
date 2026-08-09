@@ -51,11 +51,34 @@ const TABS: { mode: FeedMode; label: string; authOnly?: boolean }[] = [
 function CommunityHome() {
   const { user } = useAuth();
   const [mode, setMode] = useState<FeedMode>("foryou");
-  const feed = useCommunityFeed({ mode });
+
+  // For You mode only shows posts created by the currently logged-in user
+  const feed = useCommunityFeed({
+    mode: mode === "foryou" ? "foryou" : mode,
+    author: mode === "foryou" && user ? user.username : undefined,
+  });
 
   useEffect(() => {
     if (!user && mode === "following") setMode("foryou");
   }, [user, mode]);
+
+  // Client-side safety filter: if mode is "foryou", strictly include only posts authored by the user
+  const filteredFeed =
+    mode === "foryou" && user
+      ? {
+          ...feed,
+          data: feed.data
+            ? {
+                ...feed.data,
+                pages: feed.data.pages.map((page) =>
+                  page.filter(
+                    (p) => p.user_id === user.id || p.author?.username === user.username,
+                  ),
+                ),
+              }
+            : undefined,
+        }
+      : feed;
 
   return (
     <div>
@@ -92,11 +115,13 @@ function CommunityHome() {
       )}
 
       <FeedList
-        feed={feed}
+        feed={filteredFeed as typeof feed}
         emptyText={
-          mode === "following"
-            ? "Posts from people you follow will appear here. Find players in Explore!"
-            : "No posts yet. Be the first to share something!"
+          mode === "foryou"
+            ? "You haven't created any posts yet. Share your first position or thought above!"
+            : mode === "following"
+              ? "Posts from people you follow will appear here. Find players in Explore!"
+              : "No posts yet. Be the first to share something!"
         }
       />
     </div>

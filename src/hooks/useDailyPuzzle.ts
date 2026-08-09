@@ -196,6 +196,28 @@ export function useDailyPuzzle() {
     }
   };
 
+  const resetTimerAndUnlock = useCallback(async () => {
+    if (!user) return;
+    try {
+      // Reset user_puzzle_stats completed_today = 0 in database so get_daily_puzzle unlocks
+      await supabase
+        .from("user_puzzle_stats")
+        .update({
+          completed_today: 0,
+          daily_reset_time: new Date(Date.now() + 10000).toISOString(),
+        } as never)
+        .eq("user_id", user.id);
+
+      setLocked(false);
+      setRemainingToday(3);
+
+      fetchInFlight.current = false;
+      await fetchDailyPuzzle();
+    } catch (err: unknown) {
+      console.error("resetTimerAndUnlock error", err);
+    }
+  }, [user, fetchDailyPuzzle]);
+
   return {
     puzzle,
     progress,
@@ -206,5 +228,6 @@ export function useDailyPuzzle() {
     error,
     fetchDailyPuzzle,
     updateProgress,
+    resetTimerAndUnlock,
   };
 }

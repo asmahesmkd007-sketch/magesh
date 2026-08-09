@@ -24,6 +24,7 @@ export function PuzzleTrainer() {
     error,
     fetchDailyPuzzle,
     updateProgress,
+    resetTimerAndUnlock,
   } = useDailyPuzzle();
 
   const gameRef = useRef<Chess | null>(null);
@@ -38,13 +39,6 @@ export function PuzzleTrainer() {
   const [hintUsed, setHintUsed] = useState(false);
   const startTime = useRef<number>(Date.now());
   const timers = useRef<number[]>([]);
-  // Tracks which puzzle.id the board/game state was last built for, so the
-  // init effect below only runs when a genuinely new puzzle loads — not on
-  // every `progress` update (updateProgress() calls setProgress() after
-  // every move, which would otherwise re-run this effect on each move and
-  // rebuild gameRef.current from scratch, wiping chess.js's move history —
-  // silently breaking g.undo() for the wrong-move revert — and racing local
-  // step/status state against the value it had before the move was made).
   const initializedPuzzleId = useRef<string | null>(null);
 
   // Timer state for countdown
@@ -62,8 +56,8 @@ export function PuzzleTrainer() {
           setTimeLeft("00:00:00");
           clearInterval(interval);
           initializedPuzzleId.current = null;
-          // Unlock automatically
-          fetchDailyPuzzle();
+          // Unlock automatically and load NEXT puzzle batch!
+          resetTimerAndUnlock();
         } else {
           const h = Math.floor(diff / 3600000)
             .toString()
@@ -79,7 +73,7 @@ export function PuzzleTrainer() {
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [locked, stats?.daily_reset_time, fetchDailyPuzzle]);
+  }, [locked, stats?.daily_reset_time, resetTimerAndUnlock]);
 
   useEffect(() => {
     if (!puzzle || !progress) return;
@@ -455,6 +449,12 @@ export function PuzzleTrainer() {
               Next puzzles unlock in:
             </p>
             <div className="font-mono text-5xl text-gradient-gold mb-8 font-bold">{timeLeft}</div>
+
+            <div className="flex justify-center mb-6">
+              <GoldButton onClick={resetTimerAndUnlock}>
+                <ArrowRight className="h-4 w-4" /> Load Next Puzzles Now (Test Unlock)
+              </GoldButton>
+            </div>
 
             <div className="max-w-md mx-auto grid grid-cols-3 gap-4 text-sm mt-8 border-t border-gold/10 pt-8">
               <div>

@@ -214,8 +214,19 @@ export function useCommunityActions() {
             }
           : old,
       );
+      queryClient.setQueriesData<api.CommunityUserLite[]>({ queryKey: ["community_leaderboard"] }, (old) =>
+        old
+          ? old.map((u) => (u.id === targetId ? { ...u, is_following: nowFollowing } : u))
+          : old,
+      );
+      queryClient.setQueriesData<api.CommunityUserLite[]>({ queryKey: ["community_suggested"] }, (old) =>
+        old
+          ? old.map((u) => (u.id === targetId ? { ...u, is_following: nowFollowing } : u))
+          : old,
+      );
       queryClient.invalidateQueries({ queryKey: ["community_profile"] });
       queryClient.invalidateQueries({ queryKey: ["community_suggested"] });
+      queryClient.invalidateQueries({ queryKey: ["community_leaderboard"] });
       toast.success(nowFollowing ? "Following" : "Unfollowed");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to follow"),

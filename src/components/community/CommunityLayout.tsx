@@ -55,6 +55,8 @@ function NavItem({
 
 function UserRow({ u }: { u: CommunityUserLite }) {
   const { follow, user } = useCommunityActions();
+  const isFollowing = !!u.is_following;
+
   return (
     <div className="flex items-center gap-2.5 py-1.5">
       <Link to="/u/$username" params={{ username: u.username }} className="shrink-0">
@@ -79,9 +81,14 @@ function UserRow({ u }: { u: CommunityUserLite }) {
         <button
           type="button"
           onClick={() => follow.mutate(u.id)}
-          className="rounded-full border border-gold/30 px-2.5 py-0.5 text-[11px] text-gold hover:bg-gold/10"
+          disabled={follow.isPending}
+          className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition ${
+            isFollowing
+              ? "border-white/15 bg-white/5 text-muted-foreground hover:border-rose-400/40 hover:text-rose-400"
+              : "border-gold/40 text-gold hover:bg-gold/15"
+          }`}
         >
-          Follow
+          {isFollowing ? "Following" : "Follow"}
         </button>
       )}
     </div>

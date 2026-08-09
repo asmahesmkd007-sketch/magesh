@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Card, GoldButton } from "@/components/site/Primitives";
 import { FeedList } from "@/components/community/FeedList";
 import { PostComposer } from "@/components/community/PostComposer";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, useProfile } from "@/hooks/useAuth";
 import { useCommunityFeed } from "@/hooks/useCommunity";
 import type { FeedMode } from "@/lib/api/communityClient";
 import { seo, breadcrumbLd, collectionPageLd } from "@/lib/seo";
@@ -50,12 +50,14 @@ const TABS: { mode: FeedMode; label: string; authOnly?: boolean }[] = [
 
 function CommunityHome() {
   const { user } = useAuth();
+  const { profile } = useProfile(user?.id);
   const [mode, setMode] = useState<FeedMode>("foryou");
+  const username = profile?.username ?? (user?.user_metadata?.username as string | undefined);
 
   // For You mode only shows posts created by the currently logged-in user
   const feed = useCommunityFeed({
     mode: mode === "foryou" ? "foryou" : mode,
-    author: mode === "foryou" && user ? user.username : undefined,
+    author: mode === "foryou" && username ? username : undefined,
   });
 
   useEffect(() => {
@@ -72,7 +74,7 @@ function CommunityHome() {
                 ...feed.data,
                 pages: feed.data.pages.map((page) =>
                   page.filter(
-                    (p) => p.user_id === user.id || p.author?.username === user.username,
+                    (p) => p.user_id === user.id || (username && p.author?.username === username),
                   ),
                 ),
               }

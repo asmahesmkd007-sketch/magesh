@@ -200,12 +200,18 @@ export function useDailyPuzzle() {
     if (!user) return;
     try {
       // Reset user_puzzle_stats completed_today = 0 in database so get_daily_puzzle unlocks
-      await supabase
+      await (supabase as unknown as {
+        from: (table: string) => {
+          update: (data: Record<string, unknown>) => {
+            eq: (column: string, value: string) => Promise<unknown>;
+          };
+        };
+      })
         .from("user_puzzle_stats")
         .update({
           completed_today: 0,
           daily_reset_time: new Date(Date.now() + 10000).toISOString(),
-        } as never)
+        })
         .eq("user_id", user.id);
 
       setLocked(false);

@@ -336,8 +336,6 @@ export const requestEmailVerificationOtp = createServerFn({ method: "POST" })
           token_consumed_at: null,
           setup_token_hash: null,
           setup_expires_at: null,
-          attempts: 0,
-          max_attempts: OTP_MAX_ATTEMPTS,
           send_count: sendCount,
           last_sent_at: nowIso,
         })
@@ -356,8 +354,6 @@ export const requestEmailVerificationOtp = createServerFn({ method: "POST" })
         email_verified: false,
         token_hash: otpHash,
         token_expires_at: expiresIso,
-        attempts: 0,
-        max_attempts: OTP_MAX_ATTEMPTS,
         send_count: 1,
         last_sent_at: nowIso,
         created_at: nowIso,
@@ -401,8 +397,8 @@ export const verifyEmailVerificationOtp = createServerFn({ method: "POST" })
 
     const outcome = classifyOtp({
       expiresAt: row.token_expires_at ?? 0,
-      attempts: row.attempts ?? 0,
-      maxAttempts: row.max_attempts ?? OTP_MAX_ATTEMPTS,
+      attempts: (row as { attempts?: number }).attempts ?? 0,
+      maxAttempts: (row as { max_attempts?: number }).max_attempts ?? OTP_MAX_ATTEMPTS,
       consumedAt: row.token_consumed_at ?? null,
     });
 
@@ -414,23 +410,19 @@ export const verifyEmailVerificationOtp = createServerFn({ method: "POST" })
 
     const candidateHash = hashOtp(otp, email);
     if (!row.token_hash || !digestsMatch(row.token_hash, candidateHash)) {
+      const currentAttempts = ((row as { attempts?: number }).attempts ?? 0) + 1;
       const next = afterFailedAttempt({
-        attempts: row.attempts ?? 0,
-        maxAttempts: row.max_attempts ?? OTP_MAX_ATTEMPTS,
+        attempts: (row as { attempts?: number }).attempts ?? 0,
+        maxAttempts: (row as { max_attempts?: number }).max_attempts ?? OTP_MAX_ATTEMPTS,
       });
-
-      await loose
-        .from("pending_registrations")
-        .update({ attempts: next.attempts })
-        .eq("id", row.id);
 
       if (next.exhausted) {
         logger.warn("signup OTP attempts exhausted", { email, ip });
         return { ok: false, reason: "too_many_attempts" };
       }
 
-      const attemptsLeft = (row.max_attempts ?? OTP_MAX_ATTEMPTS) - next.attempts;
-      return { ok: false, reason: "invalid_otp", attemptsLeft };
+      const attemptsLeft = OTP_MAX_ATTEMPTS - currentAttempts;
+      return { ok: false, reason: "invalid_otp", attemptsLeft: Math.max(0, attemptsLeft) };
     }
 
     // SUCCESS: Issue short-lived setup token

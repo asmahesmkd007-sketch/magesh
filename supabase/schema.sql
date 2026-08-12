@@ -21003,3 +21003,96 @@ SELECT
   ) THEN 'ok' ELSE 'MISSING' END                          AS profiles_country_code,
   CASE WHEN to_regproc('public.complete_onboarding') IS NOT NULL
        THEN 'ok' ELSE 'MISSING' END                       AS complete_onboarding;
+
+CREATE TABLE IF NOT EXISTS public.password_reset_otps (
+  -- One in-flight reset per address. Re-requesting overwrites the row,
+  -- which is exactly the "a new OTP invalidates the previous one" rule.
+  email           TEXT PRIMARY KEY,
+  user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  -- HMAC-SHA256(code, OTP_HASH_SECRET). Never the code itself.
+  otp_hash        TEXT NOT NULL,
+  expires_at      TIMESTAMPTZ NOT NULL,
+  attempts        INTEGER NOT NULL DEFAULT 0,
+  max_attempts    INTEGER NOT NULL DEFAULT 5,
+  consumed_at     TIMESTAMPTZ,
+  -- SHA-256 of the post-verification reset authorisation (not the OTP).
+  auth_hash       TEXT,
+  auth_expires_at TIMESTAMPTZ,
+  last_sent_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_reset_otps_expires_at
+  ON public.password_reset_otps (expires_at);
+CREATE INDEX IF NOT EXISTS idx_password_reset_otps_user_id
+  ON public.password_reset_otps (user_id);
+-- The reset step looks a row up by authorisation digest alone.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_password_reset_otps_auth_hash
+  ON public.password_reset_otps (auth_hash) WHERE auth_hash IS NOT NULL;
+
+-- RLS on with ZERO policies: anon and authenticated are denied outright.
+ALTER TABLE public.password_reset_otps ENABLE ROW LEVEL SECURITY;
+
+-- 204.1  Housekeeping — drop rows that can no longer do anything.
+CREATE OR REPLACE FUNCTION public.purge_expired_password_reset_otps(p_grace_hours INT DEFAULT 24)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $fn$
+DECLARE
+  v_deleted INTEGER;
+BEGIN
+  DELETE FROM public.password_reset_otps
+  WHERE created_at < now() - (p_grace_hours || ' hours')::INTERVAL
+     OR (consumed_at IS NOT NULL AND consumed_at < now() - INTERVAL '1 hour');
+  GET DIAGNOSTICS v_deleted = ROW_COUNT;
+  RETURN v_deleted;
+END;
+$fn$;
+REVOKE ALL ON FUNCTION public.purge_expired_password_reset_otps(INT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.purge_expired_password_reset_otps(INT) TO service_role;
+
+-- 204.2  Force-logout after a password change.
+CREATE OR REPLACE FUNCTION public.revoke_user_sessions(p_user_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $fn$
+DECLARE
+  v_sessions INTEGER := 0;
+  v_lock     INTEGER := 0;
+BEGIN
+  BEGIN
+    DELETE FROM auth.refresh_tokens WHERE user_id = p_user_id::TEXT;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+
+  BEGIN
+    DELETE FROM auth.sessions WHERE user_id = p_user_id;
+    GET DIAGNOSTICS v_sessions = ROW_COUNT;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+
+  BEGIN
+    UPDATE public.user_sessions
+    SET is_active = false, updated_at = now()
+    WHERE user_id = p_user_id;
+    GET DIAGNOSTICS v_lock = ROW_COUNT;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+
+  RETURN jsonb_build_object('sessions_deleted', v_sessions, 'locks_released', v_lock);
+END;
+$fn$;
+REVOKE ALL ON FUNCTION public.revoke_user_sessions(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.revoke_user_sessions(UUID) TO service_role;
+
+SELECT
+  CASE WHEN to_regclass('public.password_reset_otps') IS NOT NULL
+       THEN 'ok' ELSE 'MISSING' END                       AS password_reset_otps,
+  CASE WHEN to_regproc('public.purge_expired_password_reset_otps') IS NOT NULL
+       THEN 'ok' ELSE 'MISSING' END                       AS purge_password_reset_otps,
+  CASE WHEN to_regproc('public.revoke_user_sessions') IS NOT NULL
+       THEN 'ok' ELSE 'MISSING' END                       AS revoke_user_sessions;

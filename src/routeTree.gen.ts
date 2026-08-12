@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WithdrawalPolicyRouteImport } from './routes/withdrawal-policy'
 import { Route as WalletRouteImport } from './routes/wallet'
+import { Route as VerifyResetOtpRouteImport } from './routes/verify-reset-otp'
 import { Route as TournamentsRouteImport } from './routes/tournaments'
 import { Route as TournamentRouteImport } from './routes/tournament'
 import { Route as TermsAndConditionsRouteImport } from './routes/terms-and-conditions'
@@ -123,6 +124,11 @@ const WithdrawalPolicyRoute = WithdrawalPolicyRouteImport.update({
 const WalletRoute = WalletRouteImport.update({
   id: '/wallet',
   path: '/wallet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyResetOtpRoute = VerifyResetOtpRouteImport.update({
+  id: '/verify-reset-otp',
+  path: '/verify-reset-otp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TournamentsRoute = TournamentsRouteImport.update({
@@ -690,6 +696,7 @@ export interface FileRoutesByFullPath {
   '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/tournament': typeof TournamentRouteWithChildren
   '/tournaments': typeof TournamentsRoute
+  '/verify-reset-otp': typeof VerifyResetOtpRoute
   '/wallet': typeof WalletRouteWithChildren
   '/withdrawal-policy': typeof WithdrawalPolicyRoute
   '/admin/about-chess': typeof AdminAboutChessRoute
@@ -791,6 +798,7 @@ export interface FileRoutesByTo {
   '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/tournament': typeof TournamentRouteWithChildren
   '/tournaments': typeof TournamentsRoute
+  '/verify-reset-otp': typeof VerifyResetOtpRoute
   '/wallet': typeof WalletRouteWithChildren
   '/withdrawal-policy': typeof WithdrawalPolicyRoute
   '/admin/about-chess': typeof AdminAboutChessRoute
@@ -899,6 +907,7 @@ export interface FileRoutesById {
   '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/tournament': typeof TournamentRouteWithChildren
   '/tournaments': typeof TournamentsRoute
+  '/verify-reset-otp': typeof VerifyResetOtpRoute
   '/wallet': typeof WalletRouteWithChildren
   '/withdrawal-policy': typeof WithdrawalPolicyRoute
   '/admin/about-chess': typeof AdminAboutChessRoute
@@ -1008,6 +1017,7 @@ export interface FileRouteTypes {
     | '/terms-and-conditions'
     | '/tournament'
     | '/tournaments'
+    | '/verify-reset-otp'
     | '/wallet'
     | '/withdrawal-policy'
     | '/admin/about-chess'
@@ -1109,6 +1119,7 @@ export interface FileRouteTypes {
     | '/terms-and-conditions'
     | '/tournament'
     | '/tournaments'
+    | '/verify-reset-otp'
     | '/wallet'
     | '/withdrawal-policy'
     | '/admin/about-chess'
@@ -1216,6 +1227,7 @@ export interface FileRouteTypes {
     | '/terms-and-conditions'
     | '/tournament'
     | '/tournaments'
+    | '/verify-reset-otp'
     | '/wallet'
     | '/withdrawal-policy'
     | '/admin/about-chess'
@@ -1324,6 +1336,7 @@ export interface RootRouteChildren {
   TermsAndConditionsRoute: typeof TermsAndConditionsRoute
   TournamentRoute: typeof TournamentRouteWithChildren
   TournamentsRoute: typeof TournamentsRoute
+  VerifyResetOtpRoute: typeof VerifyResetOtpRoute
   WalletRoute: typeof WalletRouteWithChildren
   WithdrawalPolicyRoute: typeof WithdrawalPolicyRoute
   AdminAboutChessRoute: typeof AdminAboutChessRoute
@@ -1375,6 +1388,13 @@ declare module '@tanstack/react-router' {
       path: '/wallet'
       fullPath: '/wallet'
       preLoaderRoute: typeof WalletRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify-reset-otp': {
+      id: '/verify-reset-otp'
+      path: '/verify-reset-otp'
+      fullPath: '/verify-reset-otp'
+      preLoaderRoute: typeof VerifyResetOtpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tournaments': {
@@ -2282,6 +2302,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsAndConditionsRoute: TermsAndConditionsRoute,
   TournamentRoute: TournamentRouteWithChildren,
   TournamentsRoute: TournamentsRoute,
+  VerifyResetOtpRoute: VerifyResetOtpRoute,
   WalletRoute: WalletRouteWithChildren,
   WithdrawalPolicyRoute: WithdrawalPolicyRoute,
   AdminAboutChessRoute: AdminAboutChessRoute,

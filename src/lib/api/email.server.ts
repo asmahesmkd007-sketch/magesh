@@ -45,25 +45,35 @@ function stripHtml(html: string): string {
 
 // ── Providers ────────────────────────────────────────────────────────
 
+function getRecipientDomain(email: string): string {
+  const parts = email.split("@");
+  return parts.length > 1 ? `@${parts[1]}` : "unknown";
+}
+
 async function sendViaGmail(msg: MailMessage): Promise<boolean> {
   const user = process.env.GMAIL_USER || process.env.SMTP_USER || process.env.VITE_GMAIL_USER;
   const pass =
     process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS || process.env.VITE_GMAIL_APP_PASSWORD;
-  if (!user || !pass) return false;
+  if (!user || !pass) {
+    logger.info("email delivery skipped: Gmail SMTP credentials missing", { provider: "gmail" });
+    return false;
+  }
 
+  const sender = `ChessOx <${user}>`;
+  const domain = getRecipientDomain(msg.to);
   const nodemailer = await import("nodemailer");
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: { user, pass: pass.replace(/\s+/g, "") },
   });
   await transporter.sendMail({
-    from: `ChessOx <${user}>`,
+    from: sender,
     to: msg.to,
     subject: msg.subject,
     html: msg.html,
     text: msg.text ?? stripHtml(msg.html),
   });
-  logger.info("email sent via Gmail SMTP", { to: msg.to, subject: msg.subject });
+  logger.info("email delivery succeeded", { provider: "gmail", recipientDomain: domain, senderAddress: sender });
   return true;
 }
 
@@ -72,8 +82,12 @@ async function sendViaEmailJs(msg: MailMessage): Promise<boolean> {
   const templateId = process.env.EMAILJS_TEMPLATE_ID || process.env.VITE_EMAILJS_TEMPLATE_ID;
   const publicKey = process.env.EMAILJS_PUBLIC_KEY || process.env.VITE_EMAILJS_PUBLIC_KEY;
   const privateKey = process.env.EMAILJS_PRIVATE_KEY || process.env.VITE_EMAILJS_PRIVATE_KEY;
-  if (!serviceId || !templateId || !publicKey) return false;
+  if (!serviceId || !templateId || !publicKey) {
+    logger.info("email delivery skipped: EmailJS config missing", { provider: "emailjs" });
+    return false;
+  }
 
+  const domain = getRecipientDomain(msg.to);
   const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -93,16 +107,26 @@ async function sendViaEmailJs(msg: MailMessage): Promise<boolean> {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
+    logger.error("email delivery rejected by provider", {
+      provider: "emailjs",
+      recipientDomain: domain,
+      status: res.status,
+      errorMsg: body || `HTTP ${res.status}`,
+    });
     throw new EmailDeliveryError(`EmailJS rejected the message: ${body || `HTTP ${res.status}`}`);
   }
-  logger.info("email sent via EmailJS", { to: msg.to, subject: msg.subject });
+  logger.info("email delivery succeeded", { provider: "emailjs", recipientDomain: domain, status: res.status });
   return true;
 }
 
 async function sendViaResend(msg: MailMessage): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return false;
+  if (!apiKey) {
+    logger.info("email delivery skipped: Resend API key missing", { provider: "resend" });
+    return false;
+  }
   const from = process.env.EMAIL_FROM || "ChessOx <onboarding@resend.dev>";
+  const domain = getRecipientDomain(msg.to);
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -124,9 +148,16 @@ async function sendViaResend(msg: MailMessage): Promise<boolean> {
     } catch {
       /* body wasn't JSON */
     }
+    logger.error("email delivery rejected by provider", {
+      provider: "resend",
+      recipientDomain: domain,
+      senderAddress: from,
+      status: res.status,
+      errorMsg: reason || `HTTP ${res.status}`,
+    });
     throw new EmailDeliveryError(`Resend rejected the message: ${reason || `HTTP ${res.status}`}`);
   }
-  logger.info("email sent via Resend", { to: msg.to, subject: msg.subject });
+  logger.info("email delivery succeeded", { provider: "resend", recipientDomain: domain, senderAddress: from, status: res.status });
   return true;
 }
 
@@ -154,8 +185,37 @@ export async function sendMail(msg: MailMessage): Promise<void> {
   }
 
   if (failures.length > 0) {
+    if (process.env.NODE_ENV !== "production") {
+      logger.info("[DEV EMAIL FALLBACK] Email would have been sent", {
+        to: msg.to,
+        subject: msg.subject,
+        text: msg.text ?? stripHtml(msg.html),
+        providerFailures: failures,
+      });
+      console.log("\n=======================================================");
+      console.log(`[DEV OTP EMAIL] To: ${msg.to}`);
+      console.log(`Subject: ${msg.subject}`);
+      console.log(`Content:\n${msg.text ?? stripHtml(msg.html)}`);
+      console.log("=======================================================\n");
+      return;
+    }
     throw new EmailDeliveryError(`All email providers failed — ${failures.join("; ")}`);
   }
+
+  if (process.env.NODE_ENV !== "production") {
+    logger.info("[DEV EMAIL FALLBACK] No providers configured; logging to console", {
+      to: msg.to,
+      subject: msg.subject,
+      text: msg.text ?? stripHtml(msg.html),
+    });
+    console.log("\n=======================================================");
+    console.log(`[DEV OTP EMAIL] To: ${msg.to}`);
+    console.log(`Subject: ${msg.subject}`);
+    console.log(`Content:\n${msg.text ?? stripHtml(msg.html)}`);
+    console.log("=======================================================\n");
+    return;
+  }
+
   throw new EmailDeliveryError(
     "Email service is not configured. Set GMAIL_USER + GMAIL_APP_PASSWORD, EMAILJS_*, or RESEND_API_KEY.",
   );
@@ -208,10 +268,15 @@ const DEFAULT_FOOTER =
  * reads well on a phone without zooming.
  */
 export function renderEmail({ heading, body, cta, footnote, footer }: LayoutOptions): string {
+  // A body entry that is already block-level (the OTP panel, say) is
+  // emitted as-is: wrapping a <table> in a <p> is invalid HTML, and Outlook
+  // in particular renders the result with stray gaps.
+  const isBlock = (s: string) => /^\s*<(table|div|ul|ol|h[1-6]|blockquote|p)\b/i.test(s);
   const paragraphs = body
-    .map(
-      (p) =>
-        `<p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:${BRAND.ink}">${p}</p>`,
+    .map((p) =>
+      isBlock(p)
+        ? p
+        : `<p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:${BRAND.ink}">${p}</p>`,
     )
     .join("");
 
@@ -283,23 +348,36 @@ const RESET_FOOTER =
   "If that wasn&rsquo;t you, ignore this email &mdash; your password has not changed.";
 
 /**
- * The password recovery email. The link carries a Supabase Auth recovery
- * token (minted by GoTrue, single-use, expiring) — this template only
- * carries it, it never generates or stores one.
+ * The password recovery email: a 6-digit code, and deliberately NO link.
+ *
+ * A code the reader types back into the site cannot be clicked by a mail
+ * scanner, forwarded into someone else's browser, or opened in a webview
+ * that has none of the session the flow needs. It also means nothing
+ * sensitive travels in a URL, so the code cannot leak through browser
+ * history, a Referer header or a proxy log.
  */
-export function passwordResetEmail(opts: { resetUrl: string }) {
+export function passwordResetOtpEmail(opts: { otp: string; ttlMinutes: number }) {
+  // Rendered wide and spaced so it reads as one unit and survives Gmail's
+  // habit of linkifying long digit runs.
+  const code = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;width:100%">
+      <tr><td align="center" style="padding:18px 12px;background:rgba(212,175,55,0.08);border:1px solid ${BRAND.border};border-radius:10px">
+        <div style="font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:34px;line-height:1.1;font-weight:700;letter-spacing:0.34em;color:${BRAND.gold};text-indent:0.34em">${escapeHtml(opts.otp)}</div>
+      </td></tr>
+    </table>`;
+
   return {
-    subject: "Reset your Chessox password",
+    subject: "ChessOx Password Reset OTP",
     html: renderEmail({
-      heading: "Reset your password",
+      heading: "Your password reset code",
       body: [
-        "We received a request to reset the password for your ChessOx account.",
-        "Choose a new password using the button below. If you didn&rsquo;t request this, you can safely ignore this email.",
+        "Your ChessOx password reset code is:",
+        code,
+        `This code expires in ${opts.ttlMinutes} minutes.`,
+        "<b>Never share this code with anyone.</b> ChessOx staff will never ask you for it.",
       ],
-      cta: { label: "RESET PASSWORD", url: opts.resetUrl },
       footnote: [
-        "This link can only be used once and expires a short time after it was sent.",
-        `If the button doesn&rsquo;t work, paste this into your browser:<br><a href="${opts.resetUrl}" style="color:${BRAND.gold}">${escapeHtml(opts.resetUrl)}</a>`,
+        "If you didn&rsquo;t request a password reset, ignore this email — your password has not changed.",
       ],
       footer: RESET_FOOTER,
     }),

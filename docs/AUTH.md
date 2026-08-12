@@ -3,15 +3,17 @@
 ChessOx has **two separate credential flows** that never share a token,
 a table, or a code path:
 
-| Flow                | Entry              | Token source                    | Ends at        |
-| ------------------- | ------------------ | ------------------------------- | -------------- |
-| **Registration**    | `/auth` (signup)   | `pending_registrations` (ours)  | Account active |
-| **Forgot password** | `/forgot-password` | Supabase Auth recovery (theirs) | Password reset |
+| Flow                | Entry              | Credential                       | Ends at        |
+| ------------------- | ------------------ | -------------------------------- | -------------- |
+| **Registration**    | `/auth` (signup)   | emailed **link** (ours)          | Account active |
+| **Forgot password** | `/forgot-password` | emailed **6-digit code** (ours)  | Password reset |
 
 Keeping them apart is deliberate: a registration link can never reset an
-existing account's password, and a recovery link can never create one.
+existing account's password, and a reset code can never create one. They
+share no token, no table and no code path.
 
-Backend: `supabase/schema.sql` **SECTION 103**.
+Backend: `supabase/schema.sql` **SECTION 103** (registration),
+`supabase/schema_part6.sql` **SECTION 204** (reset).
 Server functions: `src/lib/api/registration.functions.ts`,
 `src/lib/api/passwordReset.functions.ts`.
 
@@ -62,133 +64,153 @@ step and never touch `pending_registrations`.
 
 ## Password recovery flow
 
+A 6-digit code, typed back into the site. **No reset link is ever sent.**
+
 ```
 /forgot-password        email only
-   │                    requestPasswordReset()   (server fn)
-   │                    ├─ no account      → nothing sent
-   │                    ├─ Google-only     → "use Google Sign-In" email
-   │                    └─ has password    → recovery link email
+   │                    requestPasswordResetOtp()
+   │                    ├─ no account   → nothing sent, same reply, same delay
+   │                    ├─ Google-only  → "use Google Sign-In" email, no code
+   │                    └─ has password → 6-digit code emailed
    ▼
-Supabase Auth           admin.generateLink({ type: 'recovery' })
-   │                    mints the token; we read properties.hashed_token
+/verify-reset-otp       verifyPasswordResetOtp(email, code)
+   │                    OTP consumed, single-use reset grant issued
+   │                    grant handed on in sessionStorage (never the URL)
    ▼
-email.server.ts         sendMail() — the ChessOx provider chain
-   │                    link: /reset-password?token_hash=…&type=recovery
-   ▼
-/reset-password         verifyOtp({ type: 'recovery', token_hash })
-   │                    → recovery session, form unlocked
-   │                    supabase.auth.updateUser({ password })
-   │                    → release session lock, global signOut
+/reset-password         resetPasswordWithAuth(grant, password)
+   │                    admin.updateUserById() → revoke_user_sessions()
    ▼
 /auth (signin)          email + new password
 ```
 
-### Why delivery does not go through Supabase
+Backend: `supabase/schema_part6.sql` **SECTION 204**.
+Server functions: `src/lib/api/passwordReset.functions.ts`.
+Rules (unit-tested, no I/O): `src/lib/auth/otpPolicy.ts`.
 
-`resetPasswordForEmail()` asks GoTrue to both **mint** the token and
-**send** the mail. Minting is what we want; sending is not.
+### Why a code and not a link
 
-This project has never had Supabase SMTP configured. Registration creates
-auth users with `email_confirm: true` precisely so GoTrue never needs to
-send anything, and every other transactional email goes out through
-`email.server.ts`. Password recovery was the one flow still relying on
-Supabase's built-in mailer — which on a project without custom SMTP is
-rate-limited to a couple of messages an hour and only delivers to
-addresses belonging to the Supabase organisation. That is why reset
-emails never arrived.
+A link has to survive being clicked, and the places it gets clicked are
+hostile: mail scanners follow links before the human does, phones open
+them in a webview that shares nothing with the browser that asked, and the
+token rides in a URL that lands in history, `Referer` headers and proxy
+logs. A code the reader types has none of those failure modes, and the
+tab that started the flow is the tab that finishes it.
 
-Supabase Auth still owns the token. We store nothing, hash nothing and
-expire nothing ourselves; `generateLink` mints exactly the token
-`resetPasswordForEmail` would have, and issuing a new one invalidates the
-previous one.
+Supabase's recovery mailer is not used, and neither is
+`resetPasswordForEmail()`. Supabase Auth still owns the password hash —
+the new password is written through `admin.updateUserById` and nowhere
+else — but the code itself is minted, hashed and checked here, and
+delivered by `email.server.ts`, the same sender as every other ChessOx
+email.
 
-### Why `token_hash`, not `action_link`
+### The code
 
-`generateLink` also returns `properties.action_link`, which bounces
-through GoTrue's `/verify` endpoint. We deliberately do not use it:
+| Property   | Value                                                    |
+| ---------- | -------------------------------------------------------- |
+| Shape      | exactly 6 digits, `crypto.randomInt` (rejection-sampled)  |
+| Lifetime   | 5 minutes                                                 |
+| Attempts   | 5 wrong guesses, then the code is dead                    |
+| Storage    | **HMAC-SHA256 digest only**, peppered with `OTP_HASH_SECRET` |
+| Uniqueness | one row per email — a new code invalidates the old one    |
 
-- it is only honoured if its redirect target is in the dashboard's
-  **Redirect URLs** allow-list, so the link silently lands on the
-  homepage when that list drifts;
-- it hands back an implicit-flow hash, and a PKCE `code` link is worse —
-  its verifier lives in the requesting browser's storage, so the link
-  **cannot** work when a phone's mail app opens it in its own webview.
+A plain SHA-256 of a 6-digit number is reversible in a million guesses, so
+the pepper is what makes the stored digest useless on its own. The
+address is bound into the digest too, so a hash cannot be lifted from one
+row and replayed against another. Comparison is `timingSafeEqual`.
 
-Redeeming `hashed_token` with `verifyOtp` has neither problem. It is the
-same value Supabase's own templates expose as `{{ .TokenHash }}`. The
-page still accepts hash and `code` landings so links already sitting in
-inboxes keep working.
+The code is never logged, never returned by any endpoint, never placed in
+a URL, and never written to client storage.
+
+`classifyOtp()` rejects consumed, attempt-exhausted and expired rows
+**before** the digest is compared, in that order — so a spent code can
+never be revived by guessing it correctly.
+
+### The reset grant
+
+Verifying the code consumes it and issues a separate authorisation: 32
+random bytes, stored as a SHA-256 digest, valid 10 minutes, single-use.
+It is spent (`auth_hash` nulled) *before* the password write, so two
+concurrent submits cannot both land — the second is a lookup miss.
+
+It travels to `/reset-password` in **sessionStorage**, like the
+registration setup grant (see `setupHandoff.ts`): tab-scoped, cleared on
+close, and never in a URL. Not localStorage, which would outlive the tab
+and sit on disk.
+
+### Enumeration, including by clock
+
+Registered, unregistered and Google addresses all get the same reply.
+Sending an email costs hundreds of milliseconds and skipping it costs
+nothing, so every public path is also padded to a common floor
+(`MIN_RESPONSE_MS`) — otherwise response *time* answers the question the
+response body refuses to. The Google-only path writes a born-spent row
+(already expired, already consumed) purely so its cooldown behaves like
+every other address's.
 
 ### Throttling: a cooldown is not a rate limit
 
-Two different controls, deliberately not the same mechanism:
-
-| Control              | Key                    | Limit    | Spent when            |
-| -------------------- | ---------------------- | -------- | --------------------- |
-| Abuse cap per IP     | `pwreset-ip:*`         | 10 / h   | every attempt         |
-| Abuse cap per email  | `pwreset-email:*`      | 5 / h    | every attempt         |
-| Resend cooldown      | `pwreset-cooldown:*`   | 60 s     | **only on success**   |
+| Control             | Key                   | Limit  | Spent when          |
+| ------------------- | --------------------- | ------ | ------------------- |
+| Request per IP      | `pwotp-ip:*`          | 15 / h | every attempt       |
+| Request per email   | `pwotp-email:*`       | 5 / h  | every attempt       |
+| Verify per IP       | `pwotp-verify-ip:*`   | 30 / 10 min | every attempt  |
+| Reset per IP        | `pwotp-reset-ip:*`    | 20 / 10 min | every attempt  |
+| Resend cooldown     | `last_sent_at` column | 60 s   | **only on success** |
 
 The caps exist to stop hammering, so a failing request should spend one.
 The cooldown exists to space out *emails that actually went out*, so a
 request that failed has nothing to space out.
 
-Implementing the cooldown as `rateLimit({ limit: 1 })` conflated the two
-and produced a real bug: the window was spent when the request *started*,
-before delivery was attempted. With the mail provider rejecting sends, the
-first attempt failed with the true error and every retry inside the next
-minute was answered "please wait" instead — which reads as the cooldown
-firing on a first, normal request.
+This distinction was a real bug once: implementing the cooldown as
+`rateLimit({ limit: 1 })` spent the window when the request *started*, so
+a failed delivery still burnt it and the retry was answered "please wait"
+instead of showing the real error. The cooldown now lives in
+`password_reset_otps.last_sent_at`, written only after a provider accepts
+the message — which also makes it server-authoritative across restarts
+and multiple instances, where an in-memory map is neither.
 
-`cooldownRemainingMs()` / `markCooldown()` in `src/lib/rate-limit.ts`
-therefore separate *checking* from *recording*; checking has no side
-effect. The unknown-address path records the cooldown too, so an address
-with no account cannot be told apart from one that has by submitting
-twice.
-
-Nothing about the cooldown is persisted in the browser. The form holds a
-deadline in component state (accurate when the tab is backgrounded, where
-a decrement-per-tick counter stalls) keyed to the normalised address, so a
-refresh starts clean, a different address does not inherit the wait, and
-the server stays authoritative — the client timer is UX only.
+Hence the send ordering in `requestPasswordResetOtp`: **send first,
+persist after.** Writing the row first would overwrite a code the user may
+still be holding and start a cooldown, both on the strength of a send
+that might fail.
 
 ### Google accounts
 
-A Google account with no password has nothing to reset, and minting one
-would fork a single identity into two ways to sign in — which
-`registerAccount` already treats as a conflict. Such addresses get an
-email explaining to use **Continue with Google** instead. An account with
-both a Google identity *and* a password gets the normal reset link.
+A Google account has no password to reset, and minting one would fork a
+single identity into two ways to sign in — which `registerAccount`
+already treats as a conflict. Those addresses get an email explaining to
+use **Continue with Google**. An account with both a Google identity and
+a password gets a normal code. Rules in `src/lib/auth/recoveryPolicy.ts`.
 
-The rules live in `src/lib/auth/recoveryPolicy.ts` (unit-tested);
-`passwordReset.functions.ts` only performs the I/O they imply.
+### Recovery never trips the device lock
 
-### The recovery session is exempt from the device lock
+The OTP flow establishes **no Supabase session at all** — there is no
+recovery session to be mistaken for a second device, which is what made
+the old link flow fragile. `/verify-reset-otp` and `/reset-password` also
+call `suppressSessionLock()` while open, so even a user who is already
+signed in on that device cannot be signed out mid-reset.
 
-A recovery session is established by opening an emailed link, so it never
-calls `acquire_user_session` and holds no `user_sessions` claim. Left
-alone the heartbeat reads that as a stolen session and signs the user out
-mid-reset — within one 25 s interval, for anyone who has ever signed in
-and closed the browser without signing out, since the row is only
-deactivated on an explicit sign-out. `/reset-password` therefore calls
-`suppressSessionLock()` while it is open (`src/lib/auth/sessionLock.ts`).
+After the password is written, `revoke_user_sessions()` deletes the
+GoTrue session rows for that user *and* releases the `user_sessions`
+lock. Both matter: without the first, other devices keep working with the
+old password's tokens; without the second, the next sign-in is refused as
+`ALREADY_LOGGED_IN` because the signed-out device keeps heartbeating its
+claim alive.
 
-After a successful reset the lock is released outright: every session has
-just been revoked globally, so the claim protects nothing, and leaving it
-would refuse the very next login as `ALREADY_LOGGED_IN` — the other
-device keeps heartbeating it alive until its token expires.
+### What must be true to deploy this
 
-### What must be true in the Supabase dashboard
+**Database** — `SECTION 204` must be applied (`password_reset_otps`,
+`purge_expired_password_reset_otps`, `revoke_user_sessions`). Without the
+table every request fails; the flow does not silently degrade.
 
-Nothing, for delivery. The flow needs only `SUPABASE_SERVICE_ROLE_KEY`
-(to mint links) and a configured mail provider (to send them). It does
-not depend on Site URL, the Redirect URLs allow-list, Supabase SMTP or
-the recovery email template.
+**Environment** — `SUPABASE_SERVICE_ROLE_KEY`, `OTP_HASH_SECRET` (falls
+back to the service key, but set a dedicated value so rotating one does
+not invalidate the other), and a working mail provider. Nothing in this
+flow depends on Site URL, the Redirect URLs allow-list, Supabase SMTP or
+any Supabase email template.
 
-Set **`PUBLIC_SITE_URL`** in production so the link points at the right
-origin — `src/lib/api/siteOrigin.server.ts` otherwise falls back to the
-request's own `Origin`/`Host`, which is fine for previews but not
-something to rely on behind a proxy.
+Schedule `purge_expired_password_reset_otps(24)` daily alongside
+`purge_expired_registrations`.
 
 ---
 
@@ -371,8 +393,12 @@ throwing on malformed storage.
 `recoveryPolicy.test.ts` (7) covers the recovery decision: unknown
 addresses stay silent even when they look federated, Google-only accounts
 are notified rather than reset, and an account holding a real password is
-always sent a link. `sessionLock.test.ts` (13) additionally covers the
-suppression toggle and releasing a lock without knowing its session id.
+always sent a code. `otpPolicy.test.ts` (24) covers the OTP lifecycle in
+isolation: replay, expiry, consumption, the 5-attempt cap, the ordering
+that stops a spent code being revived, grant validity, cooldown
+arithmetic and code shape. `sessionLock.test.ts` (13) additionally covers
+the suppression toggle and releasing a lock without knowing its session
+id.
 
 The server functions are **not** unit-tested — they need a live Supabase
 project and an email provider. Verify manually against staging:
@@ -390,19 +416,29 @@ project and an email provider. Verify manually against staging:
 7. Sign in with the new password.
 8. Resend twice inside a minute → the cooldown message appears.
 
-Password recovery, likewise against a real project (it needs the service
-role key and a mail provider):
+Password recovery, likewise against a real project (it needs SECTION 204
+applied, the service role key, `OTP_HASH_SECRET` and a mail provider):
 
-1. `/forgot-password` with a registered address → "Check Your Email", and
-   the email arrives from the ChessOx sender (not `supabase.io`).
-2. Submit an address with **no** account → the same screen, no email.
-3. Open the link **on a phone, from the mail app** → the reset form, not
-   the homepage and not "link not valid". This is the case `action_link`
-   and PKCE both fail.
-4. **Leave the form open for a minute** before submitting → it stays put.
-   A redirect to `/auth` with "your session has ended" means the device
-   lock is no longer suppressed.
-5. Set a new password → success screen, then sign in with it.
-6. Old password is refused; the reset link, reopened, is refused.
-7. A Google-only address → the "use Google Sign-In" email, and Google
-   sign-in still works.
+1. `/forgot-password` with a registered address → the OTP page, and a
+   "ChessOx Password Reset OTP" email arrives from the ChessOx sender
+   (not `supabase.io`). It contains a code and **no link**.
+2. Submit an address with **no** account → the same page, no email, and
+   visibly the same delay. A noticeably faster answer means the response
+   padding has regressed into an enumeration oracle.
+3. Enter a wrong code five times → "no longer valid", and the correct
+   code is refused afterwards too.
+4. Request a new code → the previous code stops working immediately.
+5. Resend inside 60 s → "Resend in Ns" with a real countdown; the button
+   re-enables on its own.
+6. **Leave the OTP page open past 5 minutes** → "Code expired", and the
+   correct code is refused.
+7. Enter the right code → `/reset-password`. Reload that page → the form
+   survives (sessionStorage); open it in a **new tab** → "Verification
+   needed first".
+8. Set a new password → success, redirected to sign in. Sign in with it.
+9. Old password is refused. Other devices are signed out.
+10. Going back and re-submitting the same grant → "no longer valid".
+11. A Google-only address → the "use Google Sign-In" email, no code, and
+    Google sign-in still works.
+12. On a phone: the six boxes fit without horizontal scroll, the numeric
+    keypad opens, and pasting a code from the mail app fills the row.

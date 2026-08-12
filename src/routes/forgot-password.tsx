@@ -1,8 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, Loader2, Mail, MailCheck, ShieldQuestion } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useRef, useState } from "react";
+import { Loader2, Mail, ShieldQuestion } from "lucide-react";
+
+import { AuthShell } from "@/components/auth/AuthShell";
 import { GoldButton } from "@/components/site/Primitives";
-import { requestPasswordReset } from "@/lib/api/passwordReset.functions";
+import { requestPasswordResetOtp } from "@/lib/api/passwordReset.functions";
+import { sentAtFromCooldown } from "@/lib/auth/otpPolicy";
+import { writeResetRequest } from "@/lib/auth/resetHandoff";
 import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/forgot-password")({
@@ -15,72 +19,33 @@ export const Route = createFileRoute("/forgot-password")({
   component: ForgotPasswordPage,
 });
 
-// Shown for every submitted email, existing account or not, so the form
-// can never be used to probe which addresses are registered.
-const GENERIC_SUCCESS =
-  "If an account exists with this email address, we've sent a password reset link.";
-
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const RESEND_COOLDOWN_SECS = 60;
 
 /**
- * Forgot Password — step 1 of the email reset-link flow. `requestPasswordReset`
- * has Supabase Auth mint the recovery token (cryptographically random,
- * single-use, time-limited) and emails it through the same provider chain as
- * every other ChessOx email, landing on /reset-password. No OTPs, no phone
- * numbers. See src/lib/api/passwordReset.functions.ts for why delivery does
- * not go through Supabase's built-in mailer.
+ * Forgot Password — step 1 of 3. Asks the server to email a 6-digit code
+ * and moves on to /verify-reset-otp. Deliberately no link is sent: the
+ * code is typed back into the site, so nothing secret travels in a URL.
+ *
+ * The response is identical for registered, unregistered and Google
+ * addresses (and padded to the same duration server-side), so this form
+ * cannot be used to discover which addresses have accounts.
  */
-/** The address a cooldown belongs to, normalised the same way the server does. */
-const normalise = (raw: string) => raw.trim().toLowerCase();
-
 function ForgotPasswordPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [sent, setSent] = useState(false);
 
-  // The cooldown is held as a DEADLINE, not a ticking count, and lives only
-  // in component state — nothing is written to localStorage or
-  // sessionStorage, so a refresh or a new tab starts clean and no cooldown
-  // can outlive the page. A deadline also stays accurate when the tab is
-  // backgrounded, where browsers throttle timers to about once a minute and
-  // a decrement-per-tick counter would simply stop counting down.
-  const [cooldownUntil, setCooldownUntil] = useState(0);
-  // Which address the deadline belongs to, so editing the field to a
-  // different address does not inherit this one's wait.
-  const [cooldownFor, setCooldownFor] = useState<string | null>(null);
-  const [now, setNow] = useState(() => Date.now());
-
-  // Guards a double submit within a single tick, which `busy` cannot: two
-  // clicks in the same tick both read the pre-update state.
+  // Catches a double submit inside a single tick, which `busy` cannot:
+  // both clicks would read the pre-update state.
   const inFlight = useRef(false);
-
-  const cooldownOwned = cooldownFor !== null && cooldownFor === normalise(email);
-  const cooldown = cooldownOwned ? Math.max(0, Math.ceil((cooldownUntil - now) / 1000)) : 0;
-
-  useEffect(() => {
-    if (cooldownUntil <= Date.now()) return;
-    const t = setInterval(() => {
-      setNow(Date.now());
-      // Re-enables the button on its own the moment the window elapses.
-      if (Date.now() >= cooldownUntil) clearInterval(t);
-    }, 250);
-    return () => clearInterval(t);
-  }, [cooldownUntil]);
-
-  function startCooldown(forEmail: string, seconds: number) {
-    setCooldownFor(forEmail);
-    setCooldownUntil(Date.now() + seconds * 1000);
-    setNow(Date.now());
-  }
 
   async function handleSubmit(e?: React.FormEvent) {
     e?.preventDefault();
     if (inFlight.current) return;
     setError(null);
 
-    const clean = normalise(email);
+    const clean = email.trim().toLowerCase();
     if (!EMAIL_RE.test(clean)) {
       setError("Please enter a valid email address.");
       return;
@@ -89,28 +54,24 @@ function ForgotPasswordPage() {
     inFlight.current = true;
     setBusy(true);
     try {
-      // Registered, unregistered and Google addresses all resolve
-      // identically, so nothing here can be used to probe which addresses
-      // have accounts. Three distinct answers, and only one of them is
-      // "sent": a delivery failure rejects, and an active cooldown resolves
-      // with ok:false — neither may show the success screen.
-      const res = await requestPasswordReset({ data: { email: clean } });
+      const res = await requestPasswordResetOtp({ data: { email: clean } });
 
-      if (!res.ok) {
-        // The server is the authority on the remaining time; the client
-        // just renders the number it is given.
-        startCooldown(clean, res.resendInSeconds);
-        setError(
-          `A reset link was already sent to this address. You can request another in ${res.resendInSeconds}s.`,
-        );
+      if (!res.ok && res.reason === "delivery_failed") {
+        // Never claim a code was sent when the provider refused it.
+        setError("We couldn't send the verification code right now. Please try again later.");
         return;
       }
 
-      setSent(true);
-      startCooldown(clean, res.resendInSeconds ?? RESEND_COOLDOWN_SECS);
+      // A cooldown still means a live code is sitting in that inbox, so the
+      // right move is to go and enter it. Reconstruct when it was sent from
+      // the remaining cooldown the server reported — both countdowns on the
+      // next page hang off that, so neither starts out wrong.
+      const sentAt =
+        !res.ok && res.reason === "cooldown" ? sentAtFromCooldown(res.resendInSeconds) : Date.now();
+
+      writeResetRequest({ email: clean, sentAt });
+      navigate({ to: "/verify-reset-otp" });
     } catch (err) {
-      // A failed request starts no cooldown — the server did not record one
-      // either, so the retry is answered honestly rather than with a wait.
       setError(
         err instanceof Error && err.message
           ? err.message
@@ -123,133 +84,66 @@ function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-80px)] w-full items-center justify-center bg-[#0f0505] p-6 sm:p-12">
-      <div className="pointer-events-none absolute inset-0 mandala-bg opacity-[0.03]" />
-
-      <div className="relative z-10 w-full max-w-[420px]">
-        <Link
-          to="/auth"
-          className="mb-6 inline-flex items-center gap-2 font-display text-[10px] uppercase tracking-[0.2em] text-gold/50 transition-colors hover:text-gold"
-        >
-          <ChevronLeft className="h-3 w-3" /> Back to Sign In
-        </Link>
-
-        {sent ? (
-          /* ---- Success state (identical for every email address) ---- */
-          <div className="rounded-2xl border border-gold/15 bg-black/40 p-8 backdrop-blur-md">
-            <div className="mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-emerald/10">
-              <MailCheck className="h-7 w-7 text-emerald" />
-            </div>
-            <h1 className="mb-3 font-display text-3xl text-ivory">Check Your Email</h1>
-            <p className="text-sm leading-relaxed text-foreground/60">{GENERIC_SUCCESS}</p>
-            <p className="mt-3 text-xs leading-relaxed text-foreground/40">
-              The link expires after a short time and can only be used once. If you don&apos;t see
-              the email, check your spam folder.
-            </p>
-
-            {error && (
-              <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {error}
-              </div>
-            )}
-
-            <div className="mt-6 space-y-3">
-              <Link to="/auth" className="block">
-                <GoldButton className="h-11 w-full text-[14px]">Back to Sign In</GoldButton>
-              </Link>
-              <button
-                onClick={() => void handleSubmit()}
-                disabled={busy || cooldown > 0}
-                className="w-full rounded-xl border border-gold/20 py-2.5 text-sm text-foreground/60 transition-colors hover:border-gold/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {busy ? (
-                  <Loader2 className="mx-auto h-4 w-4 animate-spin" />
-                ) : cooldown > 0 ? (
-                  `Resend link in ${cooldown}s`
-                ) : (
-                  "Resend link"
-                )}
-              </button>
-            </div>
+    <AuthShell
+      title="Forgot Password?"
+      subtitle="We'll email you a 6-digit verification code"
+      icon={<ShieldQuestion className="h-7 w-7 text-gold" />}
+      step={[1, 3]}
+    >
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <div>
+          <label htmlFor="fp-email" className="mb-1 block text-xs text-muted-foreground">
+            Email address
+          </label>
+          <div className="relative">
+            <Mail
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <input
+              id="fp-email"
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError(null);
+              }}
+              placeholder="your@email.com"
+              required
+              autoComplete="email"
+              autoFocus
+              disabled={busy}
+              className="w-full rounded-lg border border-gold/20 bg-white/[0.03] py-2.5 pl-9 pr-3 text-sm outline-none transition-colors focus:border-gold/60 disabled:opacity-50"
+            />
           </div>
-        ) : (
-          /* ---- Request form ---- */
-          <div className="rounded-2xl border border-gold/15 bg-black/40 p-8 backdrop-blur-md">
-            <div className="mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-gold/10">
-              <ShieldQuestion className="h-7 w-7 text-gold" />
-            </div>
-            <h1 className="mb-3 font-display text-3xl text-ivory">Forgot Password?</h1>
-            <p className="mb-6 text-sm leading-relaxed text-foreground/60">
-              Enter your registered email address and we&apos;ll send you a secure link to reset
-              your password.
-            </p>
+        </div>
 
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="fp-email"
-                  className="ml-1 block text-[11px] font-medium uppercase tracking-[0.1em] text-foreground/60"
-                >
-                  Email Address
-                </label>
-                <div className="group relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-foreground/40 transition-colors group-focus-within:text-gold">
-                    <Mail className="h-4 w-4" />
-                  </div>
-                  <input
-                    id="fp-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      // Typing a different address clears the previous
-                      // address's error; its cooldown stops applying on its
-                      // own, because `cooldownOwned` keys off this field.
-                      setError(null);
-                    }}
-                    placeholder="your@email.com"
-                    required
-                    autoComplete="email"
-                    autoFocus
-                    className="w-full rounded-xl border border-gold/15 bg-black/40 py-3 pl-10 pr-4 text-sm text-ivory outline-none transition-all placeholder:text-foreground/30 focus:border-gold/40 focus:bg-black/60 focus:ring-1 focus:ring-gold/40"
-                  />
-                </div>
-              </div>
-
-              {error && (
-                <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                  <div className="mt-0.5">•</div>
-                  <div>{error}</div>
-                </div>
-              )}
-
-              <GoldButton
-                className="h-11 w-full text-[14px]"
-                disabled={busy || cooldown > 0}
-                type="submit"
-              >
-                {busy ? (
-                  <Loader2 className="mx-auto h-4 w-4 animate-spin" />
-                ) : cooldown > 0 ? (
-                  `Try again in ${cooldown}s`
-                ) : (
-                  "Send Reset Link"
-                )}
-              </GoldButton>
-            </form>
-
-            <div className="mt-6 text-center text-xs text-foreground/40">
-              Remembered it?{" "}
-              <Link
-                to="/auth"
-                className="text-gold/70 underline decoration-gold/30 underline-offset-2 transition-colors hover:text-gold"
-              >
-                Sign in instead
-              </Link>
-            </div>
-          </div>
+        {error && (
+          <p
+            role="alert"
+            className="rounded-lg border border-red-500/25 bg-red-500/5 px-3 py-2 text-xs text-red-400"
+          >
+            {error}
+          </p>
         )}
+
+        <GoldButton className="w-full justify-center" type="submit" disabled={busy}>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {busy ? "Sending code…" : "Send Verification Code"}
+        </GoldButton>
+      </form>
+
+      <p className="mt-4 text-center text-[11px] leading-relaxed text-muted-foreground">
+        If an account exists, we&rsquo;ll send a verification code to your email. The code expires
+        in 5 minutes.
+      </p>
+
+      <div className="mt-4 text-center text-xs text-muted-foreground">
+        Remembered it?{" "}
+        <Link to="/auth" className="text-gold/80 underline-offset-2 hover:underline">
+          Sign in instead
+        </Link>
       </div>
-    </div>
+    </AuthShell>
   );
 }

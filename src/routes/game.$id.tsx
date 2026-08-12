@@ -25,6 +25,7 @@ import { formatEndReason, normalizeResult, resultSentence } from "@/lib/chess/re
 import { positionKey, terminalStateOf } from "@/lib/chess/rules";
 import { useLiveGame } from "@/realtime/client/useLiveGame";
 import { START_FEN } from "@/lib/chess/validation";
+import { MoveDeadlineIndicator } from "@/components/site/MoveDeadlineIndicator";
 import { FriendButton } from "@/components/friends/FriendButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -1130,6 +1131,9 @@ function LiveGame() {
               board={liveBoard}
               player={topPlayer.color}
               friendUserId={topPlayer.isMe ? null : topPlayer.id}
+              moveDeadlineAt={live.snapshot?.moveDeadlineAt}
+              moveDeadlineSeconds={live.snapshot?.moveDeadlineSeconds}
+              isGameActive={game.status === "active"}
             />
           </div>
 
@@ -1183,6 +1187,9 @@ function LiveGame() {
               player={bottomPlayer.color}
               me={bottomPlayer.isMe}
               friendUserId={bottomPlayer.isMe ? null : bottomPlayer.id}
+              moveDeadlineAt={live.snapshot?.moveDeadlineAt}
+              moveDeadlineSeconds={live.snapshot?.moveDeadlineSeconds}
+              isGameActive={game.status === "active"}
             />
           </div>
         </div>
@@ -1629,6 +1636,9 @@ function LiveGame() {
               board={liveBoard}
               player={topPlayer.color}
               friendUserId={topPlayer.isMe ? null : topPlayer.id}
+              moveDeadlineAt={live.snapshot?.moveDeadlineAt}
+              moveDeadlineSeconds={live.snapshot?.moveDeadlineSeconds}
+              isGameActive={game.status === "active"}
             />
           </div>
 
@@ -2197,6 +2207,7 @@ function LiveGame() {
 }
 
 function PlayerCard({
+  userId,
   name,
   rating,
   clock,
@@ -2210,7 +2221,11 @@ function PlayerCard({
   board,
   player,
   friendUserId,
+  moveDeadlineAt,
+  moveDeadlineSeconds,
+  isGameActive,
 }: {
+  userId?: string | null;
   name: string;
   rating: number | null;
   clock: ClockState;
@@ -2224,6 +2239,9 @@ function PlayerCard({
   board: BoardCell[][];
   player: "w" | "b";
   friendUserId?: string | null;
+  moveDeadlineAt?: number | null;
+  moveDeadlineSeconds?: number | null;
+  isGameActive?: boolean;
 }) {
   const { settings } = useGameSettings();
   const display = useChessClock(clock, { showTenths: settings.show_tenths });
@@ -2234,10 +2252,7 @@ function PlayerCard({
     <div className="py-1.5 px-1 transition-all duration-300 w-full">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-          <div className="relative flex-shrink-0">
-            <UserAvatar avatarUrl={avatar} displayName={name} size="md" />
-            <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background animate-pulse" />
-          </div>
+          <UserAvatar userId={userId ?? friendUserId} avatarUrl={avatar} displayName={name} size="md" />
           <div className="min-w-0 flex flex-col justify-center gap-0.5 flex-1">
             <div className="flex items-center gap-2 flex-wrap text-sm font-semibold text-foreground">
               <SeasonShield sp={rating ?? 0} size="xs" variant="icon" />
@@ -2261,16 +2276,26 @@ function PlayerCard({
           </div>
         </div>
 
-        {/* Digital Clock Readout */}
+        {/* Digital Clock Readout & Per-Move Response Deadline */}
         {showClock && (
-          <div
-            className={`rounded-lg px-3 py-1 font-sans text-sm font-bold tracking-wide tabular-nums transition-all flex-shrink-0 ${
-              active
-                ? "bg-gold text-[#0B0D10] shadow-md shadow-gold/30 scale-105"
-                : "bg-white/10 text-foreground/90 border border-white/15"
-            }`}
-          >
-            <ClockTime ms={currentMs} active={!!active} />
+          <div className="flex items-center gap-2 shrink-0">
+            {active && isGameActive && (
+              <MoveDeadlineIndicator
+                moveDeadlineAt={moveDeadlineAt ?? null}
+                moveDeadlineSeconds={moveDeadlineSeconds ?? null}
+                isActiveTurn={!!active}
+                isGameActive={!!isGameActive}
+              />
+            )}
+            <div
+              className={`rounded-lg px-3 py-1 font-sans text-sm font-bold tracking-wide tabular-nums transition-all flex-shrink-0 ${
+                active
+                  ? "bg-gold text-[#0B0D10] shadow-md shadow-gold/30 scale-105"
+                  : "bg-white/10 text-foreground/90 border border-white/15"
+              }`}
+            >
+              <ClockTime ms={currentMs} active={!!active} />
+            </div>
           </div>
         )}
       </div>

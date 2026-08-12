@@ -142,7 +142,12 @@ export function useLiveGame(gameId: string | null): LiveGameApi {
     if (!gameId) return;
     const socket = getSocket();
 
-    const applyMove = (payload: { gameId: string; move: MovePayload; clock: ClockSnapshot }) => {
+    const applyMove = (payload: {
+      gameId: string;
+      move: MovePayload;
+      clock: ClockSnapshot;
+      moveDeadlineAt?: number | null;
+    }) => {
       if (payload.gameId !== gameId) return;
       setSnapshot((prev) => {
         if (!prev) return prev;
@@ -162,6 +167,7 @@ export function useLiveGame(gameId: string | null): LiveGameApi {
           fen: payload.move.fenAfter,
           turn: payload.move.fenAfter.split(" ")[1] === "w" ? "w" : "b",
           clock: payload.clock,
+          moveDeadlineAt: payload.moveDeadlineAt !== undefined ? payload.moveDeadlineAt : prev.moveDeadlineAt,
           drawOfferedBy: null,
         };
       });

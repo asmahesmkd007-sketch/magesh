@@ -574,12 +574,12 @@ BEGIN
 
   -- Create wallet with welcome bonus
   INSERT INTO public.wallets (user_id, balance, total_earned)
-  VALUES (NEW.id, 50, 50);
+  VALUES (NEW.id, 10, 10);
 
   INSERT INTO public.wallet_transactions
     (user_id, type, amount, balance_after, description, idempotency_key)
   VALUES
-    (NEW.id, 'welcome_bonus', 50, 50, 'Welcome to ChessOx! Here are 50 bonus coins.',
+    (NEW.id, 'welcome_bonus', 10, 10, 'Welcome to ChessOx! Here are 10 bonus coins.',
      'welcome_' || NEW.id::text);
 
   RETURN NEW;
@@ -19587,7 +19587,6 @@ WHERE sr.id = r.id;
 -- 102.15 Season finalization — corrections
 -- Three gaps between the SECTION 77 finalization path and the v2 ladder, fixed ...
 -- 1
-
 -- Ranking now skips banned players entirely: they keep their points for the aud...
 CREATE OR REPLACE FUNCTION public._season_recompute_rankings(p_season_id UUID)
 RETURNS void
@@ -19670,7 +19669,6 @@ CREATE TRIGGER trg_season_history_enrich
   FOR EACH ROW EXECUTE FUNCTION public._season_history_enrich();
 
 -- Mirror the same bundles onto the LIVE board so the season's final standings s...
-
 -- Section 103: EMAIL VERIFICATION LINK REGISTRATION (2026-07-29)
 -- Replaces the SECTION 78 OTP flow with a verification-LINK flow in which the p...
 -- register (username + email, no password) -> pending_registrations row, status...
@@ -20398,18 +20396,12 @@ REVOKE EXECUTE ON FUNCTION
 GRANT EXECUTE ON FUNCTION
   public.set_spectator_default(public.spectator_visibility) TO authenticated, service_role;
 
-
-
-
-
-
 -- Section 105: AUTH UNIFICATION  (2026-07-29)
 -- Run this once against the project your app's SUPABASE_URL points at (Dashboar...
 -- WHY THIS EXISTS Two things were wrong on the live database:
 -- 1
 -- Onboarding setup: assign default username & country
 -- WHERE THE IDENTITY COLUMNS LIVE, AND WHY NOT ON `profiles` public.profiles is...
-
 
 -- 105.1  SECTION 103 CATCH-UP — the registration staging table
 -- Identical to schema.sql SECTION 103; reproduced here so this file can be appl...
@@ -20681,13 +20673,13 @@ BEGIN
   ON CONFLICT DO NOTHING;
 
   INSERT INTO public.wallets (user_id, balance, total_earned)
-  VALUES (NEW.id, 50, 50)
+  VALUES (NEW.id, 10, 10)
   ON CONFLICT DO NOTHING;
 
   INSERT INTO public.wallet_transactions
     (user_id, type, amount, balance_after, description, idempotency_key)
   VALUES
-    (NEW.id, 'welcome_bonus', 50, 50, 'Welcome to ChessOx! Here are 50 bonus coins.',
+    (NEW.id, 'welcome_bonus', 10, 10, 'Welcome to ChessOx! Here are 10 bonus coins.',
      'welcome_' || NEW.id::text)
   ON CONFLICT DO NOTHING;
 

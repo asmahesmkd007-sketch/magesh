@@ -12,7 +12,12 @@ Keeping them apart is deliberate: a registration link can never reset an
 existing account's password, and a recovery link can never create one.
 
 Backend: `supabase/schema.sql` **SECTION 103**.
-Server functions: `src/lib/api/registration.functions.ts`.
+Server functions: `src/lib/api/registration.functions.ts`,
+`src/lib/api/passwordReset.functions.ts`.
+
+**Both flows send their own email.** Supabase's built-in mailer is not
+configured on this project and nothing depends on it — see
+[Password recovery flow](#password-recovery-flow).
 
 ---
 
@@ -52,6 +57,138 @@ Storing a second hash would mean two sources of truth for a credential
 and hand-rolling password storage — a security regression, not a feature.
 Passwords are therefore sent straight to the Auth admin API at the final
 step and never touch `pending_registrations`.
+
+---
+
+## Password recovery flow
+
+```
+/forgot-password        email only
+   │                    requestPasswordReset()   (server fn)
+   │                    ├─ no account      → nothing sent
+   │                    ├─ Google-only     → "use Google Sign-In" email
+   │                    └─ has password    → recovery link email
+   ▼
+Supabase Auth           admin.generateLink({ type: 'recovery' })
+   │                    mints the token; we read properties.hashed_token
+   ▼
+email.server.ts         sendMail() — the ChessOx provider chain
+   │                    link: /reset-password?token_hash=…&type=recovery
+   ▼
+/reset-password         verifyOtp({ type: 'recovery', token_hash })
+   │                    → recovery session, form unlocked
+   │                    supabase.auth.updateUser({ password })
+   │                    → release session lock, global signOut
+   ▼
+/auth (signin)          email + new password
+```
+
+### Why delivery does not go through Supabase
+
+`resetPasswordForEmail()` asks GoTrue to both **mint** the token and
+**send** the mail. Minting is what we want; sending is not.
+
+This project has never had Supabase SMTP configured. Registration creates
+auth users with `email_confirm: true` precisely so GoTrue never needs to
+send anything, and every other transactional email goes out through
+`email.server.ts`. Password recovery was the one flow still relying on
+Supabase's built-in mailer — which on a project without custom SMTP is
+rate-limited to a couple of messages an hour and only delivers to
+addresses belonging to the Supabase organisation. That is why reset
+emails never arrived.
+
+Supabase Auth still owns the token. We store nothing, hash nothing and
+expire nothing ourselves; `generateLink` mints exactly the token
+`resetPasswordForEmail` would have, and issuing a new one invalidates the
+previous one.
+
+### Why `token_hash`, not `action_link`
+
+`generateLink` also returns `properties.action_link`, which bounces
+through GoTrue's `/verify` endpoint. We deliberately do not use it:
+
+- it is only honoured if its redirect target is in the dashboard's
+  **Redirect URLs** allow-list, so the link silently lands on the
+  homepage when that list drifts;
+- it hands back an implicit-flow hash, and a PKCE `code` link is worse —
+  its verifier lives in the requesting browser's storage, so the link
+  **cannot** work when a phone's mail app opens it in its own webview.
+
+Redeeming `hashed_token` with `verifyOtp` has neither problem. It is the
+same value Supabase's own templates expose as `{{ .TokenHash }}`. The
+page still accepts hash and `code` landings so links already sitting in
+inboxes keep working.
+
+### Throttling: a cooldown is not a rate limit
+
+Two different controls, deliberately not the same mechanism:
+
+| Control              | Key                    | Limit    | Spent when            |
+| -------------------- | ---------------------- | -------- | --------------------- |
+| Abuse cap per IP     | `pwreset-ip:*`         | 10 / h   | every attempt         |
+| Abuse cap per email  | `pwreset-email:*`      | 5 / h    | every attempt         |
+| Resend cooldown      | `pwreset-cooldown:*`   | 60 s     | **only on success**   |
+
+The caps exist to stop hammering, so a failing request should spend one.
+The cooldown exists to space out *emails that actually went out*, so a
+request that failed has nothing to space out.
+
+Implementing the cooldown as `rateLimit({ limit: 1 })` conflated the two
+and produced a real bug: the window was spent when the request *started*,
+before delivery was attempted. With the mail provider rejecting sends, the
+first attempt failed with the true error and every retry inside the next
+minute was answered "please wait" instead — which reads as the cooldown
+firing on a first, normal request.
+
+`cooldownRemainingMs()` / `markCooldown()` in `src/lib/rate-limit.ts`
+therefore separate *checking* from *recording*; checking has no side
+effect. The unknown-address path records the cooldown too, so an address
+with no account cannot be told apart from one that has by submitting
+twice.
+
+Nothing about the cooldown is persisted in the browser. The form holds a
+deadline in component state (accurate when the tab is backgrounded, where
+a decrement-per-tick counter stalls) keyed to the normalised address, so a
+refresh starts clean, a different address does not inherit the wait, and
+the server stays authoritative — the client timer is UX only.
+
+### Google accounts
+
+A Google account with no password has nothing to reset, and minting one
+would fork a single identity into two ways to sign in — which
+`registerAccount` already treats as a conflict. Such addresses get an
+email explaining to use **Continue with Google** instead. An account with
+both a Google identity *and* a password gets the normal reset link.
+
+The rules live in `src/lib/auth/recoveryPolicy.ts` (unit-tested);
+`passwordReset.functions.ts` only performs the I/O they imply.
+
+### The recovery session is exempt from the device lock
+
+A recovery session is established by opening an emailed link, so it never
+calls `acquire_user_session` and holds no `user_sessions` claim. Left
+alone the heartbeat reads that as a stolen session and signs the user out
+mid-reset — within one 25 s interval, for anyone who has ever signed in
+and closed the browser without signing out, since the row is only
+deactivated on an explicit sign-out. `/reset-password` therefore calls
+`suppressSessionLock()` while it is open (`src/lib/auth/sessionLock.ts`).
+
+After a successful reset the lock is released outright: every session has
+just been revoked globally, so the claim protects nothing, and leaving it
+would refuse the very next login as `ALREADY_LOGGED_IN` — the other
+device keeps heartbeating it alive until its token expires.
+
+### What must be true in the Supabase dashboard
+
+Nothing, for delivery. The flow needs only `SUPABASE_SERVICE_ROLE_KEY`
+(to mint links) and a configured mail provider (to send them). It does
+not depend on Site URL, the Redirect URLs allow-list, Supabase SMTP or
+the recovery email template.
+
+Set **`PUBLIC_SITE_URL`** in production so the link points at the right
+origin — `src/lib/api/siteOrigin.server.ts` otherwise falls back to the
+request's own `Origin`/`Host`, which is fine for previews but not
+something to rely on behind a proxy.
 
 ---
 
@@ -149,7 +286,8 @@ Every case in the spec maps to a specific screen or message:
 
 ## Email delivery
 
-`src/lib/api/email.server.ts` is the single sender. Providers are tried in
+`src/lib/api/email.server.ts` is the single sender — registration
+verification, welcome, **and password recovery**. Providers are tried in
 order and the first **configured** one wins:
 
 1. **Gmail SMTP** — `GMAIL_USER` + `GMAIL_APP_PASSWORD`
@@ -164,7 +302,9 @@ thing that renders reliably in Gmail, Outlook and Apple Mail.
 Set **`PUBLIC_SITE_URL`** in production so verification links point at the
 right origin. Without it the server falls back to the request's own
 `Origin`/`Host`, which works for previews but is not something to rely on
-behind a proxy.
+behind a proxy. One definition, in
+`src/lib/api/siteOrigin.server.ts` — a second copy is how a link ends up
+pointing at localhost in production.
 
 ---
 
@@ -228,6 +368,12 @@ strength never over-reporting a failing password, username and email
 normalisation, and handoff parsing that returns `null` rather than
 throwing on malformed storage.
 
+`recoveryPolicy.test.ts` (7) covers the recovery decision: unknown
+addresses stay silent even when they look federated, Google-only accounts
+are notified rather than reset, and an account holding a real password is
+always sent a link. `sessionLock.test.ts` (13) additionally covers the
+suppression toggle and releasing a lock without knowing its session id.
+
 The server functions are **not** unit-tested — they need a live Supabase
 project and an email provider. Verify manually against staging:
 
@@ -243,3 +389,20 @@ project and an email provider. Verify manually against staging:
 6. Open the link again → "Already verified".
 7. Sign in with the new password.
 8. Resend twice inside a minute → the cooldown message appears.
+
+Password recovery, likewise against a real project (it needs the service
+role key and a mail provider):
+
+1. `/forgot-password` with a registered address → "Check Your Email", and
+   the email arrives from the ChessOx sender (not `supabase.io`).
+2. Submit an address with **no** account → the same screen, no email.
+3. Open the link **on a phone, from the mail app** → the reset form, not
+   the homepage and not "link not valid". This is the case `action_link`
+   and PKCE both fail.
+4. **Leave the form open for a minute** before submitting → it stays put.
+   A redirect to `/auth` with "your session has ended" means the device
+   lock is no longer suppressed.
+5. Set a new password → success screen, then sign in with it.
+6. Old password is refused; the reset link, reopened, is refused.
+7. A Google-only address → the "use Google Sign-In" email, and Google
+   sign-in still works.

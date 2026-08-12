@@ -303,9 +303,9 @@ function LocalPlay() {
 
   return (
     <PageShell
-      eyebrow="Local Play"
-      title="Two Player"
-      subtitle="Both players on the same device — pass and play."
+      eyebrow={phase === "setup" ? "Local Play" : undefined}
+      title={phase === "setup" ? "Two Player" : undefined}
+      subtitle={phase === "setup" ? "Both players on the same device — pass and play." : undefined}
       compact={true}
     >
       {showEndModal && outcome && (
@@ -348,76 +348,23 @@ function LocalPlay() {
       )}
 
       {(phase === "playing" || phase === "over") && (
-        <div className="grid gap-6 lg:grid-cols-12">
-          {/* Left panel */}
-          <div className="space-y-4 lg:col-span-3">
-            <PlayerCard
-              name={orientation === "w" ? "Black" : "White"}
-              ms={orientation === "w" ? blackMs : whiteMs}
-              active={phase === "playing" && turn !== orientation}
-              showClock={!clock.untimed}
-              board={boardState}
-              capturedColor={orientation === "w" ? "b" : "w"}
-            />
-            <PlayerCard
-              name={orientation === "w" ? "White" : "Black"}
-              ms={orientation === "w" ? whiteMs : blackMs}
-              active={phase === "playing" && turn === orientation}
-              showClock={!clock.untimed}
-              board={boardState}
-              capturedColor={orientation === "w" ? "w" : "b"}
-              me
-            />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center justify-center max-w-6xl mx-auto py-2">
+          {/* LEFT COLUMN: PLAYER CARDS & CHESS BOARD */}
+          <div className="lg:col-span-7 xl:col-span-7 flex flex-col items-center justify-center w-full mx-auto">
+            {/* Top Player (Opponent) */}
+            <div className="w-full max-w-[560px] mb-1">
+              <PlayerCard
+                name={orientation === "w" ? "Black" : "White"}
+                ms={orientation === "w" ? blackMs : whiteMs}
+                active={phase === "playing" && turn !== orientation}
+                showClock={!clock.untimed}
+                board={boardState}
+                capturedColor={orientation === "w" ? "b" : "w"}
+              />
+            </div>
 
-            {phase === "over" && headline && (
-              <Card className="p-4 text-center">
-                <div className="font-display text-xl text-gradient-gold">{headline}</div>
-                <div className="mt-4 flex justify-center gap-2">
-                  <GoldButton onClick={beginGame}>Rematch</GoldButton>
-                  <GhostButton onClick={resetGame}>New Setup</GhostButton>
-                </div>
-              </Card>
-            )}
-
-            {phase === "playing" && (
-              <Card className="p-4">
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setOrientation((o) => (o === "w" ? "b" : "w"))}
-                    className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs hover:border-gold/30"
-                  >
-                    <FlipVertical2 className="h-3.5 w-3.5" /> Flip
-                  </button>
-                  <button
-                    onClick={offerDraw}
-                    className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs hover:border-gold/30"
-                  >
-                    <Handshake className="h-3.5 w-3.5" /> Draw
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (settings.confirm_resign && !confirm("Resign this game?")) return;
-                      // The player to move is the one resigning.
-                      endGame(turn === "w" ? "black" : "white", "resignation");
-                    }}
-                    className="flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-2 text-xs text-destructive hover:bg-destructive/10"
-                  >
-                    <Flag className="h-3.5 w-3.5" /> Resign
-                  </button>
-                  <button
-                    onClick={resetGame}
-                    className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs hover:border-gold/30"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" /> New Game
-                  </button>
-                </div>
-              </Card>
-            )}
-          </div>
-
-          {/* Board */}
-          <div className="lg:col-span-6">
-            <div className="relative">
+            {/* Chess Board */}
+            <div className="w-full max-w-[560px] mx-auto relative flex flex-col items-center justify-center">
               <InteractiveBoard
                 board={boardState}
                 orientation={orientation}
@@ -430,45 +377,120 @@ function LocalPlay() {
                 endState={endState}
               />
               {promotion && (
-                <PromotionPicker
-                  color={gameRef.current.turn()}
-                  onCancel={() => {
-                    setPromotion(null);
-                    setSelected(null);
-                    setTargets([]);
-                  }}
-                  onPick={(p) => {
-                    const { from, to } = promotion;
-                    setPromotion(null);
-                    commitMove(from, to, p);
-                  }}
-                />
+                <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50 backdrop-blur-xs">
+                  <PromotionPicker
+                    color={gameRef.current.turn()}
+                    onCancel={() => {
+                      setPromotion(null);
+                      setSelected(null);
+                      setTargets([]);
+                    }}
+                    onPick={(p) => {
+                      const { from, to } = promotion;
+                      setPromotion(null);
+                      commitMove(from, to, p);
+                    }}
+                  />
+                </div>
               )}
             </div>
-            {phase === "playing" && (
-              <div className="mt-3 text-center text-sm text-muted-foreground">
-                {turn === "w" ? "White" : "Black"} to move
-              </div>
-            )}
+
+            {/* Bottom Player (You) */}
+            <div className="w-full max-w-[560px] mt-1">
+              <PlayerCard
+                name={orientation === "w" ? "White" : "Black"}
+                ms={orientation === "w" ? whiteMs : blackMs}
+                active={phase === "playing" && turn === orientation}
+                showClock={!clock.untimed}
+                board={boardState}
+                capturedColor={orientation === "w" ? "w" : "b"}
+                me
+              />
+            </div>
           </div>
 
-          {/* Move list */}
-          <div className="lg:col-span-3">
-            <Card className="p-4">
-              <div className="mb-3 font-display">Moves</div>
-              <div className="grid max-h-96 grid-cols-[auto_1fr_1fr] gap-x-3 gap-y-1 overflow-y-auto pr-1 text-sm scrollbar-thin">
+          {/* RIGHT COLUMN: STATUS + MOVES + CONTROLS */}
+          <div className="lg:col-span-5 xl:col-span-5 flex flex-col gap-3 w-full max-w-[380px] mx-auto">
+            {/* Game Status Banner */}
+            <div className="rounded-xl border border-gold/20 bg-black/60 p-2.5 text-center min-h-[50px] flex flex-col justify-center shrink-0">
+              <div className="text-xs uppercase tracking-[0.2em] font-semibold text-muted-foreground">
+                {phase === "over"
+                  ? headline
+                  : gameRef.current.inCheck()
+                    ? "Check!"
+                    : `${turn === "w" ? "White" : "Black"}'s turn`}
+              </div>
+            </div>
+
+            {/* Move List */}
+            <Card className="p-3.5">
+              <div className="mb-2 flex items-center justify-between border-b border-white/10 pb-2">
+                <div className="font-display text-sm font-bold text-foreground">Move List</div>
+                <span className="text-[10px] font-mono text-muted-foreground">
+                  {history.length} ply
+                </span>
+              </div>
+              <div className="grid max-h-[min(260px,calc(100vh-380px))] grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1 overflow-y-auto pr-2 text-xs font-mono scrollbar-thin">
                 {Array.from({ length: Math.ceil(history.length / 2) }).map((_, i) => (
                   <div className="contents" key={i}>
-                    <div className="text-muted-foreground">{i + 1}.</div>
-                    <div>{history[i * 2] ?? ""}</div>
+                    <div className="text-right text-muted-foreground/60">{i + 1}.</div>
+                    <div className="text-foreground">{history[i * 2] ?? ""}</div>
                     <div className="text-muted-foreground">{history[i * 2 + 1] ?? ""}</div>
                   </div>
                 ))}
                 {history.length === 0 && (
-                  <div className="col-span-3 text-xs text-muted-foreground">No moves yet</div>
+                  <div className="col-span-3 text-xs text-muted-foreground italic">
+                    No moves yet — make the opening move.
+                  </div>
                 )}
               </div>
             </Card>
+
+            {/* Game Controls */}
+            {phase === "playing" && (
+              <Card className="p-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setOrientation((o) => (o === "w" ? "b" : "w"))}
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] py-2 text-xs font-medium transition hover:border-gold/30 hover:bg-gold/10 text-foreground"
+                  >
+                    <FlipVertical2 className="h-3.5 w-3.5" /> Flip Board
+                  </button>
+                  <button
+                    onClick={offerDraw}
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] py-2 text-xs font-medium transition hover:border-gold/30 hover:bg-gold/10 text-foreground"
+                  >
+                    <Handshake className="h-3.5 w-3.5" /> Offer Draw
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (settings.confirm_resign && !confirm("Resign this game?")) return;
+                      endGame(turn === "w" ? "black" : "white", "resignation");
+                    }}
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-destructive/40 bg-destructive/5 py-2 text-xs font-medium text-destructive transition hover:bg-destructive/10"
+                  >
+                    <Flag className="h-3.5 w-3.5" /> Resign
+                  </button>
+                  <button
+                    onClick={resetGame}
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] py-2 text-xs font-medium transition hover:border-gold/30 hover:bg-gold/10 text-foreground"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" /> New Setup
+                  </button>
+                </div>
+              </Card>
+            )}
+
+            {phase === "over" && (
+              <div className="flex flex-col gap-2">
+                <GoldButton onClick={beginGame} className="w-full">
+                  Rematch
+                </GoldButton>
+                <GhostButton onClick={resetGame} className="w-full">
+                  New Setup
+                </GhostButton>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -497,29 +519,39 @@ function PlayerCard({
   // cue, not just "me", since both players share this device.
   useClockAudio(Math.ceil(ms / 1000), active && showClock);
   return (
-    <Card className={`p-4 ${active ? "ring-1 ring-gold/60" : ""}`}>
-      <div className="flex items-center gap-3">
-        <div className="grid h-10 w-10 place-items-center rounded-full gradient-gold font-display text-background">
-          {name[0]}
-        </div>
-        <div className="flex-1">
-          <div className="text-sm">
-            {name}
-            {me ? " · You" : ""}
+    <div className="py-1 px-1 transition-all duration-300 w-full">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div className="grid h-8 w-8 place-items-center rounded-full gradient-gold font-display text-xs text-background font-bold shrink-0">
+            {name[0]}
           </div>
-          <CapturedPieces board={board} player={capturedColor} className="mt-0.5" />
-          {active && (
-            <div className="text-[10px] uppercase tracking-widest text-gold">Your turn</div>
-          )}
+          <div className="min-w-0 flex flex-col justify-center gap-0.5 flex-1">
+            <div className="flex items-center gap-2 flex-wrap text-sm font-semibold text-foreground">
+              <span className="truncate">{name}</span>
+              {me && (
+                <span className="rounded bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-gold border border-gold/30">
+                  You
+                </span>
+              )}
+            </div>
+            <div className="flex items-center mt-0.5">
+              <CapturedPieces board={board} player={capturedColor} className="flex items-center" />
+            </div>
+          </div>
         </div>
+
         {showClock && (
           <div
-            className={`rounded-lg px-3 py-1.5 font-mono text-sm tabular-nums ${active ? "bg-gold text-[#0B0D10]" : "bg-white/5"}`}
+            className={`rounded-lg px-3 py-1 font-sans text-sm font-bold tracking-wide tabular-nums transition-all flex-shrink-0 ${
+              active
+                ? "bg-gold text-[#0B0D10] shadow-md shadow-gold/30 scale-105"
+                : "bg-white/10 text-foreground/90 border border-white/15"
+            }`}
           >
             <ClockTime ms={ms} active={active} />
           </div>
         )}
       </div>
-    </Card>
+    </div>
   );
 }

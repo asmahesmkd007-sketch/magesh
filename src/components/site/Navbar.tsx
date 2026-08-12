@@ -248,6 +248,7 @@ export function Navbar() {
                   variant="icon"
                 />
                 <UserAvatar
+                  userId={user.id}
                   avatarUrl={
                     profile?.avatar_url ||
                     (user?.user_metadata?.avatar_url as string | undefined) ||

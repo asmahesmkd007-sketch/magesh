@@ -574,12 +574,12 @@ BEGIN
 
   -- Create wallet with welcome bonus
   INSERT INTO public.wallets (user_id, balance, total_earned)
-  VALUES (NEW.id, 50, 50);
+  VALUES (NEW.id, 10, 10);
 
   INSERT INTO public.wallet_transactions
     (user_id, type, amount, balance_after, description, idempotency_key)
   VALUES
-    (NEW.id, 'welcome_bonus', 50, 50, 'Welcome to ChessOx! Here are 50 bonus coins.',
+    (NEW.id, 'welcome_bonus', 10, 10, 'Welcome to ChessOx! Here are 10 bonus coins.',
      'welcome_' || NEW.id::text);
 
   RETURN NEW;

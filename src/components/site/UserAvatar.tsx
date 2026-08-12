@@ -10,7 +10,10 @@ const SIZE_MAP = {
   xl: { wrapper: "h-28 w-28", text: "text-5xl" },
 } as const;
 
+import { PresenceDot } from "@/components/site/PresenceDot";
+
 interface UserAvatarProps {
+  userId?: string | null;
   avatarUrl?: string | null;
   displayName?: string | null;
   size?: keyof typeof SIZE_MAP;
@@ -18,6 +21,7 @@ interface UserAvatarProps {
   className?: string;
   /** Shape override — default is rounded-full; pass "rounded-2xl" for profile page */
   shape?: string;
+  showPresence?: boolean;
 }
 
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
@@ -107,11 +111,13 @@ export function useResolvedAvatarUrl(avatarUrl?: string | null): string | null {
 }
 
 export function UserAvatar({
+  userId,
   avatarUrl,
   displayName,
   size = "md",
   className = "",
   shape = "rounded-full",
+  showPresence = true,
 }: UserAvatarProps) {
   const { wrapper, text } = SIZE_MAP[size];
   const [hasError, setHasError] = useState(false);
@@ -121,8 +127,15 @@ export function UserAvatar({
     setHasError(false);
   }, [primaryUrl]);
 
-  if (primaryUrl && !hasError) {
-    return (
+  const dotSizeClass =
+    size === "xs" || size === "sm"
+      ? "h-2 w-2"
+      : size === "lg" || size === "xl"
+        ? "h-3.5 w-3.5"
+        : "h-2.5 w-2.5";
+
+  const content =
+    primaryUrl && !hasError ? (
       <img
         src={primaryUrl}
         alt={displayName ?? "Player avatar"}
@@ -134,14 +147,24 @@ export function UserAvatar({
           setHasError(true);
         }}
       />
+    ) : (
+      <div
+        className={`${wrapper} ${shape} grid place-items-center gradient-gold font-display ${text} text-[#0B0D10] ${className}`}
+      >
+        {initials(displayName)}
+      </div>
+    );
+
+  if (userId && showPresence) {
+    return (
+      <div className="relative inline-block shrink-0">
+        {content}
+        <span className="absolute bottom-0 right-0 translate-x-0.5 translate-y-0.5 z-10">
+          <PresenceDot userId={userId} className={dotSizeClass} />
+        </span>
+      </div>
     );
   }
 
-  return (
-    <div
-      className={`${wrapper} ${shape} grid place-items-center gradient-gold font-display ${text} text-[#0B0D10] ${className}`}
-    >
-      {initials(displayName)}
-    </div>
-  );
+  return content;
 }

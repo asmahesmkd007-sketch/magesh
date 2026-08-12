@@ -2,7 +2,8 @@
 // profiles: left nav rail, center content, right discovery sidebar.
 import { Link, useRouterState } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { BadgeCheck, Bell, Bookmark, Compass, Home, Mail, TrendingUp, User } from "lucide-react";
+import { useState } from "react";
+import { BadgeCheck, Bell, Bookmark, Compass, Home, Mail, TrendingUp, Trophy, User } from "lucide-react";
 import { Card } from "@/components/site/Primitives";
 import { UserAvatar } from "@/components/site/UserAvatar";
 import { useAuth, useProfile } from "@/hooks/useAuth";
@@ -99,6 +100,7 @@ export function CommunityLayout({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { profile } = useProfile(user?.id);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [showMobileTopScores, setShowMobileTopScores] = useState(false);
   const { data: leaders = [] } = useLeaderboard("score", 5);
   const { data: suggested = [] } = useSuggestedUsers(4);
   const { data: tags = [] } = useTrendingTags();
@@ -167,7 +169,148 @@ export function CommunityLayout({ children }: { children: ReactNode }) {
         </aside>
 
         {/* center */}
-        <main className="min-w-0 flex-1">{children}</main>
+        <main className="min-w-0 flex-1">
+          {/* Mobile sub-navigation bar & top scores trigger */}
+          <div className="mb-4 block md:hidden">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-none">
+              <Link
+                to="/community"
+                className={`flex items-center gap-1.5 shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  pathname === "/community"
+                    ? "bg-gold/20 text-gold border border-gold/40 shadow-sm"
+                    : "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <Home className="h-3.5 w-3.5" /> Home
+              </Link>
+              <Link
+                to="/community/explore"
+                search={{ tag: undefined, q: undefined }}
+                className={`flex items-center gap-1.5 shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  pathname.startsWith("/community/explore")
+                    ? "bg-gold/20 text-gold border border-gold/40 shadow-sm"
+                    : "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <Compass className="h-3.5 w-3.5" /> Explore
+              </Link>
+              <Link
+                to="/notifications"
+                className={`flex items-center gap-1.5 shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  pathname.startsWith("/notifications")
+                    ? "bg-gold/20 text-gold border border-gold/40 shadow-sm"
+                    : "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <Bell className="h-3.5 w-3.5" /> Notifications
+              </Link>
+              <Link
+                to="/chat"
+                className={`flex items-center gap-1.5 shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  pathname.startsWith("/chat")
+                    ? "bg-gold/20 text-gold border border-gold/40 shadow-sm"
+                    : "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <Mail className="h-3.5 w-3.5" /> Messages
+              </Link>
+              <Link
+                to="/community/bookmarks"
+                className={`flex items-center gap-1.5 shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  pathname.startsWith("/community/bookmarks")
+                    ? "bg-gold/20 text-gold border border-gold/40 shadow-sm"
+                    : "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <Bookmark className="h-3.5 w-3.5" /> Bookmarks
+              </Link>
+              {profile && (
+                <Link
+                  to="/u/$username"
+                  params={{ username: profile.username }}
+                  className={`flex items-center gap-1.5 shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                    pathname === `/u/${profile.username}`
+                      ? "bg-gold/20 text-gold border border-gold/40 shadow-sm"
+                      : "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <User className="h-3.5 w-3.5" /> Profile
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowMobileTopScores((v) => !v)}
+                className={`flex items-center gap-1.5 shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  showMobileTopScores
+                    ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                    : "bg-white/5 text-gold hover:bg-white/10"
+                }`}
+              >
+                <Trophy className="h-3.5 w-3.5 text-gold" /> Top Scores
+              </button>
+            </div>
+
+            {/* Collapsible Mobile Top Scores & Discovery Panel */}
+            {showMobileTopScores && (
+              <div className="mt-2.5 space-y-3 rounded-2xl border border-gold/20 bg-[#101317] p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-gold">
+                    <Trophy className="h-4 w-4" /> Top Community Score
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowMobileTopScores(false)}
+                    className="text-xs text-muted-foreground hover:text-white"
+                  >
+                    Close
+                  </button>
+                </div>
+                {leaders.length > 0 ? (
+                  <div className="space-y-1">
+                    {leaders.map((u) => (
+                      <UserRow key={u.id} u={u} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No leaderboard data available.</p>
+                )}
+
+                {suggested.length > 0 && (
+                  <div className="border-t border-white/5 pt-2">
+                    <div className="mb-1 text-xs font-medium uppercase tracking-wider text-gold/80">
+                      Who to follow
+                    </div>
+                    {suggested.map((u) => (
+                      <UserRow key={u.id} u={u} />
+                    ))}
+                  </div>
+                )}
+
+                {tags.length > 0 && (
+                  <div className="border-t border-white/5 pt-2">
+                    <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-gold/80">
+                      Trending topics
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {tags.map((t) => (
+                        <Link
+                          key={t.tag}
+                          to="/community/explore"
+                          search={{ tag: t.tag, q: undefined }}
+                          className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-emerald hover:border-emerald/40"
+                        >
+                          #{t.tag} <span className="text-muted-foreground">({t.count})</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {children}
+        </main>
 
         {/* right sidebar */}
         <aside className="sticky top-20 hidden h-fit w-72 shrink-0 space-y-4 lg:block">

@@ -190,14 +190,24 @@ type LayoutOptions = {
   cta?: { label: string; url: string };
   /** Shown small under the button — usually the raw link. */
   footnote?: string[];
+  /**
+   * Grey print in the bottom bar. Defaults to the registration wording;
+   * password recovery overrides it, because "the account stays inactive"
+   * is untrue — and alarming — on a mail about an existing account.
+   */
+  footer?: string;
 };
+
+const DEFAULT_FOOTER =
+  "You received this email because someone used this address on ChessOx. " +
+  "If that wasn&rsquo;t you, no action is needed &mdash; the account stays inactive.";
 
 /**
  * Table-based, inline-styled layout — the only thing that renders
  * reliably across Gmail, Outlook and Apple Mail. Max width 480px so it
  * reads well on a phone without zooming.
  */
-export function renderEmail({ heading, body, cta, footnote }: LayoutOptions): string {
+export function renderEmail({ heading, body, cta, footnote, footer }: LayoutOptions): string {
   const paragraphs = body
     .map(
       (p) =>
@@ -239,8 +249,7 @@ export function renderEmail({ heading, body, cta, footnote }: LayoutOptions): st
         </td></tr>
         <tr><td style="padding:0 28px 26px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
           <div style="border-top:1px solid rgba(245,240,230,0.08);padding-top:16px;font-size:11px;line-height:1.6;color:${BRAND.faint}">
-            You received this email because someone used this address on ChessOx.
-            If that wasn&rsquo;t you, no action is needed &mdash; the account stays inactive.
+            ${footer ?? DEFAULT_FOOTER}
           </div>
         </td></tr>
       </table>
@@ -265,6 +274,56 @@ export function verificationEmail(opts: { username: string; verifyUrl: string; t
         `This link expires in ${opts.ttlHours} hours and can only be used once.`,
         `If the button doesn&rsquo;t work, paste this into your browser:<br><a href="${opts.verifyUrl}" style="color:${BRAND.gold}">${escapeHtml(opts.verifyUrl)}</a>`,
       ],
+    }),
+  };
+}
+
+const RESET_FOOTER =
+  "You received this email because a password reset was requested for your ChessOx account. " +
+  "If that wasn&rsquo;t you, ignore this email &mdash; your password has not changed.";
+
+/**
+ * The password recovery email. The link carries a Supabase Auth recovery
+ * token (minted by GoTrue, single-use, expiring) — this template only
+ * carries it, it never generates or stores one.
+ */
+export function passwordResetEmail(opts: { resetUrl: string }) {
+  return {
+    subject: "Reset your Chessox password",
+    html: renderEmail({
+      heading: "Reset your password",
+      body: [
+        "We received a request to reset the password for your ChessOx account.",
+        "Choose a new password using the button below. If you didn&rsquo;t request this, you can safely ignore this email.",
+      ],
+      cta: { label: "RESET PASSWORD", url: opts.resetUrl },
+      footnote: [
+        "This link can only be used once and expires a short time after it was sent.",
+        `If the button doesn&rsquo;t work, paste this into your browser:<br><a href="${opts.resetUrl}" style="color:${BRAND.gold}">${escapeHtml(opts.resetUrl)}</a>`,
+      ],
+      footer: RESET_FOOTER,
+    }),
+  };
+}
+
+/**
+ * Sent instead of a reset link when the address belongs to a Google
+ * account. Such accounts have no password to reset, and silently creating
+ * one would fork a single identity into two ways to sign in. Only the
+ * inbox owner sees this, so naming the provider reveals nothing publicly.
+ */
+export function passwordResetGoogleEmail(opts: { loginUrl: string }) {
+  return {
+    subject: "Reset your Chessox password",
+    html: renderEmail({
+      heading: "Your account uses Google Sign-In",
+      body: [
+        "We received a request to reset the password for your ChessOx account.",
+        "This account signs in with Google, so it doesn&rsquo;t have a ChessOx password to reset. Use the <b>Continue with Google</b> button on the sign-in page instead.",
+        "If you&rsquo;ve lost access to that Google account, recover it through Google &mdash; we can&rsquo;t reset a Google password for you.",
+      ],
+      cta: { label: "GO TO SIGN IN", url: opts.loginUrl },
+      footer: RESET_FOOTER,
     }),
   };
 }

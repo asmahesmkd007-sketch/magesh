@@ -2,6 +2,7 @@
 // block/report, followers & following modals, tabbed content.
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { PresenceDot } from "@/components/site/PresenceDot";
 import {
   Award,
   BadgeCheck,
@@ -158,6 +159,7 @@ function PublicProfile() {
           <div className="-mt-10 flex items-end justify-between">
             <div className="flex items-center gap-4">
               <UserAvatar
+                userId={profile.id}
                 avatarUrl={profile.avatar_url}
                 displayName={profile.full_name}
                 size="xl"
@@ -272,7 +274,7 @@ function PublicProfile() {
           </div>
 
           <div className="mt-3">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <h1 className="text-xl font-medium">{profile.full_name}</h1>
               {profile.premium_tier && profile.premium_tier !== "free" && (
                 <BadgeCheck className="h-5 w-5 text-gold" aria-label="Premium" />
@@ -282,6 +284,7 @@ function PublicProfile() {
                   {profile.title}
                 </span>
               )}
+              <PresenceDot userId={profile.id} showText />
             </div>
             <div className="text-sm text-muted-foreground">
               @{profile.username}

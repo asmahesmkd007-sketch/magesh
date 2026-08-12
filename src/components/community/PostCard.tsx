@@ -29,6 +29,7 @@ import { SeasonShield } from "@/components/ranking/SeasonShield";
 import { FriendButton } from "@/components/friends/FriendButton";
 import type { CommunityPost, ReportReason } from "@/lib/api/communityClient";
 import { useCommunityActions } from "@/hooks/useCommunity";
+import { ConfirmModal } from "@/components/site/ConfirmModal";
 import { FenViewer, PgnViewer, PuzzleViewer } from "./LazyPostViewers";
 
 export function relTime(iso: string) {
@@ -176,6 +177,7 @@ export function PostCard({ post, detail = false }: { post: CommunityPost; detail
   const actions = useCommunityActions();
   const [menuOpen, setMenuOpen] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const a = post.author;
   const isOwn = actions.user?.id === post.user_id;
@@ -192,7 +194,7 @@ export function PostCard({ post, detail = false }: { post: CommunityPost; detail
   const requireLogin = (fn: () => void) => () => {
     if (!actions.user) {
       toast("Sign in to interact with the community");
-      navigate({ to: "/login" });
+      navigate({ to: "/auth" });
       return;
     }
     fn();
@@ -479,8 +481,7 @@ export function PostCard({ post, detail = false }: { post: CommunityPost; detail
                   type="button"
                   className={`${menuItem} text-rose-400`}
                   onClick={() => {
-                    if (window.confirm("Delete this post permanently?"))
-                      actions.removePost.mutate(post.id);
+                    setConfirmDelete(true);
                     setMenuOpen(false);
                   }}
                 >
@@ -491,6 +492,19 @@ export function PostCard({ post, detail = false }: { post: CommunityPost; detail
           )}
         </div>
       </div>
+
+      {confirmDelete && (
+        <ConfirmModal
+          isOpen={true}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => actions.removePost.mutate(post.id)}
+          title="Delete post permanently?"
+          description="This action cannot be undone."
+          confirmText="Delete"
+          variant="danger"
+          icon={<Trash2 className="h-6 w-6 text-rose-400" />}
+        />
+      )}
 
       {reporting && (
         <ReportDialog

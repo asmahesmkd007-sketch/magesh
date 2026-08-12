@@ -16,6 +16,8 @@ import { GoldButton } from "@/components/site/Primitives";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { registerAccount, resendVerification } from "@/lib/api/registration.functions";
+import { acquireSessionServerFn } from "@/lib/api/session.functions";
+import { getDeviceId, getSessionId, resetSessionId } from "@/lib/auth/sessionLock";
 import { USERNAME_REGEX } from "@/lib/auth/password";
 import heroRegal from "@/assets/hero-regal.jpg";
 import { noindexSeo } from "@/lib/seo";
@@ -85,11 +87,35 @@ function AuthPage() {
   const [resendBusy, setResendBusy] = useState(false);
   const [resendNote, setResendNote] = useState<string | null>(null);
 
-  // Already authenticated — redirect to targetPath or /home
+  // Already authenticated — verify session lock before redirecting
   useEffect(() => {
-    if (session) {
-      navigate({ to: targetPath });
-    }
+    if (!session?.user) return;
+    let alive = true;
+    const deviceId = getDeviceId();
+    const sessionId = getSessionId();
+
+    acquireSessionServerFn({
+      data: { userId: session.user.id, sessionId, deviceId },
+    })
+      .then((res) => {
+        if (!alive) return;
+        if (!res.ok) {
+          void supabase.auth.signOut();
+          setError(
+            res.message ||
+              "This user is already logged in on another device. Please log out from the other device or wait until that session expires.",
+          );
+        } else {
+          navigate({ to: targetPath });
+        }
+      })
+      .catch(() => {
+        if (alive) navigate({ to: targetPath });
+      });
+
+    return () => {
+      alive = false;
+    };
   }, [session, navigate, targetPath]);
 
   // Countdown ticker for the resend cooldown.
@@ -149,11 +175,32 @@ function AuthPage() {
         return;
       }
 
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password: cleanPassword,
       });
       if (error) throw error;
+      if (!authData.user) throw new Error("Authentication failed");
+
+      const deviceId = getDeviceId();
+      const sessionId = resetSessionId();
+      const lockRes = await acquireSessionServerFn({
+        data: {
+          userId: authData.user.id,
+          sessionId,
+          deviceId,
+        },
+      });
+
+      if (!lockRes.ok) {
+        await supabase.auth.signOut();
+        setError(
+          lockRes.message ||
+            "This user is already logged in on another device. Please log out from the other device or wait until that session expires.",
+        );
+        return;
+      }
+
       router.invalidate();
       navigate({ to: targetPath });
     } catch (e) {
@@ -439,14 +486,16 @@ function AuthPage() {
           <div className="mt-6 text-center text-[10px] text-foreground/40 leading-relaxed">
             By continuing, you agree to ChessOx's <br />
             <Link
-              to="/"
+              to="/terms-and-conditions"
+              target="_blank"
               className="text-gold/70 hover:text-gold transition-colors underline decoration-gold/30 underline-offset-2"
             >
               Terms of Service
             </Link>{" "}
             and{" "}
             <Link
-              to="/"
+              to="/privacy-policy"
+              target="_blank"
               className="text-gold/70 hover:text-gold transition-colors underline decoration-gold/30 underline-offset-2"
             >
               Privacy Policy

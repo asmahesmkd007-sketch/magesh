@@ -13,7 +13,13 @@ import {
 } from "lucide-react";
 import { GoldButton } from "@/components/site/Primitives";
 import { supabase } from "@/integrations/supabase/client";
+import { releaseSessionServerFn } from "@/lib/api/session.functions";
 import { PASSWORD_RULES } from "@/lib/auth/password";
+import {
+  clearSessionId,
+  releaseSessionLockSuppression,
+  suppressSessionLock,
+} from "@/lib/auth/sessionLock";
 import { noindexSeo } from "@/lib/seo";
 
 export const Route = createFileRoute("/reset-password")({
@@ -95,15 +101,26 @@ function ResetPasswordPage() {
       return;
     }
 
+    // How the emails this app sends carry the token: a Supabase Auth
+    // recovery token hash, redeemed below with verifyOtp. It needs no
+    // redirect allow-list entry and no browser-local verifier, so it works
+    // when a phone's mail app opens the link in its own webview.
+    const tokenHash = get("token_hash");
     const hasRecoveryHash = hashParams.get("type") === "recovery" && hashParams.get("access_token");
     const code = queryParams.get("code");
 
     // No recovery token and no error: the URL was opened bare. Never show the
     // form on the strength of an ordinary login session alone.
-    if (!hasRecoveryHash && !code) {
+    if (!tokenHash && !hasRecoveryHash && !code) {
       setPhase("invalid");
       return;
     }
+
+    // The recovery session about to be established is not a login and holds
+    // no user_sessions claim — exempt it from single-device enforcement for
+    // as long as this page is open, or the heartbeat signs the user out
+    // mid-reset. See sessionLock.suppressSessionLock.
+    suppressSessionLock();
 
     // Belt and braces: GoTrue announces the consumed link as PASSWORD_RECOVERY.
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
@@ -113,6 +130,31 @@ function ResetPasswordPage() {
     });
 
     (async () => {
+      if (tokenHash) {
+        const { error: err } = await supabase.auth.verifyOtp({
+          type: "recovery",
+          token_hash: tokenHash,
+        });
+        if (cancelled) return;
+        if (err) {
+          const m = err.message.toLowerCase();
+          setInvalidReason(
+            m.includes("expired") || m.includes("invalid") || m.includes("used")
+              ? "This reset link has expired or has already been used. Reset links are single-use and only valid for a limited time."
+              : "We couldn't verify this reset link. Please request a new one.",
+          );
+          setPhase("invalid");
+          return;
+        }
+        // Spent now, so keep it out of this history entry (and out of the
+        // Referer of anything the page links to).
+        if (typeof window !== "undefined") {
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+        setPhase((p) => (p === "validating" ? "ready" : p));
+        return;
+      }
+
       if (code) {
         // PKCE-style link: exchange the one-time code ourselves.
         const { error: err } = await supabase.auth.exchangeCodeForSession(code);
@@ -148,6 +190,8 @@ function ResetPasswordPage() {
     return () => {
       cancelled = true;
       sub.subscription.unsubscribe();
+      // Normal single-device enforcement resumes as soon as this page goes.
+      releaseSessionLockSuppression();
     };
   }, []);
 
@@ -176,6 +220,10 @@ function ResetPasswordPage() {
         return;
       }
 
+      // Captured before the sign-out below drops the session — needed to
+      // clear the single-device lock afterwards.
+      const userId = s.session.user.id;
+
       // Supabase hashes the password server-side; it is never stored or
       // logged in plain text anywhere in this flow.
       const { error: err } = await supabase.auth.updateUser({ password });
@@ -194,6 +242,20 @@ function ResetPasswordPage() {
         }
         throw new Error("Could not reset your password. Please try again.");
       }
+
+      // The global sign-out below kills the other devices' Supabase
+      // sessions, but their user_sessions claim would survive it — and
+      // those devices keep heartbeating it alive, so the very next login
+      // with the new password would be refused as ALREADY_LOGGED_IN.
+      // Release it: every session is about to be revoked, so the lock has
+      // nothing left to protect. Best-effort — a failure here must not
+      // fail a password change that has already succeeded.
+      try {
+        await releaseSessionServerFn({ data: { userId } });
+      } catch {
+        /* the row goes stale on its own after the session timeout */
+      }
+      clearSessionId();
 
       // Security: revoke every session everywhere — old logins, other
       // devices, and this recovery session. The used token is already dead;

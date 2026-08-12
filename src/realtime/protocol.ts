@@ -31,6 +31,18 @@ export type HandshakeAuth = {
   token?: string;
 };
 
+export type PresenceState = "online" | "offline";
+
+export type UserPresence = {
+  userId: string;
+  status: PresenceState;
+  updatedAt: number;
+};
+
+export type PresenceUpdatePayload = {
+  presences: UserPresence[];
+};
+
 // ── Server -> client ──────────────────────────────────────────────────
 
 /**
@@ -104,6 +116,10 @@ export type GameStateSnapshot = {
   chat: ChatPayload[];
   isRated: boolean;
   timeControl: string;
+  /** Server epoch ms when current turn's per-move deadline expires, if applicable. */
+  moveDeadlineAt: number | null;
+  /** Configured response deadline in seconds (e.g. 30 for Bullet, 60 for Blitz/Rapid). */
+  moveDeadlineSeconds: number | null;
   /** Seconds this viewer's feed is held back (0 for players). */
   delaySeconds: number;
   /** Server epoch ms when this snapshot was produced. */
@@ -125,6 +141,7 @@ export type ServerToClientEvents = {
     gameId: string;
     move: MovePayload;
     clock: ClockSnapshot;
+    moveDeadlineAt: number | null;
     serverTime: number;
   }) => void;
   "game:end": (payload: {
@@ -151,6 +168,8 @@ export type ServerToClientEvents = {
   "game:rematch-offer": (payload: { gameId: string; offeredBy: string }) => void;
   "game:rematch-accepted": (payload: { gameId: string; newGameId: string }) => void;
   "game:rematch-declined": (payload: { gameId: string }) => void;
+  "presence:update": (payload: PresenceUpdatePayload) => void;
+  "presence:snapshot": (payload: PresenceUpdatePayload) => void;
 };
 
 export type RejectCode =
@@ -204,6 +223,10 @@ export type ClientToServerEvents = {
     payload: { clientTime: number },
     ack: Ack<{ serverTime: number; clientTime: number }>,
   ) => void;
+  "presence:subscribe": (
+    payload: { userIds: string[] },
+    ack: Ack<{ presences: UserPresence[] }>,
+  ) => void;
 };
 
 /** Room naming — one place so server and any tooling agree. */
@@ -212,6 +235,7 @@ export const rooms = {
   players: (gameId: string) => `game:${gameId}:players`,
   /** Spectators: same feed, optionally held back by the broadcast delay. */
   spectators: (gameId: string) => `game:${gameId}:spectators`,
+  globalPresence: "presence:global",
 };
 
 /** Socket.IO path — same origin, so no CORS and no extra host. */

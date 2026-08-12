@@ -42,6 +42,9 @@ function statusMeta(activity?: FriendRow["other_activity"]) {
   }
 }
 
+import { usePresence } from "@/hooks/usePresence";
+import { PresenceDot } from "@/components/site/PresenceDot";
+
 export function FriendCard({
   friend,
   onRemove,
@@ -60,7 +63,8 @@ export function FriendCard({
   style?: React.CSSProperties;
 }) {
   const name = friend.other_display ?? friend.other_username ?? "Unknown";
-  const status = statusMeta(friend.other_activity);
+  const { isOnline } = usePresence(friend.other_id);
+  const statusLabel = isOnline ? "Online" : "Offline";
 
   return (
     <Card
@@ -73,18 +77,11 @@ export function FriendCard({
           className="relative shrink-0 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold"
           aria-label={`Open ${name}'s profile panel`}
         >
-          <div className={`rounded-full ${friend.other_is_online ? "online-ring" : ""}`}>
-            <UserAvatar avatarUrl={friend.other_avatar_url} displayName={name} size="md" />
-          </div>
-          <span
-            className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-background ${
-              friend.other_activity === "playing"
-                ? "bg-gold"
-                : friend.other_is_online
-                  ? "bg-emerald"
-                  : "bg-white/20"
-            }`}
-            title={status.label}
+          <UserAvatar
+            userId={friend.other_id}
+            avatarUrl={friend.other_avatar_url}
+            displayName={name}
+            size="md"
           />
         </button>
         <div className="min-w-0 flex-1">
@@ -103,17 +100,16 @@ export function FriendCard({
               premiumExpiresAt={friend.other_premium_expires_at}
             />
           </div>
-          <div className="text-xs text-muted-foreground">@{friend.other_username}</div>
+          <div className="flex items-center gap-2 mt-1">
+            <PresenceDot userId={friend.other_id} showText />
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">@{friend.other_username}</div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <SeasonShield
               sp={friend.other_season_points ?? friend.other_rating ?? 0}
               size="xs"
               variant="chip"
             />
-            <Pill tone={status.tone}>
-              {status.icon && <status.icon className="h-3 w-3" />}
-              {status.label}
-            </Pill>
             {friend.other_country && (
               <Pill tone="muted">
                 <MapPin className="h-3 w-3" /> {friend.other_country}

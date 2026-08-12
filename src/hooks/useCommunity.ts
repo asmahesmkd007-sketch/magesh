@@ -42,13 +42,13 @@ export function useCommunityRealtime() {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const invalidate = () => {
-      // Debounce bursts (triggers fire several writes per interaction).
+      // Fast response for real-time post & comment updates
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["community_feed"] });
-        queryClient.invalidateQueries({ queryKey: ["community_post"] });
-        queryClient.invalidateQueries({ queryKey: ["community_comments"] });
-      }, 800);
+        queryClient.refetchQueries({ queryKey: ["community_feed"], type: "active" });
+        queryClient.refetchQueries({ queryKey: ["community_post"], type: "active" });
+        queryClient.refetchQueries({ queryKey: ["community_comments"], type: "active" });
+      }, 150);
     };
     const channel = supabase
       .channel("community_v2")
@@ -278,7 +278,9 @@ export function useCommunityActions() {
     mutationFn: (post: api.NewPost) => api.createPost(requireAuth(), post),
     onSuccess: (newPost) => {
       queryClient.setQueriesData<FeedPages>({ queryKey: ["community_feed"] }, (old) => {
-        if (!old || !old.pages || old.pages.length === 0) return old;
+        if (!old || !old.pages || old.pages.length === 0) {
+          return { pages: [[newPost]], pageParams: [0] };
+        }
         const exists = old.pages.some((page) => page.some((p) => p.id === newPost.id));
         if (exists) return old;
         return {
@@ -286,7 +288,8 @@ export function useCommunityActions() {
           pages: [[newPost, ...old.pages[0]], ...old.pages.slice(1)],
         };
       });
-      invalidateFeeds();
+      queryClient.refetchQueries({ queryKey: ["community_feed"], type: "active" });
+      queryClient.invalidateQueries({ queryKey: ["community_profile"] });
       toast.success("Posted!");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to post"),
@@ -335,7 +338,23 @@ export function useCommunityActions() {
   const share = useMutation({
     mutationFn: async (postId: string) => {
       const url = `${window.location.origin}/community/post/${postId}`;
-      await navigator.clipboard.writeText(url);
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(url);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = url;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.focus();
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+      } catch (err) {
+        console.warn("Clipboard write error:", err);
+      }
       await api.sharePost(postId).catch(() => undefined);
       return url;
     },

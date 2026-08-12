@@ -12,6 +12,7 @@ import {
 } from "@/lib/clanApi";
 import { MemberAvatar, PanelEmpty } from "@/components/clan/ClanPrimitives";
 import { ClanFormModal } from "@/components/clan/ClanFormModal";
+import { ConfirmModal } from "@/components/site/ConfirmModal";
 import type { Clan, ClanJoinRequest, ClanRole } from "@/types/clan";
 
 interface Props {
@@ -26,6 +27,7 @@ export function SettingsPanel({ clan, myRole, onChanged }: Props) {
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState<string | null>(null);
   const [showEdit, setShowEdit] = useState(false);
+  const [showDisbandConfirm, setShowDisbandConfirm] = useState(false);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [generatingLink, setGeneratingLink] = useState(false);
   const isOfficer = myRole === "leader" || myRole === "co_leader";
@@ -65,13 +67,7 @@ export function SettingsPanel({ clan, myRole, onChanged }: Props) {
     }
   }
 
-  async function handleDisband() {
-    if (
-      !window.confirm(
-        `Disband ${clan.name}? This permanently deletes the clan, its chat, and all member records.`,
-      )
-    )
-      return;
+  async function handleDisbandConfirm() {
     try {
       await disbandClan(clan.id);
       toast.success("Clan disbanded");
@@ -225,7 +221,7 @@ export function SettingsPanel({ clan, myRole, onChanged }: Props) {
             use "Transfer Leadership" from the Members tab.
           </p>
           <button
-            onClick={handleDisband}
+            onClick={() => setShowDisbandConfirm(true)}
             className="mt-4 flex items-center gap-2 rounded-xl border border-destructive/40 px-4 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10"
           >
             <Trash2 className="h-4 w-4" /> Disband Clan
@@ -241,6 +237,18 @@ export function SettingsPanel({ clan, myRole, onChanged }: Props) {
           onSaved={onChanged}
         />
       )}
+
+      <ConfirmModal
+        isOpen={showDisbandConfirm}
+        onClose={() => setShowDisbandConfirm(false)}
+        onConfirm={handleDisbandConfirm}
+        title={`Disband ${clan.name}?`}
+        description="This permanently deletes the clan, its chat, and all member records."
+        confirmText="Disband Clan"
+        cancelText="Cancel"
+        variant="danger"
+        icon={<Trash2 className="h-6 w-6 text-rose-400" />}
+      />
     </div>
   );
 }

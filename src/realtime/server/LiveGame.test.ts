@@ -131,8 +131,8 @@ describe("flag fall", () => {
   });
 
   it("refuses a move played after the mover's flag already fell", () => {
-    const g = makeGame();
-    const out = g.applyMove(WHITE, { from: "e2", to: "e4" }, T0 + 181_000);
+    const g = makeGame({ whiteTimeMs: 10_000, blackTimeMs: 180_000 });
+    const out = g.applyMove(WHITE, { from: "e2", to: "e4" }, T0 + 11_000);
     expect(out).toMatchObject({ ok: false, code: "out_of_time" });
     expect(g.status).toBe("finished");
     expect(g.result).toBe("black");

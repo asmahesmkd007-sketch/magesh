@@ -232,21 +232,36 @@ export function ClanFormModal(props: Props) {
               </div>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                 Privacy
               </label>
-              <select
-                className={inputClass}
-                value={form.privacy}
-                onChange={(e) => setForm((f) => ({ ...f, privacy: e.target.value as ClanPrivacy }))}
-              >
-                {PRIVACY_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+              <div className="grid gap-2">
+                {PRIVACY_OPTIONS.map((o) => {
+                  const isSelected = form.privacy === o.value;
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, privacy: o.value }))}
+                      className={`flex items-center justify-between rounded-xl border px-3.5 py-2.5 text-left text-sm transition-all ${
+                        isSelected
+                          ? "border-gold/60 bg-gold/10 text-white font-medium shadow-[0_0_15px_rgba(234,179,8,0.12)]"
+                          : "border-white/10 bg-black/40 text-muted-foreground hover:border-white/20 hover:text-white"
+                      }`}
+                    >
+                      <span className="text-xs sm:text-sm">{o.label}</span>
+                      <div
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                          isSelected ? "border-gold bg-gold" : "border-white/30"
+                        }`}
+                      >
+                        {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-black" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="flex gap-4">

@@ -41,7 +41,14 @@ export function ChatPanel({ clanId, myRole }: Props) {
   const isAtBottomRef = useRef(true);
 
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
-    endRef.current?.scrollIntoView({ behavior });
+    const el = scrollRef.current;
+    if (el) {
+      if (behavior === "instant") {
+        el.scrollTop = el.scrollHeight;
+      } else {
+        el.scrollTo({ top: el.scrollHeight, behavior });
+      }
+    }
     isAtBottomRef.current = true;
     setShowScrollToBottom(false);
   };

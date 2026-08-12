@@ -35,6 +35,7 @@ import { useAuth, useProfile } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PremiumBadge } from "@/components/site/PremiumBadge";
 import { UserAvatar } from "@/components/site/UserAvatar";
+import { PresenceDot } from "@/components/site/PresenceDot";
 import { SeasonShield } from "@/components/ranking/SeasonShield";
 import { FriendButton } from "@/components/friends/FriendButton";
 import { useChallenges } from "@/hooks/useChallenges";
@@ -583,6 +584,7 @@ function ProfilePage() {
             <div className="flex items-center gap-3 sm:gap-5">
               <div className="relative group/av shrink-0">
                 <UserAvatar
+                  userId={profile.id}
                   avatarUrl={profile.avatar_url}
                   displayName={profile.full_name}
                   size="xl"
@@ -664,6 +666,7 @@ function ProfilePage() {
                 premiumActive={profile.premium_active}
                 premiumExpiresAt={profile.premium_expires_at}
               />
+              <PresenceDot userId={profile.id} showText />
             </h1>
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-muted-foreground">

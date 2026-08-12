@@ -97,6 +97,8 @@ export class LiveGame {
   readonly moves: MovePayload[] = [];
   readonly chat: ChatPayload[];
 
+  moveDeadlineAt: number | null = null;
+
   /** True once anything has changed that the database hasn't seen. */
   dirty = false;
   /** Set once the finished game has been written; makes finalize idempotent. */
@@ -147,9 +149,25 @@ export class LiveGame {
       initialSeconds: init.initialSeconds,
       incrementSeconds: init.incrementSeconds,
     });
+
+    const deadlineSec = this.getMoveDeadlineSeconds();
+    if (deadlineSec && this.status === "active") {
+      const turnStart = init.lastMoveAt ?? now;
+      this.moveDeadlineAt = turnStart + deadlineSec * 1000;
+    } else {
+      this.moveDeadlineAt = null;
+    }
   }
 
   // ── Reads ───────────────────────────────────────────────────────────
+
+  /** Configured per-move response deadline in seconds: Bullet = 30s, Blitz/Rapid = 60s, Classical/casual = null. */
+  getMoveDeadlineSeconds(): number | null {
+    if (this.initialSeconds <= 0) return null;
+    if (this.initialSeconds <= 120) return 30; // Bullet: 30 seconds
+    if (this.initialSeconds <= 1800) return 60; // Blitz & Rapid: 60 seconds
+    return null; // Classical & un-timed: null
+  }
 
   get fen(): string {
     return this.chess.fen();
@@ -192,8 +210,14 @@ export class LiveGame {
     return remainingMs(this.clock, this.clock.running, now);
   }
 
+  /** Milliseconds until current player's move response deadline expires. */
+  msUntilMoveDeadline(now: number = Date.now()): number | null {
+    if (this.status !== "active" || !this.moveDeadlineAt) return null;
+    return Math.max(0, this.moveDeadlineAt - now);
+  }
+
   terminalPayload(): TerminalPayload | null {
-    if (this.status !== "finished") return null;
+    if (this.status !== "finished" && this.status !== "aborted") return null;
     return {
       status: "finished",
       result: this.result,
@@ -218,6 +242,12 @@ export class LiveGame {
       return { ok: false, code: "not_your_turn", terminal: null };
     }
 
+    // Check if the move response deadline has already expired.
+    const deadlineTerm = this.checkMoveDeadline(now);
+    if (deadlineTerm) {
+      return { ok: false, code: "out_of_time", terminal: deadlineTerm };
+    }
+
     // The mover's flag may have fallen while they were thinking. Settle
     // that before considering the move — a move played after the flag is
     // not a move, it is a loss on time.
@@ -238,6 +268,9 @@ export class LiveGame {
     // hands the clock to the opponent — the same pure function the
     // browser uses to render the handover optimistically.
     this.clock = press(this.clock, now);
+
+    const deadlineSec = this.getMoveDeadlineSeconds();
+    this.moveDeadlineAt = deadlineSec && this.status === "active" ? now + deadlineSec * 1000 : null;
 
     const payload: MovePayload = {
       ply: this.moves.length + 1,
@@ -270,6 +303,18 @@ export class LiveGame {
       return { ok: true, move: payload, terminal: this.terminalPayload() };
     }
     return { ok: true, move: payload, terminal: null };
+  }
+
+  /**
+   * Check if per-move response deadline has expired and auto-abort if so.
+   */
+  checkMoveDeadline(now: number = Date.now()): TerminalPayload | null {
+    if (this.status !== "active" || !this.moveDeadlineAt) return null;
+    if (now >= this.moveDeadlineAt) {
+      this.finish("aborted", "move_deadline_exceeded", null, now);
+      return this.terminalPayload();
+    }
+    return null;
   }
 
   /**
@@ -357,11 +402,12 @@ export class LiveGame {
   // ── Internals ───────────────────────────────────────────────────────
 
   private finish(result: GameResult, endReason: string, winnerId: string | null, now: number) {
-    this.status = "finished";
+    this.status = result === "aborted" ? "aborted" : "finished";
     this.result = result;
     this.endReason = endReason;
     this.winnerId = winnerId;
     this.drawOfferedBy = null;
+    this.moveDeadlineAt = null;
     // Freeze the clock so the banked values written to the database are
     // the real remaining times at the moment the game ended.
     this.clock = stop(this.clock, now);

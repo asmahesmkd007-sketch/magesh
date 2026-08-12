@@ -130,17 +130,21 @@ export function VsComputer() {
     const parentWidth = mainColumnRef.current.clientWidth;
     if (!parentWidth) return;
 
-    const isMobile = window.innerWidth < 1024;
-    // Overhead accounts for top player bar (52px), bottom player bar (52px), gap (12px), page padding/header
-    const verticalOverhead = isMobile ? 190 : 210;
-    const availableHeight = window.innerHeight - verticalOverhead;
-
+    const isMobile = window.innerWidth < 768;
     const baseSettingWidth =
       settings.board_size === "small" ? 480 : settings.board_size === "large" ? 720 : 600;
     const maxBoardSettingWidth = Math.round(baseSettingWidth * (settings.board_zoom / 100));
 
-    const maxAllowed = Math.max(220, Math.min(parentWidth, availableHeight, maxBoardSettingWidth));
-    const targetSize = Math.floor(maxAllowed);
+    let targetSize: number;
+    if (isMobile) {
+      // On mobile screens, fit the board to the full available container width like online ArenaBoard
+      targetSize = Math.floor(Math.min(parentWidth, 560));
+    } else {
+      const verticalOverhead = 210;
+      const availableHeight = window.innerHeight - verticalOverhead;
+      const maxAllowed = Math.max(220, Math.min(parentWidth, availableHeight, maxBoardSettingWidth));
+      targetSize = Math.floor(maxAllowed);
+    }
 
     setLockedBoardSize(targetSize);
   }, [settings.board_size, settings.board_zoom]);
@@ -618,7 +622,7 @@ export function VsComputer() {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px] items-center justify-center max-w-5xl mx-auto py-1">
       {/* MAIN COLUMN (OPPONENT PROFILE + BOARD + PLAYER PROFILE) */}
-      <div ref={mainColumnRef} className="flex flex-col items-center gap-1.5 w-full">
+      <div ref={mainColumnRef} className="flex flex-col items-center gap-1.5 w-full max-w-[560px] mx-auto">
         {/* Top Player (Opponent when White, You when Black) */}
         <div
           className="w-full flex-shrink-0"

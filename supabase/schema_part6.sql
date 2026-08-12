@@ -1121,13 +1121,13 @@ BEGIN
   ON CONFLICT DO NOTHING;
 
   INSERT INTO public.wallets (user_id, balance, total_earned)
-  VALUES (NEW.id, 50, 50)
+  VALUES (NEW.id, 10, 10)
   ON CONFLICT DO NOTHING;
 
   INSERT INTO public.wallet_transactions
     (user_id, type, amount, balance_after, description, idempotency_key)
   VALUES
-    (NEW.id, 'welcome_bonus', 50, 50, 'Welcome to ChessOx! Here are 50 bonus coins.',
+    (NEW.id, 'welcome_bonus', 10, 10, 'Welcome to ChessOx! Here are 10 bonus coins.',
      'welcome_' || NEW.id::text)
   ON CONFLICT DO NOTHING;
 
@@ -1443,6 +1443,158 @@ END; $fn$;
 
 REVOKE ALL ON FUNCTION public.complete_onboarding(TEXT, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.complete_onboarding(TEXT, TEXT) TO authenticated, service_role;
+
+-- Section 203: USER SINGLE-DEVICE SESSION LOCKING
+CREATE TABLE IF NOT EXISTS public.user_sessions (
+  user_id UUID NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  session_id TEXT NOT NULL,
+  device_id TEXT NOT NULL,
+  last_seen TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires ON public.user_sessions (user_id, expires_at);
+
+ALTER TABLE public.user_sessions ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'user_sessions' AND policyname = 'Users can view their own session'
+  ) THEN
+    CREATE POLICY "Users can view their own session"
+      ON public.user_sessions FOR SELECT
+      USING (auth.uid() = user_id);
+  END IF;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.acquire_user_session(
+  p_user_id UUID,
+  p_session_id TEXT,
+  p_device_id TEXT,
+  p_timeout_seconds INT DEFAULT 90
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $fn$
+DECLARE
+  v_existing RECORD;
+  v_now TIMESTAMPTZ := now();
+  v_cutoff TIMESTAMPTZ := v_now - (p_timeout_seconds || ' seconds')::INTERVAL;
+BEGIN
+  SELECT * INTO v_existing
+  FROM public.user_sessions
+  WHERE user_id = p_user_id
+  FOR UPDATE;
+
+  IF FOUND THEN
+    IF v_existing.is_active = true AND v_existing.last_seen > v_cutoff THEN
+      IF v_existing.device_id = p_device_id OR v_existing.session_id = p_session_id THEN
+        UPDATE public.user_sessions
+        SET session_id = p_session_id,
+            device_id = p_device_id,
+            last_seen = v_now,
+            expires_at = v_now + (p_timeout_seconds || ' seconds')::INTERVAL,
+            is_active = true,
+            updated_at = v_now
+        WHERE user_id = p_user_id;
+
+        RETURN jsonb_build_object(
+          'ok', true,
+          'status', 'ACQUIRED',
+          'session_id', p_session_id,
+          'device_id', p_device_id
+        );
+      ELSE
+        RETURN jsonb_build_object(
+          'ok', false,
+          'status', 'ALREADY_LOGGED_IN',
+          'message', 'This user is already logged in on another device. Please log out from the other device or wait until that session expires.'
+        );
+      END IF;
+    END IF;
+  END IF;
+
+  INSERT INTO public.user_sessions (
+    user_id, session_id, device_id, last_seen, expires_at, is_active, created_at, updated_at
+  )
+  VALUES (
+    p_user_id, p_session_id, p_device_id, v_now, v_now + (p_timeout_seconds || ' seconds')::INTERVAL, true, v_now, v_now
+  )
+  ON CONFLICT (user_id) DO UPDATE
+  SET session_id = EXCLUDED.session_id,
+      device_id = EXCLUDED.device_id,
+      last_seen = EXCLUDED.last_seen,
+      expires_at = EXCLUDED.expires_at,
+      is_active = true,
+      updated_at = EXCLUDED.updated_at;
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'status', 'ACQUIRED',
+    'session_id', p_session_id,
+    'device_id', p_device_id
+  );
+END;
+$fn$;
+
+CREATE OR REPLACE FUNCTION public.heartbeat_user_session(
+  p_user_id UUID,
+  p_session_id TEXT,
+  p_device_id TEXT,
+  p_timeout_seconds INT DEFAULT 90
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $fn$
+DECLARE
+  v_existing RECORD;
+  v_now TIMESTAMPTZ := now();
+BEGIN
+  SELECT * INTO v_existing
+  FROM public.user_sessions
+  WHERE user_id = p_user_id;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('valid', false, 'reason', 'NO_SESSION');
+  END IF;
+
+  IF v_existing.session_id != p_session_id OR v_existing.is_active = false THEN
+    RETURN jsonb_build_object('valid', false, 'reason', 'SESSION_INVALIDATED');
+  END IF;
+
+  UPDATE public.user_sessions
+  SET last_seen = v_now,
+      expires_at = v_now + (p_timeout_seconds || ' seconds')::INTERVAL,
+      updated_at = v_now
+  WHERE user_id = p_user_id AND session_id = p_session_id;
+
+  RETURN jsonb_build_object('valid', true);
+END;
+$fn$;
+
+CREATE OR REPLACE FUNCTION public.release_user_session(
+  p_user_id UUID,
+  p_session_id TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $fn$
+BEGIN
+  UPDATE public.user_sessions
+  SET is_active = false,
+      updated_at = now()
+  WHERE user_id = p_user_id AND session_id = p_session_id;
+
+  RETURN jsonb_build_object('released', true);
+END;
+$fn$;
 
 SELECT
   CASE WHEN EXISTS (

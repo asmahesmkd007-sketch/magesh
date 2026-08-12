@@ -10,11 +10,19 @@ import {
   type TimeClass,
   type HostColor,
 } from "@/lib/api/gameClient";
-import { Copy, Crown, Users, Swords, Loader2 } from "lucide-react";
+import { Copy, Crown, Users, Swords, Loader2, UserPlus } from "lucide-react";
 import { seo, breadcrumbLd, webPageLd } from "@/lib/seo";
 import { useFriends } from "@/hooks/useFriends";
 import { useChallenges } from "@/hooks/useChallenges";
 import { UserAvatar } from "@/components/site/UserAvatar";
+import { AddFriendPanel } from "@/components/friends/AddFriendPanel";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/play/friend")({
   head: () =>
@@ -77,8 +85,9 @@ function PlayFriend() {
   const [challengingId, setChallengingId] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
   const [createdGameId, setCreatedGameId] = useState<string | null>(null);
+  const [showAddFriendModal, setShowAddFriendModal] = useState(false);
 
-  const { friends } = useFriends(user?.id);
+  const { friends, sendRequest } = useFriends(user?.id);
   useChallenges(user?.id);
 
   // Auto-redirect host to /game/$id as soon as opponent joins/accepts (for BOTH link games and direct friend challenges)
@@ -246,7 +255,16 @@ function PlayFriend() {
     >
       <div className="grid gap-6 lg:grid-cols-12">
         <Card className="p-6 lg:col-span-7">
-          <div className="text-xs uppercase tracking-[0.22em] text-gold/80">Time Control</div>
+          <div className="flex items-center justify-between">
+            <div className="text-xs uppercase tracking-[0.22em] text-gold/80">Time Control</div>
+            <button
+              type="button"
+              onClick={() => setShowAddFriendModal(true)}
+              className="flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-xs font-semibold text-gold transition hover:bg-gold/20"
+            >
+              <UserPlus className="h-3.5 w-3.5" /> Add Friend
+            </button>
+          </div>
           <div className="mt-3 space-y-3">
             {["bullet", "blitz", "rapid", "classical"].map((category) => {
               const controls = TIME_CONTROLS.map((t, i) => ({ t, i })).filter(
@@ -346,10 +364,19 @@ function PlayFriend() {
             )}
           </Card>
 
-          {friends.length > 0 && (
+          {friends.length > 0 ? (
             <Card className="p-6">
-              <div className="text-xs uppercase tracking-[0.22em] text-gold/80 mb-4">
-                Your Friends
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-xs uppercase tracking-[0.22em] text-gold/80">
+                  Your Friends
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddFriendModal(true)}
+                  className="flex items-center gap-1 text-xs font-semibold text-gold hover:underline"
+                >
+                  <UserPlus className="h-3.5 w-3.5" /> Add Friend
+                </button>
               </div>
               <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                 {friends.map((friend) => (
@@ -396,9 +423,50 @@ function PlayFriend() {
                 ))}
               </div>
             </Card>
+          ) : (
+            <Card className="p-6 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gold/10 text-gold mb-3">
+                <UserPlus className="h-6 w-6" />
+              </div>
+              <h3 className="font-display text-sm font-bold text-foreground">No Friends Added Yet</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Search for players by username or send friend requests to challenge them directly.
+              </p>
+              <div className="mt-4 flex justify-center">
+                <GoldButton onClick={() => setShowAddFriendModal(true)} className="!px-4 !py-1.5 text-xs">
+                  <UserPlus className="h-3.5 w-3.5" /> Add Friends Now
+                </GoldButton>
+              </div>
+            </Card>
           )}
         </div>
       </div>
+
+      {/* Add Friend Dialog Modal */}
+      <Dialog open={showAddFriendModal} onOpenChange={setShowAddFriendModal}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto border-gold/30 bg-[#0F1115] text-foreground">
+          <DialogHeader className="border-b border-white/10 pb-3">
+            <DialogTitle className="flex items-center gap-2 font-display text-xl text-gold">
+              <UserPlus className="h-5 w-5" /> Add & Invite Friends
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Search players by username, send friend requests, or invite recent opponents.
+            </DialogDescription>
+          </DialogHeader>
+          {user && (
+            <div className="py-2">
+              <AddFriendPanel
+                userId={user.id}
+                knownIds={new Set(friends.map((f) => f.other_id))}
+                myFriendIds={new Set(friends.filter((f) => f.status === "accepted").map((f) => f.other_id))}
+                onSendRequest={async (id) => {
+                  await sendRequest(id);
+                }}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </PageShell>
   );
 }

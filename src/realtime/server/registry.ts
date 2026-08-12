@@ -107,21 +107,30 @@ export function armFlagTimer(gameId: string): void {
     clearTimeout(entry.flagTimer);
     entry.flagTimer = null;
   }
-  const left = entry.game.msUntilFlag();
-  if (left === null) return;
+  const flagLeft = entry.game.msUntilFlag();
+  const deadlineLeft = entry.game.msUntilMoveDeadline();
+  const times = [flagLeft, deadlineLeft].filter((t): t is number => t !== null);
+  if (times.length === 0) return;
+
+  const minLeft = Math.min(...times);
 
   entry.flagTimer = setTimeout(() => {
     entry.flagTimer = null;
-    const terminal = entry.game.checkFlag();
-    if (!terminal) {
-      // Not actually down yet (clock handed over in the meantime) —
-      // re-arm rather than leaving the game unwatched.
-      armFlagTimer(gameId);
+    const deadlineTerm = entry.game.checkMoveDeadline();
+    if (deadlineTerm) {
+      onTerminal(gameId, deadlineTerm);
+      void finalize(entry.game).catch(() => {});
       return;
     }
-    onTerminal(gameId, terminal);
-    void finalize(entry.game).catch(() => {});
-  }, left + FLAG_GRACE_MS);
+    const flagTerm = entry.game.checkFlag();
+    if (flagTerm) {
+      onTerminal(gameId, flagTerm);
+      void finalize(entry.game).catch(() => {});
+      return;
+    }
+    // Not actually down yet — re-arm rather than leaving the game unwatched.
+    armFlagTimer(gameId);
+  }, minLeft + FLAG_GRACE_MS);
   // Never hold the process open for a chess clock.
   entry.flagTimer.unref?.();
 }

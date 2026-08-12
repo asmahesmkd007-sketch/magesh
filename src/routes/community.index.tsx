@@ -103,14 +103,19 @@ function CommunityHome() {
 
       {user ? (
         <div className="mb-4">
-          <PostComposer onPosted={() => setMode("foryou")} />
+          <PostComposer
+            onPosted={() => {
+              setMode("foryou");
+              feed.refetch();
+            }}
+          />
         </div>
       ) : (
         <Card className="mb-4 flex items-center justify-between gap-4 p-4">
           <p className="text-sm text-muted-foreground">
             Join the conversation — share positions, puzzles and analysis.
           </p>
-          <Link to="/login">
+          <Link to="/auth">
             <GoldButton className="!px-5 !py-2">Sign in</GoldButton>
           </Link>
         </Card>

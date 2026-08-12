@@ -14,6 +14,7 @@ import {
   ClanApiError,
 } from "@/lib/clanApi";
 import type { ClanMember, ClanRole } from "@/types/clan";
+import { ConfirmModal } from "@/components/site/ConfirmModal";
 
 type SortKey = "role" | "newest" | "oldest" | "name";
 type MemberAction = "promote" | "demote" | "kick" | "transfer";
@@ -73,15 +74,14 @@ export function MembersPanel({ members, myRole, clanId, onChanged }: Props) {
     });
   }, [members, query, sort]);
 
-  async function runAction(member: ClanMember, action: MemberAction) {
-    if (
-      action === "transfer" &&
-      !window.confirm(
-        `Transfer leadership to ${member.profiles?.username}? You will become a Co-Leader.`,
-      )
-    ) {
-      return;
-    }
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    member: ClanMember;
+    action: MemberAction;
+    title: string;
+    description: string;
+  } | null>(null);
+
+  async function executeAction(member: ClanMember, action: MemberAction) {
     setBusy(member.id);
     setMenuOpen(null);
     try {
@@ -93,6 +93,28 @@ export function MembersPanel({ members, myRole, clanId, onChanged }: Props) {
     } finally {
       setBusy(null);
     }
+  }
+
+  async function runAction(member: ClanMember, action: MemberAction) {
+    if (action === "transfer") {
+      setPendingConfirm({
+        member,
+        action,
+        title: `Transfer leadership to @${member.profiles?.username}?`,
+        description: "You will become a Co-Leader of the clan.",
+      });
+      return;
+    }
+    if (action === "kick") {
+      setPendingConfirm({
+        member,
+        action,
+        title: `Kick @${member.profiles?.username}?`,
+        description: "This member will be removed from the clan.",
+      });
+      return;
+    }
+    await executeAction(member, action);
   }
 
   return (
@@ -228,6 +250,17 @@ export function MembersPanel({ members, myRole, clanId, onChanged }: Props) {
             );
           })}
         </div>
+      )}
+      {pendingConfirm && (
+        <ConfirmModal
+          isOpen={true}
+          onClose={() => setPendingConfirm(null)}
+          onConfirm={() => executeAction(pendingConfirm.member, pendingConfirm.action)}
+          title={pendingConfirm.title}
+          description={pendingConfirm.description}
+          confirmText="Confirm"
+          variant={pendingConfirm.action === "kick" ? "danger" : "gold"}
+        />
       )}
     </div>
   );

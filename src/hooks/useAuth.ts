@@ -53,6 +53,60 @@ let authSnapshot: AuthSnapshot = LOADING_SNAPSHOT;
 let authUnsubscribe: (() => void) | null = null;
 const authListeners = new Set<() => void>();
 
+import { toast } from "sonner";
+import {
+  clearSessionId,
+  getDeviceId,
+  getSessionId,
+  HEARTBEAT_INTERVAL_MS,
+  isSessionLockSuppressed,
+} from "@/lib/auth/sessionLock";
+import { heartbeatSessionServerFn, releaseSessionServerFn } from "@/lib/api/session.functions";
+
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+let isRevoking = false;
+
+function startHeartbeatLoop(userId: string) {
+  stopHeartbeatLoop();
+
+  const pulse = async () => {
+    if (isRevoking) return;
+    // A password-recovery session holds no claim on user_sessions, so
+    // pulsing would invalidate it. See sessionLock.suppressSessionLock.
+    // Re-checked here, not just at startup, because suppression can begin
+    // after a loop is already running.
+    if (isSessionLockSuppressed()) return;
+    try {
+      const deviceId = getDeviceId();
+      const sessionId = getSessionId();
+      const res = await heartbeatSessionServerFn({
+        data: { userId, sessionId, deviceId },
+      });
+      if (!res.valid && res.reason === "SESSION_INVALIDATED" && !isRevoking) {
+        isRevoking = true;
+        stopHeartbeatLoop();
+        clearSessionId();
+        await supabase.auth.signOut();
+        toast.error("Your session has ended. Please sign in again.");
+        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/auth")) {
+          window.location.href = "/auth";
+        }
+      }
+    } catch {
+      // Ignore transient network errors during heartbeat
+    }
+  };
+
+  heartbeatTimer = setInterval(pulse, HEARTBEAT_INTERVAL_MS);
+}
+
+function stopHeartbeatLoop() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+}
+
 function startAuthSubscription() {
   // onAuthStateChange fires INITIAL_SESSION on mount with the restored session.
   // Relying on it alone avoids a race where a separate getSession() call briefly
@@ -69,6 +123,12 @@ function startAuthSubscription() {
         : fresh;
     authSnapshot = { session: s, user, loading: false };
     for (const listener of authListeners) listener();
+    if (s && s.user && !isSessionLockSuppressed()) {
+      startHeartbeatLoop(s.user.id);
+    } else {
+      stopHeartbeatLoop();
+      isRevoking = false;
+    }
     if (s && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) {
       loadSettingsOnce().catch(console.error);
     }
@@ -280,6 +340,17 @@ async function loadProfile(userId: string): Promise<Profile | null> {
 }
 
 export async function signOut() {
+  const user = authSnapshot.user;
+  const sessionId = getSessionId();
+  stopHeartbeatLoop();
+  if (user && sessionId) {
+    try {
+      await releaseSessionServerFn({ data: { userId: user.id, sessionId } });
+    } catch {
+      // Ignore release errors
+    }
+  }
+  clearSessionId();
   await supabase.auth.signOut();
 }
 

@@ -38,6 +38,7 @@ import {
 } from "@/components/clan/ClanPrimitives";
 import { MembersPanel } from "@/components/clan/MembersPanel";
 import { ChatPanel } from "@/components/clan/ChatPanel";
+import { ConfirmModal } from "@/components/site/ConfirmModal";
 import { WarsPanel } from "@/components/clan/WarsPanel";
 import { SettingsPanel } from "@/components/clan/SettingsPanel";
 import { ActivityPanel } from "@/components/clan/ActivityPanel";
@@ -102,6 +103,7 @@ function ClanDashboard() {
   const [tab, setTab] = useState<Tab>("home");
   const [activityKey, setActivityKey] = useState(0);
   const notFoundRef = useRef(false);
+  const chatSectionRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -199,8 +201,10 @@ function ClanDashboard() {
     }
   }
 
-  async function handleLeave() {
-    if (!clan || !window.confirm(`Leave ${clan.name}?`)) return;
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+
+  async function handleLeaveConfirm() {
+    if (!clan) return;
     setBusy(true);
     try {
       await leaveClan(clan.id);
@@ -312,7 +316,7 @@ function ClanDashboard() {
                   </button>
                 ) : (
                   <button
-                    onClick={handleLeave}
+                    onClick={() => setShowLeaveConfirm(true)}
                     disabled={busy}
                     className="flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive disabled:opacity-50"
                   >
@@ -377,7 +381,14 @@ function ClanDashboard() {
                 return (
                   <button
                     key={id}
-                    onClick={() => setTab(id)}
+                    onClick={() => {
+                      setTab(id);
+                      if (id === "chat") {
+                        setTimeout(() => {
+                          chatSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                        }, 50);
+                      }
+                    }}
                     className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                       active
                         ? "border-gold text-gold"
@@ -500,7 +511,11 @@ function ClanDashboard() {
               {tab === "members" && (
                 <MembersPanel members={members} myRole={myRole} clanId={clan.id} onChanged={load} />
               )}
-              {tab === "chat" && <ChatPanel clanId={clan.id} myRole={myRole} />}
+              {tab === "chat" && (
+                <div ref={chatSectionRef}>
+                  <ChatPanel clanId={clan.id} myRole={myRole} />
+                </div>
+              )}
               {tab === "wars" && (
                 <WarsPanel
                   clanId={clan.id}
@@ -514,6 +529,18 @@ function ClanDashboard() {
           </>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={showLeaveConfirm}
+        onClose={() => setShowLeaveConfirm(false)}
+        onConfirm={handleLeaveConfirm}
+        title={`Leave ${clan?.name ?? "Clan"}?`}
+        description="Are you sure you want to leave this clan? You will lose member access and clan chat."
+        confirmText="Leave Clan"
+        cancelText="Cancel"
+        variant="danger"
+        icon={<LogOut className="h-6 w-6 text-rose-400" />}
+      />
     </div>
   );
 }

@@ -29,6 +29,7 @@ import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
 
 import { EmailDeliveryError, sendMail, verificationEmail, welcomeEmail } from "./email.server";
+import { siteOrigin } from "./siteOrigin.server";
 
 // ── Policy ───────────────────────────────────────────────────────────
 
@@ -108,29 +109,6 @@ function generateToken(): string {
 /** Tokens are stored only as digests; the raw value lives in the email. */
 function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
-}
-
-/**
- * Public origin for links in emails. Falls back to the request's own
- * origin so preview deployments produce working links without config.
- */
-function siteOrigin(): string {
-  const configured =
-    process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process.env.VITE_PUBLIC_SITE_URL;
-  if (configured) return configured.replace(/\/+$/, "");
-  try {
-    const req = getRequest();
-    const origin = req?.headers?.get("origin");
-    if (origin) return origin.replace(/\/+$/, "");
-    const host = req?.headers?.get("host");
-    if (host) {
-      const proto = req?.headers?.get("x-forwarded-proto") ?? "https";
-      return `${proto}://${host}`;
-    }
-  } catch {
-    /* not in a request context */
-  }
-  return "https://chessox.com";
 }
 
 async function db(): Promise<{

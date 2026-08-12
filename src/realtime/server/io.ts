@@ -45,6 +45,11 @@ import {
   startRegistry,
 } from "./registry";
 import { finalize } from "./persistence";
+import {
+  getPresenceForUserIds,
+  onSocketConnected,
+  onSocketDisconnected,
+} from "./presenceTracker";
 
 type SocketData = { userId: string | null };
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, never, SocketData>;
@@ -118,6 +123,8 @@ function snapshotFor(game: LiveGame, viewerId: string | null): GameStateSnapshot
     chat: game.chat,
     isRated: game.isRated,
     timeControl: game.timeControl,
+    moveDeadlineAt: game.moveDeadlineAt,
+    moveDeadlineSeconds: game.getMoveDeadlineSeconds(),
     delaySeconds: delayMs / 1000,
     serverTime: Date.now(),
     rematchOffer: offeredBy ? { offeredBy } : null,
@@ -168,7 +175,14 @@ export function attachRealtime(httpServer: HttpServer): AppServer {
     }
   });
 
-  io.on("connection", (socket) => registerHandlers(socket as AppSocket));
+  io.on("connection", (socket) => {
+    const appSocket = socket as AppSocket;
+    const uid = appSocket.data.userId;
+    if (uid && io) {
+      onSocketConnected(appSocket, uid, io);
+    }
+    registerHandlers(appSocket);
+  });
 
   // A game that ends on its own (flag fall with nobody watching) still
   // has to reach whoever is connected.
@@ -298,7 +312,13 @@ function registerHandlers(socket: AppSocket): void {
     }
 
     const clock = game.clockSnapshot();
-    const movePayload = { gameId, move: outcome.move, clock, serverTime: now };
+    const movePayload = {
+      gameId,
+      move: outcome.move,
+      clock,
+      moveDeadlineAt: game.moveDeadlineAt,
+      serverTime: now,
+    };
 
     // Broadcast before anything else — this is the opponent's latency.
     io?.to(rooms.players(gameId)).emit("game:move", movePayload);
@@ -481,12 +501,21 @@ function registerHandlers(socket: AppSocket): void {
     io?.to(rooms.players(gameId)).emit("game:rematch-declined", { gameId });
   });
 
+  socket.on("presence:subscribe", ({ userIds }, ack) => {
+    const presences = getPresenceForUserIds(userIds ?? []);
+    ack?.({ ok: true, data: { presences } });
+  });
+
   socket.on("game:leave", ({ gameId }) => {
     leave(gameId);
   });
 
   socket.on("disconnect", () => {
     for (const gameId of joined) leave(gameId);
+    const uid = userId();
+    if (uid && io) {
+      onSocketDisconnected(socket, uid, io);
+    }
   });
 
   function leave(gameId: string) {

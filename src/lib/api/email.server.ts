@@ -63,8 +63,10 @@ async function sendViaGmail(msg: MailMessage): Promise<boolean> {
   const domain = getRecipientDomain(msg.to);
   const nodemailer = await import("nodemailer");
   const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: { user, pass: pass.replace(/\s+/g, "") },
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true, // Use SSL/TLS
+    auth: { user: user.trim(), pass: pass.replace(/\s+/g, "") },
   });
   await transporter.sendMail({
     from: sender,

@@ -10,7 +10,14 @@ import { passwordMeetsPolicy } from "@/lib/auth/password";
 import { clearSetupHandoff, readSetupHandoff, type SetupHandoff } from "@/lib/auth/setupHandoff";
 import { noindexSeo } from "@/lib/seo";
 
+type CreatePasswordSearch = {
+  setupToken?: string;
+};
+
 export const Route = createFileRoute("/create-password")({
+  validateSearch: (search: Record<string, unknown>): CreatePasswordSearch => ({
+    setupToken: typeof search.setupToken === "string" ? search.setupToken : undefined,
+  }),
   head: () =>
     noindexSeo(
       "Create your password — ChessOx",
@@ -20,6 +27,7 @@ export const Route = createFileRoute("/create-password")({
 });
 
 function CreatePasswordPage() {
+  const search = Route.useSearch();
   const navigate = useNavigate();
   const [handoff, setHandoff] = useState<SetupHandoff | null | undefined>(undefined);
   const [password, setPassword] = useState("");
@@ -28,10 +36,14 @@ function CreatePasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ username: string } | null>(null);
 
-  // sessionStorage is only available on the client — read after mount.
+  // Read setupToken from search params or sessionStorage
   useEffect(() => {
-    setHandoff(readSetupHandoff());
-  }, []);
+    if (search.setupToken) {
+      setHandoff({ setupToken: search.setupToken, email: "Your verified account", username: "Player" });
+    } else {
+      setHandoff(readSetupHandoff());
+    }
+  }, [search.setupToken]);
 
   async function handleSubmit() {
     if (!handoff || busy) return;
@@ -106,8 +118,7 @@ function CreatePasswordPage() {
         icon={<ShieldAlert className="h-8 w-8 text-amber-400" />}
       >
         <p className="text-center text-sm leading-relaxed text-muted-foreground">
-          Open the <strong>Verify Email</strong> link from your inbox in this browser, then
-          you&rsquo;ll be brought straight back here to choose a password.
+          Please complete email OTP verification first to proceed with setting up your password.
         </p>
         <Link to="/auth" className="mt-6 block">
           <GoldButton className="w-full justify-center">Back to sign in</GoldButton>

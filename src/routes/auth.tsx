@@ -15,7 +15,8 @@ import {
 import { GoldButton } from "@/components/site/Primitives";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { registerAccount, resendVerification } from "@/lib/api/registration.functions";
+import { requestEmailVerificationOtp, resendVerification } from "@/lib/api/registration.functions";
+import { writeSignupState } from "@/routes/verify-email-otp";
 import { acquireSessionServerFn } from "@/lib/api/session.functions";
 import { getDeviceId, getSessionId, resetSessionId } from "@/lib/auth/sessionLock";
 import { USERNAME_REGEX } from "@/lib/auth/password";
@@ -167,11 +168,23 @@ function AuthPage() {
         if (!cleanUsername || cleanUsername.length !== 11) {
           throw new Error("Username must be exactly 11 characters (e.g. chessfox_42).");
         }
-        const result = await registerAccount({
+        const result = await requestEmailVerificationOtp({
           data: { email: cleanEmail, username: cleanUsername },
         });
-        setSentTo(result.email);
-        setResendIn(result.resendInSeconds);
+
+        if (!result.ok) {
+          if (result.reason === "cooldown") {
+            throw new Error(`Please wait ${result.resendInSeconds} seconds before requesting another code.`);
+          }
+          throw new Error("We couldn't send the verification code right now. Please try again later.");
+        }
+
+        writeSignupState({
+          email: result.email,
+          username: cleanUsername,
+          sentAt: Date.now(),
+        });
+        navigate({ to: "/verify-email-otp" });
         return;
       }
 

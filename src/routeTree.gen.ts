@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WithdrawalPolicyRouteImport } from './routes/withdrawal-policy'
 import { Route as WalletRouteImport } from './routes/wallet'
 import { Route as VerifyResetOtpRouteImport } from './routes/verify-reset-otp'
+import { Route as VerifyEmailOtpRouteImport } from './routes/verify-email-otp'
 import { Route as TournamentsRouteImport } from './routes/tournaments'
 import { Route as TournamentRouteImport } from './routes/tournament'
 import { Route as TermsAndConditionsRouteImport } from './routes/terms-and-conditions'
@@ -129,6 +130,11 @@ const WalletRoute = WalletRouteImport.update({
 const VerifyResetOtpRoute = VerifyResetOtpRouteImport.update({
   id: '/verify-reset-otp',
   path: '/verify-reset-otp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyEmailOtpRoute = VerifyEmailOtpRouteImport.update({
+  id: '/verify-email-otp',
+  path: '/verify-email-otp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TournamentsRoute = TournamentsRouteImport.update({
@@ -696,6 +702,7 @@ export interface FileRoutesByFullPath {
   '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/tournament': typeof TournamentRouteWithChildren
   '/tournaments': typeof TournamentsRoute
+  '/verify-email-otp': typeof VerifyEmailOtpRoute
   '/verify-reset-otp': typeof VerifyResetOtpRoute
   '/wallet': typeof WalletRouteWithChildren
   '/withdrawal-policy': typeof WithdrawalPolicyRoute
@@ -798,6 +805,7 @@ export interface FileRoutesByTo {
   '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/tournament': typeof TournamentRouteWithChildren
   '/tournaments': typeof TournamentsRoute
+  '/verify-email-otp': typeof VerifyEmailOtpRoute
   '/verify-reset-otp': typeof VerifyResetOtpRoute
   '/wallet': typeof WalletRouteWithChildren
   '/withdrawal-policy': typeof WithdrawalPolicyRoute
@@ -907,6 +915,7 @@ export interface FileRoutesById {
   '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/tournament': typeof TournamentRouteWithChildren
   '/tournaments': typeof TournamentsRoute
+  '/verify-email-otp': typeof VerifyEmailOtpRoute
   '/verify-reset-otp': typeof VerifyResetOtpRoute
   '/wallet': typeof WalletRouteWithChildren
   '/withdrawal-policy': typeof WithdrawalPolicyRoute
@@ -1017,6 +1026,7 @@ export interface FileRouteTypes {
     | '/terms-and-conditions'
     | '/tournament'
     | '/tournaments'
+    | '/verify-email-otp'
     | '/verify-reset-otp'
     | '/wallet'
     | '/withdrawal-policy'
@@ -1119,6 +1129,7 @@ export interface FileRouteTypes {
     | '/terms-and-conditions'
     | '/tournament'
     | '/tournaments'
+    | '/verify-email-otp'
     | '/verify-reset-otp'
     | '/wallet'
     | '/withdrawal-policy'
@@ -1227,6 +1238,7 @@ export interface FileRouteTypes {
     | '/terms-and-conditions'
     | '/tournament'
     | '/tournaments'
+    | '/verify-email-otp'
     | '/verify-reset-otp'
     | '/wallet'
     | '/withdrawal-policy'
@@ -1336,6 +1348,7 @@ export interface RootRouteChildren {
   TermsAndConditionsRoute: typeof TermsAndConditionsRoute
   TournamentRoute: typeof TournamentRouteWithChildren
   TournamentsRoute: typeof TournamentsRoute
+  VerifyEmailOtpRoute: typeof VerifyEmailOtpRoute
   VerifyResetOtpRoute: typeof VerifyResetOtpRoute
   WalletRoute: typeof WalletRouteWithChildren
   WithdrawalPolicyRoute: typeof WithdrawalPolicyRoute
@@ -1395,6 +1408,13 @@ declare module '@tanstack/react-router' {
       path: '/verify-reset-otp'
       fullPath: '/verify-reset-otp'
       preLoaderRoute: typeof VerifyResetOtpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify-email-otp': {
+      id: '/verify-email-otp'
+      path: '/verify-email-otp'
+      fullPath: '/verify-email-otp'
+      preLoaderRoute: typeof VerifyEmailOtpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tournaments': {
@@ -2302,6 +2322,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsAndConditionsRoute: TermsAndConditionsRoute,
   TournamentRoute: TournamentRouteWithChildren,
   TournamentsRoute: TournamentsRoute,
+  VerifyEmailOtpRoute: VerifyEmailOtpRoute,
   VerifyResetOtpRoute: VerifyResetOtpRoute,
   WalletRoute: WalletRouteWithChildren,
   WithdrawalPolicyRoute: WithdrawalPolicyRoute,

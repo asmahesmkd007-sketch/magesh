@@ -323,21 +323,26 @@ export function renderEmail({ heading, body, cta, footnote, footer }: LayoutOpti
 </body></html>`;
 }
 
-/** The registration verification email (subject fixed by the spec). */
-export function verificationEmail(opts: { username: string; verifyUrl: string; ttlHours: number }) {
-  const name = escapeHtml(opts.username);
+/** The registration email OTP verification template. */
+export function verificationOtpEmail(opts: { otp: string; ttlMinutes: number }) {
+  const code = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;width:100%">
+      <tr><td align="center" style="padding:18px 12px;background:rgba(212,175,55,0.08);border:1px solid ${BRAND.border};border-radius:10px">
+        <div style="font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:34px;line-height:1.1;font-weight:700;letter-spacing:0.34em;color:${BRAND.gold};text-indent:0.34em">${escapeHtml(opts.otp)}</div>
+      </td></tr>
+    </table>`;
+
   return {
-    subject: "Verify Your Chessox Account",
+    subject: "Verify your ChessOx account",
     html: renderEmail({
-      heading: `Welcome to ChessOx, ${name}`,
+      heading: "Email Verification",
       body: [
-        "Your account has been created and is waiting on one last step.",
-        "Verify this email address to activate your ChessOx account. You&rsquo;ll choose your password straight afterwards.",
-      ],
-      cta: { label: "VERIFY EMAIL", url: opts.verifyUrl },
-      footnote: [
-        `This link expires in ${opts.ttlHours} hours and can only be used once.`,
-        `If the button doesn&rsquo;t work, paste this into your browser:<br><a href="${opts.verifyUrl}" style="color:${BRAND.gold}">${escapeHtml(opts.verifyUrl)}</a>`,
+        "Welcome to ChessOx.",
+        "Your email verification code is:",
+        code,
+        `This code expires in ${opts.ttlMinutes} minutes.`,
+        "If you did not create this account, you can safely ignore this email.",
+        "<b>Do not share this code with anyone.</b>",
       ],
     }),
   };

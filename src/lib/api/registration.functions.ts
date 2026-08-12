@@ -1,22 +1,17 @@
 // =====================================================================
-// REGISTRATION — EMAIL VERIFICATION LINK FLOW (server functions)
+// REGISTRATION — EMAIL VERIFICATION OTP FLOW (server functions)
 // ---------------------------------------------------------------------
-//   registerAccount        username + email  -> pending row + email
-//   verifyEmailToken       link token        -> verified + setup grant
-//   completeRegistration   setup grant + pw  -> real Supabase Auth user
-//   resendVerification     email             -> fresh token, old killed
+//   requestEmailVerificationOtp   email + username  -> 6-digit code, emailed
+//   verifyEmailVerificationOtp    email + code      -> setup grant
+//   completeRegistration          setup grant + pw  -> real Supabase Auth user
 //
 // Security model
-//  • Tokens are 32 random bytes, base64url. Only their SHA-256 digest is
-//    stored, so a database leak cannot be replayed as a verification.
-//  • Comparison is by digest lookup, and the stored digest is cleared the
-//    moment it is consumed — links are strictly single-use.
-//  • The Supabase Auth user is created only at the final step, so an
-//    abandoned signup never leaves a password-less account behind and
-//    Supabase Auth stays the sole owner of password hashing.
-//  • Rate limited per IP and per email; resend additionally has a
-//    cooldown and a hard per-registration send cap.
-//  • Resend never reveals whether an address is registered.
+//  • Codes are 6 uniform digits from crypto.randomInt. Only their
+//    HMAC-SHA256 digest is stored with OTP_HASH_SECRET pepper.
+//  • Re-requesting or resending invalidates old OTPs instantly.
+//  • OTP expires after 5 minutes and is single-use. Max 5 attempts.
+//  • Cooldown starts ONLY after successful email delivery.
+//  • Supabase Auth user created only on final password submission.
 // =====================================================================
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
@@ -24,20 +19,23 @@ import crypto from "node:crypto";
 import { z } from "zod";
 
 import { emailSchema, passwordSchema, usernameSchema } from "@/lib/auth/password";
-import { classifyVerification } from "@/lib/auth/tokenLifecycle";
+import {
+  afterFailedAttempt,
+  classifyOtp,
+  cooldownLeftMs,
+  OTP_LENGTH,
+  OTP_MAX_ATTEMPTS,
+  OTP_TTL_MS,
+  RESEND_COOLDOWN_MS,
+  RESET_AUTH_TTL_MS,
+} from "@/lib/auth/otpPolicy";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
 
-import { EmailDeliveryError, sendMail, verificationEmail, welcomeEmail } from "./email.server";
+import { EmailDeliveryError, sendMail, verificationOtpEmail, welcomeEmail } from "./email.server";
 import { siteOrigin } from "./siteOrigin.server";
 
-// ── Policy ───────────────────────────────────────────────────────────
-
-/** Verification links live long enough to survive a slow inbox. */
-const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
-/** The create-password grant is deliberately short. */
-const SETUP_TTL_MS = 30 * 60 * 1000;
-const RESEND_COOLDOWN_MS = 60 * 1000;
+const RESEND_COOLDOWN_SECS = RESEND_COOLDOWN_MS / 1000;
 const MAX_SENDS_PER_REGISTRATION = 5;
 
 const tokenSchema = z.string().trim().min(20).max(200);
@@ -55,14 +53,12 @@ type PendingRow = {
   setup_expires_at: string | null;
   send_count: number;
   last_sent_at: string;
+  attempts: number;
+  max_attempts: number;
   created_at: string;
   verified_at: string | null;
 };
 
-// The generated Database types don't include pending_registrations (this
-// repo's types.ts is known to drift from the live schema — see the note
-// in schema.sql SECTION 78). Same loosely-typed escape hatch the rest of
-// the service layer uses.
 type LooseDb = {
   from: (table: string) => {
     select: (columns: string) => {
@@ -101,12 +97,35 @@ function getClientIp(): string {
   }
 }
 
-/** 256 bits of entropy, URL-safe — safe to put in a link. */
+function generateOtp(): string {
+  return crypto.randomInt(0, 10 ** OTP_LENGTH).toString().padStart(OTP_LENGTH, "0");
+}
+
+function otpPepper(): string {
+  const secret = process.env.OTP_HASH_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!secret) {
+    throw new Error(
+      "Email OTP is not configured: set OTP_HASH_SECRET (or SUPABASE_SERVICE_ROLE_KEY).",
+    );
+  }
+  return secret;
+}
+
+function hashOtp(otp: string, email: string): string {
+  return crypto.createHmac("sha256", otpPepper()).update(`signup:${email}:${otp}`).digest("hex");
+}
+
+function digestsMatch(a: string, b: string): boolean {
+  const ba = Buffer.from(a, "utf8");
+  const bb = Buffer.from(b, "utf8");
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
+}
+
 function generateToken(): string {
   return crypto.randomBytes(32).toString("base64url");
 }
 
-/** Tokens are stored only as digests; the raw value lives in the email. */
 function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
@@ -119,46 +138,11 @@ async function db(): Promise<{
   return { admin: supabaseAdmin, loose: supabaseAdmin as unknown as LooseDb };
 }
 
-/** Issue a fresh verification link and email it. Returns nothing useful. */
-async function issueVerification(
-  loose: LooseDb,
-  row: { id: string; email: string; username: string; send_count: number },
-): Promise<void> {
-  const token = generateToken();
-  const { error } = await loose
-    .from("pending_registrations")
-    .update({
-      token_hash: hashToken(token),
-      token_expires_at: new Date(Date.now() + TOKEN_TTL_MS).toISOString(),
-      // A fresh link is unconsumed, and supersedes any outstanding
-      // setup grant from a previous one.
-      token_consumed_at: null,
-      setup_token_hash: null,
-      setup_expires_at: null,
-      send_count: row.send_count + 1,
-      last_sent_at: new Date().toISOString(),
-    })
-    .eq("id", row.id);
-  if (error) {
-    logger.error("failed to store verification token", { error, email: row.email });
-    throw new Error("Something went wrong. Please try again.");
-  }
-
-  const verifyUrl = `${siteOrigin()}/verify-email/${token}`;
-  const mail = verificationEmail({
-    username: row.username,
-    verifyUrl,
-    ttlHours: TOKEN_TTL_MS / 3_600_000,
-  });
-  await sendMail({ to: row.email, subject: mail.subject, html: mail.html });
-}
-
 async function accountForEmailHelper(
   admin: typeof import("@/integrations/supabase/client.server").supabaseAdmin,
   loose: LooseDb,
   email: string,
 ): Promise<{ exists: boolean; provider: "email" | "google"; email_verified: boolean }> {
-  // 1. Try account_for_email RPC
   try {
     const { data, error } = await loose.rpc("account_for_email", { p_email: email });
     if (!error && data && typeof data === "object") {
@@ -176,7 +160,6 @@ async function accountForEmailHelper(
     /* fallback below */
   }
 
-  // 2. Direct query fallback via admin.auth.admin.listUsers()
   try {
     const { data: usersData } = await admin.auth.admin.listUsers();
     const user = usersData?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
@@ -202,7 +185,6 @@ async function isUsernameTakenHelper(
   username: string,
   exceptEmail?: string,
 ): Promise<boolean> {
-  // 1. Try is_username_taken RPC
   try {
     const { data, error } = await loose.rpc("is_username_taken", {
       p_username: username,
@@ -215,7 +197,6 @@ async function isUsernameTakenHelper(
     /* fallback below */
   }
 
-  // 2. Fallback check profiles table
   try {
     const { data: profile } = await loose
       .from("profiles")
@@ -224,7 +205,6 @@ async function isUsernameTakenHelper(
       .maybeSingle();
     if (profile) return true;
 
-    // Check pending_registrations if table exists
     const { data: pending } = await loose
       .from("pending_registrations")
       .select("id, email")
@@ -244,11 +224,25 @@ async function isUsernameTakenHelper(
   return false;
 }
 
-// ── 1. Register ──────────────────────────────────────────────────────
+// ── Result Types ──────────────────────────────────────────────────────
 
-export const registerAccount = createServerFn({ method: "POST" })
+export type RequestEmailOtpResult =
+  | { ok: true; resendInSeconds: number; email: string }
+  | { ok: false; reason: "cooldown"; resendInSeconds: number }
+  | { ok: false; reason: "delivery_failed" };
+
+export type VerifyEmailOtpResult =
+  | { ok: true; setupToken: string; email: string; username: string }
+  | { ok: false; reason: "invalid_otp"; attemptsLeft: number }
+  | { ok: false; reason: "otp_expired" }
+  | { ok: false; reason: "too_many_attempts" }
+  | { ok: false; reason: "already_verified" };
+
+// ── 1. Request Signup Verification OTP ───────────────────────────────
+
+export const requestEmailVerificationOtp = createServerFn({ method: "POST" })
   .inputValidator(z.object({ email: emailSchema, username: usernameSchema }))
-  .handler(async ({ data }): Promise<{ ok: true; email: string; resendInSeconds: number }> => {
+  .handler(async ({ data }): Promise<RequestEmailOtpResult> => {
     const { email, username } = data;
     const ip = getClientIp();
 
@@ -261,7 +255,7 @@ export const registerAccount = createServerFn({ method: "POST" })
 
     const { admin, loose } = await db();
 
-    // Enforce ONE EMAIL = ONE ACCOUNT rule
+    // Enforce ONE EMAIL = ONE ACCOUNT
     const acct = await accountForEmailHelper(admin, loose, email);
     if (acct.exists) {
       if (acct.provider === "google") {
@@ -293,136 +287,180 @@ export const registerAccount = createServerFn({ method: "POST" })
       /* pending_registrations table check */
     }
 
-    let row: { id: string; email: string; username: string; send_count: number };
+    // Check cooldown
+    const leftMs = cooldownLeftMs(existing?.last_sent_at, Date.now(), RESEND_COOLDOWN_MS);
+    if (leftMs > 0) {
+      return {
+        ok: false,
+        reason: "cooldown",
+        resendInSeconds: Math.ceil(leftMs / 1000),
+      };
+    }
+
+    if (existing && existing.send_count >= MAX_SENDS_PER_REGISTRATION) {
+      throw new Error(
+        "Too many verification emails have been sent to this address. Please contact support.",
+      );
+    }
+
+    const otp = generateOtp();
+    const mail = verificationOtpEmail({ otp, ttlMinutes: OTP_TTL_MS / 60000 });
+
+    // DELIBERATE ORDERING: SEND FIRST, PERSIST AFTER
+    try {
+      await sendMail({ to: email, subject: mail.subject, html: mail.html });
+    } catch (err) {
+      logger.error("signup OTP delivery failed", {
+        email,
+        error: err instanceof EmailDeliveryError ? err.message : String(err),
+      });
+      return { ok: false, reason: "delivery_failed" };
+    }
+
+    const now = Date.now();
+    const nowIso = new Date(now).toISOString();
+    const expiresIso = new Date(now + OTP_TTL_MS).toISOString();
+    const otpHash = hashOtp(otp, email);
+    const sendCount = (existing?.send_count ?? 0) + 1;
 
     if (existing) {
-      const elapsed = Date.now() - new Date(existing.last_sent_at).getTime();
-      if (elapsed < RESEND_COOLDOWN_MS) {
-        const wait = Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000);
-        throw new Error(`Please wait ${wait}s before requesting another email.`);
-      }
-      if (existing.send_count >= MAX_SENDS_PER_REGISTRATION) {
-        throw new Error(
-          "Too many verification emails have been sent to this address. Please contact support.",
-        );
-      }
-      const { error } = await loose
+      const { error: updateErr } = await loose
         .from("pending_registrations")
         .update({
           username,
           status: "pending_verification",
           email_verified: false,
           verified_at: null,
+          token_hash: otpHash,
+          token_expires_at: expiresIso,
+          token_consumed_at: null,
+          setup_token_hash: null,
+          setup_expires_at: null,
+          attempts: 0,
+          max_attempts: OTP_MAX_ATTEMPTS,
+          send_count: sendCount,
+          last_sent_at: nowIso,
         })
         .eq("id", existing.id);
-      if (error) {
-        logger.error("failed to reset pending registration", { error, email });
-        throw new Error("Failed to store registration request. Please try again.");
+      if (updateErr) {
+        logger.error("failed to update signup OTP record", { error: updateErr, email });
+        throw new Error("Failed to store verification record. Please try again.");
       }
-      row = { id: existing.id, email, username, send_count: existing.send_count };
     } else {
       const id = crypto.randomUUID();
-      const { error } = await loose.from("pending_registrations").insert({
+      const { error: insertErr } = await loose.from("pending_registrations").insert({
         id,
         email,
         username,
         status: "pending_verification",
         email_verified: false,
-        send_count: 0,
-        last_sent_at: new Date(0).toISOString(),
+        token_hash: otpHash,
+        token_expires_at: expiresIso,
+        attempts: 0,
+        max_attempts: OTP_MAX_ATTEMPTS,
+        send_count: 1,
+        last_sent_at: nowIso,
+        created_at: nowIso,
       });
-      if (error) {
-        logger.error("failed to create pending registration", { error, email });
-        const errMsg = String((error as { message?: string })?.message || error);
-        if (errMsg.includes("schema cache") || errMsg.includes("does not exist")) {
-          throw new Error(
-            "Database schema missing 'pending_registrations'. Please run the Supabase migration script in SQL Editor.",
-          );
-        }
+      if (insertErr) {
+        logger.error("failed to create signup OTP record", { error: insertErr, email });
         throw new Error("Failed to initialize registration record. Please try again.");
       }
-      row = { id, email, username, send_count: 0 };
     }
 
-    try {
-      await issueVerification(loose, row);
-    } catch (err) {
-      if (err instanceof EmailDeliveryError) {
-        logger.error("verification email delivery failed", { email, error: err });
-        throw new Error(
-          "We couldn't send the verification email. Please check your email address or try resending.",
-        );
-      }
-      throw err;
-    }
-
-    logger.info("verification email sent", { email, ip });
-    return { ok: true, email, resendInSeconds: RESEND_COOLDOWN_MS / 1000 };
+    logger.info("signup verification OTP delivered and persisted", { email, ip });
+    return { ok: true, email, resendInSeconds: RESEND_COOLDOWN_SECS };
   });
 
-// ── 2. Verify the link ───────────────────────────────────────────────
+// Backward compatibility alias for existing callers
+export const registerAccount = requestEmailVerificationOtp;
 
-export type VerifyResult =
-  | { ok: true; email: string; username: string; setupToken: string }
-  | { ok: false; reason: "invalid" | "expired" | "already_verified" };
+// ── 2. Verify Signup OTP ─────────────────────────────────────────────
 
-export const verifyEmailToken = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ token: tokenSchema }))
-  .handler(async ({ data }): Promise<VerifyResult> => {
+export const verifyEmailVerificationOtp = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ email: emailSchema, otp: z.string().trim() }))
+  .handler(async ({ data }): Promise<VerifyEmailOtpResult> => {
+    const { email, otp } = data;
     const ip = getClientIp();
+
     if (!rateLimit({ key: `verify-ip:${ip}`, limit: 30, windowMs: 10 * 60 * 1000 })) {
       throw new Error("Too many attempts. Please try again in a few minutes.");
     }
 
     const { loose } = await db();
-    const tokenHash = hashToken(data.token);
-
     const { data: row } = await loose
       .from("pending_registrations")
       .select("*")
-      .eq("token_hash", tokenHash)
+      .eq("email", email)
       .maybeSingle();
 
-    // Rules live in lib/auth/tokenLifecycle (unit-tested there); this
-    // handler only performs the I/O they imply.
-    const outcome = classifyVerification({
-      found: Boolean(row),
-      status: row?.status ?? "pending_verification",
-      tokenConsumedAt: row?.token_consumed_at ?? null,
-      tokenExpiresAt: row?.token_expires_at ?? null,
-    });
-
-    if (outcome !== "verify" || !row) {
-      if (outcome === "invalid") logger.warn("verification token not found", { ip });
-      return { ok: false, reason: outcome === "verify" ? "invalid" : outcome };
+    if (!row) return { ok: false, reason: "invalid_otp", attemptsLeft: 0 };
+    if (row.status === "completed" || row.email_verified) {
+      return { ok: false, reason: "already_verified" };
     }
 
-    // Consume the link and issue the short-lived create-password grant.
-    // token_hash is deliberately RETAINED so repeat clicks resolve; it is
-    // the consumed-at stamp above that enforces single use.
+    const outcome = classifyOtp({
+      expiresAt: row.token_expires_at ?? 0,
+      attempts: row.attempts ?? 0,
+      maxAttempts: row.max_attempts ?? OTP_MAX_ATTEMPTS,
+      consumedAt: row.token_consumed_at ?? null,
+    });
+
+    if (outcome !== "check") {
+      if (outcome === "otp_expired") return { ok: false, reason: "otp_expired" };
+      if (outcome === "too_many_attempts") return { ok: false, reason: "too_many_attempts" };
+      return { ok: false, reason: "invalid_otp", attemptsLeft: 0 };
+    }
+
+    const candidateHash = hashOtp(otp, email);
+    if (!row.token_hash || !digestsMatch(row.token_hash, candidateHash)) {
+      const next = afterFailedAttempt({
+        attempts: row.attempts ?? 0,
+        maxAttempts: row.max_attempts ?? OTP_MAX_ATTEMPTS,
+      });
+
+      await loose
+        .from("pending_registrations")
+        .update({ attempts: next.attempts })
+        .eq("id", row.id);
+
+      if (next.exhausted) {
+        logger.warn("signup OTP attempts exhausted", { email, ip });
+        return { ok: false, reason: "too_many_attempts" };
+      }
+
+      const attemptsLeft = (row.max_attempts ?? OTP_MAX_ATTEMPTS) - next.attempts;
+      return { ok: false, reason: "invalid_otp", attemptsLeft };
+    }
+
+    // SUCCESS: Issue short-lived setup token
     const setupToken = generateToken();
-    const { error } = await loose
+    const nowIso = new Date().toISOString();
+    const setupExpiresIso = new Date(Date.now() + RESET_AUTH_TTL_MS).toISOString();
+
+    const { error: updateErr } = await loose
       .from("pending_registrations")
       .update({
         status: "email_verified",
         email_verified: true,
-        verified_at: row.verified_at ?? new Date().toISOString(),
-        token_consumed_at: new Date().toISOString(),
+        verified_at: nowIso,
+        token_consumed_at: nowIso,
         token_expires_at: null,
         setup_token_hash: hashToken(setupToken),
-        setup_expires_at: new Date(Date.now() + SETUP_TTL_MS).toISOString(),
+        setup_expires_at: setupExpiresIso,
       })
       .eq("id", row.id);
-    if (error) {
-      logger.error("failed to mark registration verified", { error, email: row.email });
-      throw new Error("Something went wrong. Please try again.");
+
+    if (updateErr) {
+      logger.error("failed to mark signup OTP verified", { error: updateErr, email });
+      throw new Error("Verification failed. Please try again.");
     }
 
-    logger.info("email verified", { email: row.email, ip });
-    return { ok: true, email: row.email, username: row.username, setupToken };
+    logger.info("signup email OTP verified successfully", { email, ip });
+    return { ok: true, email, username: row.username, setupToken };
   });
 
-// ── 3. Create the password (completes the account) ───────────────────
+// ── 3. Create Password (Completes Account) ───────────────────────────
 
 export const completeRegistration = createServerFn({ method: "POST" })
   .inputValidator(z.object({ setupToken: tokenSchema, password: passwordSchema }))
@@ -451,12 +489,11 @@ export const completeRegistration = createServerFn({ method: "POST" })
     }
     if (!row.setup_expires_at || new Date(row.setup_expires_at).getTime() < Date.now()) {
       throw new Error(
-        "This password setup link has expired. Please request a new verification email.",
+        "This password setup link has expired. Please request a new verification code.",
       );
     }
 
-    // Consume the grant BEFORE creating the account so a double submit
-    // cannot race two createUser calls through.
+    // Consume grant before creation
     const { error: consumeError } = await loose
       .from("pending_registrations")
       .update({ setup_token_hash: null, setup_expires_at: null })
@@ -466,8 +503,6 @@ export const completeRegistration = createServerFn({ method: "POST" })
       throw new Error("Something went wrong. Please try again.");
     }
 
-    // Last authoritative check — someone may have registered this
-    // address through another path since verification.
     const registeredAcct = await accountForEmailHelper(admin, loose, row.email);
     if (registeredAcct.exists) {
       await loose.from("pending_registrations").delete().eq("id", row.id);
@@ -477,12 +512,12 @@ export const completeRegistration = createServerFn({ method: "POST" })
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email: row.email,
       password: data.password,
-      email_confirm: true, // this flow IS the confirmation
+      email_confirm: true,
       user_metadata: { username: row.username, full_name: row.username },
     });
 
     if (createError || !created?.user) {
-      logger.error("account creation failed after verification", {
+      logger.error("account creation failed after OTP verification", {
         error: createError,
         email: row.email,
       });
@@ -496,9 +531,6 @@ export const completeRegistration = createServerFn({ method: "POST" })
 
     const userId = created.user.id;
 
-    // The on_auth_user_created trigger assigned a placeholder username —
-    // replace it with the chosen one. If it was taken in the meantime,
-    // suffix rather than fail: the account itself is already created.
     let finalUsername = row.username;
     const { error: usernameError } = await loose
       .from("profiles")
@@ -513,10 +545,6 @@ export const completeRegistration = createServerFn({ method: "POST" })
       });
     }
 
-    // Mark completed rather than delete: a link opened after setup
-    // finishes then resolves to "already verified" instead of the
-    // misleading "invalid". purge_expired_registrations clears it later.
-    // Every token is blanked, so nothing here remains usable.
     await loose
       .from("pending_registrations")
       .update({
@@ -526,9 +554,8 @@ export const completeRegistration = createServerFn({ method: "POST" })
         setup_expires_at: null,
       })
       .eq("id", row.id);
-    logger.info("registration completed", { email: row.email, userId });
+    logger.info("registration completed with OTP flow", { email: row.email, userId });
 
-    // Best-effort courtesy email — never fail the signup over it.
     try {
       const mail = welcomeEmail({
         username: finalUsername,
@@ -542,7 +569,7 @@ export const completeRegistration = createServerFn({ method: "POST" })
     return { ok: true, email: row.email, username: finalUsername };
   });
 
-// ── 4. Resend ────────────────────────────────────────────────────────
+// ── 4. Resend Signup OTP ─────────────────────────────────────────────
 
 export const resendVerification = createServerFn({ method: "POST" })
   .inputValidator(z.object({ email: emailSchema }))
@@ -564,40 +591,20 @@ export const resendVerification = createServerFn({ method: "POST" })
       .eq("email", email)
       .maybeSingle();
 
-    // Deliberately uniform response whether or not a registration
-    // exists — this endpoint must not confirm which addresses are in use.
-    const uniform = { ok: true, resendInSeconds: RESEND_COOLDOWN_MS / 1000 } as const;
     if (!row || row.status === "completed") {
-      logger.info("resend requested for unknown or completed registration", { ip });
-      return uniform;
+      return { ok: true, resendInSeconds: RESEND_COOLDOWN_SECS };
     }
 
-    const elapsed = Date.now() - new Date(row.last_sent_at).getTime();
-    if (elapsed < RESEND_COOLDOWN_MS) {
-      const wait = Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000);
-      throw new Error(`Please wait ${wait}s before requesting another email.`);
-    }
-    if (row.send_count >= MAX_SENDS_PER_REGISTRATION) {
-      throw new Error(
-        "Too many verification emails have been sent to this address. Please contact support.",
-      );
-    }
+    const res = await requestEmailVerificationOtp({
+      data: { email: row.email, username: row.username },
+    });
 
-    try {
-      await issueVerification(loose, {
-        id: row.id,
-        email: row.email,
-        username: row.username,
-        send_count: row.send_count,
-      });
-    } catch (err) {
-      if (err instanceof EmailDeliveryError) {
-        logger.error("resend delivery failed", { email, error: err });
-        throw new Error("We couldn't send the email right now. Please try again shortly.");
+    if (!res.ok) {
+      if (res.reason === "cooldown") {
+        return { ok: true, resendInSeconds: res.resendInSeconds };
       }
-      throw err;
+      throw new Error("We couldn't send the verification email right now. Please try again.");
     }
 
-    logger.info("verification email resent", { email, ip });
-    return uniform;
+    return { ok: true, resendInSeconds: RESEND_COOLDOWN_SECS };
   });

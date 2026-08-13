@@ -1,9 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, Mail, ShieldQuestion } from "lucide-react";
 
 import { AuthShell } from "@/components/auth/AuthShell";
 import { GoldButton } from "@/components/site/Primitives";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { requestPasswordResetOtp } from "@/lib/api/passwordReset.functions";
 import { sentAtFromCooldown } from "@/lib/auth/otpPolicy";
 import { writeResetRequest } from "@/lib/auth/resetHandoff";
@@ -32,9 +34,17 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  */
 function ForgotPasswordPage() {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Auto-fill logged-in user's email address
+  useEffect(() => {
+    if (user?.email) {
+      setEmail(user.email);
+    }
+  }, [user]);
 
   // Catches a double submit inside a single tick, which `busy` cannot:
   // both clicks would read the pre-update state.
@@ -45,6 +55,11 @@ function ForgotPasswordPage() {
     if (inFlight.current) return;
     setError(null);
 
+    if (!user) {
+      setError("Please sign in first to reset your password.");
+      return;
+    }
+
     const clean = email.trim().toLowerCase();
     if (!EMAIL_RE.test(clean)) {
       setError("Please enter a valid email address.");
@@ -54,7 +69,12 @@ function ForgotPasswordPage() {
     inFlight.current = true;
     setBusy(true);
     try {
-      const res = await requestPasswordResetOtp({ data: { email: clean } });
+      const res = await requestPasswordResetOtp({
+        data: { email: clean },
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token ?? ""}`,
+        },
+      });
 
       if (!res.ok && res.reason === "delivery_failed") {
         // Never claim a code was sent when the provider refused it.

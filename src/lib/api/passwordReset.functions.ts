@@ -269,6 +269,47 @@ export const requestPasswordResetOtp = createServerFn({ method: "POST" })
     const ip = getClientIp();
     const startedAt = Date.now();
 
+    // Authenticated Session Requirement:
+    // Extract Authorization header or Supabase auth session token from incoming request
+    const req = getRequest();
+    const authHeader = req?.headers?.get("authorization") || req?.headers?.get("Authorization");
+    const authCookie = req?.headers?.get("cookie");
+    let authToken = "";
+
+    if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
+      authToken = authHeader.substring(7).trim();
+    } else if (authCookie) {
+      const match = authCookie.match(/sb-[a-z0-9]+-auth-token=([^;]+)/i);
+      if (match) {
+        try {
+          const parsed = JSON.parse(decodeURIComponent(match[1]));
+          if (Array.isArray(parsed) && parsed[0]) {
+            authToken = parsed[0];
+          } else if (parsed?.access_token) {
+            authToken = parsed.access_token;
+          }
+        } catch {
+          /* invalid cookie JSON format */
+        }
+      }
+    }
+
+    const { admin, loose } = await db();
+
+    if (!authToken) {
+      throw new Error("Please sign in first to reset your password.");
+    }
+
+    const { data: userData, error: userError } = await admin.auth.getUser(authToken);
+    if (userError || !userData?.user) {
+      throw new Error("Please sign in first to reset your password.");
+    }
+
+    const sessionEmail = (userData.user.email ?? "").trim().toLowerCase();
+    if (sessionEmail !== email) {
+      throw new Error("Please use the email address associated with your current account.");
+    }
+
     // Identical for every address — see the security note above.
     const accepted = { ok: true, resendInSeconds: RESEND_COOLDOWN_SECS } as const;
 
@@ -280,8 +321,6 @@ export const requestPasswordResetOtp = createServerFn({ method: "POST" })
     if (!rateLimit({ key: `pwotp-email:${email}`, limit: 5, windowMs: 60 * 60 * 1000 })) {
       throw new Error("Too many reset requests for this email. Please try again later.");
     }
-
-    const { admin, loose } = await db();
 
     // Server-authoritative cooldown, read from the row's last_sent_at.
     // Checked before the account lookup so an unknown address is throttled

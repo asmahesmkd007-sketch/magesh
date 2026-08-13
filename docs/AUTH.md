@@ -308,18 +308,47 @@ Every case in the spec maps to a specific screen or message:
 
 ## Email delivery
 
-`src/lib/api/email.server.ts` is the single sender — registration
-verification, welcome, **and password recovery**. Providers are tried in
-order and the first **configured** one wins:
+`src/lib/api/email.server.ts` is the single sender for every message the
+app produces — signup verification code, resend, welcome, password-reset
+code and the Google-account reset notice. **Email only**: this project
+sends no SMS, WhatsApp, voice or phone codes.
 
-1. **Gmail SMTP** — `GMAIL_USER` + `GMAIL_APP_PASSWORD`
-2. **EmailJS** — `EMAILJS_SERVICE_ID` + `EMAILJS_TEMPLATE_ID` + `EMAILJS_PUBLIC_KEY`
-3. **Resend** — `RESEND_API_KEY` (+ optional `EMAIL_FROM`)
+One provider, the **Resend HTTP API** over HTTPS via native `fetch`:
 
-If a configured provider throws, the next is tried; if all fail (or none
-is configured) an `EmailDeliveryError` is raised and the caller reports a
-retryable failure. Templates are table-based with inline styles — the only
-thing that renders reliably in Gmail, Outlook and Apple Mail.
+| Variable          | Required | Notes                                              |
+| ----------------- | -------- | -------------------------------------------------- |
+| `RESEND_API_KEY`  | yes      | **Secret, server-only.** Never a `VITE_*` name.     |
+| `EMAIL_FROM`      | yes      | `ChessOx <noreply@your-verified-domain>`            |
+
+`EMAIL_FROM` must sit on a domain verified at resend.com/domains.
+`email.server.ts` refuses two classes of sender up front, with an
+explanatory error, rather than letting them fail per-recipient at send
+time: Resend's sandbox `onboarding@resend.dev` (which delivers only to
+the Resend account owner) and consumer mailboxes such as `@gmail.com`
+whose DNS you cannot control.
+
+### Why HTTP and not SMTP
+
+The sender used to try Gmail SMTP, then EmailJS, then Resend. That chain
+is exactly how signup codes went missing: each provider failed for its
+own reason, the failures were swallowed in turn, and outside production
+the final step **returned as if the mail had been sent**, printing the
+code to the server console. The caller, told the send succeeded, moved
+the user to the "enter your code" screen for a code that never left.
+
+On a managed host (Railway, Vercel, Render) an HTTPS API also has no
+outbound SMTP port to be blocked, rate-limited or null-routed, and it
+reports acceptance synchronously. Gmail SMTP additionally capped at
+~500/day and could only send from a `@gmail.com` address.
+
+There is **no fallback provider and no dev-mode shortcut**. A normal
+return from `sendMail()` means Resend answered 2xx; anything else throws
+`EmailDeliveryError` and the caller reports a retryable failure. The OTP
+flows depend on that distinction — a failed send must not start a resend
+cooldown.
+
+Templates are table-based with inline styles — the only thing that
+renders reliably in Gmail, Outlook and Apple Mail.
 
 Set **`PUBLIC_SITE_URL`** in production so verification links point at the
 right origin. Without it the server falls back to the request's own

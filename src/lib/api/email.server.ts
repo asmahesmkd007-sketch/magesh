@@ -1,27 +1,33 @@
 // =====================================================================
 // TRANSACTIONAL EMAIL (server only)
 // ---------------------------------------------------------------------
-// ONE provider: Resend (RESEND_API_KEY + EMAIL_FROM).
+// ONE provider: the Resend HTTP API, over HTTPS, via native fetch.
+// Configured by RESEND_API_KEY + EMAIL_FROM. Email only — this project
+// sends no SMS, WhatsApp, voice or phone codes of any kind.
 //
-// This used to try Gmail SMTP, then EmailJS, then Resend, taking the
+// It previously tried Gmail SMTP, then EmailJS, then Resend, taking the
 // first that answered. That chain is why signup codes silently went
 // nowhere: each provider failed for its own reason, the failures were
 // swallowed one after another, and outside production the last step
 // RETURNED AS IF THE MAIL HAD BEEN SENT (printing the code to the server
-// console instead). The UI, told the send succeeded, moved the user to
-// the "enter your code" screen for a code that was never sent.
+// console instead). The UI, told the send had succeeded, moved the user
+// to the "enter your code" screen for a code that never left.
 //
-// Resend is the one kept because it is an HTTPS API: no outbound SMTP
-// port to be blocked or throttled by the host, and it reports acceptance
-// or rejection synchronously, so "sent" means a provider took the
-// message. Gmail SMTP would also cap at ~500/day and send from a
-// @gmail.com address.
+// Resend over HTTPS is what survived, because on a managed host (Railway,
+// Vercel, Render) there is no outbound SMTP port to be blocked, rate-
+// limited or silently null-routed, and the API reports acceptance or
+// rejection synchronously — so a normal return genuinely means a provider
+// took the message. Gmail SMTP additionally capped at ~500/day and could
+// only send from a @gmail.com address.
 //
-// There is deliberately no fallback and no dev-mode shortcut. If mail
-// cannot be sent, this throws, and the caller tells the user the truth.
+// There is deliberately NO fallback provider and NO dev-mode shortcut.
+// If mail cannot be sent, this throws and the caller tells the user the
+// truth. The OTP flows depend on that distinction: a delivery failure
+// must not start a resend cooldown.
 //
 // NEVER import this from client code — it reads secrets from the
-// environment. Server functions only.
+// environment. Server functions only. RESEND_API_KEY must never appear
+// in a VITE_* variable, which would inline it into the browser bundle.
 // =====================================================================
 import { logger } from "@/lib/logger";
 
@@ -54,143 +60,144 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-// ── Provider ─────────────────────────────────────────────────────────
+// ── Provider: Resend HTTP API ────────────────────────────────────────
 
-/** Domain only — the full recipient is not needed to debug delivery. */
+/** Domain only — the full recipient is never needed to debug delivery. */
 function getRecipientDomain(email: string): string {
   const parts = email.split("@");
   return parts.length > 1 ? `@${parts[1]}` : "unknown";
 }
 
-/**
- * Resend's shared sandbox sender. It authenticates fine, which is what
- * makes it so misleading: it accepts mail to the account owner and
- * rejects every other recipient with HTTP 403. A production deploy left
- * on this address delivers to exactly one inbox.
- */
-const SANDBOX_SENDER = /@resend\.dev\s*>?\s*$/i;
-
-const MISSING_KEY =
-  "Email is not configured: RESEND_API_KEY is not set. " +
-  "Add it to the server environment (Render → Environment).";
-
-const SANDBOX_IN_PRODUCTION =
-  "Email is misconfigured: EMAIL_FROM is Resend's sandbox sender " +
-  "(onboarding@resend.dev), which can only deliver to the Resend account " +
-  "owner. Verify a domain at resend.com/domains and set " +
-  'EMAIL_FROM="ChessOx <noreply@your-verified-domain>".';
-
-/**
- * Read and validate the mail configuration. Throws — loudly and with the
- * exact remedy — rather than letting a request discover the problem as a
- * per-recipient 403.
- */
-let cachedTransporter: any = null;
-
-async function sendViaGmail(msg: MailMessage): Promise<boolean> {
-  const user = (process.env.GMAIL_USER || process.env.SMTP_USER || process.env.VITE_GMAIL_USER)?.trim();
-  const pass = (process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS || process.env.VITE_GMAIL_APP_PASSWORD)?.replace(/\s+/g, "");
-  if (!user || !pass) {
-    logger.info("email delivery skipped: Gmail SMTP credentials missing", { email_provider: "gmail" });
-    return false;
-  }
-
-  const sender = process.env.EMAIL_FROM || `ChessOx <${user}>`;
-  const recipientDomain = getRecipientDomain(msg.to);
-  const nodemailer = await import("nodemailer");
-
-  const port = Number(process.env.SMTP_PORT) || 587;
-  const isSecure = port === 465;
-
-  if (!cachedTransporter) {
-    cachedTransporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port,
-      secure: isSecure,
-      requireTLS: !isSecure, // Require STARTTLS on port 587
-      family: 4,             // Force IPv4 to prevent ENETUNREACH on cloud hosts with IPv6 resolution
-      pool: true,
-      maxConnections: 5,
-      connectionTimeout: 10000,
-      greetingTimeout: 5000,
-      socketTimeout: 10000,
-      auth: { user, pass },
-    } as any);
-  }
-
-  try {
-    await cachedTransporter.sendMail({
-      from: sender,
-      to: msg.to,
-      subject: msg.subject,
-      html: msg.html,
-      text: msg.text ?? stripHtml(msg.html),
-    });
-    logger.info("email delivery succeeded", {
-      email_provider: "gmail",
-      smtp_host: "smtp.gmail.com",
-      smtp_port: port,
-      smtp_transport_failed: false,
-      recipientDomain,
-      senderAddress: sender,
-    });
-    return true;
-  } catch (err) {
-    cachedTransporter = null; // Reset on failure
-    const detail = err instanceof Error ? err.message : String(err);
-    logger.error("Gmail SMTP delivery rejected or failed", {
-      email_provider: "gmail",
-      smtp_host: "smtp.gmail.com",
-      smtp_port: port,
-      smtp_transport_failed: true,
-      recipientDomain,
-      error: detail,
-    });
-    throw new EmailDeliveryError(`Gmail SMTP failed (${detail})`);
-  }
+/** The address inside `Name <addr@host>`, or the whole string if bare. */
+function senderDomain(from: string): string {
+  const match = /<([^>]+)>/.exec(from);
+  const addr = (match ? match[1] : from).trim();
+  return getRecipientDomain(addr).replace(/^@/, "").toLowerCase();
 }
 
-async function sendViaResend(msg: MailMessage): Promise<boolean> {
-  // If Gmail SMTP credentials are set, do NOT fall back to Resend
-  const hasGmail =
-    !!(process.env.GMAIL_USER || process.env.SMTP_USER || process.env.VITE_GMAIL_USER) &&
-    !!(process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS || process.env.VITE_GMAIL_APP_PASSWORD);
-  if (hasGmail) {
-    logger.info("Resend fallback skipped because Gmail SMTP is configured", { email_provider: "resend" });
-    return false;
-  }
+/**
+ * Resend's shared sandbox domain. It authenticates fine, which is what
+ * makes it so misleading: it accepts mail to the account owner and
+ * rejects every other recipient with HTTP 403. A deploy left on this
+ * address delivers to exactly one inbox.
+ */
+const SANDBOX_DOMAIN = "resend.dev";
 
+/**
+ * Consumer mailbox providers. You cannot verify one of these in Resend —
+ * you do not control its DNS — so a `from` on any of them is guaranteed
+ * to 403 at send time. Refusing it here turns a per-recipient runtime
+ * failure into one unmissable configuration error.
+ */
+const CONSUMER_SENDER_DOMAINS = new Set([
+  "gmail.com",
+  "googlemail.com",
+  "yahoo.com",
+  "hotmail.com",
+  "outlook.com",
+  "live.com",
+  "aol.com",
+  "icloud.com",
+  "me.com",
+  "proton.me",
+  "protonmail.com",
+]);
+
+type MailConfig = { apiKey: string; from: string };
+
+/**
+ * Read and validate the mail configuration.
+ *
+ * Throws — loudly, with the exact remedy — rather than letting a request
+ * discover the problem as a per-recipient 403 from Resend. There is no
+ * fallback provider by design: a silent second attempt is what previously
+ * let "sent" mean "not sent".
+ */
+function mailConfig(): MailConfig {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) {
-    logger.info("email delivery skipped: Resend API key missing", { email_provider: "resend" });
-    return false;
+    throw new EmailDeliveryError(
+      "Email is not configured: RESEND_API_KEY is not set. " +
+        "Add it to the backend server environment (server-side only — never a VITE_* variable).",
+    );
   }
-  const from = process.env.EMAIL_FROM?.trim() || "ChessOx <onboarding@resend.dev>";
-  const recipientDomain = getRecipientDomain(msg.to);
 
-  // Never use onboarding@resend.dev or unverified @gmail.com sender on Resend in production
-  if (SANDBOX_SENDER.test(from) || /@gmail\.com\s*>?\s*$/i.test(from)) {
-    logger.warn("email delivery skipped via Resend: @gmail.com or sandbox sender cannot deliver to arbitrary recipients on Resend", {
-      email_provider: "resend",
-      senderAddress: from,
-    });
-    return false;
+  const from = process.env.EMAIL_FROM?.trim();
+  if (!from) {
+    throw new EmailDeliveryError(
+      "Email is not configured: EMAIL_FROM is not set. " +
+        'Use EMAIL_FROM="ChessOx <noreply@your-verified-domain>".',
+    );
   }
+
+  const domain = senderDomain(from);
+
+  if (domain === SANDBOX_DOMAIN) {
+    throw new EmailDeliveryError(
+      "Email is misconfigured: EMAIL_FROM uses Resend's sandbox sender " +
+        "(onboarding@resend.dev), which only delivers to the Resend account owner. " +
+        "Verify your domain at https://resend.com/domains and set " +
+        'EMAIL_FROM="ChessOx <noreply@your-verified-domain>".',
+    );
+  }
+
+  if (CONSUMER_SENDER_DOMAINS.has(domain)) {
+    throw new EmailDeliveryError(
+      `Email is misconfigured: EMAIL_FROM uses ${domain}, which cannot be verified in Resend ` +
+        "because you do not control its DNS. Verify your own domain at " +
+        'https://resend.com/domains and set EMAIL_FROM="ChessOx <noreply@your-verified-domain>".',
+    );
+  }
+
+  return { apiKey, from };
+}
+
+/** Resend's error bodies are small and safe; cap them anyway. */
+function safeErrorDetail(body: string, status: number): string {
+  let reason = body;
+  try {
+    const parsed = JSON.parse(body) as { message?: string };
+    if (parsed?.message) reason = parsed.message;
+  } catch {
+    /* body wasn't JSON */
+  }
+  reason = (reason || `HTTP ${status}`).replace(/\s+/g, " ").trim();
+  return reason.length > 300 ? `${reason.slice(0, 300)}…` : reason;
+}
+
+/**
+ * Send a transactional email through the Resend HTTP API.
+ *
+ * Resolves ONLY when Resend has accepted the message (2xx). Callers may
+ * read a normal return as "a provider took this" and nothing weaker —
+ * the OTP flows rely on that to decide whether to start a resend
+ * cooldown. Every other outcome throws EmailDeliveryError.
+ *
+ * Never logged: the API key, the Authorization header, the message body
+ * (it carries one-time codes), or the full recipient address.
+ */
+export async function sendMail(msg: MailMessage): Promise<void> {
+  const { apiKey, from } = mailConfig();
+  const recipientDomain = getRecipientDomain(msg.to);
 
   let res: Response;
   try {
     res = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
         from,
-        to: msg.to,
+        to: [msg.to],
         subject: msg.subject,
         html: msg.html,
         text: msg.text ?? stripHtml(msg.html),
       }),
     });
   } catch (err) {
+    // DNS failure, TLS failure, egress blocked — never reached Resend.
     const detail = err instanceof Error ? err.message : String(err);
     logger.error("email delivery failed: could not reach provider", {
       email_provider: "resend",
@@ -201,62 +208,23 @@ async function sendViaResend(msg: MailMessage): Promise<boolean> {
   }
 
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    let reason = body;
-    try {
-      const parsed = JSON.parse(body) as { message?: string };
-      if (parsed?.message) reason = parsed.message;
-    } catch {
-      /* body wasn't JSON */
-    }
+    const detail = safeErrorDetail(await res.text().catch(() => ""), res.status);
     logger.error("email delivery rejected by provider", {
       email_provider: "resend",
+      status: res.status,
       recipientDomain,
       senderAddress: from,
-      status: res.status,
-      errorMsg: reason || `HTTP ${res.status}`,
+      errorMsg: detail,
     });
-    throw new EmailDeliveryError(`Resend rejected the message: ${reason || `HTTP ${res.status}`}`);
+    throw new EmailDeliveryError(`Resend rejected the message (HTTP ${res.status}): ${detail}`);
   }
 
   logger.info("email delivery succeeded", {
     email_provider: "resend",
+    status: res.status,
     recipientDomain,
     senderAddress: from,
-    status: res.status,
   });
-  return true;
-}
-
-/**
- * Send a transactional email.
- * Uses Gmail SMTP when configured.
- * Uses Resend ONLY when Gmail SMTP is absent and a verified domain is configured.
- * Throws EmailDeliveryError if delivery fails.
- */
-export async function sendMail(msg: MailMessage): Promise<void> {
-  const providers: [string, (m: MailMessage) => Promise<boolean>][] = [
-    ["gmail", sendViaGmail],
-    ["resend", sendViaResend],
-  ];
-
-  const failures: string[] = [];
-  for (const [name, send] of providers) {
-    try {
-      if (await send(msg)) return;
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err);
-      failures.push(`${name}: ${detail}`);
-    }
-  }
-
-  if (failures.length > 0) {
-    throw new EmailDeliveryError(`Email delivery failed — ${failures.join("; ")}`);
-  }
-
-  throw new EmailDeliveryError(
-    "Email service is not configured. Set GMAIL_USER + GMAIL_APP_PASSWORD.",
-  );
 }
 
 // ── Branding ─────────────────────────────────────────────────────────

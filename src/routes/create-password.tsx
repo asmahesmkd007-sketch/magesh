@@ -70,11 +70,9 @@ function CreatePasswordPage() {
       clearSetupHandoff();
 
       // Automatically sign in the user
-      const { getSupabaseClient } = await import("@/lib/supabase/client");
-      const { getDeviceId } = await import("@/lib/auth/deviceId");
-      const { resetSessionId } = await import("@/lib/auth/sessionId");
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { getDeviceId, resetSessionId } = await import("@/lib/auth/sessionLock");
       const { acquireSessionServerFn } = await import("@/lib/api/session.functions");
-      const supabase = getSupabaseClient();
 
       const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
         email: result.email,

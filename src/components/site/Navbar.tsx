@@ -25,7 +25,7 @@ const COMMUNITY_ITEMS: readonly NavEntry[] = [
   { to: "/clans", label: "Clans" },
   { to: "/rankings", label: "Rankings" },
   { to: "/seasons", label: "Seasons" },
-  { to: "/events", label: "Events", isComingSoon: true },
+  { to: "/events", label: "Events" },
   { to: "/watch", label: "Watch" },
   { to: "/friends", label: "👥 Friends" },
 ];

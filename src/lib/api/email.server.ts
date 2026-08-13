@@ -100,13 +100,16 @@ async function sendViaGmail(msg: MailMessage): Promise<boolean> {
   const nodemailer = await import("nodemailer");
 
   if (!cachedTransporter) {
+    // Port 465 (SSL) is standard, fallback options defined
+    const port = Number(process.env.SMTP_PORT) || 465;
+    const isSecure = port === 465;
     cachedTransporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
-      port: 465,
-      secure: true, // SSL
-      pool: true,   // Reuse SMTP connection pool
+      port,
+      secure: isSecure,
+      pool: true,
       maxConnections: 5,
-      connectionTimeout: 8000,
+      connectionTimeout: 10000,
       greetingTimeout: 5000,
       socketTimeout: 10000,
       auth: { user, pass },

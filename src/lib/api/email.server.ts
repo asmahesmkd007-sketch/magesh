@@ -85,6 +85,8 @@ const SANDBOX_IN_PRODUCTION =
  * exact remedy — rather than letting a request discover the problem as a
  * per-recipient 403.
  */
+let cachedTransporter: any = null;
+
 async function sendViaGmail(msg: MailMessage): Promise<boolean> {
   const user = (process.env.GMAIL_USER || process.env.SMTP_USER || process.env.VITE_GMAIL_USER)?.trim();
   const pass = (process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS || process.env.VITE_GMAIL_APP_PASSWORD)?.replace(/\s+/g, "");
@@ -96,15 +98,23 @@ async function sendViaGmail(msg: MailMessage): Promise<boolean> {
   const sender = process.env.EMAIL_FROM || `ChessOx <${user}>`;
   const domain = getRecipientDomain(msg.to);
   const nodemailer = await import("nodemailer");
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: { user, pass },
-  });
+
+  if (!cachedTransporter) {
+    cachedTransporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true, // SSL
+      pool: true,   // Reuse SMTP connection pool
+      maxConnections: 5,
+      connectionTimeout: 8000,
+      greetingTimeout: 5000,
+      socketTimeout: 10000,
+      auth: { user, pass },
+    });
+  }
 
   try {
-    await transporter.sendMail({
+    await cachedTransporter.sendMail({
       from: sender,
       to: msg.to,
       subject: msg.subject,
@@ -114,6 +124,7 @@ async function sendViaGmail(msg: MailMessage): Promise<boolean> {
     logger.info("email delivery succeeded", { provider: "gmail", recipientDomain: domain, senderAddress: sender });
     return true;
   } catch (err) {
+    cachedTransporter = null; // Reset on failure
     const detail = err instanceof Error ? err.message : String(err);
     logger.error("Gmail SMTP delivery rejected or failed", { provider: "gmail", recipientDomain: domain, error: detail });
     throw new EmailDeliveryError(`Gmail SMTP failed: ${detail}`);

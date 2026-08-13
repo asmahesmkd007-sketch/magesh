@@ -190,9 +190,10 @@ function Play() {
       }
     >
       {tab === "modes" && (
-        <div className="mx-auto grid max-w-5xl gap-4 md:grid-cols-3">
+        <div className="mx-auto flex flex-col md:grid max-w-5xl gap-4 md:grid-cols-3">
           {MODES.filter((m) => m.id !== "history").map((m, i) => {
             const isWide = i === 0 || i === 3;
+            const isEven = i % 2 === 0;
             const Icon = m.icon;
 
             const inner = (
@@ -201,6 +202,10 @@ function Play() {
                   m.gold
                     ? "border-gold/40 bg-gradient-to-br from-gold/10 to-background/50"
                     : "border-white/5 bg-white/[0.02] hover:border-gold/30 hover:bg-gold/[0.02]"
+                } ${
+                  isEven
+                    ? "max-md:w-[88%] max-md:mr-auto max-md:rounded-r-2xl max-md:rounded-l-lg max-md:border-l-4 max-md:border-l-gold max-md:bg-gradient-to-r max-md:from-gold/15 max-md:via-white/[0.03] max-md:to-background/80 max-md:shadow-[0_4px_20px_rgba(212,175,55,0.08)]"
+                    : "max-md:w-[88%] max-md:ml-auto max-md:rounded-l-2xl max-md:rounded-r-lg max-md:border-r-4 max-md:border-r-gold max-md:bg-gradient-to-l max-md:from-gold/15 max-md:via-white/[0.03] max-md:to-background/80 max-md:shadow-[0_4px_20px_rgba(212,175,55,0.08)]"
                 } ${isWide ? "flex-col md:flex-row items-start md:items-center gap-5 md:gap-6" : "flex-col justify-between"}`}
               >
                 {/* Subtle glow effect on hover */}
@@ -210,24 +215,32 @@ function Play() {
 
                 {isWide ? (
                   <>
-                    <span
-                      className={`relative z-10 flex shrink-0 items-center justify-center rounded-2xl md:rounded-3xl shadow-lg transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${m.gold ? "h-16 w-16 md:h-20 md:w-20 gradient-gold text-background shadow-gold/20" : "h-14 w-14 md:h-16 md:w-16 bg-gradient-to-br from-white/10 to-white/5 text-gold shadow-black/50 border border-white/5"}`}
-                    >
-                      <Icon
-                        className={m.gold ? "h-8 w-8 md:h-10 md:w-10" : "h-7 w-7 md:h-8 md:w-8"}
-                      />
-                    </span>
+                    <div className="flex w-full items-start justify-between md:contents">
+                      <span
+                        className={`relative z-10 flex shrink-0 items-center justify-center rounded-2xl md:rounded-3xl shadow-lg transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${m.gold ? "h-14 w-14 md:h-20 md:w-20 gradient-gold text-background shadow-gold/20" : "h-12 w-12 md:h-16 md:w-16 bg-gradient-to-br from-white/10 to-white/5 text-gold shadow-black/50 border border-white/5"}`}
+                      >
+                        <Icon
+                          className={m.gold ? "h-7 w-7 md:h-10 md:w-10" : "h-6 w-6 md:h-8 md:w-8"}
+                        />
+                      </span>
+
+                      <div className="relative z-10 flex md:hidden shrink-0 items-center gap-1.5 text-[10px] font-bold tracking-[0.2em] uppercase text-gold opacity-80 transition-all group-hover:opacity-100 group-hover:translate-x-1 mt-1">
+                        {m.gold ? "Play now" : "Open"} <ChevronRight className="h-3 w-3" />
+                      </div>
+                    </div>
+
                     <div className="relative z-10 flex-1 w-full mt-3 md:mt-0">
                       <div
-                        className={`font-display text-3xl md:text-4xl transition-colors ${m.gold ? "text-gold" : "group-hover:text-gold"}`}
+                        className={`font-display text-2xl sm:text-3xl md:text-4xl transition-colors ${m.gold ? "text-gold" : "group-hover:text-gold"}`}
                       >
                         {m.title}
                       </div>
-                      <div className="mt-2 text-sm md:text-base text-muted-foreground">{m.sub}</div>
+                      <div className="mt-1 md:mt-2 text-xs sm:text-sm md:text-base text-muted-foreground">{m.sub}</div>
                     </div>
-                    <div className="relative z-10 flex shrink-0 items-center gap-2 text-[10px] md:text-xs font-bold tracking-[0.2em] uppercase text-gold opacity-80 transition-all group-hover:opacity-100 group-hover:translate-x-1 mt-4 md:mt-0">
+
+                    <div className="relative z-10 hidden md:flex shrink-0 items-center gap-2 text-xs font-bold tracking-[0.2em] uppercase text-gold opacity-80 transition-all group-hover:opacity-100 group-hover:translate-x-1">
                       {m.gold ? "Play now" : "Open"}{" "}
-                      <ChevronRight className="h-3 w-3 md:h-4 md:w-4" />
+                      <ChevronRight className="h-4 w-4" />
                     </div>
                   </>
                 ) : (
@@ -244,7 +257,7 @@ function Play() {
                       </div>
                     </div>
 
-                    <div className="relative z-10 mt-8">
+                    <div className="relative z-10 mt-6 md:mt-8">
                       <div
                         className={`font-display text-2xl md:text-3xl transition-colors ${m.gold ? "text-gold" : "group-hover:text-gold"}`}
                       >

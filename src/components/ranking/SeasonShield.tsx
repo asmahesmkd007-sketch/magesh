@@ -63,7 +63,22 @@ export type SeasonShieldProps = {
   imgClassName?: string;
   /** Hide numeric SP display even if variant would show it. */
   hideSp?: boolean;
+  /**
+   * Force eager loading for a shield known to be above the fold. The "full"
+   * variant (the profile hero badge) is eager already; everything else is
+   * lazy because it appears in lists, chips and cards further down.
+   */
+  priority?: boolean;
 };
+
+/**
+ * Intrinsic pixel size of the source files. Given to every <img> as
+ * width/height so the browser can reserve a correctly-proportioned box
+ * before the bytes arrive — without it each shield popped in and shifted
+ * the layout around it. The rendered size still comes from the CSS classes
+ * in SIZE_CLASSES; these attributes only establish the 1:1 aspect ratio.
+ */
+const SHIELD_INTRINSIC_PX = 384;
 
 const SIZE_CLASSES: Record<ShieldSize, { img: string; text: string; sub: string }> = {
   xs: { img: "h-4 w-4", text: "text-[10px]", sub: "text-[9px]" },
@@ -77,16 +92,11 @@ const SIZE_CLASSES: Record<ShieldSize, { img: string; text: string; sub: string 
   xl: { img: "h-24 w-24 md:h-28 md:w-28", text: "text-xl md:text-2xl font-bold", sub: "text-sm" },
 };
 
-// Dev-mode verification check for shield asset paths
-if (import.meta.env.DEV && typeof window !== "undefined") {
-  Object.entries(SHIELD_IMAGES).forEach(([tier, path]) => {
-    const img = new Image();
-    img.onerror = () => {
-      console.warn(`[SeasonShield] Missing shield image asset for "${tier}": ${path}`);
-    };
-    img.src = path;
-  });
-}
+// A module-level dev check used to preload all seven shields to verify the
+// asset paths resolve. It has been removed: it downloaded every shield on
+// every dev page load, including the six the page never shows, and the
+// per-image onError handlers below already report a broken path — but only
+// for shields actually rendered, which is the case worth knowing about.
 
 export function SeasonShield({
   sp,
@@ -99,6 +109,7 @@ export function SeasonShield({
   className = "",
   imgClassName = "",
   hideSp = false,
+  priority,
 }: SeasonShieldProps) {
   const points = sp ?? rating ?? 0;
   const rung: Rung = rungById(rungId) ?? rungOf(points);
@@ -110,9 +121,12 @@ export function SeasonShield({
   const label = customLabel ?? (tierOnly ? tier.name : rung.label);
   const sizeCfg = SIZE_CLASSES[size];
 
-  // Preload common entry tiers, lazy load high tiers
-  const isCommonTier = ["bronze", "silver", "gold", "platinum"].includes(tier.code);
-  const loadingStrategy = isCommonTier ? "eager" : "lazy";
+  // Loading is decided by WHERE the shield sits, not which tier it is. The
+  // previous rule loaded bronze/silver/gold/platinum eagerly — precisely the
+  // tiers most players hold — so a leaderboard eagerly fetched a shield for
+  // every row. Only the "full" variant (the profile hero badge) is reliably
+  // above the fold; callers can override either way with `priority`.
+  const loadingStrategy = (priority ?? variant === "full") ? "eager" : "lazy";
 
   // 1. Icon variant — shield image only
   if (variant === "icon") {
@@ -120,6 +134,8 @@ export function SeasonShield({
     return (
       <img
         src={shieldSrc}
+        width={SHIELD_INTRINSIC_PX}
+        height={SHIELD_INTRINSIC_PX}
         alt={`${label} Shield`}
         loading={loadingStrategy}
         onError={() => {
@@ -141,6 +157,8 @@ export function SeasonShield({
         {!imgFailed && (
           <img
             src={shieldSrc}
+            width={SHIELD_INTRINSIC_PX}
+            height={SHIELD_INTRINSIC_PX}
             alt=""
             loading={loadingStrategy}
             onError={() => setImgFailed(true)}
@@ -159,6 +177,8 @@ export function SeasonShield({
         {!imgFailed && (
           <img
             src={shieldSrc}
+            width={SHIELD_INTRINSIC_PX}
+            height={SHIELD_INTRINSIC_PX}
             alt={`${label} Shield`}
             loading={loadingStrategy}
             onError={() => setImgFailed(true)}
@@ -186,6 +206,8 @@ export function SeasonShield({
             <div className={`absolute inset-0 rounded-full blur-md opacity-30 ${tier.glow}`} />
             <img
               src={shieldSrc}
+              width={SHIELD_INTRINSIC_PX}
+              height={SHIELD_INTRINSIC_PX}
               alt={`${label} Shield`}
               loading={loadingStrategy}
               onError={() => setImgFailed(true)}
@@ -215,6 +237,8 @@ export function SeasonShield({
           <div className={`absolute inset-0 rounded-full blur-xl opacity-40 ${tier.glow}`} />
           <img
             src={shieldSrc}
+            width={SHIELD_INTRINSIC_PX}
+            height={SHIELD_INTRINSIC_PX}
             alt={`${label} Shield`}
             loading={loadingStrategy}
             onError={() => setImgFailed(true)}

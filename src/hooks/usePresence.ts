@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import {
-  fetchUserPresences,
   getPresenceSnapshot,
+  queuePresenceFetch,
   subscribePresence,
 } from "@/realtime/client/presenceStore";
 import type { PresenceState, UserPresence } from "@/realtime/protocol";
@@ -29,7 +29,9 @@ export function usePresence(userId?: string | null): UsePresenceResult {
 
   useEffect(() => {
     if (userId && !presence) {
-      void fetchUserPresences([userId]);
+      // Coalesced with every other avatar mounting in this same commit, so
+      // a list of N players costs one request rather than N.
+      void queuePresenceFetch(userId);
     }
   }, [userId, presence]);
 

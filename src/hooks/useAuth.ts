@@ -231,9 +231,21 @@ async function loadProfile(userId: string): Promise<Profile | null> {
     .then(async ({ data }) => {
       let prof = data as Profile | null;
 
-      // Read Google OAuth Metadata from current user session
-      const { data: userData } = await supabase.auth.getUser();
-      const authUser = userData?.user;
+      // Google OAuth metadata for the signed-in user, read from the shared
+      // auth snapshot rather than supabase.auth.getUser().
+      //
+      // getUser() is a network round-trip to /auth/v1/user, and it ran on
+      // EVERY profile load — including a logged-out visitor reading someone
+      // else's profile, where it round-tripped only to return null. The
+      // snapshot already holds the same user object (onAuthStateChange
+      // delivers it with user_metadata attached), so this reads the same
+      // values without the request.
+      //
+      // Nothing here is an authorisation decision — the metadata is used to
+      // fill in a display name and avatar, and every write below is still
+      // gated by RLS on `profiles` plus the `authUser.id === userId` check.
+      // So dropping the server revalidation costs no security.
+      const authUser = authSnapshot.user;
       const meta = authUser?.user_metadata;
       const googleAvatar = (meta?.avatar_url || meta?.picture) as string | undefined;
 

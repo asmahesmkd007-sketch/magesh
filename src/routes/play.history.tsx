@@ -128,7 +128,11 @@ function GameHistory() {
       .subscribe();
 
     return () => {
-      channelRef.current?.unsubscribe();
+      // removeChannel, not unsubscribe: unsubscribe closes the subscription
+      // but leaves the channel registered on the client, so remounting this
+      // route accumulated a new `history:<id>` channel each time. This is
+      // the pattern the other 23 realtime call sites already use.
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

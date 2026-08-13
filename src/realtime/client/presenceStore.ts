@@ -120,6 +120,75 @@ export async function fetchUserPresences(userIds: string[]): Promise<UserPresenc
   return [];
 }
 
+// ── Micro-batching ───────────────────────────────────────────────────
+// Every avatar that needs presence asks for its own id, so a list of N
+// players used to produce N separate `presence:subscribe` round-trips for
+// what the server is perfectly happy to answer in one.
+//
+// React runs all of a commit's mount effects in the same task, so the ids
+// requested by one render land in the same queue and a microtask flush
+// coalesces them into a single request. The wire format is unchanged and
+// the response is applied through the same monotonic-timestamp merge as
+// before, so realtime updates and staleness handling are untouched.
+
+const pendingIds = new Set<string>();
+/** Ids already on the wire — stops a second render re-requesting them. */
+const inFlightIds = new Set<string>();
+let flushScheduled = false;
+
+async function flushPresenceQueue(): Promise<void> {
+  flushScheduled = false;
+  if (pendingIds.size === 0) return;
+
+  const ids = Array.from(pendingIds);
+  pendingIds.clear();
+  for (const id of ids) inFlightIds.add(id);
+
+  try {
+    await fetchUserPresences(ids);
+  } finally {
+    // Always released, so a failed request can be retried by the next
+    // mount rather than being permanently suppressed.
+    for (const id of ids) inFlightIds.delete(id);
+  }
+}
+
+/**
+ * Request presence for ONE user, coalesced with every other id requested
+ * in the same tick into a single round-trip.
+ *
+ * Skips ids already cached or already in flight, so re-renders and
+ * duplicate avatars of the same player cost nothing. Returns a promise
+ * that settles when the batch containing this id has been applied.
+ */
+export function queuePresenceFetch(userId?: string | null): Promise<void> {
+  if (!userId) return Promise.resolve();
+  if (presenceMap.has(userId) || inFlightIds.has(userId)) return Promise.resolve();
+
+  pendingIds.add(userId);
+  if (flushScheduled) return Promise.resolve();
+
+  flushScheduled = true;
+  return new Promise<void>((resolve) => {
+    queueMicrotask(() => {
+      void flushPresenceQueue().finally(resolve);
+    });
+  });
+}
+
+/** Test seam: drain the queue without waiting on the microtask. */
+export function __flushPresenceQueueForTests(): Promise<void> {
+  return flushPresenceQueue();
+}
+
+/** Test seam: drop all cached presence and queue state. */
+export function __resetPresenceStoreForTests(): void {
+  presenceMap.clear();
+  pendingIds.clear();
+  inFlightIds.clear();
+  flushScheduled = false;
+}
+
 /**
  * Directly set local presence (for testing / initial state hydration).
  */

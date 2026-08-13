@@ -80,9 +80,21 @@ export function Footer() {
     location.pathname === "/signup";
 
   return (
-    <footer className="mt-12 border-t border-gold/12 bg-[linear-gradient(180deg,rgba(32,8,8,0.8),rgba(16,4,4,0.95))]">
+    <footer className="relative overflow-hidden mt-12 border-t border-gold/12 bg-[linear-gradient(180deg,rgba(32,8,8,0.8),rgba(16,4,4,0.95))]">
+      {/* Background blurred watermark logo on the right side */}
+      <div className="pointer-events-none absolute -right-6 top-1/2 -translate-y-1/2 opacity-10 blur-[1.5px] select-none z-0">
+        <img
+          src="/chessox-icon.png"
+          alt=""
+          width={320}
+          height={320}
+          className="h-64 w-64 sm:h-80 sm:w-80 md:h-96 md:w-96 object-contain drop-shadow-[0_0_30px_rgba(212,175,55,0.3)]"
+          draggable={false}
+        />
+      </div>
+
       <div
-        className={`mx-auto grid max-w-7xl gap-6 px-6 py-8 ${
+        className={`relative z-10 mx-auto grid max-w-7xl gap-6 px-6 py-8 ${
           !user ? "md:grid-cols-[1.5fr_1fr_1fr]" : "md:grid-cols-[1.5fr_1fr_1fr_1fr]"
         } lg:gap-8`}
       >

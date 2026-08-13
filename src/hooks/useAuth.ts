@@ -87,9 +87,16 @@ function startHeartbeatLoop(userId: string) {
         stopHeartbeatLoop();
         clearSessionId();
         await supabase.auth.signOut();
-        toast.error("Your session has ended. Please sign in again.");
-        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/auth")) {
-          window.location.href = "/auth";
+        const isAuthPage =
+          typeof window !== "undefined" &&
+          (window.location.pathname.startsWith("/auth") ||
+            window.location.pathname.startsWith("/login") ||
+            window.location.pathname.startsWith("/signup"));
+        if (!isAuthPage) {
+          toast.error("Your session has ended. Please sign in again.");
+          if (typeof window !== "undefined") {
+            window.location.href = "/auth";
+          }
         }
       }
     } catch {

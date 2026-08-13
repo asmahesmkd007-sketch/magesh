@@ -353,6 +353,19 @@ function OnboardingPage() {
         return;
       }
 
+      // Re-acquire session lock with updated user metadata to prevent heartbeat invalidation
+      const { getDeviceId, resetSessionId } = await import("@/lib/auth/sessionLock");
+      const { acquireSessionServerFn } = await import("@/lib/api/session.functions");
+      const deviceId = getDeviceId();
+      const sessionId = resetSessionId();
+      await acquireSessionServerFn({
+        data: {
+          userId: user.id,
+          sessionId,
+          deviceId,
+        },
+      });
+
       navigate({ to: "/home" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update profile. Please try again.");

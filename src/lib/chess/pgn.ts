@@ -251,6 +251,15 @@ export function parsePgn(text: string): ParsedPgn {
     throw new Error(`The FEN header is not a valid position: "${fenTag}"`);
   }
 
+  // Informational, not a validation failure: the header FEN is honoured
+  // exactly as supplied and is used only as the ROOT. Every later position
+  // still comes from chess.move() over the movetext, so the active color
+  // flips normally from here on. Pushed before the move warnings so the
+  // notice reads first, and it never fires for the standard array.
+  if (rootFen && isCustomPosition(tree.rootFen)) {
+    warnings.push(customPositionNotice(tree.rootFen, "pgn"));
+  }
+
   const { tokens, warnings: tokenWarnings } = tokenizeMovetext(movetext);
   warnings.push(...tokenWarnings);
 
@@ -473,6 +482,40 @@ function emitLine(
 }
 
 // ── FEN helpers ──────────────────────────────────────────────────────
+
+/**
+ * Whose move it is, read straight from the FEN's active-color field.
+ *
+ * The FEN is authoritative: this never infers the side from piece
+ * placement and never rewrites the field. A FEN that is syntactically and
+ * basically legal but retrograde-impossible (a white pawn on g4 with every
+ * black piece still at home, say) is accepted as given — chess.js does not
+ * check reachability and neither do we, because the positions that would
+ * trip such a check are exactly the composed studies and puzzles this
+ * board exists to analyse.
+ */
+export function sideToMoveFromFen(fen: string): "White" | "Black" {
+  return fen.trim().split(/\s+/)[1] === "b" ? "Black" : "White";
+}
+
+/** True when `fen` is not the standard opening array. */
+export function isCustomPosition(fen: string): boolean {
+  return fen.trim().replace(/\s+/g, " ") !== START_FEN;
+}
+
+/**
+ * The informational notice shown when analysis starts from a position the
+ * user supplied rather than the standard array.
+ *
+ * It exists because the engine's suggestions are only surprising when you
+ * disagree with it about whose move it is: a loaded position that says
+ * White to move produces White arrows, correctly, and without this line
+ * there is nothing on screen to say so.
+ */
+export function customPositionNotice(fen: string, source: "fen" | "pgn"): string {
+  const from = source === "pgn" ? " from FEN" : "";
+  return `Custom position loaded${from} — ${sideToMoveFromFen(fen)} to move.`;
+}
 
 /**
  * Validate a FEN string. Returns the normalised FEN chess.js would emit

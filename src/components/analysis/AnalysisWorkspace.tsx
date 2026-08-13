@@ -24,6 +24,7 @@ import {
   ChevronsRight,
   Download,
   Expand,
+  FlaskConical,
   RefreshCw,
   RotateCcw,
   Shrink,
@@ -37,6 +38,7 @@ import { PromotionPicker } from "@/components/site/PromotionPicker";
 import { useEngine } from "@/hooks/useEngine";
 import { supabase } from "@/integrations/supabase/client";
 import { soundForChessMove } from "@/lib/audio/sounds";
+import { isCustomPosition, sideToMoveFromFen } from "@/lib/chess/pgn";
 import { scoreForWhite, scoreToCp } from "@/lib/engine/uci";
 
 import { AnalysisCharts } from "./AnalysisCharts";
@@ -405,6 +407,19 @@ export function AnalysisWorkspace({ gameId }: { gameId?: string }) {
         {session.opening && (
           <span className="rounded-full border border-amber-400/20 bg-amber-400/5 px-2.5 py-1 text-xs text-amber-300/90">
             {session.opening.eco} · {session.opening.name}
+          </span>
+        )}
+        {/* Analysis started from a supplied position rather than the standard
+            array. Whose move it is comes from the FEN itself, so the engine's
+            suggestions can be read against the side the position actually
+            names — the one thing the board cannot show on its own. */}
+        {isCustomPosition(session.tree.rootFen) && (
+          <span
+            className="flex items-center gap-1 rounded-full border border-sky-400/25 bg-sky-400/5 px-2.5 py-1 text-xs text-sky-300/90"
+            title="Analysis is running from a position you supplied, not the standard starting position."
+          >
+            <FlaskConical className="h-3 w-3 shrink-0" />
+            Custom position · {sideToMoveFromFen(fen)} to move
           </span>
         )}
       </div>

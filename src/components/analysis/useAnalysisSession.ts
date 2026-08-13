@@ -15,7 +15,14 @@ import { buildGameReview } from "@/lib/analysis/review";
 import type { AnalyzedMove, GameReview, ReviewProgress } from "@/lib/analysis/types";
 import { GameTree, ROOT_ID, START_FEN, type MoveNode, type TreeMove } from "@/lib/chess/moveTree";
 import { detectOpening, type OpeningMatch } from "@/lib/chess/openings";
-import { parsePgn, serializePgn, validateFen, type SerializeOptions } from "@/lib/chess/pgn";
+import {
+  customPositionNotice,
+  isCustomPosition,
+  parsePgn,
+  serializePgn,
+  validateFen,
+  type SerializeOptions,
+} from "@/lib/chess/pgn";
 import { logger } from "@/lib/logger";
 
 export type ReviewState =
@@ -223,7 +230,16 @@ export function useAnalysisSession() {
       if (!v.ok) return { ok: false, error: v.error };
       try {
         replaceTree(new GameTree(v.fen), []);
-        return { ok: true, warnings: [] };
+        // The supplied FEN stands exactly as given — including its active
+        // color, which is never inferred from the pieces or repaired. What
+        // this adds is a statement of whose move the position says it is,
+        // because that is the one thing the board cannot show and the one
+        // thing that makes the engine's suggestions look wrong when the
+        // reader expected the other side.
+        return {
+          ok: true,
+          warnings: isCustomPosition(v.fen) ? [customPositionNotice(v.fen, "fen")] : [],
+        };
       } catch (e) {
         return { ok: false, error: e instanceof Error ? e.message : "Invalid position." };
       }

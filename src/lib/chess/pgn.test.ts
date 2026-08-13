@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { ROOT_ID } from "./moveTree";
-import { parsePgn, serializePgn, validateFen } from "./pgn";
+import { ROOT_ID, START_FEN } from "./moveTree";
+import {
+  customPositionNotice,
+  isCustomPosition,
+  parsePgn,
+  serializePgn,
+  sideToMoveFromFen,
+  validateFen,
+} from "./pgn";
 
 describe("parsePgn", () => {
   it("parses headers and mainline moves", () => {
@@ -95,6 +102,100 @@ describe("parsePgn", () => {
 
   it("rejects an invalid FEN header outright", () => {
     expect(() => parsePgn(`[FEN "banana"]\n\n1. e4`)).toThrow(/FEN/);
+  });
+
+  // ── Custom-position transparency ─────────────────────────────────
+  // The engine analyses whatever the FEN says. These cover the notice
+  // that tells the reader which side the position names, so White
+  // arrows on a board the reader thought was Black's are explicable.
+
+  // The audit position: legal to chess.js, retrograde-impossible, and
+  // the exact shape that produced White arrows after "1. g4".
+  const G4_WHITE = "rnbqkbnr/pppppppp/8/8/6P1/8/PPPPPP1P/RNBQKBNR w KQkq - 0 1";
+  const G4_BLACK = "rnbqkbnr/pppppppp/8/8/6P1/8/PPPPPP1P/RNBQKBNR b KQkq - 0 1";
+
+  it("C. warns for a custom FEN header with no moves, without altering it", () => {
+    const parsed = parsePgn(`[SetUp "1"]\n[FEN "${G4_WHITE}"]\n\n*`);
+    expect(parsed.warnings).toContain("Custom position loaded from FEN — White to move.");
+    // The FEN is authoritative and untouched — active color still "w".
+    expect(parsed.tree.rootFen).toBe(G4_WHITE);
+    expect(parsed.tree.mainline()).toHaveLength(0);
+  });
+
+  it("C2. states Black to move when the header FEN says so", () => {
+    const parsed = parsePgn(`[SetUp "1"]\n[FEN "${G4_BLACK}"]\n\n*`);
+    expect(parsed.warnings).toContain("Custom position loaded from FEN — Black to move.");
+    expect(parsed.tree.rootFen).toBe(G4_BLACK);
+  });
+
+  it("D. uses the header FEN only as root; later positions come from the moves", () => {
+    const parsed = parsePgn(`[SetUp "1"]\n[FEN "${G4_WHITE}"]\n\n1. d3 d5 *`);
+    expect(parsed.warnings).toContain("Custom position loaded from FEN — White to move.");
+    expect(parsed.tree.rootFen).toBe(G4_WHITE);
+
+    const line = parsed.tree.mainline();
+    expect(line.map((n) => n.san)).toEqual(["d3", "d5"]);
+    // Active color flips normally after every legal move, derived by
+    // chess.move() rather than read from the header.
+    expect(line[0].fenAfter.split(" ")[1]).toBe("b");
+    expect(line[1].fenAfter.split(" ")[1]).toBe("w");
+  });
+
+  it("E. keeps the illegal-move warning alongside the custom-position notice", () => {
+    // "g4" is illegal here: the header FEN already has that pawn on g4.
+    const parsed = parsePgn(`[SetUp "1"]\n[FEN "${G4_WHITE}"]\n\n1. g4 *`);
+    expect(parsed.warnings).toContain("Custom position loaded from FEN — White to move.");
+    expect(parsed.warnings.some((w) => /Illegal or unreadable move "g4"/.test(w))).toBe(true);
+    // Existing skip/recovery behaviour is unchanged.
+    expect(parsed.tree.mainline()).toHaveLength(0);
+    expect(parsed.tree.rootFen).toBe(G4_WHITE);
+  });
+
+  it("F. emits no custom-position warning for the standard start", () => {
+    const parsed = parsePgn("1. g4 c5 *");
+    expect(parsed.warnings.some((w) => w.startsWith("Custom position"))).toBe(false);
+  });
+
+  it("F2. emits no warning when the header FEN *is* the standard start", () => {
+    const parsed = parsePgn(`[SetUp "1"]\n[FEN "${START_FEN}"]\n\n1. g4 *`);
+    expect(parsed.warnings.some((w) => w.startsWith("Custom position"))).toBe(false);
+    // And normal play from it still flips the active color to Black.
+    expect(parsed.tree.mainline()[0].fenAfter.split(" ")[1]).toBe("b");
+  });
+});
+
+describe("custom-position helpers", () => {
+  const G4_WHITE = "rnbqkbnr/pppppppp/8/8/6P1/8/PPPPPP1P/RNBQKBNR w KQkq - 0 1";
+  const G4_BLACK = "rnbqkbnr/pppppppp/8/8/6P1/8/PPPPPP1P/RNBQKBNR b KQkq - 0 1";
+
+  it("reads the side to move from the FEN, never from the pieces", () => {
+    // Same piece placement, opposite active color: the field decides.
+    expect(sideToMoveFromFen(G4_WHITE)).toBe("White");
+    expect(sideToMoveFromFen(G4_BLACK)).toBe("Black");
+  });
+
+  it("treats only the standard array as non-custom", () => {
+    expect(isCustomPosition(START_FEN)).toBe(false);
+    expect(isCustomPosition(`  ${START_FEN}  `)).toBe(false);
+    expect(isCustomPosition(G4_WHITE)).toBe(true);
+    expect(isCustomPosition(G4_BLACK)).toBe(true);
+  });
+
+  it("A/B. phrases the notice per source and side", () => {
+    expect(customPositionNotice(G4_WHITE, "fen")).toBe("Custom position loaded — White to move.");
+    expect(customPositionNotice(G4_BLACK, "fen")).toBe("Custom position loaded — Black to move.");
+    expect(customPositionNotice(G4_WHITE, "pgn")).toBe(
+      "Custom position loaded from FEN — White to move.",
+    );
+  });
+
+  it("A. the audit FEN is still accepted — no legality prover was added", () => {
+    // validateFen must keep accepting a syntactically/basically legal but
+    // retrograde-impossible position; composed studies depend on that.
+    const v = validateFen(G4_WHITE);
+    expect(v.ok).toBe(true);
+    // And it is returned unmutated — same active color as supplied.
+    expect(v.ok && v.fen).toBe(G4_WHITE);
   });
 
   it("counts multiple games and imports the first", () => {

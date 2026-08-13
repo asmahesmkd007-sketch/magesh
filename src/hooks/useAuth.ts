@@ -120,12 +120,12 @@ function startAuthSubscription() {
   // sets loading=false with session=null before INITIAL_SESSION fires.
   const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
     const fresh = s?.user ?? null;
-    // A token refresh mints a new session (and user) object for the same
-    // person. `session` must still update — consumers read the access token
-    // off it — but reusing the previous `user` identity keeps every memo and
-    // effect keyed on `user` from firing for what is only a new token.
+    const metadataChanged =
+      fresh && authSnapshot.user
+        ? JSON.stringify(fresh.user_metadata) !== JSON.stringify(authSnapshot.user.user_metadata)
+        : false;
     const user =
-      event === "TOKEN_REFRESHED" && fresh && authSnapshot.user?.id === fresh.id
+      event === "TOKEN_REFRESHED" && fresh && authSnapshot.user?.id === fresh.id && !metadataChanged
         ? authSnapshot.user
         : fresh;
     authSnapshot = { session: s, user, loading: false };

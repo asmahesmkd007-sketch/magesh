@@ -34,12 +34,15 @@ function CreatePasswordPage() {
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ username: string } | null>(null);
 
   // Read setupToken from search params or sessionStorage
   useEffect(() => {
     if (search.setupToken) {
-      setHandoff({ setupToken: search.setupToken, email: "Your verified account", username: "Player" });
+      setHandoff({
+        setupToken: search.setupToken,
+        email: "Your verified account",
+        username: "Player",
+      });
     } else {
       setHandoff(readSetupHandoff());
     }
@@ -79,21 +82,27 @@ function CreatePasswordPage() {
         password,
       });
 
-      if (!signInError && authData.user) {
-        const deviceId = getDeviceId();
-        const sessionId = resetSessionId();
-        await acquireSessionServerFn({
-          data: {
-            userId: authData.user.id,
-            sessionId,
-            deviceId,
-          },
-        });
-        window.location.href = "/";
-        return;
+      if (signInError || !authData.user) {
+        throw new Error(
+          signInError?.message ||
+            "Account created, but automatic sign-in failed. Please try signing in.",
+        );
       }
 
-      setDone({ username: result.username });
+      const deviceId = getDeviceId();
+      const sessionId = resetSessionId();
+      await acquireSessionServerFn({
+        data: {
+          userId: authData.user.id,
+          sessionId,
+          deviceId,
+        },
+      });
+
+      // Ensure session is set in client state
+      await supabase.auth.getSession();
+
+      navigate({ to: "/home" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create your password.");
     } finally {
@@ -108,28 +117,6 @@ function CreatePasswordPage() {
         <div className="grid place-items-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-gold" />
         </div>
-      </AuthShell>
-    );
-  }
-
-  // ── Account is live ────────────────────────────────────────────────
-  if (done) {
-    return (
-      <AuthShell
-        title="Account Setup Completed Successfully"
-        subtitle={`Welcome, ${done.username}`}
-        icon={<CheckCircle2 className="h-8 w-8 text-emerald-400" />}
-        step={[3, 3]}
-      >
-        <p className="text-center text-sm leading-relaxed text-muted-foreground">
-          Your ChessOx account is ready. You can now login.
-        </p>
-        <GoldButton
-          className="mt-6 w-full justify-center"
-          onClick={() => navigate({ to: "/auth" })}
-        >
-          LOGIN NOW
-        </GoldButton>
       </AuthShell>
     );
   }

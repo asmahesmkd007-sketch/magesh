@@ -346,12 +346,15 @@ function OnboardingPage() {
         }
       }
 
-      if (authErr && wantsPassword) {
-        logger.warn("password creation failed during onboarding", { error: authErr.message });
+      if (authErr) {
+        logger.warn("profile update failed during onboarding", { error: authErr.message });
         setError(friendlyPasswordError(authErr.message));
         setBusy(false);
         return;
       }
+
+      // Refresh session state to ensure user_metadata is updated in memory
+      await supabase.auth.getSession();
 
       // Re-acquire session lock with updated user metadata to prevent heartbeat invalidation
       const { getDeviceId, resetSessionId } = await import("@/lib/auth/sessionLock");

@@ -68,6 +68,33 @@ function CreatePasswordPage() {
         data: { setupToken: handoff.setupToken, password },
       });
       clearSetupHandoff();
+
+      // Automatically sign in the user
+      const { getSupabaseClient } = await import("@/lib/supabase/client");
+      const { getDeviceId } = await import("@/lib/auth/deviceId");
+      const { resetSessionId } = await import("@/lib/auth/sessionId");
+      const { acquireSessionServerFn } = await import("@/lib/api/session.functions");
+      const supabase = getSupabaseClient();
+
+      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: result.email,
+        password,
+      });
+
+      if (!signInError && authData.user) {
+        const deviceId = getDeviceId();
+        const sessionId = resetSessionId();
+        await acquireSessionServerFn({
+          data: {
+            userId: authData.user.id,
+            sessionId,
+            deviceId,
+          },
+        });
+        window.location.href = "/";
+        return;
+      }
+
       setDone({ username: result.username });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create your password.");

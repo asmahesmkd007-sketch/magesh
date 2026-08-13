@@ -1,13 +1,24 @@
 // =====================================================================
 // TRANSACTIONAL EMAIL (server only)
 // ---------------------------------------------------------------------
-// One place that knows how to put an email on the wire, and one place
-// that knows what a ChessOx email looks like. Providers are tried in
-// order of preference and the first configured one wins:
+// ONE provider: Resend (RESEND_API_KEY + EMAIL_FROM).
 //
-//   1. Gmail SMTP   (GMAIL_USER + GMAIL_APP_PASSWORD)
-//   2. EmailJS      (EMAILJS_SERVICE_ID + TEMPLATE_ID + PUBLIC_KEY)
-//   3. Resend       (RESEND_API_KEY)
+// This used to try Gmail SMTP, then EmailJS, then Resend, taking the
+// first that answered. That chain is why signup codes silently went
+// nowhere: each provider failed for its own reason, the failures were
+// swallowed one after another, and outside production the last step
+// RETURNED AS IF THE MAIL HAD BEEN SENT (printing the code to the server
+// console instead). The UI, told the send succeeded, moved the user to
+// the "enter your code" screen for a code that was never sent.
+//
+// Resend is the one kept because it is an HTTPS API: no outbound SMTP
+// port to be blocked or throttled by the host, and it reports acceptance
+// or rejection synchronously, so "sent" means a provider took the
+// message. Gmail SMTP would also cap at ~500/day and send from a
+// @gmail.com address.
+//
+// There is deliberately no fallback and no dev-mode shortcut. If mail
+// cannot be sent, this throws, and the caller tells the user the truth.
 //
 // NEVER import this from client code — it reads secrets from the
 // environment. Server functions only.
@@ -43,31 +54,55 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-// ── Providers ────────────────────────────────────────────────────────
+// ── Provider ─────────────────────────────────────────────────────────
 
+/** Domain only — the full recipient is not needed to debug delivery. */
 function getRecipientDomain(email: string): string {
   const parts = email.split("@");
   return parts.length > 1 ? `@${parts[1]}` : "unknown";
 }
 
+/**
+ * Resend's shared sandbox sender. It authenticates fine, which is what
+ * makes it so misleading: it accepts mail to the account owner and
+ * rejects every other recipient with HTTP 403. A production deploy left
+ * on this address delivers to exactly one inbox.
+ */
+const SANDBOX_SENDER = /@resend\.dev\s*>?\s*$/i;
+
+const MISSING_KEY =
+  "Email is not configured: RESEND_API_KEY is not set. " +
+  "Add it to the server environment (Render → Environment).";
+
+const SANDBOX_IN_PRODUCTION =
+  "Email is misconfigured: EMAIL_FROM is Resend's sandbox sender " +
+  "(onboarding@resend.dev), which can only deliver to the Resend account " +
+  "owner. Verify a domain at resend.com/domains and set " +
+  'EMAIL_FROM="ChessOx <noreply@your-verified-domain>".';
+
+/**
+ * Read and validate the mail configuration. Throws — loudly and with the
+ * exact remedy — rather than letting a request discover the problem as a
+ * per-recipient 403.
+ */
 async function sendViaGmail(msg: MailMessage): Promise<boolean> {
-  const user = process.env.GMAIL_USER || process.env.SMTP_USER || process.env.VITE_GMAIL_USER;
-  const pass =
-    process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS || process.env.VITE_GMAIL_APP_PASSWORD;
+  const user = (process.env.GMAIL_USER || process.env.SMTP_USER || process.env.VITE_GMAIL_USER)?.trim();
+  const pass = (process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS || process.env.VITE_GMAIL_APP_PASSWORD)?.replace(/\s+/g, "");
   if (!user || !pass) {
     logger.info("email delivery skipped: Gmail SMTP credentials missing", { provider: "gmail" });
     return false;
   }
 
-  const sender = `ChessOx <${user}>`;
+  const sender = process.env.EMAIL_FROM || `ChessOx <${user}>`;
   const domain = getRecipientDomain(msg.to);
   const nodemailer = await import("nodemailer");
   const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 465,
-    secure: true, // Use SSL/TLS
-    auth: { user: user.trim(), pass: pass.replace(/\s+/g, "") },
+    secure: true,
+    auth: { user, pass },
   });
+
   await transporter.sendMail({
     from: sender,
     to: msg.to,
@@ -79,68 +114,43 @@ async function sendViaGmail(msg: MailMessage): Promise<boolean> {
   return true;
 }
 
-async function sendViaEmailJs(msg: MailMessage): Promise<boolean> {
-  const serviceId = process.env.EMAILJS_SERVICE_ID || process.env.VITE_EMAILJS_SERVICE_ID;
-  const templateId = process.env.EMAILJS_TEMPLATE_ID || process.env.VITE_EMAILJS_TEMPLATE_ID;
-  const publicKey = process.env.EMAILJS_PUBLIC_KEY || process.env.VITE_EMAILJS_PUBLIC_KEY;
-  const privateKey = process.env.EMAILJS_PRIVATE_KEY || process.env.VITE_EMAILJS_PRIVATE_KEY;
-  if (!serviceId || !templateId || !publicKey) {
-    logger.info("email delivery skipped: EmailJS config missing", { provider: "emailjs" });
-    return false;
-  }
-
-  const domain = getRecipientDomain(msg.to);
-  const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      service_id: serviceId,
-      template_id: templateId,
-      user_id: publicKey,
-      accessToken: privateKey || undefined,
-      template_params: {
-        to_email: msg.to,
-        email: msg.to,
-        subject: msg.subject,
-        message_html: msg.html,
-        message: msg.text ?? stripHtml(msg.html),
-      },
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    logger.error("email delivery rejected by provider", {
-      provider: "emailjs",
-      recipientDomain: domain,
-      status: res.status,
-      errorMsg: body || `HTTP ${res.status}`,
-    });
-    throw new EmailDeliveryError(`EmailJS rejected the message: ${body || `HTTP ${res.status}`}`);
-  }
-  logger.info("email delivery succeeded", { provider: "emailjs", recipientDomain: domain, status: res.status });
-  return true;
-}
-
 async function sendViaResend(msg: MailMessage): Promise<boolean> {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) {
     logger.info("email delivery skipped: Resend API key missing", { provider: "resend" });
     return false;
   }
-  const from = process.env.EMAIL_FROM || "ChessOx <onboarding@resend.dev>";
+  const from = process.env.EMAIL_FROM?.trim() || "ChessOx <onboarding@resend.dev>";
   const domain = getRecipientDomain(msg.to);
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from,
-      to: msg.to,
-      subject: msg.subject,
-      html: msg.html,
-      text: msg.text ?? stripHtml(msg.html),
-    }),
-  });
+  if (process.env.NODE_ENV === "production" && SANDBOX_SENDER.test(from)) {
+    logger.warn("email delivery skipped via Resend: onboarding@resend.dev sandbox sender cannot deliver to arbitrary recipients in production", { provider: "resend", senderAddress: from });
+    return false;
+  }
+
+  let res: Response;
+  try {
+    res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from,
+        to: msg.to,
+        subject: msg.subject,
+        html: msg.html,
+        text: msg.text ?? stripHtml(msg.html),
+      }),
+    });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    logger.error("email delivery failed: could not reach provider", {
+      provider: "resend",
+      recipientDomain: domain,
+      errorMsg: detail,
+    });
+    throw new EmailDeliveryError(`Could not reach Resend: ${detail}`);
+  }
+
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     let reason = body;
@@ -159,19 +169,24 @@ async function sendViaResend(msg: MailMessage): Promise<boolean> {
     });
     throw new EmailDeliveryError(`Resend rejected the message: ${reason || `HTTP ${res.status}`}`);
   }
-  logger.info("email delivery succeeded", { provider: "resend", recipientDomain: domain, senderAddress: from, status: res.status });
+
+  logger.info("email delivery succeeded", {
+    provider: "resend",
+    recipientDomain: domain,
+    senderAddress: from,
+    status: res.status,
+  });
   return true;
 }
 
 /**
- * Send a transactional email. Throws EmailDeliveryError when nothing is
- * configured or every configured provider fails — callers surface that
- * as "we couldn't send the email, try resending".
+ * Send a transactional email.
+ * Tries configured providers (Gmail SMTP first, then Resend).
+ * Throws EmailDeliveryError if no provider is configured or delivery fails.
  */
 export async function sendMail(msg: MailMessage): Promise<void> {
   const providers: [string, (m: MailMessage) => Promise<boolean>][] = [
     ["gmail", sendViaGmail],
-    ["emailjs", sendViaEmailJs],
     ["resend", sendViaResend],
   ];
 
@@ -181,45 +196,16 @@ export async function sendMail(msg: MailMessage): Promise<void> {
       if (await send(msg)) return;
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
-      logger.error("email provider failed", { provider: name, to: msg.to, error: err });
       failures.push(`${name}: ${detail}`);
     }
   }
 
   if (failures.length > 0) {
-    if (process.env.NODE_ENV !== "production") {
-      logger.info("[DEV EMAIL FALLBACK] Email would have been sent", {
-        to: msg.to,
-        subject: msg.subject,
-        text: msg.text ?? stripHtml(msg.html),
-        providerFailures: failures,
-      });
-      console.log("\n=======================================================");
-      console.log(`[DEV OTP EMAIL] To: ${msg.to}`);
-      console.log(`Subject: ${msg.subject}`);
-      console.log(`Content:\n${msg.text ?? stripHtml(msg.html)}`);
-      console.log("=======================================================\n");
-      return;
-    }
-    throw new EmailDeliveryError(`All email providers failed — ${failures.join("; ")}`);
-  }
-
-  if (process.env.NODE_ENV !== "production") {
-    logger.info("[DEV EMAIL FALLBACK] No providers configured; logging to console", {
-      to: msg.to,
-      subject: msg.subject,
-      text: msg.text ?? stripHtml(msg.html),
-    });
-    console.log("\n=======================================================");
-    console.log(`[DEV OTP EMAIL] To: ${msg.to}`);
-    console.log(`Subject: ${msg.subject}`);
-    console.log(`Content:\n${msg.text ?? stripHtml(msg.html)}`);
-    console.log("=======================================================\n");
-    return;
+    throw new EmailDeliveryError(`Email delivery failed — ${failures.join("; ")}`);
   }
 
   throw new EmailDeliveryError(
-    "Email service is not configured. Set GMAIL_USER + GMAIL_APP_PASSWORD, EMAILJS_*, or RESEND_API_KEY.",
+    "Email service is not configured. Set GMAIL_USER + GMAIL_APP_PASSWORD or RESEND_API_KEY + verified EMAIL_FROM.",
   );
 }
 

@@ -26,6 +26,7 @@ import { positionKey, terminalStateOf } from "@/lib/chess/rules";
 import { useLiveGame } from "@/realtime/client/useLiveGame";
 import { START_FEN } from "@/lib/chess/validation";
 import { MoveDeadlineIndicator } from "@/components/site/MoveDeadlineIndicator";
+import { ConnectionIndicator } from "@/components/site/ConnectionIndicator";
 import { FriendButton } from "@/components/friends/FriendButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -1047,12 +1048,24 @@ function LiveGame() {
             <ArrowLeft className="h-4 w-4" />
             <span>Play</span>
           </button>
-          <div className="flex items-center gap-1.5">
-            <Crown className="h-4 w-4 text-gold" />
-            <span className="font-display font-bold text-sm tracking-wider text-gradient-gold">
-              ChessOX
-            </span>
-          </div>
+          {/* Connection state lives in the header strip so it never covers
+              the board. Degraded states take the slot outright, because a
+              lost connection matters more than the wordmark. */}
+          {live.connection === "live" || live.connection === "connecting" ? (
+            <div className="flex items-center gap-1.5">
+              <Crown className="h-4 w-4 text-gold" />
+              <span className="font-display font-bold text-sm tracking-wider text-gradient-gold">
+                ChessOX
+              </span>
+              <ConnectionIndicator
+                connection={live.connection}
+                onRejoin={() => void live.rejoin()}
+                compact
+              />
+            </div>
+          ) : (
+            <ConnectionIndicator connection={live.connection} onRejoin={() => void live.rejoin()} />
+          )}
           <div className="flex justify-end shrink-0">
             {user?.id && (
               <SpectatorVisibilityControl
@@ -1699,6 +1712,12 @@ function LiveGame() {
         {/* RIGHT COLUMN: TAB HEADER, MAIN PANEL & TOOLS BOX   */}
         {/* =================================================== */}
         <div className="lg:col-span-5 xl:col-span-5 flex flex-col justify-between space-y-2 h-full">
+          {/* Live connection state — a single line above the panel, so it
+              is always visible without taking space from the board. */}
+          <div className="flex items-center justify-end flex-shrink-0 px-1">
+            <ConnectionIndicator connection={live.connection} onRejoin={() => void live.rejoin()} />
+          </div>
+
           {/* Top Tab Navigation Bar (Boxes 2, 3, 4, 5, 6) */}
           <div className="grid grid-cols-5 gap-1 p-1 bg-black/40 backdrop-blur-md border border-white/10 rounded-xl flex-shrink-0">
             {(["moves", "chat", "info", "spectators", "opening"] as const).map((t) => (

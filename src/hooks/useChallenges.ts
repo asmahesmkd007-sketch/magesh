@@ -9,6 +9,7 @@ import {
   type ChallengeOptions,
 } from "@/lib/api/gameClient";
 import type { ChallengeRow } from "@/types/friend";
+import { isLiveMatchActive } from "@/lib/activeMatch";
 
 export function useChallenges(userId?: string | null) {
   const [challenges, setChallenges] = useState<ChallengeRow[]>([]);
@@ -105,8 +106,18 @@ async function freshChannel(topic: string) {
                 !navigatedGamesRef.current.has(updated.game_id)
               ) {
                 navigatedGamesRef.current.add(updated.game_id);
-                toast.success("Friend accepted your challenge! Entering game...");
-                navigate({ to: "/game/$id", params: { id: updated.game_id } });
+                if (isLiveMatchActive()) {
+                  // The player is mid-game. Yanking them onto the new
+                  // board would abandon a live position and let their
+                  // clock run out on a game they were still playing —
+                  // so the acceptance is announced and nothing moves.
+                  // The new game is `active` server-side, so the ongoing
+                  // game prompt offers it once this one is over.
+                  toast.success("Friend accepted your challenge — it's ready when you finish here.");
+                } else {
+                  toast.success("Friend accepted your challenge! Entering game...");
+                  navigate({ to: "/game/$id", params: { id: updated.game_id } });
+                }
               }
             }
             load();

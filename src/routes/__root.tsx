@@ -15,6 +15,7 @@ import { MobileNav } from "@/components/site/MobileNav";
 import { Navbar } from "@/components/site/Navbar";
 import { SettingsEffects } from "@/components/site/SettingsEffects";
 import { GlobalChallengeListener } from "@/components/site/GlobalChallengeListener";
+import { RejoinGamePrompt } from "@/components/site/RejoinGamePrompt";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import {
   SITE_DESCRIPTION,
@@ -313,6 +314,10 @@ function RootComponent() {
         {!isGameRoute && <Footer />}
         {!isGameRoute && <MobileNav />}
         {!isGameRoute && <div className="h-16 lg:hidden" />}
+        {/* Offers a returning player their still-live board. Renders
+            nothing unless the server says one exists, and never on a
+            board route. */}
+        {!isGameRoute && <RejoinGamePrompt />}
         <Toaster theme="dark" position="top-right" duration={5000} richColors />
       </div>
     </QueryClientProvider>

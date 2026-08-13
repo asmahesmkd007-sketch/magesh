@@ -1,10 +1,12 @@
 import { useEffect } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { useChallenges } from "@/hooks/useChallenges";
 import { useGameSettings } from "@/hooks/useGameSettings";
 import { isNotificationKindEnabled } from "@/lib/notificationCategories";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { handleNotificationClick } from "@/lib/activeMatch";
 
 type NotifPayload = {
   id: string;
@@ -30,6 +32,7 @@ async function freshChannel(topic: string) {
 export function GlobalChallengeListener() {
   const { user } = useAuth();
   const { settings } = useGameSettings();
+  const navigate = useNavigate();
   useChallenges(user?.id);
 
   useEffect(() => {
@@ -55,12 +58,21 @@ export function GlobalChallengeListener() {
         },
         (p) => {
           const n = p.new as NotifPayload;
-          if (isNotificationKindEnabled(n.kind, prefs)) {
-            toast.info(n.title, {
-              description: n.body ?? undefined,
-              duration: 5000,
-            });
-          }
+          // The user's per-category notification preferences still decide
+          // whether a toast appears at all — unchanged.
+          if (!isNotificationKindEnabled(n.kind, prefs)) return;
+          // A notification during a live game still arrives and still
+          // shows. Only the *navigation* is suppressed, by the guard
+          // inside handleNotificationClick, so the board is never torn
+          // down mid-game by a stray tap.
+          toast.info(n.title, {
+            description: n.body ?? undefined,
+            duration: 5000,
+            action: {
+              label: "View",
+              onClick: () => handleNotificationClick(navigate),
+            },
+          });
         },
       );
       activeChannel.subscribe();
@@ -74,6 +86,7 @@ export function GlobalChallengeListener() {
     };
   }, [
     user,
+    navigate,
     settings.notify_tournament_starting,
     settings.notify_challenge_received,
     settings.notify_community,

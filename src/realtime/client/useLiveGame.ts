@@ -28,6 +28,7 @@ import type {
   Promotion,
 } from "../protocol";
 import { ensureConnected, getSocket, request, syncClock } from "./socket";
+import { setActiveLiveMatch } from "@/lib/activeMatch";
 
 export type ConnectionState = "connecting" | "live" | "reconnecting" | "offline";
 
@@ -40,6 +41,19 @@ export type PendingMove = {
   at: number;
   ply: number;
 };
+
+/**
+ * Failed connection attempts tolerated before the board stops saying
+ * "reconnecting" and offers a manual rejoin instead.
+ *
+ * socket.io keeps retrying underneath with its own randomised exponential
+ * backoff (400 ms doubling to a 4 s ceiling — see socket.ts), and it never
+ * gives up. This threshold changes only what the player is told: past it,
+ * an automatic recovery has stopped being plausible and they get a button
+ * rather than an indefinite spinner. A later automatic reconnect still
+ * lands and clears the state on its own.
+ */
+const RECONNECT_ATTEMPTS_BEFORE_MANUAL = 6;
 
 export type LiveGameApi = {
   snapshot: GameStateSnapshot | null;
@@ -56,6 +70,12 @@ export type LiveGameApi = {
   declineDraw: () => Promise<void>;
   sendChat: (body: string) => Promise<void>;
   resync: () => Promise<void>;
+  /**
+   * Manual, authoritative rejoin of the *same* game. Reconnects the
+   * shared socket if needed, re-joins the room and replaces local state
+   * with a fresh server snapshot. Creates nothing.
+   */
+  rejoin: () => Promise<void>;
   rematchOffer: { offeredBy: string } | null;
   rematchNewGameId: string | null;
   offerRematch: () => Promise<{ status: "offered" | "accepted"; newGameId?: string }>;
@@ -80,22 +100,82 @@ export function useLiveGame(gameId: string | null): LiveGameApi {
     pendingRef.current = pending;
   }, [pending]);
 
+  // Consecutive failed connection attempts since the last successful one.
+  const failedAttemptsRef = useRef(0);
+
+  /**
+   * The connection epoch: bumped on every new socket connection and on a
+   * change of game.
+   *
+   * A join is a round trip, and the socket it was issued on can die
+   * mid-flight — that is precisely the case this whole feature exists
+   * for. Deduplicating joins by "is one in flight" alone is therefore
+   * wrong twice over: the reconnect's join gets swallowed by the dead
+   * one, and when the dead one finally times out it reports failure for a
+   * connection that has since recovered. Scoping both the dedupe and the
+   * result to an epoch fixes both — within one connection a second join
+   * is redundant, across connections it is mandatory.
+   */
+  const epochRef = useRef(0);
+  const joinInFlightRef = useRef<{ epoch: number; promise: Promise<void> } | null>(null);
+
+  // The notification guard's view of "this user is at a live board".
+  // Keyed on the game and its status rather than the whole snapshot, so it
+  // is not torn down and rebuilt on every move.
+  const liveStatus = snapshot?.status ?? null;
+  const liveGameId = snapshot?.gameId ?? gameId;
+  useEffect(() => {
+    if (!liveGameId) return;
+    setActiveLiveMatch(liveGameId, liveStatus === "active");
+    return () => {
+      setActiveLiveMatch(null, false);
+    };
+  }, [liveGameId, liveStatus]);
+
   // ── Join / rejoin ───────────────────────────────────────────────────
-  const join = useCallback(async (id: string) => {
-    try {
-      const state = await request<"game:join", GameStateSnapshot>("game:join", { gameId: id });
-      setSnapshot(state);
-      // The snapshot supersedes any optimistic move: it either contains
-      // it (accepted) or it doesn't (dropped while we were away).
-      setPending(null);
-      setRematchOffer(state.rematchOffer ?? null);
-      setRematchNewGameId(state.rematchNewGameId ?? null);
-      setConnection("live");
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not join the game");
-      setConnection("offline");
-    }
+  // The single path onto a board. First load, automatic reconnect and a
+  // manual "Rejoin Game" all run exactly this, which is what makes them
+  // impossible to get inconsistently right: the server's snapshot is
+  // total, so applying it *replaces* local state rather than merging with
+  // it. Any optimistic move is dropped here — the snapshot already says
+  // whether the server accepted it, so it is never replayed.
+  const join = useCallback((id: string): Promise<void> => {
+    const epoch = epochRef.current;
+    // Already asking, on this same connection: that answer is the one we
+    // want, so a second request would be pure duplication. Concurrent
+    // callers (a `connect` racing a Rejoin press) share it.
+    const inFlight = joinInFlightRef.current;
+    if (inFlight && inFlight.epoch === epoch) return inFlight.promise;
+
+    const promise = (async () => {
+      try {
+        const state = await request<"game:join", GameStateSnapshot>("game:join", { gameId: id });
+        // A newer connection has since joined on its own. Its snapshot is
+        // the current truth; this one is from a socket that no longer
+        // exists and must not overwrite it.
+        if (epoch !== epochRef.current) return;
+        setSnapshot(state);
+        // The snapshot supersedes any optimistic move: it either contains
+        // it (accepted) or it doesn't (dropped while we were away).
+        setPending(null);
+        setRematchOffer(state.rematchOffer ?? null);
+        setRematchNewGameId(state.rematchNewGameId ?? null);
+        failedAttemptsRef.current = 0;
+        setConnection("live");
+        setError(null);
+      } catch (err) {
+        // Likewise for a failure: a join that timed out on a dead socket
+        // says nothing about the connection that replaced it.
+        if (epoch !== epochRef.current) return;
+        setError(err instanceof Error ? err.message : "Could not join the game");
+        setConnection("offline");
+      } finally {
+        if (joinInFlightRef.current?.epoch === epoch) joinInFlightRef.current = null;
+      }
+    })();
+
+    joinInFlightRef.current = { epoch, promise };
+    return promise;
   }, []);
 
   useEffect(() => {
@@ -104,14 +184,24 @@ export function useLiveGame(gameId: string | null): LiveGameApi {
     setPending(null);
     setRematchOffer(null);
     setRematchNewGameId(null);
+    failedAttemptsRef.current = 0;
+    // A different board is a different epoch: any join still in flight
+    // for the previous game must not land on this one.
+    epochRef.current += 1;
+    joinInFlightRef.current = null;
     const socket = ensureConnected();
     let alive = true;
 
     const onConnect = () => {
       if (!alive) return;
+      failedAttemptsRef.current = 0;
+      // New socket, new epoch — this connection's join supersedes any
+      // join still outstanding on the connection that just died.
+      epochRef.current += 1;
       setConnection("live");
       // Re-join on every connect, including reconnects: room membership
-      // does not survive a new socket id.
+      // does not survive a new socket id. Idempotent server-side —
+      // `socket.join` and the registry's connection set are both sets.
       void join(gameId);
       void syncClock();
     };
@@ -119,7 +209,13 @@ export function useLiveGame(gameId: string | null): LiveGameApi {
       if (alive) setConnection("reconnecting");
     };
     const onError = () => {
-      if (alive) setConnection("reconnecting");
+      if (!alive) return;
+      failedAttemptsRef.current += 1;
+      // Past the threshold the automatic retry is still running, but the
+      // player is offered an explicit way back instead of a spinner.
+      setConnection(
+        failedAttemptsRef.current >= RECONNECT_ATTEMPTS_BEFORE_MANUAL ? "offline" : "reconnecting",
+      );
     };
 
     socket.on("connect", onConnect);
@@ -351,6 +447,30 @@ export function useLiveGame(gameId: string | null): LiveGameApi {
     setPending(null);
   }, [gameId]);
 
+  /**
+   * Manual rejoin, for when the automatic reconnect has visibly given up.
+   *
+   * It is deliberately the *same* `join` the first load and every
+   * reconnect use, against the same game id — so a player pressing the
+   * button repeatedly gets one authoritative state sync per press and
+   * never a second game, a second seat or a second subscription. The
+   * room listeners are owned by the effect above and are untouched here.
+   */
+  const rejoin = useCallback(async () => {
+    if (!gameId) return;
+    setError(null);
+    setConnection("connecting");
+    failedAttemptsRef.current = 0;
+    const socket = ensureConnected();
+    if (socket.connected) {
+      await join(gameId);
+      void syncClock();
+    }
+    // Not connected yet: the socket is retrying, and its `connect`
+    // handler performs the join. Leaving it to that handler is what keeps
+    // exactly one join per connection.
+  }, [gameId, join]);
+
   const activeFen = useMemo(
     () => pending?.fen ?? snapshot?.fen ?? null,
     [pending?.fen, snapshot?.fen],
@@ -369,6 +489,7 @@ export function useLiveGame(gameId: string | null): LiveGameApi {
     declineDraw,
     sendChat,
     resync,
+    rejoin,
     rematchOffer,
     rematchNewGameId,
     offerRematch,

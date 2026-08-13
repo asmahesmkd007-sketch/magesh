@@ -14,8 +14,12 @@ export function RequireAuth({ children }: RequireAuthProps) {
 
   useEffect(() => {
     if (!loading && !user) {
+      const pathname = location.pathname;
+      if (pathname.startsWith("/login") || pathname.startsWith("/auth")) {
+        return;
+      }
       const searchStr = typeof location.searchStr === "string" ? location.searchStr : "";
-      const redirectPath = location.pathname + searchStr;
+      const redirectPath = pathname + searchStr;
       navigate({
         to: "/login",
         search: { redirect: redirectPath },

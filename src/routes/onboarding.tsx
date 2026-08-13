@@ -357,10 +357,10 @@ function OnboardingPage() {
       await supabase.auth.getSession();
 
       // Re-acquire session lock with updated user metadata to prevent heartbeat invalidation
-      const { getDeviceId, resetSessionId } = await import("@/lib/auth/sessionLock");
+      const { getDeviceId, getSessionId } = await import("@/lib/auth/sessionLock");
       const { acquireSessionServerFn } = await import("@/lib/api/session.functions");
       const deviceId = getDeviceId();
-      const sessionId = resetSessionId();
+      const sessionId = getSessionId();
       await acquireSessionServerFn({
         data: {
           userId: user.id,

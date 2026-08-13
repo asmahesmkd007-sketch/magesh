@@ -192,23 +192,42 @@ export async function heartbeatSessionHandler(data: {
         return rpcRes as HeartbeatSessionResult;
       }
 
+      const cutoff = new Date(Date.now() - timeoutSeconds * 1000).toISOString();
       const { data: existing } = await admin
         .from("user_sessions")
         .select("*")
         .eq("user_id", data.userId)
         .maybeSingle();
 
-      if (!existing || existing.session_id !== data.sessionId || !existing.is_active) {
-        return { valid: false, reason: "SESSION_INVALIDATED" };
+      if (existing) {
+        if (!existing.is_active) {
+          return { valid: false, reason: "SESSION_INVALIDATED" };
+        }
+
+        const isConflict =
+          existing.device_id !== data.deviceId &&
+          existing.session_id !== data.sessionId &&
+          new Date(existing.last_seen).getTime() > new Date(cutoff).getTime();
+
+        if (isConflict) {
+          return { valid: false, reason: "SESSION_INVALIDATED" };
+        }
       }
 
       const nowIso = new Date().toISOString();
       const expiresIso = new Date(Date.now() + timeoutSeconds * 1000).toISOString();
-      await admin
-        .from("user_sessions")
-        .update({ last_seen: nowIso, expires_at: expiresIso, updated_at: nowIso })
-        .eq("user_id", data.userId)
-        .eq("session_id", data.sessionId);
+      await admin.from("user_sessions").upsert(
+        {
+          user_id: data.userId,
+          session_id: data.sessionId,
+          device_id: data.deviceId,
+          last_seen: nowIso,
+          expires_at: expiresIso,
+          is_active: true,
+          updated_at: nowIso,
+        },
+        { onConflict: "user_id" },
+      );
 
       return { valid: true };
     } catch (err) {
@@ -217,12 +236,26 @@ export async function heartbeatSessionHandler(data: {
   }
 
   // In-memory fallback
+  const now = Date.now();
+  const cutoffMs = now - timeoutSeconds * 1000;
   const existing = localSessionStore.get(data.userId);
-  if (!existing || existing.sessionId !== data.sessionId || !existing.isActive) {
-    return { valid: false, reason: "SESSION_INVALIDATED" };
+
+  if (existing) {
+    if (!existing.isActive) {
+      return { valid: false, reason: "SESSION_INVALIDATED" };
+    }
+    if (existing.lastSeen > cutoffMs && existing.deviceId !== data.deviceId && existing.sessionId !== data.sessionId) {
+      return { valid: false, reason: "SESSION_INVALIDATED" };
+    }
   }
 
-  existing.lastSeen = Date.now();
+  localSessionStore.set(data.userId, {
+    sessionId: data.sessionId,
+    deviceId: data.deviceId,
+    lastSeen: now,
+    isActive: true,
+  });
+
   return { valid: true };
 }
 

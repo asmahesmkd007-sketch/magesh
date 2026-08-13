@@ -241,7 +241,7 @@ function AuthPage() {
     try {
       const redirectUrl =
         window.location.origin +
-        "/auth" +
+        "/auth/callback" +
         (search.redirect ? `?redirect=${encodeURIComponent(search.redirect)}` : "");
       const { error } = await supabase.auth.signInWithOAuth({
         provider,

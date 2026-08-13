@@ -61,7 +61,11 @@ import {
   HEARTBEAT_INTERVAL_MS,
   isSessionLockSuppressed,
 } from "@/lib/auth/sessionLock";
-import { heartbeatSessionServerFn, releaseSessionServerFn } from "@/lib/api/session.functions";
+import {
+  acquireSessionServerFn,
+  heartbeatSessionServerFn,
+  releaseSessionServerFn,
+} from "@/lib/api/session.functions";
 
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 let isRevoking = false;
@@ -132,6 +136,13 @@ function startAuthSubscription() {
     for (const listener of authListeners) listener();
     if (s && s.user && !isSessionLockSuppressed()) {
       startHeartbeatLoop(s.user.id);
+      if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+        const deviceId = getDeviceId();
+        const sessionId = getSessionId();
+        acquireSessionServerFn({
+          data: { userId: s.user.id, sessionId, deviceId },
+        }).catch(() => {});
+      }
     } else {
       stopHeartbeatLoop();
       isRevoking = false;

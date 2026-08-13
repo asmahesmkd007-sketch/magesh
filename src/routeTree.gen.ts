@@ -89,6 +89,7 @@ import { Route as CommunityBookmarksRouteImport } from './routes/community.bookm
 import { Route as ClanSlugRouteImport } from './routes/clan.$slug'
 import { Route as ChatGlobalRouteImport } from './routes/chat.global'
 import { Route as ChatDiscoverRouteImport } from './routes/chat.discover'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as ArenaIdRouteImport } from './routes/arena.$id'
 import { Route as AdminWithdrawalsRouteImport } from './routes/admin.withdrawals'
 import { Route as AdminWalletRouteImport } from './routes/admin.wallet'
@@ -518,6 +519,11 @@ const ChatDiscoverRoute = ChatDiscoverRouteImport.update({
   path: '/discover',
   getParentRoute: () => ChatRoute,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
+  getParentRoute: () => AuthRoute,
+} as any)
 const ArenaIdRoute = ArenaIdRouteImport.update({
   id: '/arena/$id',
   path: '/arena/$id',
@@ -659,7 +665,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/about-chess': typeof AboutChessRoute
   '/analysis': typeof AnalysisRoute
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
   '/chat': typeof ChatRouteWithChildren
   '/clan': typeof ClanRouteWithChildren
   '/clubs': typeof ClubsRoute
@@ -729,6 +735,7 @@ export interface FileRoutesByFullPath {
   '/admin/wallet': typeof AdminWalletRoute
   '/admin/withdrawals': typeof AdminWithdrawalsRoute
   '/arena/$id': typeof ArenaIdRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/chat/discover': typeof ChatDiscoverRoute
   '/chat/global': typeof ChatGlobalRoute
   '/clan/$slug': typeof ClanSlugRoute
@@ -768,7 +775,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/about-chess': typeof AboutChessRoute
   '/analysis': typeof AnalysisRoute
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
   '/clan': typeof ClanRouteWithChildren
   '/clubs': typeof ClubsRoute
   '/community-guidelines': typeof CommunityGuidelinesRoute
@@ -832,6 +839,7 @@ export interface FileRoutesByTo {
   '/admin/wallet': typeof AdminWalletRoute
   '/admin/withdrawals': typeof AdminWithdrawalsRoute
   '/arena/$id': typeof ArenaIdRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/chat/discover': typeof ChatDiscoverRoute
   '/chat/global': typeof ChatGlobalRoute
   '/clan/$slug': typeof ClanSlugRoute
@@ -872,7 +880,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/about-chess': typeof AboutChessRoute
   '/analysis': typeof AnalysisRoute
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
   '/chat': typeof ChatRouteWithChildren
   '/clan': typeof ClanRouteWithChildren
   '/clubs': typeof ClubsRoute
@@ -942,6 +950,7 @@ export interface FileRoutesById {
   '/admin/wallet': typeof AdminWalletRoute
   '/admin/withdrawals': typeof AdminWithdrawalsRoute
   '/arena/$id': typeof ArenaIdRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/chat/discover': typeof ChatDiscoverRoute
   '/chat/global': typeof ChatGlobalRoute
   '/clan/$slug': typeof ClanSlugRoute
@@ -1053,6 +1062,7 @@ export interface FileRouteTypes {
     | '/admin/wallet'
     | '/admin/withdrawals'
     | '/arena/$id'
+    | '/auth/callback'
     | '/chat/discover'
     | '/chat/global'
     | '/clan/$slug'
@@ -1156,6 +1166,7 @@ export interface FileRouteTypes {
     | '/admin/wallet'
     | '/admin/withdrawals'
     | '/arena/$id'
+    | '/auth/callback'
     | '/chat/discover'
     | '/chat/global'
     | '/clan/$slug'
@@ -1265,6 +1276,7 @@ export interface FileRouteTypes {
     | '/admin/wallet'
     | '/admin/withdrawals'
     | '/arena/$id'
+    | '/auth/callback'
     | '/chat/discover'
     | '/chat/global'
     | '/clan/$slug'
@@ -1305,7 +1317,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AboutChessRoute: typeof AboutChessRoute
   AnalysisRoute: typeof AnalysisRoute
-  AuthRoute: typeof AuthRoute
+  AuthRoute: typeof AuthRouteWithChildren
   ChatRoute: typeof ChatRouteWithChildren
   ClanRoute: typeof ClanRouteWithChildren
   ClubsRoute: typeof ClubsRoute
@@ -1949,6 +1961,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatDiscoverRouteImport
       parentRoute: typeof ChatRoute
     }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/arena/$id': {
       id: '/arena/$id'
       path: '/arena/$id'
@@ -2141,6 +2160,16 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthRouteChildren {
+  AuthCallbackRoute: typeof AuthCallbackRoute
+}
+
+const AuthRouteChildren: AuthRouteChildren = {
+  AuthCallbackRoute: AuthCallbackRoute,
+}
+
+const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
+
 interface ChatRouteChildren {
   ChatDiscoverRoute: typeof ChatDiscoverRoute
   ChatGlobalRoute: typeof ChatGlobalRoute
@@ -2279,7 +2308,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AboutChessRoute: AboutChessRoute,
   AnalysisRoute: AnalysisRoute,
-  AuthRoute: AuthRoute,
+  AuthRoute: AuthRouteWithChildren,
   ChatRoute: ChatRouteWithChildren,
   ClanRoute: ClanRouteWithChildren,
   ClubsRoute: ClubsRoute,

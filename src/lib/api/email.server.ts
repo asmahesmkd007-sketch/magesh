@@ -103,15 +103,21 @@ async function sendViaGmail(msg: MailMessage): Promise<boolean> {
     auth: { user, pass },
   });
 
-  await transporter.sendMail({
-    from: sender,
-    to: msg.to,
-    subject: msg.subject,
-    html: msg.html,
-    text: msg.text ?? stripHtml(msg.html),
-  });
-  logger.info("email delivery succeeded", { provider: "gmail", recipientDomain: domain, senderAddress: sender });
-  return true;
+  try {
+    await transporter.sendMail({
+      from: sender,
+      to: msg.to,
+      subject: msg.subject,
+      html: msg.html,
+      text: msg.text ?? stripHtml(msg.html),
+    });
+    logger.info("email delivery succeeded", { provider: "gmail", recipientDomain: domain, senderAddress: sender });
+    return true;
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    logger.error("Gmail SMTP delivery rejected or failed", { provider: "gmail", recipientDomain: domain, error: detail });
+    throw new EmailDeliveryError(`Gmail SMTP failed: ${detail}`);
+  }
 }
 
 async function sendViaResend(msg: MailMessage): Promise<boolean> {

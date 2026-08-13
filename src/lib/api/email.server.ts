@@ -100,20 +100,20 @@ async function sendViaGmail(msg: MailMessage): Promise<boolean> {
   const nodemailer = await import("nodemailer");
 
   if (!cachedTransporter) {
-    // Port 465 (SSL) is standard, fallback options defined
-    const port = Number(process.env.SMTP_PORT) || 465;
+    const port = Number(process.env.SMTP_PORT) || 587;
     const isSecure = port === 465;
     cachedTransporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port,
       secure: isSecure,
+      family: 4, // Force IPv4 to prevent ENETUNREACH on cloud hosts with IPv6 resolution
       pool: true,
       maxConnections: 5,
       connectionTimeout: 10000,
       greetingTimeout: 5000,
       socketTimeout: 10000,
       auth: { user, pass },
-    });
+    } as any);
   }
 
   try {
@@ -143,8 +143,9 @@ async function sendViaResend(msg: MailMessage): Promise<boolean> {
   const from = process.env.EMAIL_FROM?.trim() || "ChessOx <onboarding@resend.dev>";
   const domain = getRecipientDomain(msg.to);
 
-  if (process.env.NODE_ENV === "production" && SANDBOX_SENDER.test(from)) {
-    logger.warn("email delivery skipped via Resend: onboarding@resend.dev sandbox sender cannot deliver to arbitrary recipients in production", { provider: "resend", senderAddress: from });
+  // Skip Resend if using sandbox sender or unverified @gmail.com sender address
+  if (SANDBOX_SENDER.test(from) || /@gmail\.com\s*>?\s*$/i.test(from)) {
+    logger.warn("email delivery skipped via Resend: @gmail.com or sandbox sender cannot deliver to arbitrary recipients on Resend", { provider: "resend", senderAddress: from });
     return false;
   }
 

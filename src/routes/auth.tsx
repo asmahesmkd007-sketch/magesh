@@ -184,7 +184,7 @@ function AuthPage() {
           username: cleanUsername,
           sentAt: Date.now(),
         });
-        navigate({ to: "/verify-email-otp" });
+        window.location.href = "/verify-email-otp";
         return;
       }
 

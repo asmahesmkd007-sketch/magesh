@@ -93,6 +93,7 @@ export class StockfishEngine {
   private status_: EngineStatus = "unloaded";
   private options: EngineOptions = { ...DEFAULT_ENGINE_OPTIONS };
   private optionsDirty = true;
+  private forceSingleThread = false;
 
   /** The search currently executing inside the engine. */
   private active: {
@@ -141,7 +142,11 @@ export class StockfishEngine {
 
   /** Engine build actually in use (threaded builds need COOP/COEP). */
   get threaded(): boolean {
-    return supportsThreads();
+    return !this.forceSingleThread && supportsThreads();
+  }
+
+  private enginePath(): string {
+    return this.threaded ? "/engine/stockfish-18-lite.js" : "/engine/stockfish-18-lite-single.js";
   }
 
   setOptions(opts: Partial<EngineOptions>): void {
@@ -229,37 +234,70 @@ export class StockfishEngine {
     this.emit();
 
     this.initPromise = new Promise<void>((resolve, reject) => {
-      let worker: Worker;
-      try {
-        worker = new Worker(enginePath());
-      } catch (e) {
-        this.status_ = "error";
-        this.emit();
-        reject(e instanceof Error ? e : new Error(String(e)));
-        return;
-      }
-      this.worker = worker;
-      this.initResolve = resolve;
-
-      worker.onmessage = (e: MessageEvent) => {
-        const line = typeof e.data === "string" ? e.data : "";
-        if (line) this.onLine(line);
-      };
-      worker.onerror = (e) => {
-        logger.error("stockfish worker error", { message: e.message });
-        this.status_ = "error";
-        const err = new Error(`engine failed: ${e.message || "worker error"}`);
-        this.active?.reject?.(err);
-        for (const item of this.queue) {
-          item.reject?.(err);
+      const attempt = () => {
+        const path = this.enginePath();
+        let worker: Worker;
+        try {
+          worker = new Worker(path);
+        } catch (e) {
+          if (!this.forceSingleThread && supportsThreads()) {
+            logger.warn("[StockfishEngine] Spawning threaded worker failed, falling back to single-threaded", { error: e });
+            this.forceSingleThread = true;
+            attempt();
+            return;
+          }
+          this.status_ = "error";
+          this.emit();
+          reject(e instanceof Error ? e : new Error(String(e)));
+          return;
         }
-        this.queue = [];
-        this.active = null;
-        this.emit();
-        reject(err);
+
+        this.worker = worker;
+        this.initResolve = resolve;
+
+        worker.onmessage = (e: MessageEvent) => {
+          const line = typeof e.data === "string" ? e.data : "";
+          if (line) this.onLine(line);
+        };
+
+        worker.onerror = (e) => {
+          logger.error("stockfish worker error", { message: e.message, path });
+
+          if (!this.forceSingleThread && supportsThreads()) {
+            logger.warn("[StockfishEngine] Worker runtime error, falling back to single-threaded Stockfish", {
+              message: e.message,
+            });
+            this.forceSingleThread = true;
+            this.worker?.terminate();
+            this.worker = null;
+            this.initPromise = null;
+            this.initResolve = null;
+            if (this.active) {
+              this.queue.unshift(this.active);
+              this.active = null;
+            }
+            this.stopping = false;
+            this.optionsDirty = true;
+            attempt();
+            return;
+          }
+
+          this.status_ = "error";
+          const err = new Error(`engine failed: ${e.message || "worker error"}`);
+          this.active?.reject?.(err);
+          for (const item of this.queue) {
+            item.reject?.(err);
+          }
+          this.queue = [];
+          this.active = null;
+          this.emit();
+          reject(err);
+        };
+
+        worker.postMessage("uci");
       };
 
-      worker.postMessage("uci");
+      attempt();
     });
     return this.initPromise;
   }

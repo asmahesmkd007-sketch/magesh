@@ -91,22 +91,24 @@ async function sendViaGmail(msg: MailMessage): Promise<boolean> {
   const user = (process.env.GMAIL_USER || process.env.SMTP_USER || process.env.VITE_GMAIL_USER)?.trim();
   const pass = (process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS || process.env.VITE_GMAIL_APP_PASSWORD)?.replace(/\s+/g, "");
   if (!user || !pass) {
-    logger.info("email delivery skipped: Gmail SMTP credentials missing", { provider: "gmail" });
+    logger.info("email delivery skipped: Gmail SMTP credentials missing", { email_provider: "gmail" });
     return false;
   }
 
   const sender = process.env.EMAIL_FROM || `ChessOx <${user}>`;
-  const domain = getRecipientDomain(msg.to);
+  const recipientDomain = getRecipientDomain(msg.to);
   const nodemailer = await import("nodemailer");
 
+  const port = Number(process.env.SMTP_PORT) || 587;
+  const isSecure = port === 465;
+
   if (!cachedTransporter) {
-    const port = Number(process.env.SMTP_PORT) || 587;
-    const isSecure = port === 465;
     cachedTransporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port,
       secure: isSecure,
-      family: 4, // Force IPv4 to prevent ENETUNREACH on cloud hosts with IPv6 resolution
+      requireTLS: !isSecure, // Require STARTTLS on port 587
+      family: 4,             // Force IPv4 to prevent ENETUNREACH on cloud hosts with IPv6 resolution
       pool: true,
       maxConnections: 5,
       connectionTimeout: 10000,
@@ -124,28 +126,54 @@ async function sendViaGmail(msg: MailMessage): Promise<boolean> {
       html: msg.html,
       text: msg.text ?? stripHtml(msg.html),
     });
-    logger.info("email delivery succeeded", { provider: "gmail", recipientDomain: domain, senderAddress: sender });
+    logger.info("email delivery succeeded", {
+      email_provider: "gmail",
+      smtp_host: "smtp.gmail.com",
+      smtp_port: port,
+      smtp_transport_failed: false,
+      recipientDomain,
+      senderAddress: sender,
+    });
     return true;
   } catch (err) {
     cachedTransporter = null; // Reset on failure
     const detail = err instanceof Error ? err.message : String(err);
-    logger.error("Gmail SMTP delivery rejected or failed", { provider: "gmail", recipientDomain: domain, error: detail });
-    throw new EmailDeliveryError(`Gmail SMTP failed: ${detail}`);
+    logger.error("Gmail SMTP delivery rejected or failed", {
+      email_provider: "gmail",
+      smtp_host: "smtp.gmail.com",
+      smtp_port: port,
+      smtp_transport_failed: true,
+      recipientDomain,
+      error: detail,
+    });
+    throw new EmailDeliveryError(`Gmail SMTP failed (${detail})`);
   }
 }
 
 async function sendViaResend(msg: MailMessage): Promise<boolean> {
+  // If Gmail SMTP credentials are set, do NOT fall back to Resend
+  const hasGmail =
+    !!(process.env.GMAIL_USER || process.env.SMTP_USER || process.env.VITE_GMAIL_USER) &&
+    !!(process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS || process.env.VITE_GMAIL_APP_PASSWORD);
+  if (hasGmail) {
+    logger.info("Resend fallback skipped because Gmail SMTP is configured", { email_provider: "resend" });
+    return false;
+  }
+
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) {
-    logger.info("email delivery skipped: Resend API key missing", { provider: "resend" });
+    logger.info("email delivery skipped: Resend API key missing", { email_provider: "resend" });
     return false;
   }
   const from = process.env.EMAIL_FROM?.trim() || "ChessOx <onboarding@resend.dev>";
-  const domain = getRecipientDomain(msg.to);
+  const recipientDomain = getRecipientDomain(msg.to);
 
-  // Skip Resend if using sandbox sender or unverified @gmail.com sender address
+  // Never use onboarding@resend.dev or unverified @gmail.com sender on Resend in production
   if (SANDBOX_SENDER.test(from) || /@gmail\.com\s*>?\s*$/i.test(from)) {
-    logger.warn("email delivery skipped via Resend: @gmail.com or sandbox sender cannot deliver to arbitrary recipients on Resend", { provider: "resend", senderAddress: from });
+    logger.warn("email delivery skipped via Resend: @gmail.com or sandbox sender cannot deliver to arbitrary recipients on Resend", {
+      email_provider: "resend",
+      senderAddress: from,
+    });
     return false;
   }
 
@@ -165,8 +193,8 @@ async function sendViaResend(msg: MailMessage): Promise<boolean> {
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     logger.error("email delivery failed: could not reach provider", {
-      provider: "resend",
-      recipientDomain: domain,
+      email_provider: "resend",
+      recipientDomain,
       errorMsg: detail,
     });
     throw new EmailDeliveryError(`Could not reach Resend: ${detail}`);
@@ -182,8 +210,8 @@ async function sendViaResend(msg: MailMessage): Promise<boolean> {
       /* body wasn't JSON */
     }
     logger.error("email delivery rejected by provider", {
-      provider: "resend",
-      recipientDomain: domain,
+      email_provider: "resend",
+      recipientDomain,
       senderAddress: from,
       status: res.status,
       errorMsg: reason || `HTTP ${res.status}`,
@@ -192,8 +220,8 @@ async function sendViaResend(msg: MailMessage): Promise<boolean> {
   }
 
   logger.info("email delivery succeeded", {
-    provider: "resend",
-    recipientDomain: domain,
+    email_provider: "resend",
+    recipientDomain,
     senderAddress: from,
     status: res.status,
   });
@@ -202,8 +230,9 @@ async function sendViaResend(msg: MailMessage): Promise<boolean> {
 
 /**
  * Send a transactional email.
- * Tries configured providers (Gmail SMTP first, then Resend).
- * Throws EmailDeliveryError if no provider is configured or delivery fails.
+ * Uses Gmail SMTP when configured.
+ * Uses Resend ONLY when Gmail SMTP is absent and a verified domain is configured.
+ * Throws EmailDeliveryError if delivery fails.
  */
 export async function sendMail(msg: MailMessage): Promise<void> {
   const providers: [string, (m: MailMessage) => Promise<boolean>][] = [
@@ -226,7 +255,7 @@ export async function sendMail(msg: MailMessage): Promise<void> {
   }
 
   throw new EmailDeliveryError(
-    "Email service is not configured. Set GMAIL_USER + GMAIL_APP_PASSWORD or RESEND_API_KEY + verified EMAIL_FROM.",
+    "Email service is not configured. Set GMAIL_USER + GMAIL_APP_PASSWORD.",
   );
 }
 

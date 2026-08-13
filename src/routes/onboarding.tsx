@@ -122,12 +122,11 @@ function OnboardingPage() {
         return;
       }
       const metadataCompleted = !!user.user_metadata?.profile_completed;
-      const hasBasicProfile = !!profile?.full_name && profile?.username?.length === 11;
-      if (metadataCompleted || hasBasicProfile) {
+      if (metadataCompleted) {
         navigate({ to: "/home" });
       }
     }
-  }, [authLoading, profileLoading, user, profile, navigate]);
+  }, [authLoading, user, navigate]);
 
   useEffect(() => {
     setTimezone(detectTimezone() || "Asia/Kolkata");

@@ -80,10 +80,9 @@ function HomePage() {
       navigate({ to: "/auth" });
       return;
     }
-    if (user && !profileLoading) {
+    if (user && !authLoading) {
       const metadataCompleted = !!user.user_metadata?.profile_completed;
-      const hasBasicProfile = !!profile?.full_name && profile?.username?.length === 11;
-      if (!metadataCompleted && !hasBasicProfile) {
+      if (!metadataCompleted) {
         navigate({ to: "/onboarding" });
       }
     }

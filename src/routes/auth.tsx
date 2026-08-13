@@ -107,11 +107,23 @@ function AuthPage() {
               "This user is already logged in on another device. Please log out from the other device or wait until that session expires.",
           );
         } else {
-          navigate({ to: targetPath });
+          const isCompleted = !!session.user.user_metadata?.profile_completed;
+          if (!isCompleted) {
+            navigate({ to: "/onboarding" });
+          } else {
+            navigate({ to: targetPath });
+          }
         }
       })
       .catch(() => {
-        if (alive) navigate({ to: targetPath });
+        if (alive) {
+          const isCompleted = !!session.user.user_metadata?.profile_completed;
+          if (!isCompleted) {
+            navigate({ to: "/onboarding" });
+          } else {
+            navigate({ to: targetPath });
+          }
+        }
       });
 
     return () => {

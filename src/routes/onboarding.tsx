@@ -116,8 +116,18 @@ function OnboardingPage() {
   const hydrated = useRef(false);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate({ to: "/auth" });
-  }, [authLoading, user, navigate]);
+    if (!authLoading) {
+      if (!user) {
+        navigate({ to: "/auth" });
+        return;
+      }
+      const metadataCompleted = !!user.user_metadata?.profile_completed;
+      const hasBasicProfile = !!profile?.full_name && profile?.username?.length === 11;
+      if (metadataCompleted || hasBasicProfile) {
+        navigate({ to: "/home" });
+      }
+    }
+  }, [authLoading, profileLoading, user, profile, navigate]);
 
   useEffect(() => {
     setTimezone(detectTimezone() || "Asia/Kolkata");

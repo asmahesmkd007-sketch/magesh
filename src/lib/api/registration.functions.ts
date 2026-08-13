@@ -505,7 +505,7 @@ export const completeRegistration = createServerFn({ method: "POST" })
       email: row.email,
       password: data.password,
       email_confirm: true,
-      user_metadata: { username: row.username, full_name: row.username },
+      user_metadata: { username: row.username, full_name: row.username, profile_completed: true },
     });
 
     if (createError || !created?.user) {
